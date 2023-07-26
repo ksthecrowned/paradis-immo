@@ -2,7 +2,8 @@ import { View, Text, TextInput, ScrollView, SafeAreaView, TouchableOpacity } fro
 import React, { useState } from 'react'
 
 // Import components
-import TopMenu from "../components/TopMenu"
+import SecondaryTopMenu from "../components/SecondaryTopMenu"
+import NestedPageTitle from "../components/NestedPageTitle"
 import InputText from "../components/forms/InputText"
 
 const fields = [
@@ -53,18 +54,25 @@ const fields = [
     }
 ]
 
+const page_title = "Ajouter une propriété"
+const description = "Créez une alerte immobilière et soyez notifié quand une propriété ayant vos critères sera publiée."
+
 const AddPropertyScreen = () => {
 
     return (
         <SafeAreaView className="flex-1">
 
             {/* Top Menu */}
-            <TopMenu statusBarStyle={'light-content'} screen={'addproperty'} title="Modifier mes informations" showBackArrow={true} />
+            <SecondaryTopMenu statusBarStyle={'light-content'} screen={'addproperty'} title={page_title} />
 
-            <ScrollView className="px-5 pt-28 bg-white" showsVerticalScrollIndicator={false}>
+            <ScrollView className="bg-white" showsVerticalScrollIndicator={false}>
+                <NestedPageTitle
+                    title={page_title}
+                    description={description}
+                />
                 {fields.map((field) => {
                     return (
-                        <View className="mt-4" key={field.id}>
+                        <View className="mt-4 px-5" key={field.id}>
                             <Text className="text-base mb-2 ml-1">{field.label}</Text>
                             <InputText
                                 name={field.name}
@@ -77,7 +85,7 @@ const AddPropertyScreen = () => {
                         </View>
                     )
                 })}
-                <View className="mt-4 mb-28">
+                <View className="mt-4 mb-28 px-5">
                     <TouchableOpacity className="rounded-xl bg-blue-500 py-4">
                         <Text className="text-base text-white text-center font-medium">Enregistrer</Text>
                     </TouchableOpacity>

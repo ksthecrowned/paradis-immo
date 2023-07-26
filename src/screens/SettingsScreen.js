@@ -1,15 +1,16 @@
 import { View, Text, SafeAreaView, StatusBar, ScrollView, Image, TouchableOpacity } from 'react-native'
 import React from 'react'
 import { useNavigation } from '@react-navigation/native'
+import { auth } from '../../firebase'
 
 // Import components
-import TopMenu from "../components/TopMenu"
+import PrimaryTopMenu from "../components/PrimaryTopMenu"
 
 // Import Screens
 import AddPropertyScreen from "../screens/AddPropertyScreen"
 import ProfileScreen from "../screens/ProfileScreen"
 
-// Import Asszets
+// Import Assets
 import addNew from '../../assets/icons/add-new.png'
 import city from '../../assets/icons/city.png'
 import gear from '../../assets/icons/gear.png'
@@ -23,11 +24,21 @@ import rightArrow from '../../assets/icons/right-arrow.png'
 const SettingsScreen = () => {
     const navigation = useNavigation()
 
+    const handleSignOut = async () => {
+        try {
+            await auth.signOut()
+            console.log('User signed out successfully.')
+            // You can navigate to another screen after signing out if needed.
+        } catch (error) {
+            console.error('Error signing out:', error)
+        }
+    }
+
     return (
         <SafeAreaView className="flex-1">
             
             {/* Top Menu */}
-            <TopMenu statusBarStyle={'light-content'} showBackArrow={false} />
+            <PrimaryTopMenu statusBarStyle={'light-content'} showBackArrow={false} />
 
             <ScrollView>
                 <View className="bg-blue-500 relative overflow-hidden py-24 px-6 rounded-b-3xl">
@@ -52,6 +63,7 @@ const SettingsScreen = () => {
                 <SafeAreaView className="px-5 py-4">
                     <View className="">
                         <View className="bg-white rounded-3xl shadow-md -mt-20 px-5 py-10 space-y-6 mb-4">
+
                             <TouchableOpacity className="flex-row items-center justify-between"
                                 onPress={() => {
                                     navigation.navigate('Profile', {
@@ -66,6 +78,7 @@ const SettingsScreen = () => {
                                 </View>
                                 <Image className="w-5 h-5" source={rightArrow} />
                             </TouchableOpacity>
+
                             <TouchableOpacity className="flex-row items-center justify-between">
                                 <View className="flex-row items-center space-x-2">
                                     <View className="border-2 border-blue-500 rounded-full overflow-hidden p-0.5">
@@ -75,10 +88,10 @@ const SettingsScreen = () => {
                                 </View>
                                 <Image className="w-5 h-5" source={rightArrow} />
                             </TouchableOpacity>
+
                             <TouchableOpacity className="flex-row items-center justify-between" 
                                 onPress={() => {
-                                    navigation.navigate('Root', {
-                                        screen: 'AddPropertyScreen',
+                                    navigation.navigate('AddProperty', {
                                         params: { user: 'jane' }
                                     })
                                 }}
@@ -89,6 +102,21 @@ const SettingsScreen = () => {
                                 </View>
                                 <Image className="w-5 h-5" source={rightArrow} />
                             </TouchableOpacity>
+
+                            <TouchableOpacity className="flex-row items-center justify-between"
+                                onPress={() => {
+                                    navigation.navigate('CreateAlert', {
+                                        params: { user: 'jane' }
+                                    })
+                                }}
+                            >
+                                <View className="flex-row items-center space-x-2">
+                                    <Image className="w-8 h-8" source={accountBlue} />
+                                    <Text className="text-base">Alerte Immobilière</Text>
+                                </View>
+                                <Image className="w-5 h-5" source={rightArrow} />
+                            </TouchableOpacity>
+
                             <TouchableOpacity className="flex-row items-center justify-between">
                                 <View className="flex-row items-center space-x-2">
                                     <Image className="w-8 h-8" source={accountBlue} />
@@ -96,13 +124,7 @@ const SettingsScreen = () => {
                                 </View>
                                 <Image className="w-5 h-5" source={rightArrow} />
                             </TouchableOpacity>
-                            <TouchableOpacity className="flex-row items-center justify-between">
-                                <View className="flex-row items-center space-x-2">
-                                    <Image className="w-8 h-8" source={accountBlue} />
-                                    <Text className="text-base">Mon Profile</Text>
-                                </View>
-                                <Image className="w-5 h-5" source={rightArrow} />
-                            </TouchableOpacity>
+
                             <TouchableOpacity className="flex-row items-center justify-between">
                                 <View className="flex-row items-center space-x-2">
                                     <Image className="w-8 h-8" source={shareBlue} />
@@ -110,6 +132,7 @@ const SettingsScreen = () => {
                                 </View>
                                 <Image className="w-5 h-5" source={rightArrow} />
                             </TouchableOpacity>
+
                             <TouchableOpacity className="flex-row items-center justify-between">
                                 <View className="flex-row items-center space-x-2">
                                     <Image className="w-8 h-8" source={questionBlue} />
@@ -117,8 +140,10 @@ const SettingsScreen = () => {
                                 </View>
                                 <Image className="w-5 h-5" source={rightArrow} />
                             </TouchableOpacity>
+
                         </View>
-                        <TouchableOpacity className="">
+                        
+                        <TouchableOpacity className="" onPress={handleSignOut}>
                             <Text className="text-center text-base">Se déconnecter</Text>
                         </TouchableOpacity>
                     </View>

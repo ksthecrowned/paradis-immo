@@ -6,7 +6,7 @@ const InputText = ({ placeholder, name, keyboardType, multiline, numberOfLines }
     const [focusClasses, setFocusClasses] = useState('')
 
     return (
-        <View className={("border border-gray-200 bg-gray-50 p-4 rounded-xl ") + focusClasses}>
+        <View className="pb-4">
             <TextInput
                 name={name}
                 placeholder={placeholder}
@@ -18,7 +18,7 @@ const InputText = ({ placeholder, name, keyboardType, multiline, numberOfLines }
                 onFocus={() => {setFocusClasses('border-blue-500')}}
                 onBlur={() => {setFocusClasses('')}}
                 onChangeText={(text) => {setValue(text)}}
-                className="text-base"
+                className={("text-base border border-gray-200 bg-gray-50 p-4 flex-1 rounded-xl ") + focusClasses}
             />
         </View>
     )

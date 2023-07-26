@@ -1,70 +1,30 @@
-import { View, Text, SafeAreaView, TextInput, Image, StatusBar, ScrollView, FlatList } from 'react-native'
-import React from 'react'
+import { View, Text, SafeAreaView, StatusBar, ScrollView, ActivityIndicator } from 'react-native'
+import { useState, useEffect } from 'react'
 import Animated from "react-native-reanimated"
 
 import PropertyItem from '../components/PropertyItem'
 import SearchForm from "../components/SearchForm"
-import TopMenu from "../components/TopMenu"
+import PrimaryTopMenu from "../components/PrimaryTopMenu"
 
 import Icon from 'react-native-vector-icons/FontAwesome5'
-import search from '../../assets/icons/search.png'
-import equalizer from '../../assets/icons/equalizer.png'
-import location from '../../assets/icons/location.png'
-import bed from '../../assets/icons/bed.png'
-import home from '../../assets/icons/home.png'
-import bathtub from '../../assets/icons/bathtub.png'
 
-import property02 from '../../assets/images/property02.jpg'
-import property03 from '../../assets/images/property03.jpg'
-
-const PROPERTIES = [
-    {
-        id: 1,
-        title: "Magnifique appartement à louer",
-        object: "location_journalière",
-        objectLabel: "Location journalière",
-        amount: 100000,
-        price: "100.000 FCFA / jour",
-        distance: "5km",
-        nbRoom: 5,
-        nbBed: 2,
-        nbBath: 2,
-        cover: property03
-    },
-    {
-        id: 2,
-        title: "Splendide villa à louer",
-        object: "location",
-        objectLabel: "Location",
-        amount: 500000,
-        price: "500.000 FCFA / mois",
-        distance: "10km",
-        nbRoom: 10,
-        nbBed: 5,
-        nbBath: 2,
-        cover: property02
-    },
-    {
-        id: 3,
-        title: "Splendide villa à louer",
-        object: "location",
-        objectLabel: "Location",
-        amount: 500000,
-        price: "500.000 FCFA / mois",
-        distance: "10km",
-        nbRoom: 10,
-        nbBed: 5,
-        nbBath: 2,
-        cover: property02
-    }
-]
+import { getProperties } from '../../api' 
 
 const SearchScreen = () => {
+    const [ isLoading, setIsLoading ] = useState(true)
+    const [ properties, setProperties ] = useState([])
+    useEffect(() => {
+        getProperties().then(data => {
+            setProperties(data)
+            setIsLoading(!isLoading)
+        })
+    }, [])
+
     return (
         <SafeAreaView className="flex-1">
             
             {/* Top Menu */}
-            <TopMenu statusBarStyle={'light-content'} screen={'search'} />
+            <PrimaryTopMenu statusBarStyle={'light-content'} screen={'search'} />
             
             <Animated.ScrollView>
                 <View className="bg-blue-500 relative overflow-hidden pt-24 pb-12 px-5 rounded-b-3xl">
@@ -93,14 +53,19 @@ const SearchScreen = () => {
                         </View>
                     </View>
                 </View>
-                <SafeAreaView className="bg-white px-4 py-3">
-                    <Text className="text-lg text-gray-400">Resultats de recherche</Text>
-                    <FlatList
-                        data={PROPERTIES}
-                        renderItem={({item}) => <PropertyItem property={item} />}
-                        keyExtractor={item => item.id}
-                    />
-                </SafeAreaView>
+                {!isLoading
+                    ? <SafeAreaView className="bg-white px-4 py-3 pb-28">
+                        <Text className="text-lg text-gray-400">Resultats de recherche</Text>
+                        {
+                            properties.map(property => {
+                                return (
+                                    <PropertyItem key={property._id} property={property} />
+                                )
+                            })
+                        }
+                      </SafeAreaView>
+                    : <ActivityIndicator size="large" />
+                }
             </Animated.ScrollView>
         </SafeAreaView>
     )

@@ -3,7 +3,7 @@ import React from 'react'
 import { LinearGradient } from 'expo-linear-gradient'
 
 import PropertyItem from '../components/PropertyItem'
-import TopMenu from "../components/TopMenu"
+import PrimaryTopMenu from "../components/PrimaryTopMenu"
 
 import Icon from 'react-native-vector-icons/FontAwesome5'
 import search from '../../assets/icons/search.png'
@@ -64,7 +64,7 @@ const FavoritesScreen = () => {
         <SafeAreaView className="flex-1">
 
             {/* Top Menu */}
-            <TopMenu statusBarStyle={'light-content'} screen={'favorites'} />
+            <PrimaryTopMenu statusBarStyle={'light-content'} screen={'favorites'} />
 
             {/* Main content */}
             <ScrollView>

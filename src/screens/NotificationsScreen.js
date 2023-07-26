@@ -1,13 +1,13 @@
 import { View, Text, SafeAreaView, StatusBar, ScrollView } from 'react-native'
 import React from 'react'
-import TopMenu from "../components/TopMenu"
+import PrimaryTopMenu from "../components/PrimaryTopMenu"
 
 const NotificationsScreen = () => {
     return (
         <SafeAreaView className="flex-1">
             
             {/* Top Menu */}
-            <TopMenu statusBarStyle={'light-content'} screen={'notifications'} />
+            <PrimaryTopMenu statusBarStyle={'light-content'} screen={'notifications'} />
 
             <ScrollView>
                 <View className="bg-blue-500 relative overflow-hidden pt-24 pb-8 px-6 rounded-b-3xl">

@@ -2,7 +2,8 @@ import { View, Text, TextInput, ScrollView, SafeAreaView, TouchableOpacity } fro
 import React, { useState } from 'react'
 
 // Import components
-import TopMenu from "../components/TopMenu"
+import SecondaryTopMenu from "../components/SecondaryTopMenu"
+import NestedPageTitle from "../components/NestedPageTitle"
 import InputText from "../components/forms/InputText"
 
 const fields = [
@@ -53,34 +54,43 @@ const fields = [
     }
 ]
 
+const page_title = "Modifier mes informations"
+const description = "Créez une alerte immobilière et soyez notifié quand une propriété ayant vos critères sera publiée."
+
 const EditProfileScreen = () => {
 
     return (
         <SafeAreaView className="flex-1">
 
             {/* Top Menu */}
-            <TopMenu statusBarStyle={'light-content'} screen={'editprofile'} showBackArrow={true} />
+            <SecondaryTopMenu statusBarStyle={'light-content'} screen={'editprofile'} title="Modifier mes informations" />
 
-            <ScrollView className="px-5 pt-28 bg-white" showsVerticalScrollIndicator={false}>
-                {fields.map((field) => {
-                    return (
-                        <View className="mt-4" key={field.id}>
-                            <Text className="text-base mb-2 ml-1">{field.label}</Text>
-                            <InputText
-                                name={field.name}
-                                placeholder={field.placeholder}
-                                keyboardType={field.keyboardType}
-                                multiline={field.multiline}
-                                numberOfLines={field.numberOfLines}
-                                className="text-base"
-                            />
-                        </View>
-                    )
-                })}
-                <View className="mt-4 mb-28">
-                    <TouchableOpacity className="rounded-xl bg-blue-500 py-4">
-                        <Text className="text-base text-white text-center font-medium">Enregistrer</Text>
-                    </TouchableOpacity>
+            <ScrollView className="bg-white" showsVerticalScrollIndicator={false}>
+                <NestedPageTitle
+                    title={page_title}
+                    description={description}
+                />
+                <View className="px-5">
+                    {fields.map((field) => {
+                        return (
+                            <View className="mt-4" key={field.id}>
+                                <Text className="text-base mb-2 ml-1">{field.label}</Text>
+                                <InputText
+                                    name={field.name}
+                                    placeholder={field.placeholder}
+                                    keyboardType={field.keyboardType}
+                                    multiline={field.multiline}
+                                    numberOfLines={field.numberOfLines}
+                                    className="text-base"
+                                />
+                            </View>
+                        )
+                    })}
+                    <View className="my-4">
+                        <TouchableOpacity className="rounded-xl bg-blue-500 py-4">
+                            <Text className="text-base text-white text-center font-medium">Enregistrer</Text>
+                        </TouchableOpacity>
+                    </View>
                 </View>
             </ScrollView>
         </SafeAreaView>

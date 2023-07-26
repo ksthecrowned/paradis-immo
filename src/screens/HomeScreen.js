@@ -1,15 +1,12 @@
-import { View, Text, SafeAreaView, TextInput, Image, StatusBar, ScrollView, Button, TouchableOpacity  } from 'react-native'
-import React, { useCallback, useMemo, useRef } from 'react'
+import { View, Text, SafeAreaView, Image, ScrollView  } from 'react-native'
+import { useNavigation } from '@react-navigation/native'
+import { useEffect, useState } from 'react'
 
+// Import components
 import SearchForm from "../components/SearchForm"
-import TopMenu from "../components/TopMenu"
-import PropertyScreen from '../screens/PropertyScreen'
+import PrimaryTopMenu from "../components/PrimaryTopMenu"
 
-import Icon from 'react-native-vector-icons/FontAwesome5'
-import search from '../../assets/icons/search.png'
-import equalizer from '../../assets/icons/equalizer.png'
-
-
+// Import assets
 import buildingIcon from '../../assets/icons/buildingIcon.png'
 import houseForSale from '../../assets/icons/house-for-sale.png'
 import buyProperty from '../../assets/icons/buy-property.png'
@@ -19,17 +16,42 @@ import building01 from '../../assets/icons/building01.png'
 import building02 from '../../assets/icons/building02.png'
 import building03 from '../../assets/icons/building03.png'
 
-import { useNavigation } from '@react-navigation/native'
+import { getCategories } from '../../api' 
+import { urlFor } from '../../sanity' 
+import { auth } from '../../firebase'
+import { signOut } from "firebase/auth"
 
-
-const HomeScreen = () =>{
+const HomeScreen = () => {
+    const handleSignOut = () => {
+        signOut(auth)
+            .then(() => {
+                console.log('signed out')
+            })
+            .catch(error => alert(error.message))
+    }
+    const cardShadow = {
+        shadowColor: "rgb(59, 130, 246)",
+        shadowOffset: {
+            width: 0,
+            height: 18,
+        },
+        shadowOpacity:  0.25,
+        shadowRadius: 20.00,
+        elevation: 24
+    }
     const navigation = useNavigation()
+    const [ categories, setCategories ] = useState([])
 
+    useEffect(() => {
+        getCategories().then(data => {
+            setCategories(data)
+        })
+    }, [])
     return (
         <SafeAreaView className="flex-1">
 
             {/* Top Menu */}
-            <TopMenu statusBarStyle={'light-content'} screen={'home'} />
+            <PrimaryTopMenu statusBarStyle={'light-content'} screen={'home'} />
 
             <ScrollView>
                 <View className="bg-blue-500 relative overflow-hidden pt-36 pb-20 px-4">
@@ -52,17 +74,7 @@ const HomeScreen = () =>{
                     
                     {/* Search & Filters Form */}
                     <SearchForm />
-
-
-                    {/* <Button
-                        title="Go to Categories"
-                        onPress={() => {
-                            navigation.navigate('Root', {
-                                screen: 'CategoriesScreen',
-                                params: { user: 'jane' }
-                            })
-                        }}
-                    /> */}
+                    
                 </View>
                 <View className="-mt-8 rounded-t-3xl bg-white px-4 pt-10">
                     <View className="-mx-4 -my-8">
@@ -72,142 +84,42 @@ const HomeScreen = () =>{
                                 <Text className="text-gray-600">Que souhaitez-vous faire ?</Text>
                             </View>
                             <ScrollView horizontal={true} showsHorizontalScrollIndicator={false} className="flex-row -m-4">
-                                <View className="h-32 w-32 rounded-2xl bg-white items-center justify-center mx-2 mt-6 mb-12 ml-4" style={{
-                                    shadowColor: "rgb(59, 130, 246)",
-                                    shadowOffset: {
-                                        width: 0,
-                                        height: 18,
-                                    },
-                                    shadowOpacity:  0.25,
-                                    shadowRadius: 20.00,
-                                    elevation: 24
-                                }}>
+                                <View className="h-32 w-32 rounded-2xl bg-white items-center justify-center mx-2 mt-6 mb-12 ml-4" style={cardShadow}>
                                     <Image source={houseForSale} className="h-12 w-12 mb-2 object-cover" ></Image>
                                     <Text className="font-bold uppercase">Louer</Text>
                                 </View>
-                                <View className="h-32 w-32 rounded-2xl bg-white items-center justify-center mx-2 mt-6 mb-12" style={{
-                                    shadowColor: "rgb(59, 130, 246)",
-                                    shadowOffset: {
-                                        width: 0,
-                                        height: 18,
-                                    },
-                                    shadowOpacity:  0.25,
-                                    shadowRadius: 20.00,
-                                    elevation: 24
-                                }}>
+                                <View className="h-32 w-32 rounded-2xl bg-white items-center justify-center mx-2 mt-6 mb-12" style={cardShadow}>
                                     <Image source={buyProperty} className="h-12 w-12 mb-2 object-cover" ></Image>
                                     <Text className="font-bold uppercase">Acheter</Text>
                                 </View>
-                                <View className="h-32 w-32 rounded-2xl bg-white items-center justify-center mx-2 mt-6 mb-12" style={{
-                                    shadowColor: "rgb(59, 130, 246)",
-                                    shadowOffset: {
-                                        width: 0,
-                                        height: 18,
-                                    },
-                                    shadowOpacity:  0.25,
-                                    shadowRadius: 20.00,
-                                    elevation: 24
-                                }}>
+                                <View className="h-32 w-32 rounded-2xl bg-white items-center justify-center mx-2 mt-6 mb-12" style={cardShadow}>
                                     <Image source={buildingIcon} className="h-12 w-12 mb-2 object-cover" ></Image>
                                     <Text className="font-bold uppercase">Vendre</Text>
                                 </View>
                             </ScrollView>
                         </View>
-                        <View className="px-4 mb-8">
+                        <View className="px-4 pb-28">
                             <View>
                                 <Text className="font-bold text-2xl text-blue-900">Gategories</Text>
                             </View>
                             <View className="flex-row flex-wrap mt-2 -mx-2">
-                                <View className="p-2 w-1/2">
-                                    <View className="h-44 w-full items-center justify-center bg-white rounded-2xl p-4" style={{
-                                        shadowColor: "rgb(59, 130, 246)",
-                                        shadowOffset: {
-                                            width: 0,
-                                            height: 18,
-                                        },
-                                        shadowOpacity:  0.25,
-                                        shadowRadius: 20.00,
-                                        elevation: 24
-                                    }}>
-                                        <Image source={buildingIcon} className="h-28 w-24 mb-2 object-cover" ></Image>
-                                        <Text className="font-bold uppercase">Appartement</Text>
-                                    </View>
-                                </View>
-                                <View className="p-2 w-1/2">
-                                    <View className="h-44 w-full items-center justify-center bg-white rounded-2xl p-4" style={{
-                                        shadowColor: "rgb(59, 130, 246)",
-                                        shadowOffset: {
-                                            width: 0,
-                                            height: 18,
-                                        },
-                                        shadowOpacity:  0.25,
-                                        shadowRadius: 20.00,
-                                        elevation: 24
-                                    }}>
-                                        <Image source={buildingIcon} className="h-28 w-24 mb-2 object-cover" ></Image>
-                                        <Text className="font-bold uppercase">Bureau</Text>
-                                    </View>
-                                </View>
-                                <View className="p-2 w-1/2">
-                                    <View className="h-44 w-full items-center justify-center bg-white rounded-2xl p-4" style={{
-                                        shadowColor: "rgb(59, 130, 246)",
-                                        shadowOffset: {
-                                            width: 0,
-                                            height: 18,
-                                        },
-                                        shadowOpacity:  0.25,
-                                        shadowRadius: 20.00,
-                                        elevation: 24
-                                    }}>
-                                        <Image source={buildingIcon} className="h-28 w-24 mb-2 object-cover" ></Image>
-                                        <Text className="font-bold uppercase">Maison</Text>
-                                    </View>
-                                </View>
-                                <View className="p-2 w-1/2">
-                                    <View className="h-44 w-full items-center justify-center bg-white rounded-2xl p-4" style={{
-                                        shadowColor: "rgb(59, 130, 246)",
-                                        shadowOffset: {
-                                            width: 0,
-                                            height: 18,
-                                        },
-                                        shadowOpacity:  0.25,
-                                        shadowRadius: 20.00,
-                                        elevation: 24
-                                    }}>
-                                        <Image source={buildingIcon} className="h-28 w-24 mb-2 object-cover" ></Image>
-                                        <Text className="font-bold uppercase">Villa</Text>
-                                    </View>
-                                </View>
-                                <View className="p-2 w-1/2">
-                                    <View className="h-44 w-full items-center justify-center bg-white rounded-2xl p-4" style={{
-                                        shadowColor: "rgb(59, 130, 246)",
-                                        shadowOffset: {
-                                            width: 0,
-                                            height: 18,
-                                        },
-                                        shadowOpacity:  0.25,
-                                        shadowRadius: 20.00,
-                                        elevation: 24
-                                    }}>
-                                        <Image source={buildingIcon} className="h-28 w-24 mb-2 object-cover" ></Image>
-                                        <Text className="font-bold uppercase">Boutique</Text>
-                                    </View>
-                                </View>
-                                <View className="p-2 w-1/2">
-                                    <View className="h-44 w-full items-center justify-center bg-white rounded-2xl p-4" style={{
-                                        shadowColor: "rgb(59, 130, 246)",
-                                        shadowOffset: {
-                                            width: 0,
-                                            height: 18,
-                                        },
-                                        shadowOpacity:  0.25,
-                                        shadowRadius: 20.00,
-                                        elevation: 24
-                                    }}>
-                                        <Image source={buildingIcon} className="h-28 w-24 mb-2 object-cover" ></Image>
-                                        <Text className="font-bold uppercase">Appartement</Text>
-                                    </View>
-                                </View>
+                                {
+                                    categories.map(category => {
+                                        return (
+                                            <View key={category._id} className="p-2 w-1/2">
+                                                <View className="h-44 w-full items-center justify-center bg-white rounded-2xl p-4" style={cardShadow}>
+                                                    <Image 
+                                                        source={{
+                                                            uri: urlFor(category.icon).url()
+                                                        }} 
+                                                        className="h-28 w-24 mb-2 object-cover" 
+                                                    />
+                                                    <Text className="font-bold uppercase">{category.name}</Text>
+                                                </View>
+                                            </View>
+                                        )
+                                    })
+                                }
                             </View>
                         </View>
                     </View>
