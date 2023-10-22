@@ -1,6 +1,5 @@
-import { View, Text, SafeAreaView, StatusBar, TouchableOpacity, Keyboard, TouchableWithoutFeedback } from 'react-native'
+import { View, Text, StatusBar, TouchableOpacity, Keyboard, TouchableWithoutFeedback } from 'react-native'
 import React, { useState } from 'react'
-import { TabView, SceneMap } from 'react-native-tab-view'
 
 import LoginForm from '../components/forms/LoginForm'
 import RegisterForm from '../components/forms/RegisterForm'
