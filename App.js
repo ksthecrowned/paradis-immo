@@ -1,12 +1,14 @@
 import 'react-native-url-polyfill/auto'
 import { StatusBar } from 'expo-status-bar'
 import { useEffect, useState } from 'react'
-import { Text, View, Image } from 'react-native'
+import { Text, View, Image, ActivityIndicator } from 'react-native'
 import { NavigationContainer } from '@react-navigation/native'
 import { BottomSheetModalProvider, } from '@gorhom/bottom-sheet'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { createDrawerNavigator } from '@react-navigation/drawer'
 import { createNativeStackNavigator } from '@react-navigation/native-stack'
+
+import AsyncStorage from '@react-native-async-storage/async-storage'
 
 // Import navigators
 const Drawer = createDrawerNavigator()
@@ -15,6 +17,7 @@ const Stack = createNativeStackNavigator()
 // Import components
 import BottomTabNavigator from './src/components/BottomTabNavigator'
 import CustomDrawer from './src/components/CustomDrawer'
+import OnBoarding from './src/components/OnBoarding'
 
 // Import screens
 import ProfileScreen from './src/screens/ProfileScreen'
@@ -28,6 +31,12 @@ import CreateAlertScreen from './src/screens/CreateAlertScreen'
 import homeBlue from './assets/navicons/home-blue.png'
 
 import { auth } from './firebase'
+
+const Loading = () => {
+	<View>
+		<ActivityIndicator size={large} />
+	</View>
+}
 
 const DrawerNavigation = () => {
 	return (
@@ -51,8 +60,27 @@ const DrawerNavigation = () => {
 }
 
 export default function App() {
+	const [isLoading, setIsLoading] = useState(false)
+	const [viewedOnboarding, setViewedOnboarding] = useState(false)
 	const [isLoggedIn, setIsLoggedIn] = useState(false)
+
+	const checkOnboarding = async () => {
+		try {
+			const value = await AsyncStorage.getItem('@viewedOnboarding')
+
+			if(value !== null) {
+				setViewedOnboarding(true)
+			}
+		} catch (error) {
+			console.log('Err @checkOnboarding: ', error)
+		} finally {
+			setViewedOnboarding(false)
+		}
+	}
+
 	useEffect(() => {
+		checkOnboarding()
+
         const unsubscribe = auth.onAuthStateChanged(user => {
             if(user) {
                 setIsLoggedIn(true)
@@ -64,7 +92,8 @@ export default function App() {
 	
 	return (
 		<>
-			{
+		{isLoading ? <Loading /> : viewedOnboarding ? <AuthScreen /> : <OnBoarding /> }
+			{/* {
 				!isLoggedIn 
 				
 				? <AuthScreen />
@@ -123,7 +152,7 @@ export default function App() {
 						</BottomSheetModalProvider>
 					</NavigationContainer>
 				</GestureHandlerRootView>
-			}
+			} */}
 		</>
 	)
 }
