@@ -1,6 +1,7 @@
 import { View, Text, TouchableOpacity, Image, Animated, Easing, SafeAreaView, TextInput } from 'react-native'
 import { auth, googleProvider } from '../../../firebase'
 import { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from "firebase/auth"
 
 import googleLogo from '../../../assets/logos/logo-google.png'
@@ -90,6 +91,9 @@ const LoginForm = () => {
     }
 
     const handleGoogleSignIn = () => {
+        if(isLoading) {
+            return 
+        }
         if(isLoading) {
             return 
         }
@@ -191,11 +195,13 @@ const LoginForm = () => {
             <View className="">
                 <TouchableOpacity onPress={handleGoogleSignIn} className="rounded-xl border border-blue-500 py-3 flex-row space-x-2 justify-center items-center">
                     <Image className="h-7 w-7 rounded-full" source={googleLogo} />
+                    <Image className="h-7 w-7 rounded-full" source={googleLogo} />
                     <Text className="text-base text-center font-medium">Google</Text>
                 </TouchableOpacity>
             </View>
             <View className="mt-4">
                 <TouchableOpacity className="rounded-xl border border-blue-500 py-3 flex-row space-x-2 justify-center items-center">
+                    <Image className="h-8 w-8 rounded-full" source={facebookLogo} />
                     <Image className="h-8 w-8 rounded-full" source={facebookLogo} />
                     <Text className="text-base text-center font-medium">Facebook</Text>
                 </TouchableOpacity>
