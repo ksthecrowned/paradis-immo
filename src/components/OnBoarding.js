@@ -44,6 +44,14 @@ const OnBoarding = () => {
 
     const viewConfig = useRef({ viewAreaCoveragePercentThreshold: 50 }).current
 
+    const handleFinish = async () => {
+        try {
+            await AsyncStorage.setItem('firstOpening', 'true')
+        } catch (e) {
+            // saving error
+        }
+    }
+
     // const scrollTo = async () => {
     //     if(currentIndex < SLIDES.length - 1) {
     //         slidesRef.current.scrollToIndex({ index: currentIndex + 1 })
@@ -80,7 +88,19 @@ const OnBoarding = () => {
                     ref={slidesRef}
                 />
             </View>
-            <OnBoardingPaginator data={SLIDES} scrollX={scrollX} />
+            {
+                currentIndex === 3
+                ? (
+                    <View className="w-full p-6 absolute bottom-16">
+                        <TouchableOpacity  onPress={() => handleFinish()} className="w-full p-5 bg-blue-500 rounded-lg">
+                            <Text className="text-white text-center text-base">
+                                Allons-y ! 
+                            </Text>
+                        </TouchableOpacity>
+                    </View>
+                )
+                : <OnBoardingPaginator data={SLIDES} scrollX={scrollX} />
+            }
             {/* <OnBoardingNextBtn scrollTo={scrollTo} percentage={(currentIndex + 1) * (100 / SLIDES.length)} /> */}
         </View>
     )
@@ -88,13 +108,6 @@ const OnBoarding = () => {
 
 const OnBoardingItem = ({ item }) => {
     const { width, height } = useWindowDimensions()
-    const setOnBoarding = async () => {
-        try {
-            await AsyncStorage.setItem('firstOpening', 'true')
-        } catch (e) {
-            // saving error
-        }
-    }
     return (
         <View className={`items-center justify-center flex-1 relative`} style={{width: width}}>
             {
@@ -120,18 +133,6 @@ const OnBoardingItem = ({ item }) => {
                             </Text>
                         </View>
                     </>
-                )
-            }
-            {
-                item.id === 4
-                && (
-                    <View className="w-full p-6 absolute bottom-16">
-                        <TouchableOpacity  onPress={() => setOnBoarding()} className="w-full p-5 bg-blue-500 rounded-lg">
-                            <Text className="text-white text-center text-base">
-                                Allons-y ! 
-                            </Text>
-                        </TouchableOpacity>
-                    </View>
                 )
             }
         </View>

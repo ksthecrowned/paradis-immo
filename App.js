@@ -24,6 +24,7 @@ import OnBoarding from './src/components/OnBoarding'
 import PropertyScreen from './src/screens/PropertyScreen'
 import AddPropertyScreen from './src/screens/AddPropertyScreen'
 import CreateAlertScreen from './src/screens/CreateAlertScreen'
+import SearchScreen from './src/screens/SearchScreen'
 
 // Import assets
 import homeBlue from './assets/navicons/home-blue.png'
@@ -78,6 +79,21 @@ export default function App() {
 
 		checkFirstOpening()
 		return unsubscribe;
+	}, [])
+
+	useEffect(() => {
+		const checkFirstOpening = async () => {
+			try {
+				const value = await AsyncStorage.getItem('firstOpening')
+				if (value !== 'true') {
+					setIsFirstOpening(true)
+				}
+			} catch (e) {
+				console.log(e)
+			}
+		}
+
+		checkFirstOpening()
 	}, [])
 
 	const requestUserPermission = async () => {
@@ -189,6 +205,13 @@ export default function App() {
 										<Stack.Screen
 											name="CreateAlert"
 											component={CreateAlertScreen}
+											options={{ 
+												headerShown: false
+											}}
+										/>
+										<Stack.Screen
+											name="AuthScreen"
+											component={AuthScreen}
 											options={{ 
 												headerShown: false
 											}}

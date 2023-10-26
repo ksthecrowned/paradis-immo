@@ -35,7 +35,7 @@ const PrimaryTopMenu = ({ statusBarStyle }) => {
                         >
                             <Image source={search} className="h-9 w-9"></Image>
                         </TouchableOpacity>
-                        <TouchableOpacity
+                        {/* <TouchableOpacity
                             onPress={() => {
                                 navigation.navigate('Profile', {
                                     params: { user: 'jane' }
@@ -43,7 +43,7 @@ const PrimaryTopMenu = ({ statusBarStyle }) => {
                             }}
                         >
                             <Image source={userWhite} className="h-9 w-9"></Image>
-                        </TouchableOpacity>
+                        </TouchableOpacity> */}
                     </View>
                 </View>
 
