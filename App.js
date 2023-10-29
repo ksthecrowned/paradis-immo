@@ -24,13 +24,13 @@ import OnBoarding from './src/components/OnBoarding'
 import PropertyScreen from './src/screens/PropertyScreen'
 import AddPropertyScreen from './src/screens/AddPropertyScreen'
 import CreateAlertScreen from './src/screens/CreateAlertScreen'
+import SearchScreen from './src/screens/SearchScreen'
 
 // Import assets
 import homeBlue from './assets/navicons/home-blue.png'
 
 import { auth } from './firebase'
 
-import messaging from '@react-native-firebase/messaging'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 
 const DrawerNavigation = () => {
@@ -56,88 +56,43 @@ const DrawerNavigation = () => {
 
 export default function App() {
 	const [isLoggedIn, setIsLoggedIn] = useState(false)
-	const [isFirstOpening, setIsFirstOpening] = useState(false)
+	const [viewedOnBoarding, setViewedOnBoarding] = useState(false)
 
+	console.log('viewedOnBoarding', viewedOnBoarding);
 	useEffect(() => {
-		const checkFirstOpening = async () => {
-			try {
-				const value = await AsyncStorage.getItem('firstOpening')
-				if (value !== 'true') {
-					setIsFirstOpening(true)
-				}
-			} catch (e) {
-				console.log(e)
-			}
-		}
-
 		const unsubscribe = auth.onAuthStateChanged(user => {
 			if (user) {
 				setIsLoggedIn(true)
 			}
 		})
 
-		checkFirstOpening()
 		return unsubscribe;
 	}, [])
 
-	const requestUserPermission = async () => {
-		const authStatus = await messaging().requestPermission();
-		const enabled =
-		  authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
-		  authStatus === messaging.AuthorizationStatus.PROVISIONAL;
-	  
-		if (enabled) {
-		  console.log('Authorization status:', authStatus);
+	useEffect(() => {
+		const checkViewedOnBoarding = async () => {
+			try {
+				const value = await AsyncStorage.getItem('@viewedOnBoarding')
+				console.log('@viewedOnBoarding', value)
+				if (value === 'true') {
+					setViewedOnBoarding(true)
+				} 
+				setViewedOnBoarding(false)
+			} catch (e) {
+				console.log(e)
+				setViewedOnBoarding(false)
+			}
 		}
-	}
 
-	// useEffect(() => {
-	// 	if(requestUserPermission()) {
-	// 		messaging().getToken().then(token => {
-	// 			console.log(token)
-	// 		})
-	// 	}
-	// 	else {
-	// 		console.log("Permission denied")
-	// 	}
-
-
-	// 	messaging()
-	// 		.getInitialNotification()
-	// 		.then(async (remoteMessage) => {
-	// 			if (remoteMessage) {
-	// 				console.log(
-	// 					'Notification caused app to open from quit state:',
-	// 					remoteMessage.notification,
-	// 				);
-	// 			}
-	// 		});
-
-	// 	messaging().onNotificationOpenedApp(async (remoteMessage) => {
-	// 		console.log(
-	// 			'Notification caused app to open from background state:',
-	// 			remoteMessage.notification,
-	// 		);
-	// 	});
-
-	// 	messaging().setBackgroundMessageHandler(async (remoteMessage) => {
-	// 		console.log('Message handled in the background!', remoteMessage);
-	// 	});
-
-
-	// 	const unsubscribe = messaging().onMessage(async (remoteMessage) => {
-	// 		Alert.alert('A new FCM message arrived!', JSON.stringify(remoteMessage));
-	// 	});
-
-	// 	return unsubscribe;
-	// }, [])
+		return checkViewedOnBoarding
+	}, [])
 	
 	return (
 		<>
 			{
-				isFirstOpening
+				!viewedOnBoarding
 				? (
-					<OnBoarding />
+					<OnBoarding setViewedOnBoarding={setViewedOnBoarding} />
 				)
 				: (
 					!isLoggedIn 
@@ -189,6 +144,13 @@ export default function App() {
 										<Stack.Screen
 											name="CreateAlert"
 											component={CreateAlertScreen}
+											options={{ 
+												headerShown: false
+											}}
+										/>
+										<Stack.Screen
+											name="AuthScreen"
+											component={AuthScreen}
 											options={{ 
 												headerShown: false
 											}}
