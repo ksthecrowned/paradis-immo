@@ -33,3 +33,9 @@ export interface NotificationType {
   message: string;
   timestamp: string;
 }
+
+export type InputProps = {
+  isFocused: boolean;
+  value: string;
+  secureTextEntry?: boolean;
+};

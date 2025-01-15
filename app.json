@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "expo-ecommerece-app-starter",
-    "slug": "expo-ecommerece-app-starter",
+    "name": "Paradis Immo",
+    "slug": "paradis-immo",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -31,6 +31,7 @@
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "newArchEnabled": true
   }
 }
