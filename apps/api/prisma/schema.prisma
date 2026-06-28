@@ -1,0 +1,642 @@
+// Prisma schema for Paradis Immo MVP
+// Spec: docs/superpowers/specs/2026-06-27-paradis-immo-design.md (section 4)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// =====================================================================
+// Enums
+// =====================================================================
+
+enum OrganizationType {
+  PLATFORM
+  AGENCY
+  OWNER
+}
+
+enum AffiliationStatus {
+  PENDING
+  APPROVED
+  SUSPENDED
+}
+
+enum OrgMemberRole {
+  OWNER
+  AGENT
+  ADMIN
+}
+
+enum GlobalRole {
+  TENANT
+  BUYER
+  PLATFORM_ADMIN
+}
+
+enum PropertyMode {
+  RENT_SHORT
+  RENT_LONG
+  SALE
+}
+
+enum PropertyStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  ARCHIVED
+}
+
+enum PropertyType {
+  APARTMENT
+  HOUSE
+  LAND
+  COMMERCIAL
+}
+
+enum PriceUnit {
+  NIGHT
+  WEEK
+  MONTH
+  TOTAL
+}
+
+enum VisitType {
+  FREE
+  PAID
+}
+
+enum VisitSlotStatus {
+  AVAILABLE
+  BOOKED
+  BLOCKED
+}
+
+enum VisitSlotSource {
+  TEMPLATE
+  MANUAL
+}
+
+enum VisitBookingStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+  NO_SHOW
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+}
+
+enum LeaseStatus {
+  DRAFT
+  ACTIVE
+  TERMINATED
+}
+
+enum RentScheduleStatus {
+  PENDING
+  PAID
+  OVERDUE
+  PARTIAL
+}
+
+enum SaleInquiryStatus {
+  NEW
+  CONTACTED
+  VISIT_SCHEDULED
+  CLOSED
+}
+
+enum MandateStatus {
+  ACTIVE
+  REVOKED
+}
+
+enum MandateActionType {
+  LEASE_SIGN
+  RENT_REDUCTION
+  MAJOR_REPAIR
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum PaymentMethod {
+  CASH
+  MOBILE_MONEY
+  BANK_TRANSFER
+}
+
+enum PaymentProvider {
+  AIRTEL
+  MOMO
+}
+
+enum PaymentStatus {
+  INITIATED
+  PENDING_VALIDATION
+  VALIDATED
+  FAILED
+  DISPUTED
+}
+
+enum AllocatableType {
+  RENT_SCHEDULE
+  BOOKING
+  VISIT_BOOKING
+}
+
+enum MaintenancePriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum MaintenanceStatus {
+  OPEN
+  ASSIGNED
+  IN_PROGRESS
+  DONE
+  CLOSED
+}
+
+enum NotificationChannel {
+  PUSH
+  WHATSAPP
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+enum MediaType {
+  PHOTO
+  VIDEO
+}
+
+enum DocumentType {
+  TITLE_DEED
+  PLAN
+  OTHER
+}
+
+enum AvailabilityReason {
+  BOOKING
+  MAINTENANCE
+  MANUAL
+}
+
+// =====================================================================
+// Identity & Geography
+// =====================================================================
+
+model Country {
+  id              String         @id @default(cuid())
+  code            String         @unique
+  name            String
+  currency        String
+  phonePrefix     String
+  activeProviders String[]
+  cities          City[]
+  users           User[]
+  organizations   Organization[]
+  properties      Property[]
+}
+
+model User {
+  id            String               @id @default(cuid())
+  phone         String
+  email         String?
+  name          String?
+  avatarUrl     String?
+  fcmToken      String?
+  countryId     String
+  country       Country              @relation(fields: [countryId], references: [id])
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+  orgMembers    OrganizationMember[]
+  roles         UserRole[]
+  refreshTokens RefreshToken[]
+  favorites     Favorite[]
+  visitBookings VisitBooking[]
+  bookings      Booking[]
+  leases        Lease[]              @relation("LeaseTenant")
+  saleInquiries SaleInquiry[]
+  payments      Payment[]
+  tickets       MaintenanceTicket[]  @relation("TicketReporter")
+  assignedTickets MaintenanceTicket[] @relation("TicketAssignee")
+  notifications Notification[]
+
+  @@unique([phone, countryId])
+}
+
+model Organization {
+  id                String               @id @default(cuid())
+  name              String
+  type              OrganizationType
+  affiliationStatus AffiliationStatus?
+  countryId         String
+  country           Country              @relation(fields: [countryId], references: [id])
+  members           OrganizationMember[]
+  properties        Property[]
+  mandates          Mandate[]
+  createdAt         DateTime             @default(now())
+}
+
+model OrganizationMember {
+  id             String       @id @default(cuid())
+  userId         String
+  organizationId String
+  role           OrgMemberRole
+  user           User         @relation(fields: [userId], references: [id])
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  @@unique([userId, organizationId])
+}
+
+model UserRole {
+  id          String  @id @default(cuid())
+  userId      String
+  role        GlobalRole
+  contextType String?
+  contextId   String?
+  user        User    @relation(fields: [userId], references: [id])
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+}
+
+// =====================================================================
+// Locations
+// =====================================================================
+
+model City {
+  id              String           @id @default(cuid())
+  name            String
+  countryId       String
+  country         Country          @relation(fields: [countryId], references: [id])
+  arrondissements Arrondissement[]
+
+  @@unique([name, countryId])
+}
+
+model Arrondissement {
+  id        String    @id @default(cuid())
+  name      String
+  number    Int?
+  cityId    String
+  city      City      @relation(fields: [cityId], references: [id])
+  quartiers Quartier[]
+
+  @@unique([name, cityId])
+}
+
+model Quartier {
+  id               String         @id @default(cuid())
+  name             String
+  arrondissementId String
+  arrondissement   Arrondissement @relation(fields: [arrondissementId], references: [id])
+  properties       Property[]
+
+  @@unique([name, arrondissementId])
+}
+
+// =====================================================================
+// Properties
+// =====================================================================
+
+model Property {
+  id             String              @id @default(cuid())
+  ownerId        String
+  organizationId String
+  organization   Organization        @relation(fields: [organizationId], references: [id])
+  title          String
+  description    String
+  type           PropertyType
+  mode           PropertyMode
+  status         PropertyStatus      @default(DRAFT)
+  price          Decimal             @db.Decimal(12, 2)
+  currency       String
+  priceUnit      PriceUnit
+  quartierId     String
+  quartier       Quartier            @relation(fields: [quartierId], references: [id])
+  address        String
+  lat            Float?
+  lng            Float?
+  countryId      String
+  country        Country             @relation(fields: [countryId], references: [id])
+  visitEnabled   Boolean             @default(false)
+  visitType      VisitType?
+  visitPrice     Decimal?            @db.Decimal(12, 2)
+  visitDuration  Int?
+  bedrooms       Int?
+  bathrooms      Int?
+  surface        Float?
+  media          PropertyMedia[]
+  documents      PropertyDocument[]
+  favorites      Favorite[]
+  visitTemplates VisitSlotTemplate[]
+  visitSlots     VisitSlot[]
+  visitBookings  VisitBooking[]
+  availability   AvailabilityBlock[]
+  bookings       Booking[]
+  leases         Lease[]
+  saleInquiries  SaleInquiry[]
+  mandates       Mandate[]
+  maintenance    MaintenanceTicket[]
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+}
+
+model PropertyMedia {
+  id         String    @id @default(cuid())
+  propertyId String
+  property   Property  @relation(fields: [propertyId], references: [id])
+  type       MediaType
+  url        String
+  position   Int       @default(0)
+  createdAt  DateTime  @default(now())
+}
+
+model PropertyDocument {
+  id         String       @id @default(cuid())
+  propertyId String
+  property   Property     @relation(fields: [propertyId], references: [id])
+  type       DocumentType
+  url        String
+  name       String
+  createdAt  DateTime     @default(now())
+}
+
+model Favorite {
+  id         String   @id @default(cuid())
+  userId     String
+  propertyId String
+  user       User     @relation(fields: [userId], references: [id])
+  property   Property @relation(fields: [propertyId], references: [id])
+  createdAt  DateTime @default(now())
+
+  @@unique([userId, propertyId])
+}
+
+// =====================================================================
+// Visits
+// =====================================================================
+
+model VisitSlotTemplate {
+  id            String   @id @default(cuid())
+  propertyId    String
+  property      Property @relation(fields: [propertyId], references: [id])
+  dayOfWeek     Int // 0=Sunday .. 6=Saturday
+  startTime     String // HH:mm
+  endTime       String // HH:mm
+  slotMinutes   Int
+  active        Boolean  @default(true)
+  createdAt     DateTime @default(now())
+}
+
+model VisitSlot {
+  id        String           @id @default(cuid())
+  propertyId String
+  property  Property         @relation(fields: [propertyId], references: [id])
+  startAt   DateTime
+  endAt     DateTime
+  status    VisitSlotStatus  @default(AVAILABLE)
+  source    VisitSlotSource  @default(TEMPLATE)
+  booking   VisitBooking?
+  createdAt DateTime         @default(now())
+
+  @@unique([propertyId, startAt])
+}
+
+model VisitBooking {
+  id          String            @id @default(cuid())
+  slotId      String            @unique
+  slot        VisitSlot         @relation(fields: [slotId], references: [id])
+  propertyId  String
+  property    Property          @relation(fields: [propertyId], references: [id])
+  userId      String
+  user        User              @relation(fields: [userId], references: [id])
+  status      VisitBookingStatus @default(PENDING)
+  paymentId   String?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+}
+
+// =====================================================================
+// Bookings (short-term)
+// =====================================================================
+
+model Booking {
+  id         String        @id @default(cuid())
+  propertyId String
+  property   Property      @relation(fields: [propertyId], references: [id])
+  userId     String
+  user       User          @relation(fields: [userId], references: [id])
+  startDate  DateTime
+  endDate    DateTime
+  totalPrice Decimal       @db.Decimal(12, 2)
+  currency   String
+  status     BookingStatus @default(PENDING)
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+}
+
+model AvailabilityBlock {
+  id         String            @id @default(cuid())
+  propertyId String
+  property   Property          @relation(fields: [propertyId], references: [id])
+  startDate  DateTime
+  endDate    DateTime
+  reason     AvailabilityReason
+  refId      String?
+  createdAt  DateTime          @default(now())
+}
+
+// =====================================================================
+// Leases & Rent
+// =====================================================================
+
+model Lease {
+  id             String         @id @default(cuid())
+  propertyId     String
+  property       Property       @relation(fields: [propertyId], references: [id])
+  tenantId       String
+  tenant         User           @relation("LeaseTenant", fields: [tenantId], references: [id])
+  startDate      DateTime
+  endDate        DateTime
+  monthlyRent    Decimal        @db.Decimal(12, 2)
+  currency       String
+  deposit        Decimal        @db.Decimal(12, 2)
+  status         LeaseStatus    @default(DRAFT)
+  mandateId      String?
+  mandate        Mandate?       @relation(fields: [mandateId], references: [id])
+  schedule       RentSchedule[]
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+}
+
+model RentSchedule {
+  id        String            @id @default(cuid())
+  leaseId   String
+  lease     Lease             @relation(fields: [leaseId], references: [id])
+  dueDate   DateTime
+  amount    Decimal           @db.Decimal(12, 2)
+  currency  String
+  status    RentScheduleStatus @default(PENDING)
+  payments  PaymentAllocation[]
+  createdAt DateTime          @default(now())
+
+  @@unique([leaseId, dueDate])
+}
+
+// =====================================================================
+// Sales
+// =====================================================================
+
+model SaleInquiry {
+  id         String            @id @default(cuid())
+  propertyId String
+  property   Property          @relation(fields: [propertyId], references: [id])
+  userId     String
+  user       User              @relation(fields: [userId], references: [id])
+  message    String?
+  status     SaleInquiryStatus @default(NEW)
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+}
+
+// =====================================================================
+// Mandates
+// =====================================================================
+
+model Mandate {
+  id             String              @id @default(cuid())
+  propertyId     String
+  property       Property            @relation(fields: [propertyId], references: [id])
+  organizationId String
+  organization   Organization        @relation(fields: [organizationId], references: [id])
+  status         MandateStatus       @default(ACTIVE)
+  startDate      DateTime            @default(now())
+  endDate        DateTime?
+  leases         Lease[]
+  approvals      MandateApproval[]
+  createdAt      DateTime            @default(now())
+}
+
+model MandateApproval {
+  id        String            @id @default(cuid())
+  mandateId String
+  mandate   Mandate           @relation(fields: [mandateId], references: [id])
+  actionType MandateActionType
+  payload    Json
+  status    ApprovalStatus    @default(PENDING)
+  decidedAt DateTime?
+  decidedBy String?
+  createdAt DateTime          @default(now())
+}
+
+// =====================================================================
+// Payments
+// =====================================================================
+
+model Payment {
+  id              String              @id @default(cuid())
+  userId          String
+  user            User                @relation(fields: [userId], references: [id])
+  amount          Decimal             @db.Decimal(12, 2)
+  currency        String
+  method          PaymentMethod
+  provider        PaymentProvider?
+  status          PaymentStatus       @default(INITIATED)
+  reference       String              @unique
+  idempotencyKey  String              @unique
+  validatedBy     String?
+  validatedAt     DateTime?
+  metadata        Json?
+  allocations     PaymentAllocation[]
+  receipt         Receipt?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+}
+
+model PaymentAllocation {
+  id             String          @id @default(cuid())
+  paymentId      String
+  payment        Payment         @relation(fields: [paymentId], references: [id])
+  type           AllocatableType
+  refId          String
+  amount         Decimal         @db.Decimal(12, 2)
+  rentScheduleId String?
+  rentSchedule   RentSchedule?   @relation(fields: [rentScheduleId], references: [id])
+  createdAt      DateTime        @default(now())
+}
+
+model Receipt {
+  id        String   @id @default(cuid())
+  paymentId String   @unique
+  payment   Payment  @relation(fields: [paymentId], references: [id])
+  url       String
+  number    String   @unique
+  createdAt DateTime @default(now())
+}
+
+// =====================================================================
+// Maintenance
+// =====================================================================
+
+model MaintenanceTicket {
+  id                   String              @id @default(cuid())
+  propertyId           String
+  property             Property            @relation(fields: [propertyId], references: [id])
+  reporterId           String
+  reporter             User                @relation("TicketReporter", fields: [reporterId], references: [id])
+  assigneeId           String?
+  assignee             User?               @relation("TicketAssignee", fields: [assigneeId], references: [id])
+  title                String
+  description          String
+  priority             MaintenancePriority @default(MEDIUM)
+  status               MaintenanceStatus   @default(OPEN)
+  estimatedCost        Decimal?            @db.Decimal(12, 2)
+  requiresOwnerApproval Boolean            @default(false)
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+}
+
+// =====================================================================
+// Notifications
+// =====================================================================
+
+model Notification {
+  id        String              @id @default(cuid())
+  userId    String
+  user      User                @relation(fields: [userId], references: [id])
+  channel   NotificationChannel
+  type      String
+  payload   Json
+  status    NotificationStatus  @default(PENDING)
+  sentAt    DateTime?
+  createdAt DateTime            @default(now())
+}

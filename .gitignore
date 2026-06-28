@@ -35,8 +35,9 @@ logs
 Thumbs.db
 
 # Prisma
-prisma/
-migrations/
+# Migrations and schema are committed; only exclude local artifacts
+**/prisma/*.db
+**/prisma/*.db-journal
 
 # Docker
 .dockerignore
