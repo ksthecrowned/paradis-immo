@@ -399,7 +399,7 @@ Run:
 pnpm prisma db seed
 ```
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit** (`b1e5908`)
 
 ```bash
 git commit -am "feat(api): add prisma schema and congo location seed"
