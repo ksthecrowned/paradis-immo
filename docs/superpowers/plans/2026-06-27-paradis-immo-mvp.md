@@ -419,7 +419,7 @@ git commit -am "feat(api): add prisma schema and congo location seed"
 **Interfaces:**
 - Produces: `PrismaService`, global exception filter, Swagger at `/api/docs`, prefix `/api/v1`
 
-- [ ] **Step 1: Write failing test for health endpoint**
+- [x] **Step 1: Write failing test for health endpoint**
 
 `apps/api/test/health.e2e-spec.ts`:
 ```typescript
@@ -444,13 +444,13 @@ describe('Health (e2e)', () => {
 });
 ```
 
-- [ ] **Step 2: Run test — expect FAIL**
+- [x] **Step 2: Run test — expect FAIL**
 
 ```bash
 cd apps/api && pnpm test:e2e -- health.e2e-spec
 ```
 
-- [ ] **Step 3: Implement health controller + foundation**
+- [x] **Step 3: Implement health controller + foundation**
 
 `apps/api/src/health/health.controller.ts`:
 ```typescript
@@ -484,9 +484,9 @@ export class HttpExceptionFilter implements ExceptionFilter {
 
 Wire in `main.ts`: global prefix `api/v1`, Swagger, exception filter.
 
-- [ ] **Step 4: Run test — expect PASS**
+- [x] **Step 4: Run test — expect PASS**
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit** (`1b968e7`)
 
 ```bash
 git commit -am "feat(api): add health check, prisma module, error filter"
