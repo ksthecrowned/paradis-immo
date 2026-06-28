@@ -504,8 +504,7 @@ git commit -am "feat(api): add health check, prisma module, error filter"
 **Interfaces:**
 - Produces: `EventPublisher.emit(eventName, payload)` used by all domain modules
 
-- [ ] **Step 1: Define event types**
-
+- [x] **Step 1: Define event types**
 `apps/api/src/events/event.types.ts`:
 ```typescript
 export const DOMAIN_EVENTS = {
@@ -522,11 +521,11 @@ export const DOMAIN_EVENTS = {
 export type DomainEventName = (typeof DOMAIN_EVENTS)[keyof typeof DOMAIN_EVENTS];
 ```
 
-- [ ] **Step 2: Implement BullMQ publisher + register queues per event**
+- [x] **Step 2: Implement BullMQ publisher + register queues per event**
 
-- [ ] **Step 3: Write unit test — emit adds job to queue**
+- [x] **Step 3: Write unit test — emit adds job to queue**
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit** (`4e7f173`)
 
 ```bash
 git commit -am "feat(api): add bullmq event publisher"
