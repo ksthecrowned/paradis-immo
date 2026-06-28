@@ -590,13 +590,13 @@ git commit -am "feat(api): whatsapp otp auth via infobip"
 - Produces: `GET /users/me`, `PATCH /users/me`
 - Produces: helper `OrganizationsService.getParadisImmo()` for seed org
 
-- [ ] **Step 1: Implement GET/PATCH /users/me**
+- [x] **Step 1: Implement GET/PATCH /users/me**
 
-- [ ] **Step 2: Implement org member creation when owner publishes first property (auto-create `OWNER` org)**
+- [x] **Step 2: Implement org member creation when owner publishes first property (auto-create `OWNER` org)**
 
-- [ ] **Step 3: Test — authenticated user can update name**
+- [x] **Step 3: Test — authenticated user can update name**
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ---
 
