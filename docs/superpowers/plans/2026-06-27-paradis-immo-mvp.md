@@ -548,7 +548,7 @@ git commit -am "feat(api): add bullmq event publisher"
 - Consumes: `PrismaService`, Infobip API
 - Produces: `POST /auth/otp/request`, `POST /auth/otp/verify` → `{ accessToken, refreshToken, user }`
 
-- [ ] **Step 1: Write failing test — verify OTP issues tokens**
+- [x] **Step 1: Write failing test — verify OTP issues tokens**
 
 ```typescript
 describe('AuthService', () => {
@@ -560,19 +560,19 @@ describe('AuthService', () => {
 });
 ```
 
-- [ ] **Step 2: Implement OTP storage in Redis (5 min TTL, 6-digit code)**
+- [x] **Step 2: Implement OTP storage in Redis (5 min TTL, 6-digit code)**
 
-- [ ] **Step 3: Implement Infobip WhatsApp send**
+- [x] **Step 3: Implement Infobip WhatsApp send**
 
 `infobip-otp.service.ts` — POST to Infobip WhatsApp API with template message containing OTP.
 
-- [ ] **Step 4: Implement JWT access (15m) + refresh (30d) with rotation stored in `RefreshToken` table**
+- [x] **Step 4: Implement JWT access (15m) + refresh (30d) with rotation stored in `RefreshToken` table**
 
-- [ ] **Step 5: On first verify — create User if not exists, assign `TENANT` role**
+- [x] **Step 5: On first verify — create User if not exists, assign `TENANT` role**
 
-- [ ] **Step 6: Run tests — PASS**
+- [x] **Step 6: Run tests — PASS**
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit** (`ac0ffa9`)
 
 ```bash
 git commit -am "feat(api): whatsapp otp auth via infobip"
