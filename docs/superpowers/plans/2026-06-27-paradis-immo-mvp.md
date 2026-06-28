@@ -213,7 +213,7 @@ git commit -m "chore: scaffold monorepo with api, web, mobile, docker"
 **Interfaces:**
 - Produces: Prisma client types for all MVP entities
 
-- [ ] **Step 1: Write schema**
+- [x] **Step 1: Write schema**
 
 `apps/api/prisma/schema.prisma` (core enums + identity + locations + property):
 
@@ -383,14 +383,14 @@ model Property {
 
 Continue schema with remaining models (VisitSlotTemplate, VisitSlot, VisitBooking, Booking, Lease, RentSchedule, Mandate, MandateApproval, Payment, PaymentAllocation, Receipt, MaintenanceTicket, Notification, PropertyMedia, PropertyDocument, Favorite, AvailabilityBlock, SaleInquiry, RefreshToken) — mirror spec section 4 exactly.
 
-- [ ] **Step 2: Run migration**
+- [x] **Step 2: Run migration**
 
 ```bash
 cd apps/api && pnpm prisma migrate dev --name init
 ```
 Expected: migration applied, client generated.
 
-- [ ] **Step 3: Write seed for Congo locations + Paradis Immo org**
+- [x] **Step 3: Write seed for Congo locations + Paradis Immo org**
 
 `apps/api/prisma/seed.ts` — seed `Country(CG, XAF, +242)`, cities Brazzaville + Pointe-Noire with arrondissements/quartiers, `Organization` Paradis Immo (`AGENCY`, `APPROVED`).
 
