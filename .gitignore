@@ -1,0 +1,46 @@
+# Node modules
+node_modules/
+.pnpm-debug.log
+.yarn-install-state.gz
+
+# Build outputs
+dist/
+build/
+.out/
+.cache/
+.tmp/
+.temp/
+.coverage/
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Logs
+logs
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Prisma
+prisma/
+migrations/
+
+# Docker
+.dockerignore
+
+# pnpm
+.pnpmfile.js
+.pnpm-lock.yaml
