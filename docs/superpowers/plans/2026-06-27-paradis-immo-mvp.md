@@ -113,7 +113,7 @@ Each NestJS domain module follows: `{module}.module.ts`, `{module}.controller.ts
 **Interfaces:**
 - Produces: runnable `pnpm install`, `docker compose up -d` (postgres + redis)
 
-- [ ] **Step 1: Create root workspace files**
+- [x] **Step 1: Create root workspace files**
 
 `pnpm-workspace.yaml`:
 ```yaml
@@ -163,28 +163,28 @@ MOBILE_MONEY_API_KEY=
 MOBILE_MONEY_WEBHOOK_SECRET=
 ```
 
-- [ ] **Step 2: Scaffold NestJS API**
+- [x] **Step 2: Scaffold NestJS API**
 
 Run:
 ```bash
 cd apps && npx @nestjs/cli new api --package-manager pnpm --skip-git
 ```
 
-- [ ] **Step 3: Scaffold Next.js web**
+- [x] **Step 3: Scaffold Next.js web**
 
 Run:
 ```bash
 cd apps && pnpm create next-app web --typescript --tailwind --eslint --app --src-dir=false --import-alias="@/*"
 ```
 
-- [ ] **Step 4: Scaffold Expo mobile**
+- [x] **Step 4: Scaffold Expo mobile**
 
 Run:
 ```bash
 cd apps && pnpm create expo-app mobile --template blank-typescript
 ```
 
-- [ ] **Step 5: Verify infrastructure**
+- [x] **Step 5: Verify infrastructure** (docker not used locally per user; pnpm install OK)
 
 Run:
 ```bash
@@ -199,6 +199,8 @@ Expected: postgres and redis healthy.
 git add .
 git commit -m "chore: scaffold monorepo with api, web, mobile, docker"
 ```
+
+- [x] **Step 6: Commit** (`0ebe4d5`)
 
 ---
 
