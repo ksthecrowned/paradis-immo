@@ -193,7 +193,7 @@ pnpm install
 ```
 Expected: postgres and redis healthy.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit** (see duplicate below for commit hash)
 
 ```bash
 git add .
