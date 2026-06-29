@@ -3,6 +3,7 @@ import { AuthModule } from './auth/auth.module';
 import { BookingsModule } from './bookings/bookings.module';
 import { EventModule } from './events/event.module';
 import { HealthModule } from './health/health.module';
+import { LeasesModule } from './leases/leases.module';
 import { LocationsModule } from './locations/locations.module';
 import { OrganizationsModule } from './organizations/organizations.module';
 import { PrismaModule } from './prisma/prisma.module';
@@ -22,6 +23,7 @@ import { VisitSlotsModule } from './visit-slots/visit-slots.module';
     PropertiesModule,
     VisitSlotsModule,
     BookingsModule,
+    LeasesModule,
   ],
 })
 export class AppModule {}
