@@ -669,9 +669,9 @@ git commit -am "feat(api): whatsapp otp auth via infobip"
 **Interfaces:**
 - Produces: `POST /properties/:id/media/presign`, `POST /properties/:id/media/confirm`
 
-- [ ] **Step 1: Test — presign returns uploadUrl and fileUrl**
+- [x] **Step 1: Test — presign returns uploadUrl and fileUrl**
 
-- [ ] **Step 2: Implement S3-compatible client pointing at R2**
+- [x] **Step 2: Implement S3-compatible client pointing at R2**
 
 ```typescript
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
@@ -684,9 +684,9 @@ async createPresignedUpload(key: string, contentType: string) {
 }
 ```
 
-- [ ] **Step 3: confirm creates PropertyMedia row**
+- [x] **Step 3: confirm creates PropertyMedia row**
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ---
 

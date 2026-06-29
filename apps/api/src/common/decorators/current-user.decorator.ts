@@ -5,6 +5,11 @@ export interface AuthenticatedUser {
   roles: string[];
 }
 
+/**
+ * Require an authenticated user. Throws if the route does not have
+ * `req.user` populated (i.e. `JwtAuthGuard` / `AppAuthGuard` missing or
+ * not yet executed).
+ */
 export const CurrentUser = createParamDecorator(
   (_data: unknown, ctx: ExecutionContext): AuthenticatedUser => {
     const req = ctx.switchToHttp().getRequest<{ user?: AuthenticatedUser }>();
@@ -14,5 +19,17 @@ export const CurrentUser = createParamDecorator(
       );
     }
     return req.user;
+  },
+);
+
+/**
+ * Optional variant: returns the authenticated user if present, or `null`.
+ * Use on routes that have conditional auth (e.g. public read endpoints
+ * that personalize when authenticated, but still serve anonymous traffic).
+ */
+export const OptionalUser = createParamDecorator(
+  (_data: unknown, ctx: ExecutionContext): AuthenticatedUser | null => {
+    const req = ctx.switchToHttp().getRequest<{ user?: AuthenticatedUser }>();
+    return req.user ?? null;
   },
 );
