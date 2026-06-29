@@ -7,6 +7,7 @@ import { LeasesModule } from './leases/leases.module';
 import { LocationsModule } from './locations/locations.module';
 import { MaintenanceModule } from './maintenance/maintenance.module';
 import { MandatesModule } from './mandates/mandates.module';
+import { NotificationsModule } from './notifications/notifications.module';
 import { PaymentsModule } from './payments/payments.module';
 import { SalesModule } from './sales/sales.module';
 import { OrganizationsModule } from './organizations/organizations.module';
@@ -30,6 +31,7 @@ import { VisitSlotsModule } from './visit-slots/visit-slots.module';
     LeasesModule,
     MaintenanceModule,
     MandatesModule,
+    NotificationsModule,
     PaymentsModule,
     SalesModule,
   ],
