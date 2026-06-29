@@ -774,7 +774,7 @@ async createPresignedUpload(key: string, contentType: string) {
 - Produces: `POST /leases`, `PATCH /leases/:id/activate`, `GET /leases/:id/schedule`
 - Produces: `RentScheduleGenerator.generate(lease)` → RentSchedule[]
 
-- [ ] **Step 1: Test — activate lease generates monthly RentSchedule until endDate**
+- [x] **Step 1: Test — activate lease generates monthly RentSchedule until endDate**
 
 ```typescript
 describe('RentScheduleGenerator', () => {
@@ -791,11 +791,11 @@ describe('RentScheduleGenerator', () => {
 });
 ```
 
-- [ ] **Step 2: Test — unique constraint prevents duplicate dueDate per lease**
+- [x] **Step 2: Test — unique constraint prevents duplicate dueDate per lease**
 
-- [ ] **Step 3: Emit `LEASE_CREATED` on activation**
+- [x] **Step 3: Emit `LEASE_CREATED` on activation**
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ---
 
