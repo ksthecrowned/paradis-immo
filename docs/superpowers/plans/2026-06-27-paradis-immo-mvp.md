@@ -646,17 +646,17 @@ git commit -am "feat(api): whatsapp otp auth via infobip"
 **Interfaces:**
 - Produces: full CRUD + `GET /properties?mode=&city=&arrondissement=&quartier=&minPrice=&maxPrice=`
 
-- [ ] **Step 1: Test — create property with exclusive mode RENT_LONG**
+- [x] **Step 1: Test — create property with exclusive mode RENT_LONG**
 
-- [ ] **Step 2: Test — filter by quartier returns only matching properties**
+- [x] **Step 2: Test — filter by quartier returns only matching properties**
 
-- [ ] **Step 3: Test — reject second active mode on same property (must archive first)**
+- [x] **Step 3: Test — reject second active mode on same property (must archive first)**
 
-- [ ] **Step 4: Implement service with pagination `{ data, meta }`**
+- [x] **Step 4: Implement service with pagination `{ data, meta }`**
 
-- [ ] **Step 5: Enforce RBAC — only owner/agent/admin can POST/PATCH/DELETE**
+- [x] **Step 5: Enforce RBAC — only owner/agent/admin can POST/PATCH/DELETE**
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ---
 
