@@ -629,11 +629,11 @@ git commit -am "feat(api): whatsapp otp auth via infobip"
 **Interfaces:**
 - Produces: `GET /locations/cities`, `/arrondissements?cityId=`, `/quartiers?arrondissementId=`
 
-- [ ] **Step 1: Test — GET cities returns Brazzaville from seed**
+- [x] **Step 1: Test — GET cities returns Brazzaville from seed**
 
-- [ ] **Step 2: Implement read-only endpoints**
+- [x] **Step 2: Implement read-only endpoints**
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ---
 
