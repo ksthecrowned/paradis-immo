@@ -702,15 +702,15 @@ async createPresignedUpload(key: string, contentType: string) {
 **Interfaces:**
 - Produces: CRUD templates, weekly cron generates 14 days of VisitSlot rows
 
-- [ ] **Step 1: Test — template Mon 9-12 / 30min generates 6 slots**
+- [x] **Step 1: Test — template Mon 9-12 / 30min generates 6 slots**
 
-- [ ] **Step 2: Implement generator splitting time range by visitDuration**
+- [x] **Step 2: Implement generator splitting time range by visitDuration**
 
-- [ ] **Step 3: Register BullMQ repeatable job `0 2 * * 0` (weekly Sunday 2am)**
+- [x] **Step 3: Register BullMQ repeatable job `0 2 * * 0` (weekly Sunday 2am)**
 
-- [ ] **Step 4: Test — manual BLOCKED slot excluded from available list**
+- [x] **Step 4: Test — manual BLOCKED slot excluded from available list**
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ---
 
