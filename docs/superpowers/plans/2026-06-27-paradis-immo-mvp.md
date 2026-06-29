@@ -843,19 +843,19 @@ interface PaymentProvider {
 }
 ```
 
-- [ ] **Step 1: Test — cash payment created with PENDING_VALIDATION**
+- [x] **Step 1: Test — cash payment created with PENDING_VALIDATION**
 
-- [ ] **Step 2: Test — agent validate sets VALIDATED + creates PaymentAllocation**
+- [x] **Step 2: Test — agent validate sets VALIDATED + creates PaymentAllocation**
 
-- [ ] **Step 3: Test — idempotencyKey prevents duplicate Mobile Money payments**
+- [x] **Step 3: Test — idempotencyKey prevents duplicate Mobile Money payments**
 
-- [ ] **Step 4: Implement Mobile Money provider (Airtel or MoMo — pick one, wrap in interface)**
+- [x] **Step 4: Implement Mobile Money provider (Airtel or MoMo — pick one, wrap in interface)**
 
-- [ ] **Step 5: Implement webhook `POST /payments/webhooks/mobile-money` with signature verification**
+- [x] **Step 5: Implement webhook `POST /payments/webhooks/mobile-money` with signature verification**
 
-- [ ] **Step 6: Emit `PAYMENT_VALIDATED` on validate**
+- [x] **Step 6: Emit `PAYMENT_VALIDATED` on validate**
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit** (`980fe81`)
 
 ---
 
@@ -869,13 +869,13 @@ interface PaymentProvider {
 - Consumes: `PAYMENT_VALIDATED` event
 - Produces: Receipt row + PDF on R2, `GET /receipts/:id/download` (signed URL)
 
-- [ ] **Step 1: Test — validated payment triggers receipt with PDF url**
+- [x] **Step 1: Test — validated payment triggers receipt with PDF url**
 
-- [ ] **Step 2: Implement pdfkit receipt template (tenant, amount, date, property ref)**
+- [x] **Step 2: Implement pdfkit receipt template (tenant, amount, date, property ref)**
 
-- [ ] **Step 3: Upload PDF to R2, store Receipt.url**
+- [x] **Step 3: Upload PDF to R2, store Receipt.url**
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit** (`1cdf3bf`)
 
 ---
 
@@ -889,11 +889,11 @@ interface PaymentProvider {
 **Interfaces:**
 - Produces: `POST /sales/inquiries`, `GET /sales/inquiries`, `PATCH /sales/inquiries/:id`
 
-- [ ] **Step 1: Test — inquiry only allowed on SALE mode property**
+- [x] **Step 1: Test — inquiry only allowed on SALE mode property**
 
-- [ ] **Step 2: Test — manager can update status NEW → CONTACTED**
+- [x] **Step 2: Test — manager can update status NEW → CONTACTED**
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ---
 
