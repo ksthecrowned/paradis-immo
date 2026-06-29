@@ -1,0 +1,319 @@
+import { Test } from '@nestjs/testing';
+import { Prisma } from '@prisma/client';
+import { PrismaService } from '../prisma/prisma.service';
+import { EventPublisher } from '../events/event.publisher';
+import { PaymentsService } from './payments.service';
+import { CashProvider } from './providers/cash.provider';
+import { MobileMoneyProvider } from './providers/mobile-money.provider';
+
+describe('PaymentsService', () => {
+  let payments: PaymentsService;
+  // Cash provider is registered but not directly inspected in these tests.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  let cash: CashProvider;
+  let mobileMoney: MobileMoneyProvider;
+  let prisma: PrismaService;
+  let countryId: string;
+  let bzvQuartierId: string;
+  let ownerUserId: string;
+  let agentUserId: string;
+  let tenantUserId: string;
+  let propertyId: string;
+  let leaseId: string;
+  let rentScheduleId: string;
+  let ownerOrgId: string;
+  let agentOrgId: string;
+  const createdPaymentIds: string[] = [];
+
+  beforeAll(async () => {
+    const moduleRef = await Test.createTestingModule({
+      providers: [
+        PaymentsService,
+        CashProvider,
+        MobileMoneyProvider,
+        PrismaService,
+        { provide: EventPublisher, useValue: { emit: jest.fn() } },
+      ],
+    }).compile();
+    payments = moduleRef.get(PaymentsService);
+    cash = moduleRef.get(CashProvider);
+    mobileMoney = moduleRef.get(MobileMoneyProvider);
+    prisma = moduleRef.get(PrismaService);
+    await prisma.onModuleInit();
+
+    const cg = await prisma.country.findUnique({ where: { code: 'CG' } });
+    if (!cg) throw new Error('Run seed first');
+    countryId = cg.id;
+
+    const quartier = await prisma.quartier.findFirst({
+      where: { arrondissement: { city: { name: 'Brazzaville' } } },
+    });
+    if (!quartier) throw new Error('Run seed first');
+    bzvQuartierId = quartier.id;
+
+    // Belt-and-suspenders cleanup: remove anything left over from previous
+    // crashed runs (FK chain on User is RESTRICT).
+    const userIds = (
+      await prisma.user.findMany({
+        where: {
+          phone: { in: ['+242071111111', '+242072222222', '+242073333334'] },
+        },
+        select: { id: true },
+      })
+    ).map((u) => u.id);
+    if (userIds.length > 0) {
+      await prisma.paymentAllocation.deleteMany({
+        where: { payment: { userId: { in: userIds } } },
+      });
+      await prisma.payment.deleteMany({ where: { userId: { in: userIds } } });
+      await prisma.userRole.deleteMany({ where: { userId: { in: userIds } } });
+      await prisma.user.deleteMany({ where: { id: { in: userIds } } });
+    }
+    const owner = await prisma.user.create({
+      data: {
+        phone: '+242071111111',
+        countryId,
+        roles: { create: { role: 'TENANT' } },
+      },
+    });
+    ownerUserId = owner.id;
+    const agent = await prisma.user.create({
+      data: {
+        phone: '+242072222222',
+        countryId,
+        roles: { create: { role: 'TENANT' } },
+      },
+    });
+    agentUserId = agent.id;
+    const tenant = await prisma.user.create({
+      data: {
+        phone: '+242073333334',
+        countryId,
+        roles: { create: { role: 'TENANT' } },
+      },
+    });
+    tenantUserId = tenant.id;
+
+    const ownerOrg = await prisma.organization.create({
+      data: {
+        name: `Payment Test Owner ${Date.now()}`,
+        type: 'OWNER',
+        countryId,
+        members: { create: { userId: ownerUserId, role: 'OWNER' } },
+      },
+    });
+    ownerOrgId = ownerOrg.id;
+    const agentOrg = await prisma.organization.create({
+      data: {
+        name: `Payment Test Agent ${Date.now()}`,
+        type: 'AGENCY',
+        countryId,
+        members: { create: { userId: agentUserId, role: 'AGENT' } },
+      },
+    });
+    agentOrgId = agentOrg.id;
+    const prop = await prisma.property.create({
+      data: {
+        title: 'Payment Test',
+        description: 'Pour tester les paiements',
+        type: 'APARTMENT',
+        mode: 'RENT_LONG',
+        price: 150000,
+        currency: 'XAF',
+        priceUnit: 'MONTH',
+        quartierId: bzvQuartierId,
+        address: 'X',
+        countryId,
+        ownerId: ownerUserId,
+        organizationId: ownerOrg.id,
+      },
+    });
+    propertyId = prop.id;
+
+    const lease = await prisma.lease.create({
+      data: {
+        propertyId,
+        tenantId: tenantUserId,
+        startDate: new Date('2026-01-01T00:00:00Z'),
+        endDate: new Date('2026-03-01T00:00:00Z'),
+        monthlyRent: new Prisma.Decimal(150000),
+        deposit: new Prisma.Decimal(300000),
+        currency: 'XAF',
+        status: 'ACTIVE',
+      },
+    });
+    leaseId = lease.id;
+
+    const rentSchedule = await prisma.rentSchedule.create({
+      data: {
+        leaseId,
+        dueDate: new Date('2026-01-01T00:00:00Z'),
+        amount: new Prisma.Decimal(150000),
+        currency: 'XAF',
+        status: 'PENDING',
+      },
+    });
+    rentScheduleId = rentSchedule.id;
+  });
+
+  afterAll(async () => {
+    // Belt-and-suspenders: drop anything tied to our three test users that
+    // may have been left over from a previous crashed run. Done BEFORE the
+    // tracked-only cleanup below so user deletion is unblocked.
+    const cleanupUserIds = [ownerUserId, agentUserId, tenantUserId].filter(
+      (x): x is string => Boolean(x),
+    );
+    if (cleanupUserIds.length > 0) {
+      await prisma.paymentAllocation
+        .deleteMany({ where: { payment: { userId: { in: cleanupUserIds } } } })
+        .catch(() => undefined);
+      await prisma.payment
+        .deleteMany({ where: { userId: { in: cleanupUserIds } } })
+        .catch(() => undefined);
+    }
+    if (createdPaymentIds.length) {
+      await prisma.paymentAllocation
+        .deleteMany({ where: { paymentId: { in: createdPaymentIds } } })
+        .catch(() => undefined);
+      await prisma.payment
+        .deleteMany({ where: { id: { in: createdPaymentIds } } })
+        .catch(() => undefined);
+    }
+    await prisma.rentSchedule
+      .deleteMany({ where: { leaseId } })
+      .catch(() => undefined);
+    if (leaseId) {
+      await prisma.paymentAllocation
+        .deleteMany({ where: { rentSchedule: { leaseId } } })
+        .catch(() => undefined);
+      await prisma.rentSchedule
+        .deleteMany({ where: { leaseId } })
+        .catch(() => undefined);
+      await prisma.lease
+        .delete({ where: { id: leaseId } })
+        .catch(() => undefined);
+    }
+    if (propertyId) {
+      await prisma.property
+        .delete({ where: { id: propertyId } })
+        .catch(() => undefined);
+    }
+    // Remove any leftover properties referencing the two test orgs.
+    await prisma.property
+      .deleteMany({
+        where: { organizationId: { in: [ownerOrgId, agentOrgId] } },
+      })
+      .catch(() => undefined);
+    await prisma.organizationMember.deleteMany({
+      where: { userId: { in: cleanupUserIds } },
+    });
+    await prisma.organization.deleteMany({
+      where: { id: { in: [ownerOrgId, agentOrgId] } },
+    });
+    await prisma.userRole.deleteMany({
+      where: { userId: { in: cleanupUserIds } },
+    });
+    await prisma.user.deleteMany({ where: { id: { in: cleanupUserIds } } });
+    await prisma.onModuleDestroy();
+  });
+
+  beforeEach(() => {
+    createdPaymentIds.length = 0;
+  });
+
+  it('initiates a cash payment in PENDING_VALIDATION', async () => {
+    const payment = await payments.initiatePayment({
+      userId: tenantUserId,
+      amount: '150000',
+      currency: 'XAF',
+      method: 'CASH',
+      idempotencyKey: `cash-${Date.now()}-1`,
+    });
+    createdPaymentIds.push(payment.id);
+
+    expect(payment.status).toBe('PENDING_VALIDATION');
+    expect(payment.method).toBe('CASH');
+    expect(payment.provider).toBeNull();
+  });
+
+  it('agent validates cash payment → VALIDATED + emits PAYMENT_VALIDATED', async () => {
+    const payment = await payments.initiatePayment({
+      userId: tenantUserId,
+      amount: '150000',
+      currency: 'XAF',
+      method: 'CASH',
+      idempotencyKey: `cash-${Date.now()}-2`,
+    });
+    createdPaymentIds.push(payment.id);
+
+    const validated = await payments.validateCashPayment(
+      agentUserId,
+      payment.id,
+      [
+        {
+          type: 'RENT_SCHEDULE',
+          refId: rentScheduleId,
+          amount: '150000',
+          rentScheduleId,
+        },
+      ],
+    );
+    expect(validated.status).toBe('VALIDATED');
+    expect(validated.validatedBy).toBe(agentUserId);
+    expect(validated.allocations).toHaveLength(1);
+    expect(validated.allocations[0].rentScheduleId).toBe(rentScheduleId);
+
+    // The matching rent schedule is now PAID.
+    const schedule = await prisma.rentSchedule.findUnique({
+      where: { id: rentScheduleId },
+    });
+    expect(schedule?.status).toBe('PAID');
+  });
+
+  it('idempotency: same key returns the original payment (no duplicate)', async () => {
+    const key = `idem-${Date.now()}`;
+    const first = await payments.initiatePayment({
+      userId: tenantUserId,
+      amount: '150000',
+      currency: 'XAF',
+      method: 'MOBILE_MONEY',
+      provider: 'AIRTEL',
+      phone: '+242073333334',
+      idempotencyKey: key,
+    });
+    createdPaymentIds.push(first.id);
+
+    const second = await payments.initiatePayment({
+      userId: tenantUserId,
+      amount: '150000',
+      currency: 'XAF',
+      method: 'MOBILE_MONEY',
+      provider: 'AIRTEL',
+      phone: '+242073333334',
+      idempotencyKey: key,
+    });
+
+    expect(second.id).toBe(first.id);
+    expect(second.reference).toBe(first.reference);
+
+    const all = await prisma.payment.findMany({
+      where: { idempotencyKey: key },
+    });
+    expect(all).toHaveLength(1);
+  });
+
+  it('mobile-money provider signature verification accepts valid signature, rejects tampered payload', () => {
+    const validPayload = JSON.stringify({
+      reference: 'ref-abc',
+      status: 'SUCCESS',
+    });
+    const sig = mobileMoney.signPayload(validPayload);
+    expect(mobileMoney.verifyWebhookSignature(validPayload, sig)).toBe(true);
+    expect(mobileMoney.verifyWebhookSignature(validPayload, 'tampered')).toBe(
+      false,
+    );
+    expect(mobileMoney.verifyWebhookSignature(validPayload + 'x', sig)).toBe(
+      false,
+    );
+  });
+});
