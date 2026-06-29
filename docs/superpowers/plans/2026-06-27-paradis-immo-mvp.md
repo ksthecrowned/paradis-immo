@@ -611,11 +611,11 @@ git commit -am "feat(api): whatsapp otp auth via infobip"
 **Interfaces:**
 - Produces: `@Roles('AGENT')`, `@OrganizationContext()` decorators
 
-- [ ] **Step 1: Write test — guard rejects user without required org role**
+- [x] **Step 1: Write test — guard rejects user without required org role**
 
-- [ ] **Step 2: Implement guards reading JWT claims: `{ sub, roles, orgId? }`**
+- [x] **Step 2: Implement guards reading JWT claims: `{ sub, roles, orgId? }`**
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ---
 
