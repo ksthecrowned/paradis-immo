@@ -113,6 +113,35 @@ export class R2Service {
     const command = new DeleteObjectCommand({ Bucket: this.bucket, Key: key });
     return getSignedUrl(this.client, command, { expiresIn: URL_TTL_SECONDS });
   }
+
+  /**
+   * Server-side direct upload: PUT a Buffer straight to R2 and return the
+   * public URL. Used for server-generated artifacts (receipt PDFs) where the
+   * client doesn't upload anything itself.
+   *
+   * NOTE: this ONLY runs in environments where R2 is configured. Tests use a
+   * fake injected via the `R2_KEY` token, so the bucket/public URL guards
+   * here are skippable in the test harness.
+   */
+  async uploadBuffer(
+    key: string,
+    body: Buffer,
+    contentType: string,
+  ): Promise<{ url: string }> {
+    if (!this.bucket || !this.publicUrl) {
+      throw new Error(
+        'R2 is not configured (R2_BUCKET / R2_PUBLIC_URL missing) — cannot upload buffer',
+      );
+    }
+    const command = new PutObjectCommand({
+      Bucket: this.bucket,
+      Key: key,
+      Body: body,
+      ContentType: contentType,
+    });
+    await this.client.send(command);
+    return { url: `${this.publicUrl}/${key}` };
+  }
 }
 
 export class MediaTypeError extends Error {}

@@ -38,5 +38,6 @@ function makeR2Client(): S3Client {
       useFactory: makeR2Client,
     },
   ],
+  exports: [R2Service],
 })
 export class MediaModule {}
