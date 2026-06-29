@@ -927,11 +927,11 @@ interface PaymentProvider {
 **Interfaces:**
 - Produces: `NotificationsService.send(userId, channel, type, payload)`
 
-- [ ] **Step 1: Test — PAYMENT_VALIDATED processor sends WhatsApp with receipt link**
+- [x] **Step 1: Test — PAYMENT_VALIDATED processor sends WhatsApp with receipt link**
 
-- [ ] **Step 2: Implement processors for each domain event**
+- [x] **Step 2: Implement processors for each domain event**
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ---
 
