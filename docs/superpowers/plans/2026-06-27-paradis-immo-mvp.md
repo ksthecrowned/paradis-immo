@@ -749,15 +749,15 @@ async createPresignedUpload(key: string, contentType: string) {
 **Interfaces:**
 - Produces: `GET /properties/:id/availability`, `POST /bookings`, `GET /bookings/my`, `PATCH /bookings/:id/cancel`
 
-- [ ] **Step 1: Test — overlapping booking rejected for RENT_SHORT property**
+- [x] **Step 1: Test — overlapping booking rejected for RENT_SHORT property**
 
-- [ ] **Step 2: Test — confirmed booking creates AvailabilityBlock**
+- [x] **Step 2: Test — confirmed booking creates AvailabilityBlock**
 
-- [ ] **Step 3: Calculate totalPrice = nights × price (priceUnit NIGHT)**
+- [x] **Step 3: Calculate totalPrice = nights × price (priceUnit NIGHT)**
 
-- [ ] **Step 4: Only RENT_SHORT properties accept bookings**
+- [x] **Step 4: Only RENT_SHORT properties accept bookings**
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ---
 
