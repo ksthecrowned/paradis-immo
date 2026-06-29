@@ -1,16 +1,21 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import {
   Prisma,
+  VisitBooking,
+  VisitBookingStatus,
   VisitSlot,
   VisitSlotSource,
   VisitSlotStatus,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { EventPublisher } from '../events/event.publisher';
+import { DOMAIN_EVENTS } from '../events/event.types';
 
 export interface PublicVisitSlotTemplate {
   id: string;
@@ -33,9 +38,22 @@ export interface PublicVisitSlot {
   createdAt: string;
 }
 
+export interface PublicVisitBooking {
+  id: string;
+  slotId: string;
+  propertyId: string;
+  userId: string;
+  status: string;
+  paymentId: string | null;
+  createdAt: string;
+}
+
 @Injectable()
 export class VisitSlotsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly events: EventPublisher,
+  ) {}
 
   // ------------------------------------------------------------------
   // Templates CRUD
@@ -168,6 +186,208 @@ export class VisitSlotsService {
   }
 
   // ------------------------------------------------------------------
+  // Bookings
+  // ------------------------------------------------------------------
+
+  /**
+   * Book a visit slot. Free visits are confirmed immediately and the slot
+   * is flipped to `BOOKED`. Paid visits create a `PENDING` booking and leave
+   * the slot `AVAILABLE` until `confirmVisit()` is called (typically after a
+   * payment is validated by the payments module).
+   */
+  async bookVisit(
+    userId: string,
+    input: { slotId: string; propertyId: string },
+  ): Promise<PublicVisitBooking> {
+    const property = await this.prisma.property.findUnique({
+      where: { id: input.propertyId },
+      select: { id: true, visitType: true, visitEnabled: true },
+    });
+    if (!property || !property.visitEnabled) {
+      throw new NotFoundException({
+        code: 'PROPERTY_NOT_FOUND',
+        message: 'Property does not exist or has no visits enabled',
+      });
+    }
+    if (property.visitType !== 'FREE' && property.visitType !== 'PAID') {
+      throw new BadRequestException({
+        code: 'VISITS_DISABLED',
+        message: 'This property does not accept visit bookings',
+      });
+    }
+
+    const isFree = property.visitType === 'FREE';
+
+    // Atomic transition: only an AVAILABLE slot can move to BOOKED.
+    // For paid visits the slot stays AVAILABLE until payment is validated.
+    let updatedCount = 1;
+    if (isFree) {
+      const updateResult = await this.prisma.visitSlot.updateMany({
+        where: {
+          id: input.slotId,
+          propertyId: input.propertyId,
+          status: VisitSlotStatus.AVAILABLE,
+        },
+        data: { status: VisitSlotStatus.BOOKED },
+      });
+      updatedCount = updateResult.count;
+    }
+    if (updatedCount === 0) {
+      throw new ConflictException({
+        code: 'SLOT_NOT_AVAILABLE',
+        message: 'This slot is no longer available',
+      });
+    }
+
+    try {
+      const booking = await this.prisma.visitBooking.create({
+        data: {
+          slotId: input.slotId,
+          propertyId: input.propertyId,
+          userId,
+          status: isFree
+            ? VisitBookingStatus.CONFIRMED
+            : VisitBookingStatus.PENDING,
+        },
+      });
+      return this.bookingToPublic(booking);
+    } catch (err) {
+      if (isFree) {
+        // Roll back the slot flip on failure.
+        await this.prisma.visitSlot.updateMany({
+          where: {
+            id: input.slotId,
+            status: VisitSlotStatus.BOOKED,
+            booking: null,
+          },
+          data: { status: VisitSlotStatus.AVAILABLE },
+        });
+      }
+      throw err;
+    }
+  }
+
+  /**
+   * Confirm a `PENDING` booking (used after a successful payment) and flip
+   * the slot to `BOOKED`. Emits `VISIT_BOOKING_CONFIRMED`.
+   */
+  async confirmVisit(
+    userId: string,
+    bookingId: string,
+  ): Promise<PublicVisitBooking> {
+    const booking = await this.prisma.visitBooking.findUnique({
+      where: { id: bookingId },
+      include: {
+        property: { select: { ownerId: true, organizationId: true } },
+      },
+    });
+    if (!booking) {
+      throw new NotFoundException({
+        code: 'BOOKING_NOT_FOUND',
+        message: 'Visit booking does not exist',
+      });
+    }
+    await this.assertCanManageProperty(userId, booking.propertyId);
+
+    if (booking.status !== VisitBookingStatus.PENDING) {
+      throw new ConflictException({
+        code: 'BOOKING_NOT_PENDING',
+        message: `Cannot confirm a booking in status ${booking.status}`,
+      });
+    }
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const b = await tx.visitBooking.update({
+        where: { id: bookingId },
+        data: { status: VisitBookingStatus.CONFIRMED },
+      });
+      await tx.visitSlot.update({
+        where: { id: booking.slotId },
+        data: { status: VisitSlotStatus.BOOKED },
+      });
+      return b;
+    });
+
+    await this.events.emit(DOMAIN_EVENTS.VISIT_BOOKING_CONFIRMED, {
+      bookingId: updated.id,
+      slotId: updated.slotId,
+      userId: updated.userId,
+    });
+    return this.bookingToPublic(updated);
+  }
+
+  /**
+   * Cancel a booking. Either the tenant who created it or a property
+   * manager (owner / org member) can cancel. Slot is freed.
+   */
+  async cancelVisit(
+    userId: string,
+    bookingId: string,
+  ): Promise<PublicVisitBooking> {
+    const booking = await this.prisma.visitBooking.findUnique({
+      where: { id: bookingId },
+    });
+    if (!booking) {
+      throw new NotFoundException({
+        code: 'BOOKING_NOT_FOUND',
+        message: 'Visit booking does not exist',
+      });
+    }
+    if (booking.userId !== userId) {
+      await this.assertCanManageProperty(userId, booking.propertyId);
+    }
+    if (
+      booking.status === VisitBookingStatus.CANCELLED ||
+      booking.status === VisitBookingStatus.COMPLETED
+    ) {
+      throw new ConflictException({
+        code: 'BOOKING_NOT_CANCELLABLE',
+        message: `Cannot cancel a booking in status ${booking.status}`,
+      });
+    }
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const b = await tx.visitBooking.update({
+        where: { id: bookingId },
+        data: { status: VisitBookingStatus.CANCELLED },
+      });
+      await tx.visitSlot.update({
+        where: { id: booking.slotId },
+        data: { status: VisitSlotStatus.AVAILABLE },
+      });
+      return b;
+    });
+    return this.bookingToPublic(updated);
+  }
+
+  async listMyBookings(userId: string): Promise<PublicVisitBooking[]> {
+    const rows = await this.prisma.visitBooking.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+    });
+    return rows.map((b) => this.bookingToPublic(b));
+  }
+
+  async listManagedBookings(userId: string): Promise<PublicVisitBooking[]> {
+    // Properties the user can manage (owner or org member).
+    const properties = await this.prisma.property.findMany({
+      where: {
+        OR: [
+          { ownerId: userId },
+          { organization: { members: { some: { userId } } } },
+        ],
+      },
+      select: { id: true },
+    });
+    const ids = properties.map((p) => p.id);
+    const rows = await this.prisma.visitBooking.findMany({
+      where: { propertyId: { in: ids } },
+      orderBy: { createdAt: 'desc' },
+    });
+    return rows.map((b) => this.bookingToPublic(b));
+  }
+
+  // ------------------------------------------------------------------
   // Internals
   // ------------------------------------------------------------------
 
@@ -254,6 +474,25 @@ export class VisitSlotsService {
           'Only the owner or a member of the managing org can manage visit slots',
       });
     }
+
+    // If the property is under an active mandate with a different org, only
+    // an AGENT of the mandated org (not the property's owner org) may manage
+    // visit templates.
+    const activeMandate = await this.prisma.mandate.findFirst({
+      where: { propertyId, status: 'ACTIVE' },
+      select: { organizationId: true },
+    });
+    if (
+      activeMandate &&
+      activeMandate.organizationId !== property.organizationId &&
+      membership.role !== 'AGENT'
+    ) {
+      throw new ForbiddenException({
+        code: 'MANDATE_REQUIRES_AGENT',
+        message:
+          'This property is under a mandate; only an AGENT of the mandated org can manage visit templates',
+      });
+    }
   }
 
   private templateToPublic(
@@ -280,6 +519,18 @@ export class VisitSlotsService {
       status: s.status,
       source: s.source,
       createdAt: s.createdAt.toISOString(),
+    };
+  }
+
+  private bookingToPublic(b: VisitBooking): PublicVisitBooking {
+    return {
+      id: b.id,
+      slotId: b.slotId,
+      propertyId: b.propertyId,
+      userId: b.userId,
+      status: b.status,
+      paymentId: b.paymentId,
+      createdAt: b.createdAt.toISOString(),
     };
   }
 }

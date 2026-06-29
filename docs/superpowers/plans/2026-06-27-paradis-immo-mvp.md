@@ -725,15 +725,15 @@ async createPresignedUpload(key: string, contentType: string) {
 - Produces: `POST /visits`, `GET /visits/my`, `GET /visits/managed`, `PATCH /visits/:id/confirm|cancel`
 - Produces: `GET /properties/:id/visit-slots?from=&to=`
 
-- [ ] **Step 1: Test — book free visit sets slot BOOKED + VisitBooking CONFIRMED**
+- [x] **Step 1: Test — book free visit sets slot BOOKED + VisitBooking CONFIRMED**
 
-- [ ] **Step 2: Test — book paid visit sets VisitBooking PENDING until payment validated**
+- [x] **Step 2: Test — book paid visit sets VisitBooking PENDING until payment validated**
 
-- [ ] **Step 3: Enforce slot management rule — mandate property: only org AGENT can manage templates**
+- [x] **Step 3: Enforce slot management rule — mandate property: only org AGENT can manage templates**
 
-- [ ] **Step 4: Emit `VISIT_BOOKING_CONFIRMED` on confirm**
+- [x] **Step 4: Emit `VISIT_BOOKING_CONFIRMED` on confirm**
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ---
 
