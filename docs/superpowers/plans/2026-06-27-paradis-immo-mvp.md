@@ -812,13 +812,13 @@ describe('RentScheduleGenerator', () => {
 - Produces: `POST /mandates`, `GET /mandates/pending-approvals`, `PATCH /mandates/approvals/:id`
 - Produces: `MandateApprovalService.requireApproval(mandateId, actionType, payload)`
 
-- [ ] **Step 1: Test — lease under mandate stays DRAFT until LEASE_SIGN approved**
+- [x] **Step 1: Test — lease under mandate stays DRAFT until LEASE_SIGN approved**
 
-- [ ] **Step 2: Test — major maintenance (requiresOwnerApproval=true) creates MandateApproval**
+- [x] **Step 2: Test — major maintenance (requiresOwnerApproval=true) creates MandateApproval**
 
-- [ ] **Step 3: Emit `MANDATE_ACTION_PENDING` → notification job**
+- [x] **Step 3: Emit `MANDATE_ACTION_PENDING` → notification job**
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ---
 

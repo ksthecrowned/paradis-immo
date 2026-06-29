@@ -5,6 +5,7 @@ import { EventModule } from './events/event.module';
 import { HealthModule } from './health/health.module';
 import { LeasesModule } from './leases/leases.module';
 import { LocationsModule } from './locations/locations.module';
+import { MandatesModule } from './mandates/mandates.module';
 import { OrganizationsModule } from './organizations/organizations.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { PropertiesModule } from './properties/properties.module';
@@ -24,6 +25,7 @@ import { VisitSlotsModule } from './visit-slots/visit-slots.module';
     VisitSlotsModule,
     BookingsModule,
     LeasesModule,
+    MandatesModule,
   ],
 })
 export class AppModule {}
