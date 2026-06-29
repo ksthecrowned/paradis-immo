@@ -7,6 +7,7 @@ import { LeasesModule } from './leases/leases.module';
 import { LocationsModule } from './locations/locations.module';
 import { MandatesModule } from './mandates/mandates.module';
 import { PaymentsModule } from './payments/payments.module';
+import { SalesModule } from './sales/sales.module';
 import { OrganizationsModule } from './organizations/organizations.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { PropertiesModule } from './properties/properties.module';
@@ -28,6 +29,7 @@ import { VisitSlotsModule } from './visit-slots/visit-slots.module';
     LeasesModule,
     MandatesModule,
     PaymentsModule,
+    SalesModule,
   ],
 })
 export class AppModule {}
