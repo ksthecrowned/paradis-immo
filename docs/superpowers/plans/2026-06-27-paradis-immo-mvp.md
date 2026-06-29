@@ -906,11 +906,11 @@ interface PaymentProvider {
 - Produces: `POST /maintenance/tickets`, `GET /maintenance/tickets`, `PATCH /:id`, `PATCH /:id/assign`
 - Consumes: `MandateApprovalService` when `requiresOwnerApproval=true`
 
-- [ ] **Step 1: Test — URGENT ticket with estimatedCost > threshold sets requiresOwnerApproval**
+- [x] **Step 1: Test — URGENT ticket with estimatedCost > threshold sets requiresOwnerApproval**
 
-- [ ] **Step 2: Emit `MAINTENANCE_OPENED`**
+- [x] **Step 2: Emit `MAINTENANCE_OPENED`**
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ---
 
