@@ -10,6 +10,12 @@ export const DOMAIN_EVENTS = {
   MAINTENANCE_OPENED: 'maintenance.opened',
   RENT_DUE_SOON: 'rent.due.soon',
   RENT_OVERDUE: 'rent.overdue',
+  /**
+   * Internal scheduler event — fired daily at 8am Africa/Brazzaville
+   * by the repeatable job registered in `RentReminderProcessor`. No
+   * module emits this; only the processor's own BullMQ Worker listens.
+   */
+  RENT_REMINDER_DAILY: 'rent.reminder.daily',
 } as const;
 
 export type DomainEventName = (typeof DOMAIN_EVENTS)[keyof typeof DOMAIN_EVENTS];

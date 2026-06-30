@@ -4,6 +4,7 @@ import { NotificationsService } from './notifications.service';
 import { InfobipService } from './infobip.service';
 import { FcmService } from './fcm.service';
 import { PaymentValidatedProcessor } from './processors/payment-validated.processor';
+import { RentReminderProcessor } from './processors/rent-reminder.processor';
 
 @Module({
   imports: [PrismaModule],
@@ -12,6 +13,7 @@ import { PaymentValidatedProcessor } from './processors/payment-validated.proces
     InfobipService,
     FcmService,
     PaymentValidatedProcessor,
+    RentReminderProcessor,
   ],
   exports: [NotificationsService],
 })
