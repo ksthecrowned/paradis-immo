@@ -943,13 +943,13 @@ interface PaymentProvider {
 **Interfaces:**
 - Produces: daily job scanning RentSchedule — sends J-7, J-3, J-1, J, J+1, J+5, J+15
 
-- [ ] **Step 1: Test — schedule due in 7 days triggers RENT_DUE_SOON**
+- [x] **Step 1: Test — schedule due in 7 days triggers RENT_DUE_SOON**
 
-- [ ] **Step 2: Test — overdue 1 day marks OVERDUE + sends alert**
+- [x] **Step 2: Test — overdue 1 day marks OVERDUE + sends alert**
 
-- [ ] **Step 3: Register BullMQ repeatable job `0 8 * * *` (daily 8am Congo time)**
+- [x] **Step 3: Register BullMQ repeatable job `0 8 * * *` (daily 8am Congo time)**
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ---
 
