@@ -6,17 +6,16 @@
     "apps/*"
   ],
   "scripts": {
-    "build": "turbo run build",
-    "dev": "turbo run dev --parallel",
-    "start": "turbo run start --parallel",
-    "test": "turbo run test --parallel",
-    "lint": "turbo run lint --parallel",
+    "build": "pnpm -r build",
+    "dev": "pnpm -r dev",
+    "start": "pnpm -r start",
+    "test": "pnpm -r test",
+    "lint": "pnpm -r lint",
     "export:openapi": "pnpm --filter api export:openapi",
     "generate:types": "node scripts/generate-types.mjs"
   },
   "devDependencies": {
-    "openapi-typescript": "^7.4.4",
-    "turbo": "^2.0.0"
+    "openapi-typescript": "^7.4.4"
   },
   "engines": {
     "node": ">=18"
