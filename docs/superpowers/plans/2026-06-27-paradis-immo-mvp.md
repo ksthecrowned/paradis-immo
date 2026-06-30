@@ -1003,45 +1003,37 @@ interface PaymentProvider {
 ### Task 24: Web foundation — auth, layout, Preline
 
 **Files:**
-- Create: `apps/web/lib/api.ts`, `apps/web/lib/auth.ts`
-- Create: `apps/web/app/login/page.tsx`
-- Create: `apps/web/app/layout.tsx`
-- Modify: `apps/web/tailwind.config.ts` — add Preline plugin
+- Create: `apps/web/lib/api.ts`, `apps/web/lib/auth.ts` (typed `apiFetch` + OTP helpers)
+- Create: `apps/web/lib/api.test.ts`, `apps/web/lib/auth.test.ts` (Jest specs, 11 tests)
+- Create: `apps/web/jest.config.cjs`, `apps/web/jest.setup.ts`
+- Create: `apps/web/components/preline-boot.tsx` (client-only Preline runtime)
+- Create: `apps/web/app/login/page.tsx` (two-step phone → code form)
+- Modify: `apps/web/app/layout.tsx` (Preline boot, French `lang`, Paradis Immo metadata)
+- Modify: `apps/web/app/globals.css` (Preline `@source`, `@plugin @tailwindcss/forms`)
+- Modify: `apps/web/tsconfig.json` (exclude `**/*.test.ts(x)` from production tsc)
+- Modify: `apps/web/package.json` (add `jest`/`ts-jest`/`@types/jest` devDeps, `preline` runtime, `@tailwindcss/forms` devDep, `test` script)
 
 **Interfaces:**
-- Consumes: API auth endpoints
-- Produces: `apiFetch(path, options)` wrapper with token refresh
+- `apiFetch<T>(path, { body, anonymous, ...init }): Promise<T>`
+  - Reads `accessToken` from `localStorage` on every call (no module cache)
+  - On 401, single refresh attempt at `/auth/refresh`, then replays the request
+  - Unwraps the API envelope `{ statusCode, data }` when present
+  - Throws `ApiError(status, message, body)` on non-2xx
+- `requestOtp(phone)`, `verifyOtp(phone, code)`, `logout()`, `getTokens()` in `lib/auth.ts`
+- `PrelineBoot` client component lazy-imports `preline` after hydration
 
-- [ ] **Step 1: Install Preline + configure Tailwind**
+**Notes on Preline + Tailwind 4:**
+- The plan referenced `tailwind.config.ts` (Tailwind 3) — Tailwind 4 has no JS config, so the Preline setup lives in `app/globals.css` (`@source` for class harvesting, `@plugin @tailwindcss/forms`).
+- Preline 4.2.0's `package.json` does **not** export its `css/themes/theme.css` (README is misleading), so theme tokens are not imported. The default Tailwind 4 palette is enough to start; we can vendor Preline themes later if a brand pass is needed.
+- Preline 4.2.0's auto-init is imported as a side-effect; no manual `HSStaticMethods.autoInit()` call needed.
 
-Run: `cd apps/web && pnpm add preline && pnpm add -D @tailwindcss/forms`
+- [x] **Step 1: Install Preline + configure Tailwind**
 
-- [ ] **Step 2: Implement api.ts**
+- [x] **Step 2: Implement api.ts**
 
-```typescript
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001/api/v1';
+- [x] **Step 3: Build OTP login page (phone input → code input → store tokens)**
 
-export async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
-  const res = await fetch(`${API_URL}${path}`, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...options.headers,
-    },
-  });
-  if (!res.ok) {
-    const err = await res.json();
-    throw new Error(err.message ?? 'Request failed');
-  }
-  return res.json();
-}
-```
-
-- [ ] **Step 3: Build OTP login page (phone input → code input → store tokens)**
-
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ---
 

@@ -1,5 +1,13 @@
 @import "tailwindcss";
 
+/* Preline UI — pulled in via @source so Tailwind v4 keeps the
+ * utility classes that Preline's compiled components rely on. */
+@source "../../../node_modules/preline/dist/*.js";
+
+/* The forms plugin restores opinionated form styles that Tailwind v4
+ * stopped shipping by default. */
+@plugin "@tailwindcss/forms";
+
 :root {
   --background: #ffffff;
   --foreground: #171717;
