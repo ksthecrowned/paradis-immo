@@ -971,20 +971,30 @@ interface PaymentProvider {
 
 ---
 
-### Task 23: OpenAPI + shared types package
+### Task 23: OpenAPI snapshot + per-app local types (no shared package)
 
 **Files:**
-- Create: `packages/types/src/index.ts`
-- Modify: `apps/api` Swagger config
+- Create: `apps/api/scripts/export-openapi.ts`, `scripts/generate-types.mjs`
+- Create: `apps/web/types/api.ts`, `apps/mobile/types/api.ts` (generated, kept in-tree)
+- Create: `apps/api/openapi.json` (committed snapshot)
+- Modify: `apps/api/package.json` (script `export:openapi`)
+- Modify: `package.json` (root scripts `export:openapi`, `generate:types`; remove `packages/*` workspace)
+- Modify: `apps/api/src/notifications/notifications.module.ts` (import `PaymentsModule` — fix latent DI bug surfaced by full app boot)
+- Remove: `packages/types/` (no shared package — each app keeps its own copy)
 
 **Interfaces:**
-- Produces: `@paradis-immo/types` exported DTOs/enums for web + mobile
+- `pnpm export:openapi` boots the API in-process, writes `apps/api/openapi.json` (50 paths, 22 schemas).
+- `pnpm generate:types` reads that JSON and emits `apps/web/types/api.ts` + `apps/mobile/types/api.ts` independently.
+- Each app imports its own copy: web uses `import type { paths } from '.../types/api'`; mobile same, no monorepo import.
+- The two copies are byte-identical today (deterministic generator output) but **are physically separate files** — divergence is allowed, no shared package pins them.
 
-- [ ] **Step 1: Enable Swagger in NestJS, export openapi.json**
+**Why no shared package:** keeps `web` and `mobile` deployable in isolation, no monorepo coupling, and avoids dragging the API's full Prisma/swagger type graph into the mobile bundle. Each app re-generates from the same committed snapshot.
 
-- [ ] **Step 2: Script `pnpm generate:types` using openapi-typescript → packages/types**
+- [x] **Step 1: Enable Swagger in NestJS, export openapi.json**
 
-- [ ] **Step 3: Commit**
+- [x] **Step 2: Script `pnpm generate:types` using openapi-typescript → apps/{web,mobile}/types/api.ts (no shared package)**
+
+- [x] **Step 3: Commit**
 
 ---
 
