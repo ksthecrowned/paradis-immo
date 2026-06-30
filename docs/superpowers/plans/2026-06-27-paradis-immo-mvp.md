@@ -963,11 +963,11 @@ interface PaymentProvider {
 **Interfaces:**
 - Produces: `GET /admin/users`, `GET /admin/stats`, `PATCH /admin/properties/:id/moderate`
 
-- [ ] **Step 1: Test — non-admin gets 403**
+- [x] **Step 1: Test — non-admin gets 403**
 
-- [ ] **Step 2: Implement stats: total properties, active leases, overdue rents count**
+- [x] **Step 2: Implement stats: total properties, active leases, overdue rents count**
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ---
 
