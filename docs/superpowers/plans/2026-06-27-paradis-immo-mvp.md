@@ -1039,26 +1039,28 @@ interface PaymentProvider {
 
 ### Task 25: Owner dashboard pages
 
+**Scope réduit** (choix utilisateur 2026-06-30) : *squelette + dashboard* uniquement. Le formulaire de création de bien, la page créneaux, la page mandat et le widget d'approbations sont reportés aux tâches ultérieures.
+
 **Files:**
-- Create: `apps/web/app/proprietaire/dashboard/page.tsx`
-- Create: `apps/web/app/proprietaire/biens/page.tsx`, `biens/nouveau/page.tsx`, `biens/[id]/page.tsx`
-- Create: `apps/web/app/proprietaire/biens/[id]/creneaux/page.tsx`
-- Create: `apps/web/app/proprietaire/visites/page.tsx`
-- Create: `apps/web/app/proprietaire/baux/page.tsx`
-- Create: `apps/web/app/proprietaire/paiements/page.tsx`
-- Create: `apps/web/app/proprietaire/maintenance/page.tsx`
-- Create: `apps/web/app/proprietaire/mandat/page.tsx`
-- Create: `apps/web/app/proprietaire/layout.tsx` — sidebar nav
+- Create: `apps/web/app/proprietaire/layout.tsx` — sidebar nav (Client Component)
+- Create: `apps/web/app/proprietaire/dashboard/page.tsx` — Client Component, fetche `/payments/my` + `/visits/managed` pour les compteurs
+- Create: `apps/web/app/proprietaire/dashboard/owner-dashboard.tsx` — composant de présentation pur (4 stat cards + CTA "Ajouter un bien")
+- Create: `apps/web/app/proprietaire/dashboard/owner-dashboard.test.tsx` — 3 tests via `renderToStaticMarkup` (pas de jsdom)
+- Create: `apps/web/app/proprietaire/_components/placeholder-section.tsx` — squelette "Page à venir" réutilisé
+- Create: 8 pages placeholder (Biens, Bien nouveau, Bien détail, Créneaux, Visites, Baux, Paiements, Maintenance, Mandat)
 
-- [ ] **Step 1: Property create form — mode, visit config, location cascades (city → arrondissement → quartier)**
+**Compteurs :**
+- `pendingPayments` ← `GET /payments/my` filtré `PENDING`/`FAILED` (endpoint OK)
+- `visitRequests` ← `GET /visits/managed` filtré `PENDING` (endpoint OK)
+- `properties` = `null` (placeholder "Bientôt disponible" — pas de `/properties/mine` exposé, hors scope)
+- `activeLeases` = `null` (placeholder — pas d'endpoint propriétaire dédié, hors scope)
 
-- [ ] **Step 2: Créneaux page — manage VisitSlotTemplate + manual block/add**
-
-- [ ] **Step 3: Mandat page — button to delegate to Paradis Immo**
-
-- [ ] **Step 4: Pending approvals widget for mandated owners**
-
-- [ ] **Step 5: Commit**
+- [x] **Step 1: Composant `OwnerDashboard` (pure) + 3 tests RED→GREEN**
+- [x] **Step 2: Page `dashboard/page.tsx` (client, fetch + skeleton de chargement)**
+- [x] **Step 3: Layout `/proprietaire` avec sidebar nav (Dashboard, Biens, Visites, Baux, Paiements, Maintenance, Mandat) + bouton Déconnexion**
+- [x] **Step 4: 8 pages placeholder branchées sur le layout**
+- [x] **Step 5: Lint + tests + build verts (14/14 tests, 13 routes générées)**
+- [x] **Step 6: Commit**
 
 ---
 

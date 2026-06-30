@@ -2,7 +2,12 @@
 const config = {
   rootDir: '.',
   testEnvironment: 'node',
-  testMatch: ['<rootDir>/lib/**/*.test.ts', '<rootDir>/lib/**/*.test.tsx'],
+  testMatch: [
+    '<rootDir>/lib/**/*.test.ts',
+    '<rootDir>/lib/**/*.test.tsx',
+    '<rootDir>/app/**/*.test.ts',
+    '<rootDir>/app/**/*.test.tsx',
+  ],
   transform: {
     '^.+\\.(t|j)sx?$': [
       'ts-jest',
