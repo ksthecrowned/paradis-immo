@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { AdminModule } from './admin/admin.module';
 import { AuthModule } from './auth/auth.module';
 import { BookingsModule } from './bookings/bookings.module';
 import { EventModule } from './events/event.module';
@@ -20,6 +21,7 @@ import { VisitSlotsModule } from './visit-slots/visit-slots.module';
   imports: [
     PrismaModule,
     EventModule,
+    AdminModule,
     AuthModule,
     OrganizationsModule,
     UsersModule,
