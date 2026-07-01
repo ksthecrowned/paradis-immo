@@ -1000,6 +1000,8 @@ interface PaymentProvider {
 
 ## Phase 11 — Web Dashboard (Next.js)
 
+> **Amendment 2026-06-29:** Before Tasks 26–27, complete the dashboard UI revision plan in `docs/superpowers/plans/2026-06-29-paradis-immo-dashboard-ui-routes.md` (Tasks D1–D6): Darkone-inspired shell, English URL paths (`/owner/*`, `/agent/*`, `/admin/*`), design tokens. Spec: `docs/superpowers/specs/2026-06-29-paradis-immo-dashboard-ui-routes-design.md`.
+
 ### Task 24: Web foundation — auth, layout, Preline
 
 **Files:**

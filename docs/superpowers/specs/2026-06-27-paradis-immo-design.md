@@ -387,17 +387,21 @@ Permission levels: global role → organization context → property ownership/m
 
 ### 6.2 Web — Next.js (latest) App Router
 
-**Stack:** Next.js App Router, native `fetch` only, Preline + Tailwind. Shared types from `@paradis-immo/types`.
+**Stack:** Next.js App Router, native `fetch` only, Preline + Tailwind, ApexCharts, Lucide icons. Per-app local types from OpenAPI snapshot.
 
-**Routes:**
+**Visual design:** Darkone-inspired dark admin shell (see `docs/superpowers/specs/2026-06-29-paradis-immo-dashboard-ui-routes-design.md`). Shared `DashboardShell` (sidebar + topbar). No Bootstrap in bundle.
+
+**Routes (English paths, French UI labels):**
 
 ```
-/proprietaire   dashboard, biens, creneaux, visites, baux, paiements, maintenance, mandat
-/agent          dashboard, portefeuille, visites, baux, paiements/validation, maintenance
-/admin          dashboard, utilisateurs, moderation, config
+/owner          dashboard, properties, properties/add, properties/[id]/visit-slots,
+                visits, leases, payments, maintenance, mandate
+/agent          dashboard, portfolio, visits, leases, payments/validation, maintenance
+/admin          dashboard, users, moderation, config
+/login
 ```
 
-Role context switcher in header for multi-role users.
+Role context switcher in topbar for multi-role users. Legacy `/proprietaire/*` redirects during migration (one release).
 
 ### 6.3 Media upload (R2)
 
