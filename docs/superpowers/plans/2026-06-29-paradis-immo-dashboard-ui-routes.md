@@ -66,7 +66,7 @@ apps/web/
 - Produces: CSS variables `--dash-*` usable as Tailwind arbitrary values or `@theme` entries
 - Produces: `OWNER_NAV`, `AGENT_NAV`, `ADMIN_NAV` arrays `{ href, label }`
 
-- [ ] **Step 1: Add design tokens to globals.css**
+- [x] **Step 1: Add design tokens to globals.css**
 
 ```css
 :root {
