@@ -524,9 +524,11 @@ paradis-immo/
 
 ## 12. Testing strategy (MVP)
 
-- **API:** unit tests per module (payments, mandates, rent schedule generation), integration tests for critical flows (OTP auth, payment validation, lease → schedule)
-- **E2E:** booking flow, visit booking + paid visit, mandate approval blocking lease activation
-- **Manual:** Mobile Money sandbox, Infobip WhatsApp templates, R2 uploads
+See **`docs/superpowers/specs/2026-06-29-paradis-immo-testing-policy.md`**.
+
+- **API only:** unit + integration tests (Jest) in `apps/api`
+- **Web / mobile:** no automated tests — build, lint, manual QA
+- **Manual integrations:** Mobile Money sandbox, Infobip WhatsApp, R2 uploads
 
 ---
 

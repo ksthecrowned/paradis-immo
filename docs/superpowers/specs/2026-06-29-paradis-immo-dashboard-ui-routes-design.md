@@ -280,12 +280,14 @@ MVP does not ship a translation library. Preparation steps:
 
 ---
 
-## 10. Testing
+## 10. Quality assurance (no automated frontend tests)
 
-- **Visual:** snapshot or manual checklist against Darkone reference pages.
-- **Unit:** `StatCard`, `Breadcrumb`, `SidebarNav` render correct links for each role.
-- **Integration:** redirects from legacy `/proprietaire/*` paths return 308 to new paths.
-- **A11y:** sidebar keyboard nav, focus trap in mobile offcanvas.
+Per `docs/superpowers/specs/2026-06-29-paradis-immo-testing-policy.md`:
+
+- **Visual:** manual checklist against [Darkone reference](https://stackbros.in/darkone/index.html)
+- **Build:** `pnpm --filter web build` + lint
+- **Smoke:** login OTP, navigation, redirects `/proprietaire/*` → `/owner/*`
+- **A11y:** manual check — sidebar keyboard nav, mobile offcanvas focus
 
 ---
 

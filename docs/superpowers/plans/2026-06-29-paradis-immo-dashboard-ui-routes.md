@@ -15,6 +15,7 @@
 - No Bootstrap, jQuery, or Darkone CSS in the bundle — visual reference only
 - URL paths in English; UI labels in French
 - Native `fetch` only (no TanStack Query, no Zustand)
+- **No automated tests in web or mobile** — API only (see `docs/superpowers/specs/2026-06-29-paradis-immo-testing-policy.md`)
 - Preline + Tailwind v4 (`@source` in globals.css, not tailwind.config.js)
 - Dark theme only for dashboards at MVP
 - Legacy `/proprietaire/*` → `/owner/*` redirects for one release cycle
@@ -125,7 +126,6 @@ git commit -m "feat(web): add Darkone design tokens and English route constants"
 - Create: `apps/web/components/dashboard/breadcrumb.tsx`
 - Create: `apps/web/components/dashboard/stat-card.tsx`
 - Create: `apps/web/components/dashboard/page-header.tsx`
-- Test: `apps/web/components/dashboard/stat-card.test.tsx`
 
 **Interfaces:**
 - Produces: `DashboardShell({ role, children, breadcrumb })` — dark sidebar layout matching Darkone sidenav
@@ -137,30 +137,17 @@ git commit -m "feat(web): add Darkone design tokens and English route constants"
 cd apps/web && pnpm add apexcharts react-apexcharts lucide-react
 ```
 
-- [ ] **Step 2: Write failing test for StatCard**
+- [ ] **Step 2: Implement StatCard, PageHeader, Breadcrumb**
 
-```typescript
-import { renderToStaticMarkup } from 'react-dom/server';
-import { StatCard } from './stat-card';
+- [ ] **Step 3: Implement SidebarNav using Preline sidebar markup + `OWNER_NAV` from routes.ts**
 
-it('renders label and value', () => {
-  const html = renderToStaticMarkup(<StatCard label="Biens" value={12} />);
-  expect(html).toContain('Biens');
-  expect(html).toContain('12');
-});
-```
+- [ ] **Step 4: Implement Topbar with notification bell placeholder + logout**
 
-- [ ] **Step 3: Implement StatCard, PageHeader, Breadcrumb**
+- [ ] **Step 5: Implement DashboardShell composing sidebar + topbar + main content area**
 
-- [ ] **Step 4: Implement SidebarNav using Preline sidebar markup + `OWNER_NAV` from routes.ts**
+- [ ] **Step 6: Run `pnpm --filter web build` — PASS**
 
-- [ ] **Step 5: Implement Topbar with notification bell placeholder + logout**
-
-- [ ] **Step 6: Implement DashboardShell composing sidebar + topbar + main content area**
-
-- [ ] **Step 7: Run tests + build — PASS**
-
-- [ ] **Step 8: Commit**
+- [ ] **Step 7: Commit**
 
 ---
 
@@ -169,7 +156,7 @@ it('renders label and value', () => {
 **Files:**
 - Move: `apps/web/app/proprietaire/**` → `apps/web/app/owner/**`
 - Modify: `apps/web/next.config.ts` — add redirects
-- Modify: all internal links in owner pages, `owner-dashboard.tsx`, tests
+- Modify: all internal links in owner pages, `owner-dashboard.tsx`
 
 **Interfaces:**
 - Consumes: `ROUTES` from `lib/routes.ts`
@@ -205,11 +192,11 @@ async redirects() {
 }
 ```
 
-- [ ] **Step 4: Update `owner-dashboard.test.tsx` links to `/owner/properties`**
+- [ ] **Step 4: Update internal links in `owner-dashboard.tsx` to `ROUTES.owner.*`**
 
 - [ ] **Step 5: Delete empty `app/proprietaire` if redirects cover legacy paths only**
 
-- [ ] **Step 6: Run tests + build — PASS**
+- [ ] **Step 6: Run `pnpm --filter web build` — PASS**
 
 - [ ] **Step 7: Commit**
 
@@ -230,7 +217,7 @@ async redirects() {
 
 - [ ] **Step 4: Restyle login page (`/login`) — centered dark card like Darkone auth**
 
-- [ ] **Step 5: Run tests + build — PASS**
+- [ ] **Step 5: Run `pnpm --filter web build` — PASS**
 
 - [ ] **Step 6: Commit**
 

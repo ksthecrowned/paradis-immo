@@ -16,7 +16,7 @@
 - File storage: Cloudflare R2 only (presigned uploads, no files through API)
 - Messaging: Infobip WhatsApp only — no SMS
 - Mobile: Expo + React Native, native `fetch` only — no TanStack Query, no Zustand
-- Web: Next.js latest App Router, native `fetch` only, Preline + Tailwind — no Shadcn
+- Web: Next.js latest App Router, native `fetch` only, Preline + Tailwind — no Shadcn, **no frontend tests**
 - Property mode: exclusive — one of `RENT_SHORT`, `RENT_LONG`, `SALE` per active property
 - Launch market: Congo (`CG`) only; multi-country model ready in schema
 - Payments MVP: cash + agent validation + one Mobile Money provider (Airtel or MoMo)

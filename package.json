@@ -9,7 +9,8 @@
     "build": "pnpm -r build",
     "dev": "pnpm -r dev",
     "start": "pnpm -r start",
-    "test": "pnpm -r test",
+    "test": "pnpm --filter api test",
+    "test:e2e": "pnpm --filter api test:e2e",
     "lint": "pnpm -r lint",
     "export:openapi": "pnpm --filter api export:openapi",
     "generate:types": "node scripts/generate-types.mjs"
