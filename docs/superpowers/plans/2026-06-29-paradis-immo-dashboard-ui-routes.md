@@ -131,23 +131,23 @@ git commit -m "feat(web): add Darkone design tokens and English route constants"
 - Produces: `DashboardShell({ role, children, breadcrumb })` — dark sidebar layout matching Darkone sidenav
 - Produces: `StatCard({ label, value, hint?, trend? })`
 
-- [ ] **Step 1: Install deps**
+- [x] **Step 1: Install deps**
 
 ```bash
 cd apps/web && pnpm add apexcharts react-apexcharts lucide-react
 ```
 
-- [ ] **Step 2: Implement StatCard, PageHeader, Breadcrumb**
+- [x] **Step 2: Implement StatCard, PageHeader, Breadcrumb**
 
-- [ ] **Step 3: Implement SidebarNav using Preline sidebar markup + `OWNER_NAV` from routes.ts**
+- [x] **Step 3: Implement SidebarNav using Preline sidebar markup + `OWNER_NAV` from routes.ts**
 
-- [ ] **Step 4: Implement Topbar with notification bell placeholder + logout**
+- [x] **Step 4: Implement Topbar with notification bell placeholder + logout**
 
-- [ ] **Step 5: Implement DashboardShell composing sidebar + topbar + main content area**
+- [x] **Step 5: Implement DashboardShell composing sidebar + topbar + main content area**
 
-- [ ] **Step 6: Run `pnpm --filter web build` — PASS**
+- [x] **Step 6: Run `pnpm --filter web build` — PASS**
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ---
 
