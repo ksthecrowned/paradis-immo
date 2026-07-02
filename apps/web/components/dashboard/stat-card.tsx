@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import type { LucideIcon } from 'lucide-react';
 
 export interface StatCardProps {
@@ -6,6 +7,7 @@ export interface StatCardProps {
   hint?: string;
   trend?: { value: string; positive?: boolean };
   icon?: LucideIcon;
+  href?: string;
 }
 
 export function StatCard({
@@ -14,12 +16,13 @@ export function StatCard({
   hint,
   trend,
   icon: Icon,
+  href,
 }: StatCardProps): React.JSX.Element {
   const display =
     value === null || value === undefined ? '—' : String(value);
 
-  return (
-    <div className="rounded-xl border border-dash-border bg-dash-card p-5 shadow-sm">
+  const inner = (
+    <div className="rounded-xl border border-dash-border bg-dash-card p-5 shadow-sm transition-colors hover:border-dash-accent/30">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <p className="text-sm font-medium text-dash-text-muted">{label}</p>
@@ -48,4 +51,13 @@ export function StatCard({
       </div>
     </div>
   );
+
+  if (href) {
+    return (
+      <Link href={href} className="block focus:outline-none focus:ring-2 focus:ring-dash-accent">
+        {inner}
+      </Link>
+    );
+  }
+  return inner;
 }

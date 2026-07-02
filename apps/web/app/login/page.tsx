@@ -2,14 +2,18 @@
 
 import { useRouter } from 'next/navigation';
 import { useState, type FormEvent } from 'react';
+import { Building2 } from 'lucide-react';
 import { requestOtp, verifyOtp, getTokens } from '@/lib/auth';
 
-/**
- * Two-step OTP login.
- *  - Step 1: phone → server sends a 4-digit code via WhatsApp
- *  - Step 2: code → server returns the JWT pair + user
- *  On success we redirect to the marketplace home.
- */
+const inputClass =
+  'block w-full rounded-lg border border-dash-border bg-dash-bg px-3 py-2.5 text-sm text-dash-text placeholder:text-dash-text-muted focus:border-dash-accent focus:ring-dash-accent';
+
+const btnPrimaryClass =
+  'inline-flex w-full items-center justify-center rounded-lg bg-dash-accent px-4 py-2.5 text-sm font-semibold text-white hover:bg-dash-accent/90 disabled:opacity-50';
+
+const btnSecondaryClass =
+  'inline-flex w-full items-center justify-center rounded-lg border border-dash-border bg-dash-card px-4 py-2.5 text-sm font-medium text-dash-text hover:bg-dash-sidebar';
+
 export default function LoginPage(): React.JSX.Element {
   const router = useRouter();
   const [phone, setPhone] = useState('+242');
@@ -18,7 +22,6 @@ export default function LoginPage(): React.JSX.Element {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // If we already have tokens, jump straight to the home page.
   if (typeof window !== 'undefined' && getTokens().accessToken) {
     router.replace('/owner/dashboard');
   }
@@ -52,20 +55,26 @@ export default function LoginPage(): React.JSX.Element {
   }
 
   return (
-    <main className="flex flex-1 items-center justify-center bg-gray-50 px-4 py-12 sm:px-6 lg:px-8 dark:bg-neutral-900">
+    <main className="flex min-h-screen items-center justify-center bg-dash-bg px-4 py-12">
       <div className="w-full max-w-md">
-        <h1 className="mb-6 text-center text-2xl font-bold text-gray-900 dark:text-white">
-          Connexion à Paradis Immo
-        </h1>
+        <div className="mb-8 text-center">
+          <div className="mx-auto mb-4 flex size-14 items-center justify-center rounded-2xl bg-dash-accent/15 text-dash-accent">
+            <Building2 className="size-7" aria-hidden />
+          </div>
+          <h1 className="text-2xl font-bold text-dash-text">Paradis Immo</h1>
+          <p className="mt-2 text-sm text-dash-text-muted">
+            Connectez-vous avec votre numéro WhatsApp
+          </p>
+        </div>
 
         {stage === 'phone' ? (
           <form
             onSubmit={onRequestOtp}
-            className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-neutral-700 dark:bg-neutral-800"
+            className="rounded-xl border border-dash-border bg-dash-card p-6 shadow-lg"
           >
             <label
               htmlFor="phone"
-              className="mb-2 block text-sm font-medium text-gray-700 dark:text-neutral-300"
+              className="mb-2 block text-sm font-medium text-dash-text"
             >
               Numéro de téléphone
             </label>
@@ -78,35 +87,31 @@ export default function LoginPage(): React.JSX.Element {
               placeholder="+242069000000"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
-              className="block w-full rounded-lg border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:ring-blue-500 dark:border-neutral-600 dark:bg-neutral-900 dark:text-neutral-200"
+              className={inputClass}
             />
-            <p className="mt-2 text-xs text-gray-500 dark:text-neutral-400">
+            <p className="mt-2 text-xs text-dash-text-muted">
               Nous vous enverrons un code à 4 chiffres par WhatsApp.
             </p>
             {error ? (
               <p
                 role="alert"
-                className="mt-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-900/40 dark:text-red-200"
+                className="mt-3 rounded-lg bg-dash-danger/10 px-3 py-2 text-sm text-dash-danger"
               >
                 {error}
               </p>
             ) : null}
-            <button
-              type="submit"
-              disabled={busy}
-              className="mt-5 inline-flex w-full items-center justify-center gap-x-2 rounded-lg border border-transparent bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
-            >
+            <button type="submit" disabled={busy} className={`mt-5 ${btnPrimaryClass}`}>
               {busy ? 'Envoi…' : 'Recevoir le code'}
             </button>
           </form>
         ) : (
           <form
             onSubmit={onVerifyOtp}
-            className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-neutral-700 dark:bg-neutral-800"
+            className="rounded-xl border border-dash-border bg-dash-card p-6 shadow-lg"
           >
             <label
               htmlFor="code"
-              className="mb-2 block text-sm font-medium text-gray-700 dark:text-neutral-300"
+              className="mb-2 block text-sm font-medium text-dash-text"
             >
               Code reçu par WhatsApp
             </label>
@@ -122,21 +127,17 @@ export default function LoginPage(): React.JSX.Element {
               placeholder="1234"
               value={code}
               onChange={(e) => setCode(e.target.value)}
-              className="block w-full rounded-lg border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:ring-blue-500 dark:border-neutral-600 dark:bg-neutral-900 dark:text-neutral-200"
+              className={inputClass}
             />
             {error ? (
               <p
                 role="alert"
-                className="mt-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-900/40 dark:text-red-200"
+                className="mt-3 rounded-lg bg-dash-danger/10 px-3 py-2 text-sm text-dash-danger"
               >
                 {error}
               </p>
             ) : null}
-            <button
-              type="submit"
-              disabled={busy}
-              className="mt-5 inline-flex w-full items-center justify-center gap-x-2 rounded-lg border border-transparent bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
-            >
+            <button type="submit" disabled={busy} className={`mt-5 ${btnPrimaryClass}`}>
               {busy ? 'Vérification…' : 'Se connecter'}
             </button>
             <button
@@ -146,7 +147,7 @@ export default function LoginPage(): React.JSX.Element {
                 setCode('');
                 setError(null);
               }}
-              className="mt-2 inline-flex w-full items-center justify-center rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-200"
+              className={`mt-2 ${btnSecondaryClass}`}
             >
               Modifier le numéro
             </button>
