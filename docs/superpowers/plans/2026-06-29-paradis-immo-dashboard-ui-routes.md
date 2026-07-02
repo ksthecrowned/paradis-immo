@@ -232,13 +232,13 @@ async redirects() {
 
 **Note:** Use English paths from day one (`/agent/portfolio`, `/admin/users`).
 
-- [ ] **Step 1: Agent layout + nav using `AGENT_NAV`**
+- [x] **Step 1: Agent layout + nav using `AGENT_NAV`**
 
-- [ ] **Step 2: Admin layout + nav using `ADMIN_NAV`**
+- [x] **Step 2: Admin layout + nav using `ADMIN_NAV`**
 
-- [ ] **Step 3: Placeholder pages with PageHeader + "Bientôt disponible"**
+- [x] **Step 3: Placeholder pages with PageHeader + "Bientôt disponible"**
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ---
 
@@ -247,9 +247,9 @@ async redirects() {
 **Files:**
 - Modify: `docs/superpowers/plans/2026-06-27-paradis-immo-mvp.md` — note Tasks 26–27 use `/agent` and `/admin` English paths + DashboardShell
 
-- [ ] **Step 1: Add amendment note at top of Phase 11 in parent plan**
+- [x] **Step 1: Add amendment note at top of Phase 11 in parent plan**
 
-- [ ] **Step 2: Commit docs**
+- [x] **Step 2: Commit docs**
 
 ---
 

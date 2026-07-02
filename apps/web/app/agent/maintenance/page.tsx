@@ -1,10 +1,10 @@
 import { PlaceholderSection } from '@/components/placeholder-section';
 
-export default function OwnerMaintenancePage(): React.JSX.Element {
+export default function AgentMaintenancePage(): React.JSX.Element {
   return (
     <PlaceholderSection
       title="Maintenance"
-      description="Tickets de maintenance ouverts sur vos biens."
+      description="Tickets d'intervention et assignation des techniciens."
       apiReady={true}
     />
   );
