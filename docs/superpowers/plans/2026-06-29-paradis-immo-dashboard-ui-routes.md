@@ -211,15 +211,15 @@ async redirects() {
 
 - [x] **Step 1: Replace custom sidebar in owner layout with `<DashboardShell role="owner">`**
 
-- [ ] **Step 2: Restyle OwnerDashboard stat cards using `<StatCard>`**
+- [x] **Step 2: Restyle OwnerDashboard stat cards using `<StatCard>`**
 
-- [ ] **Step 3: Add ApexCharts revenue placeholder chart on dashboard (static data OK for MVP shell)**
+- [x] **Step 3: Add ApexCharts revenue placeholder chart on dashboard (static data OK for MVP shell)**
 
-- [ ] **Step 4: Restyle login page (`/login`) — centered dark card like Darkone auth**
+- [x] **Step 4: Restyle login page (`/login`) — centered dark card like Darkone auth**
 
-- [ ] **Step 5: Run `pnpm --filter web build` — PASS**
+- [x] **Step 5: Run `pnpm --filter web build` — PASS**
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ---
 
