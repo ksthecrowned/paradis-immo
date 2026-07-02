@@ -19,17 +19,11 @@ export function PlaceholderSection({
   return (
     <section className="space-y-4">
       <header>
-        <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">
-          {title}
-        </h1>
-        <p className="mt-1 text-sm text-gray-500 dark:text-neutral-400">
-          {description}
-        </p>
+        <h1 className="text-2xl font-semibold text-dash-text">{title}</h1>
+        <p className="mt-1 text-sm text-dash-text-muted">{description}</p>
       </header>
-      <div className="rounded-xl border border-dashed border-gray-300 bg-white p-6 text-sm text-gray-600 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-300">
-        <p className="font-medium text-gray-800 dark:text-neutral-100">
-          Page à venir
-        </p>
+      <div className="rounded-xl border border-dashed border-dash-border bg-dash-card p-6 text-sm text-dash-text-muted">
+        <p className="font-medium text-dash-text">Page à venir</p>
         <p className="mt-2">
           Cette section est en cours de conception. {apiReady
             ? 'Les endpoints API sont déjà disponibles côté backend — la page sera branchée dans une prochaine itération.'

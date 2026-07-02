@@ -15,7 +15,7 @@ import { getTokens } from '@/lib/auth';
 import {
   OwnerDashboard,
   type OwnerDashboardCounts,
-} from '@/app/proprietaire/dashboard/owner-dashboard';
+} from '@/app/owner/dashboard/owner-dashboard';
 
 interface PublicPayment {
   id: string;
@@ -66,7 +66,7 @@ export default function OwnerDashboardPage(): React.JSX.Element {
 
   if (error) {
     return (
-      <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-900/20 dark:text-red-200">
+      <div className="rounded-lg border border-dash-danger/40 bg-dash-danger/10 p-4 text-sm text-dash-danger">
         {error}
       </div>
     );
@@ -74,12 +74,12 @@ export default function OwnerDashboardPage(): React.JSX.Element {
   if (!counts) {
     return (
       <div className="animate-pulse space-y-6">
-        <div className="h-8 w-64 rounded bg-gray-200 dark:bg-neutral-800" />
+        <div className="h-8 w-64 rounded bg-dash-card" />
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {Array.from({ length: 4 }).map((_, i) => (
             <div
               key={i}
-              className="h-28 rounded-xl border border-gray-200 bg-white dark:border-neutral-700 dark:bg-neutral-800"
+              className="h-28 rounded-xl border border-dash-border bg-dash-card"
             />
           ))}
         </div>

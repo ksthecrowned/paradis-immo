@@ -161,9 +161,9 @@ cd apps/web && pnpm add apexcharts react-apexcharts lucide-react
 **Interfaces:**
 - Consumes: `ROUTES` from `lib/routes.ts`
 
-- [ ] **Step 1: Move directory `app/proprietaire` → `app/owner`**
+- [x] **Step 1: Move directory `app/proprietaire` → `app/owner`**
 
-- [ ] **Step 2: Rename subroutes**
+- [x] **Step 2: Rename subroutes**
 
 | Old | New |
 |---|---|
@@ -175,7 +175,7 @@ cd apps/web && pnpm add apexcharts react-apexcharts lucide-react
 | `paiements` | `payments` |
 | `mandat` | `mandate` |
 
-- [ ] **Step 3: Add redirects in next.config.ts**
+- [x] **Step 3: Add redirects in next.config.ts**
 
 ```typescript
 async redirects() {
@@ -192,13 +192,13 @@ async redirects() {
 }
 ```
 
-- [ ] **Step 4: Update internal links in `owner-dashboard.tsx` to `ROUTES.owner.*`**
+- [x] **Step 4: Update internal links in `owner-dashboard.tsx` to `ROUTES.owner.*`**
 
-- [ ] **Step 5: Delete empty `app/proprietaire` if redirects cover legacy paths only**
+- [x] **Step 5: Delete empty `app/proprietaire` if redirects cover legacy paths only**
 
-- [ ] **Step 6: Run `pnpm --filter web build` — PASS**
+- [x] **Step 6: Run `pnpm --filter web build` — PASS**
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ---
 
@@ -209,7 +209,7 @@ async redirects() {
 - Modify: `apps/web/app/owner/dashboard/owner-dashboard.tsx`
 - Modify: `apps/web/app/owner/dashboard/page.tsx`
 
-- [ ] **Step 1: Replace custom sidebar in owner layout with `<DashboardShell role="owner">`**
+- [x] **Step 1: Replace custom sidebar in owner layout with `<DashboardShell role="owner">`**
 
 - [ ] **Step 2: Restyle OwnerDashboard stat cards using `<StatCard>`**
 

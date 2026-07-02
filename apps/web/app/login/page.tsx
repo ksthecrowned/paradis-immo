@@ -20,7 +20,7 @@ export default function LoginPage(): React.JSX.Element {
 
   // If we already have tokens, jump straight to the home page.
   if (typeof window !== 'undefined' && getTokens().accessToken) {
-    router.replace('/');
+    router.replace('/owner/dashboard');
   }
 
   async function onRequestOtp(e: FormEvent<HTMLFormElement>): Promise<void> {
@@ -43,7 +43,7 @@ export default function LoginPage(): React.JSX.Element {
     setError(null);
     try {
       await verifyOtp(phone.trim(), code.trim());
-      router.replace('/');
+      router.replace('/owner/dashboard');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Code invalide');
     } finally {

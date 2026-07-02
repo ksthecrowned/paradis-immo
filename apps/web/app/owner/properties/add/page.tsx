@@ -1,4 +1,4 @@
-import { PlaceholderSection } from '@/app/proprietaire/_components/placeholder-section';
+import { PlaceholderSection } from '@/app/owner/_components/placeholder-section';
 
 export default function OwnerNouveauBienPage(): React.JSX.Element {
   return (
