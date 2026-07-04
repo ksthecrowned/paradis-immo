@@ -248,6 +248,22 @@ export class PaymentsService {
     return rows.map((p) => this.toPublic(p));
   }
 
+  /**
+   * Cash payments awaiting manual validation — shown in the agent
+   * validation queue (Task 26).
+   */
+  async listPendingValidation(): Promise<PublicPayment[]> {
+    const rows = await this.prisma.payment.findMany({
+      where: {
+        method: 'CASH',
+        status: PaymentStatus.PENDING_VALIDATION,
+      },
+      include: { allocations: true },
+      orderBy: { createdAt: 'desc' },
+    });
+    return rows.map((p) => this.toPublic(p));
+  }
+
   private async maybeMarkRentSchedulePaid(
     tx: Prisma.TransactionClient,
     scheduleId: string,

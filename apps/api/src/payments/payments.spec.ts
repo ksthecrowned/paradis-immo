@@ -270,6 +270,24 @@ describe('PaymentsService', () => {
     expect(schedule?.status).toBe('PAID');
   });
 
+  it('lists cash payments awaiting manual validation', async () => {
+    const payment = await payments.initiatePayment({
+      userId: tenantUserId,
+      amount: '50000',
+      currency: 'XAF',
+      method: 'CASH',
+      idempotencyKey: `cash-${Date.now()}-pending-list`,
+    });
+    createdPaymentIds.push(payment.id);
+
+    const pending = await payments.listPendingValidation();
+    expect(pending.some((p) => p.id === payment.id)).toBe(true);
+    pending.forEach((p) => {
+      expect(p.method).toBe('CASH');
+      expect(p.status).toBe('PENDING_VALIDATION');
+    });
+  });
+
   it('idempotency: same key returns the original payment (no duplicate)', async () => {
     const key = `idem-${Date.now()}`;
     const first = await payments.initiatePayment({
