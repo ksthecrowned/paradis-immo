@@ -1001,6 +1001,8 @@ interface PaymentProvider {
 ## Phase 11 — Web Dashboard (Next.js)
 
 > **Amendment 2026-06-29 (updated):** Tasks D1–D5 complete — Darkone `DashboardShell`, English routes, agent/admin placeholder pages. Tasks 26–27 implement feature pages on `/agent/*` and `/admin/*` using the shared shell (no French route segments).
+>
+> **Amendment 2026-07-04:** Partial delivery of Tasks 26–27 (payments validation, visits, admin stats/users), landing Estatery, theme toggle, seed test accounts. **Remaining web work is tracked in** `docs/superpowers/plans/2026-07-04-web-mvp-completion.md` (tasks W1–W10).
 
 ### Task 24: Web foundation — auth, layout, Preline
 
@@ -1068,40 +1070,40 @@ interface PaymentProvider {
 
 ### Task 26: Agent dashboard pages
 
+**Paths (English):** `/agent/dashboard`, `/agent/portfolio`, `/agent/visits`, `/agent/leases`, `/agent/payments/validation`, `/agent/maintenance`.
+
 **Files:**
 - Create: `apps/web/app/agent/layout.tsx`
 - Create: `apps/web/app/agent/dashboard/page.tsx`
-- Create: `apps/web/app/agent/portefeuille/page.tsx`
-- Create: `apps/web/app/agent/visites/page.tsx`
-- Create: `apps/web/app/agent/baux/page.tsx`
-- Create: `apps/web/app/agent/paiements/validation/page.tsx`
+- Create: `apps/web/app/agent/portfolio/page.tsx`
+- Create: `apps/web/app/agent/visits/page.tsx`
+- Create: `apps/web/app/agent/leases/page.tsx`
+- Create: `apps/web/app/agent/payments/validation/page.tsx`
 - Create: `apps/web/app/agent/maintenance/page.tsx`
 
-- [ ] **Step 1: Cash validation queue — list PENDING_VALIDATION payments with validate button**
-
-- [ ] **Step 2: Visites — today's schedule, confirm/cancel**
-
-- [ ] **Step 3: Lease create form — triggers mandate approval if property mandated**
-
-- [ ] **Step 4: Commit**
+- [x] **Step 1: Cash validation queue — list PENDING_VALIDATION payments with validate button** (`GET /payments/pending-validation`, page wired)
+- [x] **Step 2: Visites — managed list, confirm/cancel** (`GET /visits/managed`)
+- [ ] **Step 3: Lease create form — triggers mandate approval if property mandated** → plan **W3**
+- [ ] **Step 4: Portfolio + maintenance lists** → plan **W4**
+- [ ] **Step 5: Commit remaining**
 
 ---
 
 ### Task 27: Admin dashboard pages
 
+**Paths (English):** `/admin/dashboard`, `/admin/users`, `/admin/moderation`, `/admin/config`.
+
 **Files:**
 - Create: `apps/web/app/admin/layout.tsx`
 - Create: `apps/web/app/admin/dashboard/page.tsx`
-- Create: `apps/web/app/admin/utilisateurs/page.tsx`
+- Create: `apps/web/app/admin/users/page.tsx`
 - Create: `apps/web/app/admin/moderation/page.tsx`
 
-- [ ] **Step 1: Stats cards from GET /admin/stats**
-
-- [ ] **Step 2: Property moderation — pause/archive flagged listings**
-
-- [ ] **Step 3: Role context switcher in header for multi-role users**
-
-- [ ] **Step 4: Commit**
+- [x] **Step 1: Stats cards from GET /admin/stats**
+- [x] **Step 1b: Users list PaginatedDataTable on GET /admin/users**
+- [ ] **Step 2: Property moderation — pause/archive listings** → plan **W1**
+- [ ] **Step 3: Role context switcher in header for multi-role users** → plan **W2** (`lib/active-role.ts` exists, UI not wired)
+- [ ] **Step 4: Commit remaining**
 
 ---
 
@@ -1183,9 +1185,9 @@ interface PaymentProvider {
 
 ### Task 32: Otp gate + RBAC wiring (web/mobile)
 
-- [ ] **Step 1: Web — redirect unauthenticated users to /login**
+- [ ] **Step 1: Web — redirect unauthenticated users to /login** → plan **W8**
 
-- [ ] **Step 2: Web — route guards per role (proprietaire/agent/admin)**
+- [ ] **Step 2: Web — route guards per role (owner/agent/admin)** → plan **W8**
 
 - [ ] **Step 3: Mobile — auth gate on tabs**
 
@@ -1216,7 +1218,7 @@ interface PaymentProvider {
 - Create: `apps/api/Dockerfile`
 - Create: `apps/web/Dockerfile`
 - Modify: `docker-compose.yml` — add api + web services
-- Create: `README.md`
+- Create: `README.md` (root README exists for local dev; extend for production deploy)
 
 - [ ] **Step 1: Multi-stage Dockerfile for API**
 
