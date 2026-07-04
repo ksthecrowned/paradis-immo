@@ -1,60 +1,67 @@
+'use client';
+
+import { DashIcon } from '@/components/dash-icon';
+import type { DashIconName } from '@/lib/dash-icons';
+import { DASH_CHART_COLORS } from '@/lib/dash-icons';
 import Link from 'next/link';
-import type { LucideIcon } from 'lucide-react';
+import { StatCardSparkline } from './stat-card-sparkline';
 
 export interface StatCardProps {
   label: string;
   value: number | string | null;
-  hint?: string;
-  trend?: { value: string; positive?: boolean };
-  icon?: LucideIcon;
+  icon?: DashIconName;
   href?: string;
+  sparkline?: number[];
+  sparklineColor?: string;
 }
 
 export function StatCard({
   label,
   value,
-  hint,
-  trend,
-  icon: Icon,
+  icon,
   href,
+  sparkline,
+  sparklineColor,
 }: StatCardProps): React.JSX.Element {
   const display =
     value === null || value === undefined ? '—' : String(value);
+  const lineColor = sparklineColor ?? DASH_CHART_COLORS.purple;
 
   const inner = (
-    <div className="rounded-xl border border-dash-border bg-dash-card p-5 shadow-sm transition-colors hover:border-dash-accent/30">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-medium text-dash-text-muted">{label}</p>
-          <p className="mt-2 text-2xl font-semibold tracking-tight text-dash-text">
+    <div className="flex h-full flex-col overflow-hidden rounded-md border border-border bg-card">
+      <div className="flex items-start justify-between gap-3 p-5 pb-2">
+        <div className="min-w-0">
+          <p className="text-[13px] font-medium text-muted">{label}</p>
+          <p className="mt-2 text-[28px] font-semibold leading-none tracking-tight text-foreground">
             {display}
           </p>
-          {hint ? (
-            <p className="mt-1 text-xs text-dash-text-muted">{hint}</p>
-          ) : null}
-          {trend ? (
-            <p
-              className={
-                'mt-2 text-xs font-medium ' +
-                (trend.positive ? 'text-dash-success' : 'text-dash-danger')
-              }
-            >
-              {trend.value}
-            </p>
-          ) : null}
         </div>
-        {Icon ? (
-          <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-dash-accent/15 text-dash-accent">
-            <Icon className="size-5" aria-hidden />
+        {icon ? (
+          <div className="flex size-14 shrink-0 items-center justify-center rounded-md bg-accent-light/25">
+            <DashIcon
+              icon={icon}
+              className="text-accent"
+              width={24} height={24}
+            />
           </div>
         ) : null}
       </div>
+      {sparkline && sparkline.length > 0 ? (
+        <div className="mt-auto pb-1">
+          <StatCardSparkline data={sparkline} color={lineColor} />
+        </div>
+      ) : (
+        <div className="h-14" />
+      )}
     </div>
   );
 
   if (href) {
     return (
-      <Link href={href} className="block focus:outline-none focus:ring-2 focus:ring-dash-accent">
+      <Link
+        href={href}
+        className="block h-full transition-opacity hover:opacity-95 focus:outline-none focus:ring-2 focus:ring-accent"
+      >
         {inner}
       </Link>
     );

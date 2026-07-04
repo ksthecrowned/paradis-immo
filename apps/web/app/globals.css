@@ -1,56 +1,77 @@
 @import "tailwindcss";
 
-/* Preline UI — pulled in via @source so Tailwind v4 keeps the
- * utility classes that Preline's compiled components rely on. */
 @source "../../../node_modules/preline/dist/*.js";
-
-/* The forms plugin restores opinionated form styles that Tailwind v4
- * stopped shipping by default. */
 @plugin "@tailwindcss/forms";
 
+/*
+ * Darkone Bootstrap theme — mapped from:
+ * html[data-bs-theme=dark][data-topbar-color=dark]
+ * html[data-bs-theme=dark][data-sidebar-color=dark]
+ */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #171c21;
+  --foreground: #f1f1f1;
 
-  /* Darkone-inspired dashboard tokens (see specs/2026-06-29-paradis-immo-dashboard-ui-routes-design.md) */
-  --dash-bg: #0f111a;
-  --dash-sidebar: #1a1d2e;
-  --dash-card: #22263a;
-  --dash-border: #2d3348;
-  --dash-text: #e8eaed;
-  --dash-text-muted: #9aa0b4;
-  --dash-accent: #6c5ce7;
-  --dash-success: #00b894;
-  --dash-warning: #fdcb6e;
-  --dash-danger: #e17055;
+  --topbar: #1d2329;
+  --sidebar: #1d2329;
+  --card: #242b33;
+  --card-hover: #2a3139;
+  --border: #272f37;
+  --muted: #afb9cf;
+  --active: #ffffff;
+  --heading: #aab8c5;
+  --search: #232a31;
+  --input-border: #3a4551;
+  --input-focus-border: #4a5663;
+  --accent: #6658dd;
+  --accent-light: #7c6ffc;
+  --accent-muted: rgba(102, 88, 221, 0.15);
+  --success: #22c997;
+  --warning: #f5a623;
+  --danger: #ef4444;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --color-dash-bg: var(--dash-bg);
-  --color-dash-sidebar: var(--dash-sidebar);
-  --color-dash-card: var(--dash-card);
-  --color-dash-border: var(--dash-border);
-  --color-dash-text: var(--dash-text);
-  --color-dash-text-muted: var(--dash-text-muted);
-  --color-dash-accent: var(--dash-accent);
-  --color-dash-success: var(--dash-success);
-  --color-dash-warning: var(--dash-warning);
-  --color-dash-danger: var(--dash-danger);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-topbar: var(--topbar);
+  --color-sidebar: var(--sidebar);
+  --color-card: var(--card);
+  --color-card-hover: var(--card-hover);
+  --color-border: var(--border);
+  --color-muted: var(--muted);
+  --color-active: var(--active);
+  --color-heading: var(--heading);
+  --color-search: var(--search);
+  --color-input-border: var(--input-border);
+  --color-input-focus-border: var(--input-focus-border);
+  --color-accent: var(--accent);
+  --color-accent-light: var(--accent-light);
+  --color-accent-muted: var(--accent-muted);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+  --font-sans: var(--font-poppins);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-poppins), system-ui, sans-serif;
+}
+
+@layer base {
+  a,
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  label[for],
+  select:not(:disabled),
+  summary {
+    cursor: pointer;
+  }
+
+  button:disabled,
+  [aria-disabled="true"] {
+    cursor: not-allowed;
+  }
 }

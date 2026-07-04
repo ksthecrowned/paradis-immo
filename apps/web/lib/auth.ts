@@ -66,14 +66,14 @@ export async function verifyOtp(
   code: string,
   options: ApiFetchOptions = {},
 ): Promise<AuthSession> {
-  const res = await apiFetch<{ data: AuthSession }>('/auth/otp/verify', {
+  const session = await apiFetch<AuthSession>('/auth/otp/verify', {
     ...options,
     method: 'POST',
     body: { phone, code },
     anonymous: true,
   });
-  persistSession(res.data);
-  return res.data;
+  persistSession(session);
+  return session;
 }
 
 export function logout(): void {

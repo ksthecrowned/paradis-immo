@@ -177,3 +177,91 @@ async function tryRefresh(): Promise<boolean> {
 export function __resetApiForTests(): void {
   /* no-op */
 }
+
+type PaginatedApiBody<T> = {
+  statusCode: number;
+  data: T[];
+  meta: { total: number; page: number; pageSize: number };
+};
+
+/**
+ * Paginated list endpoints return `{ statusCode, data, meta }` at the
+ * top level. `apiFetch` would drop `meta`, so lists use this helper.
+ */
+export async function apiFetchPaginated<T>(
+  path: string,
+  options: ApiFetchOptions = {},
+): Promise<{ data: T[]; meta: PaginatedApiBody<T>['meta'] & { totalPages: number } }> {
+  const { body, anonymous, headers, ...rest } = options;
+  const url = path.startsWith('http') ? path : `${API_URL}${path}`;
+
+  const buildHeaders = (): Headers => {
+    const h = new Headers();
+    if (body !== undefined) h.set('Content-Type', 'application/json');
+    if (!anonymous) {
+      const tok = readAccessToken();
+      if (tok) h.set('Authorization', `Bearer ${tok}`);
+    }
+    if (headers) {
+      const incoming = new Headers(headers as HeadersInit);
+      incoming.forEach((v, k) => h.set(k, v));
+    }
+    return h;
+  };
+
+  const exec = async (): Promise<Response> => {
+    const init: RequestInit = {
+      ...rest,
+      headers: buildHeaders(),
+      body: body === undefined ? undefined : JSON.stringify(body),
+    };
+    return fetch(url, init);
+  };
+
+  let res = await exec();
+  if (res.status === 401 && !anonymous) {
+    const refreshed = await tryRefresh();
+    if (refreshed) {
+      res = await exec();
+    } else {
+      clearTokens();
+    }
+  }
+
+  const text = await res.text();
+  let parsed: unknown = null;
+  if (text) {
+    try {
+      parsed = JSON.parse(text);
+    } catch {
+      parsed = text;
+    }
+  }
+
+  if (!res.ok) {
+    const apiMessage =
+      parsed &&
+      typeof parsed === 'object' &&
+      'message' in parsed &&
+      typeof (parsed as { message?: unknown }).message === 'string'
+        ? (parsed as { message: string }).message
+        : '';
+    const message: string =
+      apiMessage || res.statusText || `Request failed (${res.status})`;
+    throw new ApiError(message, res.status, parsed);
+  }
+
+  const envelope = parsed as PaginatedApiBody<T>;
+  const pageSize = envelope.meta?.pageSize ?? 20;
+  const total = envelope.meta?.total ?? 0;
+
+  return {
+    data: envelope.data ?? [],
+    meta: {
+      total,
+      page: envelope.meta?.page ?? 1,
+      pageSize,
+      totalPages: Math.max(1, Math.ceil(total / pageSize) || 1),
+    },
+  };
+}

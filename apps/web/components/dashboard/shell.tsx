@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { DashIcon } from '@/components/dash-icon';
+import { DASH_ICONS } from '@/lib/dash-icons';
 import { usePathname } from 'next/navigation';
-import { Menu, X } from 'lucide-react';
-import { Breadcrumb, type BreadcrumbItem } from './breadcrumb';
+import { useEffect, useState } from 'react';
+import { BrandMark } from './brand-mark';
 import { SidebarNav, type DashboardRole } from './sidebar-nav';
 import { Topbar } from './topbar';
 
@@ -19,31 +20,62 @@ function usePrelineInit(): void {
   }, [pathname]);
 }
 
+function useIsLg(): boolean {
+  const [isLg, setIsLg] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 1024px)');
+    const update = (): void => setIsLg(mq.matches);
+    update();
+    mq.addEventListener('change', update);
+    return () => mq.removeEventListener('change', update);
+  }, []);
+  return isLg;
+}
+
 export interface DashboardShellProps {
   role: DashboardRole;
-  breadcrumb?: BreadcrumbItem[];
   children: React.ReactNode;
 }
 
+const SIDEBAR_FULL = 250;
+const SIDEBAR_COLLAPSED = 72;
+
 export function DashboardShell({
   role,
-  breadcrumb = [],
   children,
 }: DashboardShellProps): React.JSX.Element {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
+  const isLg = useIsLg();
   usePrelineInit();
 
-  const mobileTitle =
-    breadcrumb.length > 0
-      ? breadcrumb[breadcrumb.length - 1]?.label
-      : undefined;
+  const sidebarWidth = collapsed ? SIDEBAR_COLLAPSED : SIDEBAR_FULL;
+  const mainOffset = isLg ? sidebarWidth : 0;
+
+  function toggleSidebar(): void {
+    if (!isLg) {
+      setMobileOpen((v) => !v);
+    } else {
+      setCollapsed((v) => !v);
+    }
+  }
 
   return (
-    <div className="min-h-screen bg-dash-bg text-dash-text">
+    <div className="min-h-screen bg-background text-foreground">
+      <header className="sticky top-0 z-40 flex h-[70px] bg-topbar">
+        <div
+          className="hidden shrink-0 items-center border-e border-border px-5 transition-[width] duration-200 lg:flex"
+          style={{ width: isLg ? sidebarWidth : SIDEBAR_FULL }}
+        >
+          <BrandMark compact={collapsed} />
+        </div>
+        <Topbar onMenuClick={toggleSidebar} />
+      </header>
+
       {mobileOpen ? (
         <button
           type="button"
-          className="fixed inset-0 z-40 bg-black/50 lg:hidden"
+          className="fixed inset-0 z-40 bg-black/60 lg:hidden"
           aria-label="Fermer le menu"
           onClick={() => setMobileOpen(false)}
         />
@@ -51,45 +83,35 @@ export function DashboardShell({
 
       <aside
         className={
-          'fixed inset-y-0 start-0 z-50 w-64 border-e border-dash-border bg-dash-sidebar transition-transform duration-200 lg:translate-x-0 ' +
+          'fixed bottom-0 start-0 top-[70px] z-50 border-e border-border bg-sidebar transition-[width,transform] duration-200 lg:translate-x-0 ' +
           (mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0')
         }
+        style={{ width: mobileOpen ? SIDEBAR_FULL : sidebarWidth }}
       >
-        <div className="flex items-center justify-end border-b border-dash-border p-2 lg:hidden">
+        <div className="flex items-center justify-between border-b border-border px-4 py-3 lg:hidden">
+          <BrandMark />
           <button
             type="button"
-            className="inline-flex size-9 items-center justify-center rounded-lg text-dash-text-muted hover:bg-dash-card"
-            aria-label="Fermer la navigation"
+            className="inline-flex size-8 items-center justify-center rounded-lg text-muted hover:bg-card"
+            aria-label="Fermer"
             onClick={() => setMobileOpen(false)}
           >
-            <X className="size-5" />
+            <DashIcon icon={DASH_ICONS.close} width={20} height={20} />
           </button>
         </div>
-        <SidebarNav role={role} onNavigate={() => setMobileOpen(false)} />
+        <SidebarNav
+          role={role}
+          collapsed={collapsed && !mobileOpen}
+          onNavigate={() => setMobileOpen(false)}
+        />
       </aside>
 
-      <div className="lg:ps-64">
-        <div className="sticky top-0 z-30 flex items-center gap-3 border-b border-dash-border bg-dash-sidebar px-4 lg:hidden">
-          <button
-            type="button"
-            className="inline-flex size-9 items-center justify-center rounded-lg text-dash-text-muted hover:bg-dash-card"
-            aria-label="Ouvrir la navigation"
-            onClick={() => setMobileOpen(true)}
-          >
-            <Menu className="size-5" />
-          </button>
-          <span className="text-sm font-medium text-dash-text">
-            {mobileTitle ?? 'Paradis Immo'}
-          </span>
-        </div>
-
-        <Topbar title={mobileTitle} />
-
-        <main className="p-4 sm:p-6 lg:p-8">
-          {breadcrumb.length > 0 ? <Breadcrumb items={breadcrumb} /> : null}
-          {children}
-        </main>
-      </div>
+      <main
+        className="min-h-[calc(100vh-70px)] transition-[margin] duration-200"
+        style={{ marginInlineStart: mainOffset }}
+      >
+        <div className="p-4 sm:p-6 lg:p-8">{children}</div>
+      </main>
     </div>
   );
 }

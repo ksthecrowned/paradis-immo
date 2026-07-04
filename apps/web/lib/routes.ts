@@ -72,3 +72,40 @@ export function isNavActive(pathname: string, item: NavItem): boolean {
   if (item.exact) return pathname === item.href;
   return pathname === item.href || pathname.startsWith(`${item.href}/`);
 }
+
+const BREADCRUMB_LABELS: Record<string, string> = {
+  dashboard: 'Tableau de bord',
+  properties: 'Biens',
+  add: 'Ajouter',
+  'visit-slots': 'Créneaux de visite',
+  visits: 'Visites',
+  leases: 'Baux',
+  payments: 'Paiements',
+  validation: 'Validation paiements',
+  maintenance: 'Maintenance',
+  mandate: 'Mon mandat',
+  portfolio: 'Portefeuille',
+  users: 'Utilisateurs',
+  moderation: 'Modération',
+  config: 'Configuration',
+};
+
+export function breadcrumbForPath(pathname: string): { label: string; href?: string }[] {
+  const segments = pathname.split('/').filter(Boolean);
+  if (segments.length === 0) return [];
+  const role = segments[0];
+  const roleHome = `/${role}/dashboard`;
+  const items: { label: string; href?: string }[] = [
+    { label: 'Paradis Immo', href: roleHome },
+  ];
+  let path = '';
+  for (let i = 0; i < segments.length; i++) {
+    const seg = segments[i];
+    path += `/${seg}`;
+    const label = BREADCRUMB_LABELS[seg];
+    if (!label) continue;
+    const isLast = i === segments.length - 1;
+    items.push(isLast ? { label } : { label, href: path });
+  }
+  return items;
+}
