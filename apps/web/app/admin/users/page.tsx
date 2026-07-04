@@ -1,11 +1,5 @@
-import { PlaceholderSection } from '@/components/placeholder-section';
+import { AdminUsersPage } from '@/app/admin/users/admin-users';
 
-export default function AdminUsersPage(): React.JSX.Element {
-  return (
-    <PlaceholderSection
-      title="Utilisateurs"
-      description="Liste des comptes, rôles et organisations inscrites sur Paradis Immo."
-      apiReady={true}
-    />
-  );
+export default function Page(): React.JSX.Element {
+  return <AdminUsersPage />;
 }
