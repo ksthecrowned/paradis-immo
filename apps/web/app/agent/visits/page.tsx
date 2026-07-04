@@ -1,11 +1,5 @@
-import { PlaceholderSection } from '@/components/placeholder-section';
+import { AgentVisitsPage } from '@/app/agent/visits/agent-visits';
 
-export default function AgentVisitsPage(): React.JSX.Element {
-  return (
-    <PlaceholderSection
-      title="Visites"
-      description="Planning des visites à confirmer et à accompagner."
-      apiReady={true}
-    />
-  );
+export default function Page(): React.JSX.Element {
+  return <AgentVisitsPage />;
 }

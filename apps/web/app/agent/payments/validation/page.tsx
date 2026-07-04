@@ -1,11 +1,5 @@
-import { PlaceholderSection } from '@/components/placeholder-section';
+import { AgentPaymentsValidationPage } from '@/app/agent/payments/validation/agent-payments-validation';
 
-export default function AgentPaymentsValidationPage(): React.JSX.Element {
-  return (
-    <PlaceholderSection
-      title="Validation des paiements"
-      description="File d'attente des paiements en espèces à valider après encaissement."
-      apiReady={true}
-    />
-  );
+export default function Page(): React.JSX.Element {
+  return <AgentPaymentsValidationPage />;
 }
