@@ -14,16 +14,13 @@ export class ReceiptController {
     @CurrentUser() current: AuthenticatedUser,
     @Param('id') id: string,
   ) {
-    try {
-      return await this.receipts.findByIdForUser(id, current.userId);
-    } catch (err) {
-      if (err instanceof NotFoundException) {
-        throw new NotFoundException({
-          code: 'RECEIPT_NOT_FOUND',
-          message: 'Receipt not found',
-        });
-      }
-      throw err;
+    const receipt = await this.receipts.findByIdForUser(id, current.userId);
+    if (!receipt) {
+      throw new NotFoundException({
+        code: 'RECEIPT_NOT_FOUND',
+        message: 'Receipt not found',
+      });
     }
+    return receipt;
   }
 }
