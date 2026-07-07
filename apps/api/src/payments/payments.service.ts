@@ -264,6 +264,61 @@ export class PaymentsService {
     return rows.map((p) => this.toPublic(p));
   }
 
+  /**
+   * Payments on properties the user owns or manages (via an organization
+   * membership). Walks the chain properties → leases → rent schedules →
+   * payment allocations → payments.
+   */
+  async listManaged(userId: string): Promise<PublicPayment[]> {
+    const accessible = await this.prisma.property.findMany({
+      where: {
+        OR: [
+          { ownerId: userId },
+          {
+            organization: {
+              members: { some: { userId } },
+            },
+          },
+        ],
+      },
+      select: { id: true },
+      take: 500,
+    });
+    const propertyIds = accessible.map((p) => p.id);
+    if (propertyIds.length === 0) return [];
+
+    const leases = await this.prisma.lease.findMany({
+      where: { propertyId: { in: propertyIds } },
+      select: { id: true },
+    });
+    const leaseIds = leases.map((l) => l.id);
+    if (leaseIds.length === 0) return [];
+
+    const schedules = await this.prisma.rentSchedule.findMany({
+      where: { leaseId: { in: leaseIds } },
+      select: { id: true },
+    });
+    const scheduleIds = schedules.map((s) => s.id);
+    if (scheduleIds.length === 0) return [];
+
+    const allocations = await this.prisma.paymentAllocation.findMany({
+      where: { rentScheduleId: { in: scheduleIds } },
+      select: { paymentId: true },
+      distinct: ['paymentId'],
+      take: 500,
+    });
+    const paymentIds = Array.from(new Set(allocations.map((a) => a.paymentId)));
+    if (paymentIds.length === 0) return [];
+
+    const rows = await this.prisma.payment.findMany({
+      where: { id: { in: paymentIds } },
+      include: { allocations: true },
+      orderBy: { createdAt: 'desc' },
+      take: 200,
+    });
+    return rows.map((p) => this.toPublic(p));
+  }
+
   private async maybeMarkRentSchedulePaid(
     tx: Prisma.TransactionClient,
     scheduleId: string,

@@ -334,4 +334,44 @@ describe('PaymentsService', () => {
       false,
     );
   });
+
+  it('listManaged returns payments on properties the user owns', async () => {
+    const payment = await payments.initiatePayment({
+      userId: tenantUserId,
+      amount: '75000',
+      currency: 'XAF',
+      method: 'CASH',
+      idempotencyKey: `cash-${Date.now()}-managed`,
+    });
+    createdPaymentIds.push(payment.id);
+    await payments.validateCashPayment(agentUserId, payment.id, [
+      {
+        type: 'RENT_SCHEDULE',
+        refId: rentScheduleId,
+        amount: '75000',
+        rentScheduleId,
+      },
+    ]);
+
+    const managed = await payments.listManaged(ownerUserId);
+    expect(managed.length).toBeGreaterThan(0);
+    const hit = managed.find((p) => p.id === payment.id);
+    expect(hit).toBeDefined();
+    expect(hit?.status).toBe('VALIDATED');
+    expect(hit?.allocations.some((a) => a.rentScheduleId === rentScheduleId)).toBe(
+      true,
+    );
+    managed.forEach((p) => {
+      expect(p.id).toEqual(expect.any(String));
+      expect(p.amount).toEqual(expect.any(String));
+      expect(p.createdAt).toEqual(expect.any(String));
+      expect(Array.isArray(p.allocations)).toBe(true);
+    });
+  });
+
+  it('listManaged excludes payments for users with no managed properties', async () => {
+    // agentUserId has no properties of their own and is not a member of ownerOrg.
+    const managed = await payments.listManaged(agentUserId);
+    expect(managed).toEqual([]);
+  });
 });

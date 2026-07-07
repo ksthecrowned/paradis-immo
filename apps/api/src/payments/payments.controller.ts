@@ -92,6 +92,12 @@ export class PaymentsController {
     return this.payments.listPendingValidation();
   }
 
+  @Get('payments/managed')
+  @UseGuards(AppAuthGuard)
+  managed(@CurrentUser() current: AuthenticatedUser) {
+    return this.payments.listManaged(current.userId);
+  }
+
   @Post('payments/webhooks/mobile-money')
   @HttpCode(200)
   webhook(
