@@ -209,4 +209,25 @@ describe('LeasesService — schedule generation', () => {
     // 3 months: Jul, Aug, Sep
     expect(schedule).toHaveLength(3);
   });
+
+  it('listManaged returns leases for properties the user owns or manages', async () => {
+    const lease = await leases.createLease(ownerUserId, {
+      propertyId,
+      tenantId: tenantUserId,
+      startDate: new Date('2026-10-01T00:00:00Z'),
+      endDate: new Date('2026-12-31T00:00:00Z'),
+      monthlyRent: '120000',
+      currency: 'XAF',
+      deposit: '240000',
+    });
+    createdLeaseIds.push(lease.id);
+
+    const managed = await leases.listManaged(ownerUserId, {});
+    expect(Array.isArray(managed)).toBe(true);
+    const found = managed.find((l) => l.id === lease.id);
+    expect(found).toBeDefined();
+    expect(found?.propertyId).toBe(propertyId);
+    expect(found?.tenantId).toBe(tenantUserId);
+    expect(found?.status).toBe('DRAFT');
+  });
 });

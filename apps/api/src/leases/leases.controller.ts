@@ -6,6 +6,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { Type } from 'class-transformer';
@@ -14,6 +15,7 @@ import { AppAuthGuard } from '../common/guards/auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { LeasesService } from './leases.service';
+import { ListLeasesDto } from './dto/list-leases.dto';
 
 class CreateLeaseDto {
   @IsString() propertyId!: string;
@@ -37,6 +39,15 @@ export class LeasesController {
     @Body() dto: CreateLeaseDto,
   ) {
     return this.leases.createLease(current.userId, dto);
+  }
+
+  @Get('managed')
+  @UseGuards(AppAuthGuard)
+  managed(
+    @CurrentUser() current: AuthenticatedUser,
+    @Query() filter: ListLeasesDto,
+  ) {
+    return this.leases.listManaged(current.userId, filter);
   }
 
   @Patch(':id/activate')

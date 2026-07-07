@@ -9,6 +9,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { EventPublisher } from '../events/event.publisher';
 import { DOMAIN_EVENTS } from '../events/event.types';
 import { RentScheduleGenerator } from './rent-schedule.generator.service';
+import { ListLeasesDto } from './dto/list-leases.dto';
 
 export interface PublicLease {
   id: string;
@@ -112,6 +113,38 @@ export class LeasesService {
       },
     });
     return this.toPublic(lease);
+  }
+
+  async listManaged(
+    userId: string,
+    filter: ListLeasesDto,
+  ): Promise<PublicLease[]> {
+    const accessible = await this.prisma.property.findMany({
+      where: {
+        OR: [
+          { ownerId: userId },
+          {
+            organization: {
+              members: { some: { userId } },
+            },
+          },
+        ],
+      },
+      select: { id: true },
+      take: 500, // safety net: at most 500 distinct properties
+    });
+    const propertyIds = accessible.map((p) => p.id);
+    if (propertyIds.length === 0) return [];
+
+    const rows = await this.prisma.lease.findMany({
+      where: {
+        propertyId: { in: propertyIds },
+        ...(filter.status ? { status: filter.status } : {}),
+      },
+      orderBy: { createdAt: 'desc' },
+      take: filter.limit ?? 50,
+    });
+    return rows.map((l) => this.toPublic(l));
   }
 
   /**
