@@ -287,4 +287,51 @@ describe('BookingsService — short-term', () => {
     // At least the cancelled blocks from previous tests may have left a couple.
     expect(blocks.length).toBeGreaterThanOrEqual(0);
   });
+
+  it('lists managed bookings for an owner and returns PublicBooking[]', async () => {
+    const start = new Date('2026-12-01T00:00:00Z');
+    const end = new Date('2026-12-04T00:00:00Z');
+
+    const created = await bookings.createBooking(tenantUserId, {
+      propertyId: shortPropertyId,
+      startDate: start,
+      endDate: end,
+    });
+    createdBookingIds.push(created.id);
+
+    const result = await bookings.listManaged(ownerUserId);
+    expect(Array.isArray(result)).toBe(true);
+    const found = result.find((b) => b.id === created.id);
+    expect(found).toBeDefined();
+    expect(found).toMatchObject({
+      id: created.id,
+      propertyId: shortPropertyId,
+      userId: tenantUserId,
+      status: 'CONFIRMED',
+      currency: 'XAF',
+    });
+    expect(typeof found!.startDate).toBe('string');
+    expect(typeof found!.endDate).toBe('string');
+    expect(typeof found!.totalPrice).toBe('string');
+    expect(typeof found!.createdAt).toBe('string');
+  });
+
+  it('returns an empty managed list for a user who owns no properties', async () => {
+    const otherTenant = await prisma.user.create({
+      data: {
+        phone: `+24206${Math.floor(Math.random() * 1e7)
+          .toString()
+          .padStart(7, '0')}`,
+        countryId,
+        roles: { create: { role: 'TENANT' } },
+      },
+    });
+    try {
+      const result = await bookings.listManaged(otherTenant.id);
+      expect(result).toEqual([]);
+    } finally {
+      await prisma.userRole.deleteMany({ where: { userId: otherTenant.id } });
+      await prisma.user.delete({ where: { id: otherTenant.id } });
+    }
+  });
 });

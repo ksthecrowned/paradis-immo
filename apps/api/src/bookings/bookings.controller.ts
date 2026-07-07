@@ -62,6 +62,12 @@ export class BookingsController {
     return this.bookings.listMyBookings(current.userId);
   }
 
+  @Get('bookings/managed')
+  @UseGuards(AppAuthGuard)
+  managed(@CurrentUser() current: AuthenticatedUser) {
+    return this.bookings.listManaged(current.userId);
+  }
+
   @Patch('bookings/:id/cancel')
   @UseGuards(AppAuthGuard)
   cancel(@CurrentUser() current: AuthenticatedUser, @Param('id') id: string) {

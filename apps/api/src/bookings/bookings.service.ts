@@ -142,6 +142,31 @@ export class BookingsService {
     return rows.map((b) => this.toPublic(b));
   }
 
+  async listManaged(userId: string): Promise<PublicBooking[]> {
+    const accessible = await this.prisma.property.findMany({
+      where: {
+        OR: [
+          { ownerId: userId },
+          {
+            organization: {
+              members: { some: { userId } },
+            },
+          },
+        ],
+      },
+      select: { id: true },
+      take: 500,
+    });
+    const propertyIds = accessible.map((p) => p.id);
+    if (propertyIds.length === 0) return [];
+    const rows = await this.prisma.booking.findMany({
+      where: { propertyId: { in: propertyIds } },
+      orderBy: { createdAt: 'desc' },
+      take: 200,
+    });
+    return rows.map((b) => this.toPublic(b));
+  }
+
   async cancelBooking(
     userId: string,
     bookingId: string,
