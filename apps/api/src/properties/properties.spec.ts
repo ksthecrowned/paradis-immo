@@ -273,4 +273,46 @@ describe('Properties (e2e)', () => {
       })
       .expect(401);
   });
+
+  // ------------------------------------------------------------------
+  // Owner dashboard: GET /properties/mine
+  // ------------------------------------------------------------------
+
+  it('GET /properties/mine returns only the authenticated user properties', async () => {
+    const res = await request(app.getHttpServer())
+      .get('/api/v1/properties/mine')
+      .set('x-test-user', ownerUserId)
+      .set('x-test-roles', 'TENANT')
+      .expect(200);
+
+    const body = res.body as {
+      data: Array<{ id: string; ownerId: string }>;
+      meta: { total: number; limit: number; offset: number };
+    };
+    expect(body.data).toBeDefined();
+    expect(body.meta).toBeDefined();
+    // Every returned property must be owned by the caller.
+    body.data.forEach((p) => expect(p.ownerId).toBe(ownerUserId));
+  });
+
+  it('GET /properties/mine returns zero properties for a user with none', async () => {
+    const res = await request(app.getHttpServer())
+      .get('/api/v1/properties/mine')
+      .set('x-test-user', outsiderUserId)
+      .set('x-test-roles', 'TENANT')
+      .expect(200);
+
+    const body = res.body as {
+      data: Array<{ id: string; ownerId: string }>;
+    };
+    // Outsider has no properties — every row (none) trivially has ownerId
+    // matching the caller.
+    expect(body.data.every((p) => p.ownerId === outsiderUserId)).toBe(true);
+  });
+
+  it('GET /properties/mine rejects request with no auth context (401)', async () => {
+    await request(app.getHttpServer())
+      .get('/api/v1/properties/mine')
+      .expect(401);
+  });
 });

@@ -193,6 +193,38 @@ export class PropertiesService {
     };
   }
 
+  /**
+   * List properties owned by the given user. Used by owner / agent dashboards
+   * to show "my listings". Honours the same `mode` / `status` filters as the
+   * public marketplace list, but is always scoped by `ownerId`.
+   */
+  async listMine(
+    userId: string,
+    filter: FilterPropertiesDto,
+  ): Promise<PaginatedProperties> {
+    const limit = filter.limit ?? 20;
+    const offset = filter.offset ?? 0;
+    const where: Prisma.PropertyWhereInput = {
+      ownerId: userId,
+      ...(filter.status ? { status: filter.status } : {}),
+      ...(filter.mode ? { mode: filter.mode } : {}),
+    };
+    const [rows, total] = await Promise.all([
+      this.prisma.property.findMany({
+        where,
+        include: this.publicInclude(),
+        orderBy: { createdAt: 'desc' },
+        take: limit,
+        skip: offset,
+      }),
+      this.prisma.property.count({ where }),
+    ]);
+    return {
+      data: rows.map((p) => this.toPublic(p)),
+      meta: { total, limit, offset },
+    };
+  }
+
   // ------------------------------------------------------------------
   // Update
   // ------------------------------------------------------------------
