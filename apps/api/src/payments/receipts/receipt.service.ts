@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { ForbiddenException, Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { R2Service } from '../../media/r2.service';
 import { renderReceiptPdf } from './receipt-pdf';
@@ -9,6 +9,14 @@ export interface GenerateForPaymentResult {
   receiptId: string;
   url: string;
   number: string;
+}
+
+export interface PublicReceipt {
+  id: string;
+  paymentId: string;
+  number: string;
+  url: string;
+  createdAt: string;
 }
 
 /**
@@ -91,6 +99,81 @@ export class ReceiptService {
       where: { id: receiptId },
       include: { payment: true },
     });
+  }
+
+  async findByIdForUser(
+    receiptId: string,
+    userId: string,
+  ): Promise<PublicReceipt | null> {
+    const receipt = await this.prisma.receipt.findUnique({
+      where: { id: receiptId },
+      include: {
+        payment: {
+          include: {
+            user: { select: { id: true } },
+            allocations: {
+              take: 1,
+              where: { type: 'RENT_SCHEDULE' },
+              include: {
+                rentSchedule: {
+                  include: {
+                    lease: {
+                      select: {
+                        property: {
+                          select: { ownerId: true, organizationId: true },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+    if (!receipt) return null;
+
+    const payment = receipt.payment;
+    // 1. Payer can always read their own receipt
+    if (payment.userId === userId) return this.toPublic(receipt);
+
+    // 2. Property owner or org member of any lease-allocation can read
+    for (const alloc of payment.allocations) {
+      const property = alloc.rentSchedule?.lease?.property;
+      if (!property) continue;
+      if (property.ownerId === userId) return this.toPublic(receipt);
+      const membership = await this.prisma.organizationMember.findUnique({
+        where: {
+          userId_organizationId: {
+            userId,
+            organizationId: property.organizationId,
+          },
+        },
+      });
+      if (membership) return this.toPublic(receipt);
+    }
+
+    throw new ForbiddenException({
+      code: 'NOT_RECEIPT_OWNER',
+      message: 'You are not authorized to read this receipt',
+    });
+  }
+
+  private toPublic(receipt: {
+    id: string;
+    paymentId: string;
+    number: string;
+    url: string;
+    createdAt: Date;
+  }): PublicReceipt {
+    return {
+      id: receipt.id,
+      paymentId: receipt.paymentId,
+      number: receipt.number,
+      url: receipt.url,
+      createdAt: receipt.createdAt.toISOString(),
+    };
   }
 
   private async resolvePropertyTitle(payment: {

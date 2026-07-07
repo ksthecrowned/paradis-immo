@@ -1,5 +1,6 @@
 import { Test } from '@nestjs/testing';
 import { Prisma } from '@prisma/client';
+import { ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { EventPublisher } from '../../events/event.publisher';
 import { R2Service } from '../../media/r2.service';
@@ -289,5 +290,36 @@ describe('ReceiptService', () => {
     expect(second.number).toBe(first.number);
     expect(second.url).toBe(first.url);
     expect(uploadSpy.mock.calls.length).toBe(callsAfterFirst);
+  });
+
+  it('findById returns null when receipt does not exist', async () => {
+    const fakePrisma = {
+      receipt: { findUnique: jest.fn().mockResolvedValue(null) },
+    } as any;
+    const svc = new ReceiptService(fakePrisma as any);
+    expect(await svc.findById('missing')).toBeNull();
+  });
+
+  it('findByIdForUser throws ForbiddenException for unrelated user', async () => {
+    const fakePrisma = {
+      receipt: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'r1',
+          paymentId: 'p1',
+          number: 'RC-1',
+          url: 'r2://',
+          createdAt: new Date('2026-01-01T00:00:00Z'),
+          payment: {
+            userId: 'payer-user',
+            allocations: [],
+          },
+        }),
+      },
+      organizationMember: { findUnique: jest.fn() },
+    } as any;
+    const svc = new ReceiptService(fakePrisma as any);
+    await expect(svc.findByIdForUser('r1', 'other-user')).rejects.toThrow(
+      ForbiddenException,
+    );
   });
 });
