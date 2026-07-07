@@ -68,6 +68,12 @@ export class MaintenanceController {
     return this.maintenance.listMine(current.userId);
   }
 
+  @Get('maintenance/tickets/managed')
+  @UseGuards(AppAuthGuard)
+  managed(@CurrentUser() current: AuthenticatedUser) {
+    return this.maintenance.listForActor(current.userId);
+  }
+
   @Get('maintenance/tickets')
   @UseGuards(AppAuthGuard)
   list(@CurrentUser() current: AuthenticatedUser) {

@@ -297,4 +297,68 @@ describe('MaintenanceService', () => {
     expect(assigned.status).toBe(MaintenanceStatus.ASSIGNED);
     expect(assigned.assigneeId).toBe(agentUserId);
   });
+
+  it('listForActor returns tickets on properties the actor owns', async () => {
+    // Create a fresh ticket on the owner-managed property
+    const t = await maintenance.createTicket({
+      propertyId: rentPropertyId,
+      reporterId: tenantUserId,
+      title: 'Vue owner',
+      description: 'Ticket vu par le owner',
+      priority: MaintenancePriority.MEDIUM,
+    });
+    createdTicketIds.push(t.id);
+
+    const tickets = await maintenance.listForActor(ownerUserId);
+    const ids = tickets.map((x) => x.id);
+    expect(ids).toContain(t.id);
+
+    // Shape check
+    const sample = tickets[0];
+    expect(sample).toEqual(
+      expect.objectContaining({
+        id: expect.any(String),
+        propertyId: expect.any(String),
+        reporterId: expect.any(String),
+        title: expect.any(String),
+        description: expect.any(String),
+        priority: expect.any(String),
+        status: expect.any(String),
+        requiresOwnerApproval: expect.any(Boolean),
+        createdAt: expect.any(String),
+        updatedAt: expect.any(String),
+      }),
+    );
+  });
+
+  it('listForActor returns tickets on properties the agent org manages', async () => {
+    // The agent is a member of agentOrgId, but the property is owned by
+    // ownerOrgId. listForActor filters by property.organization.members,
+    // so we add the agent to the owner org to exercise that branch.
+    await prisma.organizationMember.create({
+      data: {
+        organizationId: ownerOrgId,
+        userId: agentUserId,
+        role: 'AGENT',
+      },
+    });
+
+    const t = await maintenance.createTicket({
+      propertyId: rentPropertyId,
+      reporterId: tenantUserId,
+      title: 'Vue agent',
+      description: 'Ticket vu par le agent',
+      priority: MaintenancePriority.LOW,
+    });
+    createdTicketIds.push(t.id);
+
+    const tickets = await maintenance.listForActor(agentUserId);
+    const ids = tickets.map((x) => x.id);
+    expect(ids).toContain(t.id);
+  });
+
+  it('listForActor returns [] for an unrelated user', async () => {
+    const tickets = await maintenance.listForActor(tenantUserId);
+    expect(tickets).toEqual([]);
+  });
 });
