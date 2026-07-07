@@ -22,6 +22,7 @@ import {
 // Namespace import keeps the value at runtime (needed by emitDecoratorMetadata)
 // while letting `Request` be used purely as a type in the decorated signature.
 import type { Request as ExpressRequest } from 'express';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AppAuthGuard } from '../common/guards/auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../common/decorators/current-user.decorator';
@@ -51,6 +52,7 @@ class ValidatePaymentDto {
   allocations!: AllocationDto[];
 }
 
+@ApiTags('Payments')
 @Controller()
 export class PaymentsController {
   constructor(private readonly payments: PaymentsService) {}
@@ -58,6 +60,8 @@ export class PaymentsController {
   @Post('payments')
   @UseGuards(AppAuthGuard)
   @HttpCode(201)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Initiate a payment (cash or mobile money)' })
   initiate(
     @CurrentUser() current: AuthenticatedUser,
     @Body() dto: InitiatePaymentDto,
@@ -68,6 +72,8 @@ export class PaymentsController {
   @Post('payments/:id/validate')
   @UseGuards(AppAuthGuard)
   @HttpCode(200)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Validate a cash payment' })
   validate(
     @CurrentUser() current: AuthenticatedUser,
     @Param('id') id: string,
@@ -82,24 +88,33 @@ export class PaymentsController {
 
   @Get('payments/my')
   @UseGuards(AppAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: "List the user's own payments" })
   myPayments(@CurrentUser() current: AuthenticatedUser) {
     return this.payments.listMyPayments(current.userId);
   }
 
   @Get('payments/pending-validation')
   @UseGuards(AppAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'List cash payments awaiting agent validation',
+  })
   pendingValidation() {
     return this.payments.listPendingValidation();
   }
 
   @Get('payments/managed')
   @UseGuards(AppAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'List payments on managed properties' })
   managed(@CurrentUser() current: AuthenticatedUser) {
     return this.payments.listManaged(current.userId);
   }
 
   @Post('payments/webhooks/mobile-money')
   @HttpCode(200)
+  @ApiOperation({ summary: 'Mobile money provider webhook' })
   webhook(
     // @ts-expect-error TS1272 — namespaced types in decorated signatures are
     // not supported under nodenext + isolatedModules + emitDecoratorMetadata.

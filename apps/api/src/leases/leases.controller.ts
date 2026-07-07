@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 import { Type } from 'class-transformer';
 import { IsDate, IsNumber, IsString } from 'class-validator';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AppAuthGuard } from '../common/guards/auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../common/decorators/current-user.decorator';
@@ -27,6 +28,8 @@ class CreateLeaseDto {
   @IsString() currency!: string;
 }
 
+@ApiTags('Leases')
+@ApiBearerAuth()
 @Controller('leases')
 @UseGuards(AppAuthGuard)
 export class LeasesController {
@@ -34,6 +37,7 @@ export class LeasesController {
 
   @Post()
   @HttpCode(201)
+  @ApiOperation({ summary: 'Create a draft lease' })
   create(
     @CurrentUser() current: AuthenticatedUser,
     @Body() dto: CreateLeaseDto,
@@ -43,6 +47,9 @@ export class LeasesController {
 
   @Get('managed')
   @UseGuards(AppAuthGuard)
+  @ApiOperation({
+    summary: 'List leases on properties the user owns or manages',
+  })
   managed(
     @CurrentUser() current: AuthenticatedUser,
     @Query() filter: ListLeasesDto,
@@ -51,11 +58,13 @@ export class LeasesController {
   }
 
   @Patch(':id/activate')
+  @ApiOperation({ summary: 'Activate a draft lease (generates rent schedule)' })
   activate(@CurrentUser() current: AuthenticatedUser, @Param('id') id: string) {
     return this.leases.activateLease(current.userId, id);
   }
 
   @Get(':id/schedule')
+  @ApiOperation({ summary: 'Get the rent schedule for a lease' })
   schedule(@Param('id') id: string) {
     return this.leases.getSchedule(id);
   }

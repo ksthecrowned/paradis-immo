@@ -9,6 +9,7 @@ import {
 } from '@nestjs/common';
 import { Type } from 'class-transformer';
 import { IsDate, IsOptional, IsString } from 'class-validator';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AppAuthGuard } from '../common/guards/auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../common/decorators/current-user.decorator';
@@ -26,6 +27,8 @@ class DecideApprovalDto {
   @IsOptional() @IsString() note?: string;
 }
 
+@ApiTags('Mandates')
+@ApiBearerAuth()
 @Controller('mandates')
 @UseGuards(AppAuthGuard)
 export class MandatesController {
@@ -35,6 +38,7 @@ export class MandatesController {
   ) {}
 
   @Post()
+  @ApiOperation({ summary: 'Create a mandate (delegation to an org)' })
   create(
     @CurrentUser() current: AuthenticatedUser,
     @Body() dto: CreateMandateDto,
@@ -43,11 +47,13 @@ export class MandatesController {
   }
 
   @Get('pending-approvals')
+  @ApiOperation({ summary: 'List pending owner approvals' })
   pending(@CurrentUser() current: AuthenticatedUser) {
     return this.approvals.listPendingForOwner(current.userId);
   }
 
   @Patch('approvals/:id')
+  @ApiOperation({ summary: 'Approve or reject a pending approval' })
   decide(
     @CurrentUser() current: AuthenticatedUser,
     @Param('id') id: string,

@@ -35,6 +35,7 @@ export class PropertiesController {
   // Public reads ----------------------------------------------------
 
   @Get()
+  @ApiOperation({ summary: 'List active properties (public marketplace)' })
   list(@Query() filter: FilterPropertiesDto) {
     return this.properties.list(filter);
   }
@@ -52,6 +53,7 @@ export class PropertiesController {
   }
 
   @Get(':id')
+  @ApiOperation({ summary: 'Get a single property by id' })
   getOne(@Param('id') id: string) {
     return this.properties.getOne(id);
   }
@@ -61,6 +63,7 @@ export class PropertiesController {
   @Post()
   @UseGuards(AppAuthGuard)
   @HttpCode(201)
+  @ApiOperation({ summary: 'Create a new property' })
   create(
     @CurrentUser() current: AuthenticatedUser,
     @Body() dto: CreatePropertyDto,
@@ -70,6 +73,7 @@ export class PropertiesController {
 
   @Patch(':id')
   @UseGuards(AppAuthGuard)
+  @ApiOperation({ summary: 'Update an existing property' })
   update(
     @CurrentUser() current: AuthenticatedUser,
     @Param('id') id: string,
@@ -81,6 +85,7 @@ export class PropertiesController {
   @Post(':id/archive')
   @UseGuards(AppAuthGuard)
   @HttpCode(200)
+  @ApiOperation({ summary: 'Archive a property' })
   archive(@CurrentUser() current: AuthenticatedUser, @Param('id') id: string) {
     return this.properties.archive(current.userId, id);
   }

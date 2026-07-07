@@ -15,6 +15,7 @@ import {
   IsUUID,
 } from 'class-validator';
 import { MaintenancePriority, MaintenanceStatus } from '@prisma/client';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AppAuthGuard } from '../common/guards/auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../common/decorators/current-user.decorator';
@@ -41,12 +42,15 @@ class AssignTicketDto {
   @IsUUID() assigneeId!: string;
 }
 
+@ApiTags('Maintenance')
+@ApiBearerAuth()
 @Controller()
 export class MaintenanceController {
   constructor(private readonly maintenance: MaintenanceService) {}
 
   @Post('maintenance/tickets')
   @UseGuards(AppAuthGuard)
+  @ApiOperation({ summary: 'Open a maintenance ticket' })
   create(
     @CurrentUser() current: AuthenticatedUser,
     @Body() dto: CreateTicketDto,
@@ -64,24 +68,28 @@ export class MaintenanceController {
 
   @Get('maintenance/tickets/my')
   @UseGuards(AppAuthGuard)
+  @ApiOperation({ summary: 'List tickets reported by the user' })
   mine(@CurrentUser() current: AuthenticatedUser) {
     return this.maintenance.listMine(current.userId);
   }
 
   @Get('maintenance/tickets/managed')
   @UseGuards(AppAuthGuard)
+  @ApiOperation({ summary: 'List tickets on managed properties' })
   managed(@CurrentUser() current: AuthenticatedUser) {
     return this.maintenance.listForActor(current.userId);
   }
 
   @Get('maintenance/tickets')
   @UseGuards(AppAuthGuard)
+  @ApiOperation({ summary: 'List tickets visible to the actor' })
   list(@CurrentUser() current: AuthenticatedUser) {
     return this.maintenance.listForActor(current.userId);
   }
 
   @Patch('maintenance/tickets/:id')
   @UseGuards(AppAuthGuard)
+  @ApiOperation({ summary: 'Update a ticket status or estimated cost' })
   update(@Param('id') id: string, @Body() dto: UpdateTicketDto) {
     return this.maintenance.updateTicket(id, {
       status: dto.status,
@@ -91,6 +99,7 @@ export class MaintenanceController {
 
   @Patch('maintenance/tickets/:id/assign')
   @UseGuards(AppAuthGuard)
+  @ApiOperation({ summary: 'Assign a ticket to a technician' })
   assign(@Param('id') id: string, @Body() dto: AssignTicketDto) {
     return this.maintenance.assignTicket(id, dto.assigneeId);
   }

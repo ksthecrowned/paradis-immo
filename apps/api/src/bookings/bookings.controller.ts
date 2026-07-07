@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 import { Type } from 'class-transformer';
 import { IsDate, IsOptional, IsString } from 'class-validator';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AppAuthGuard } from '../common/guards/auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../common/decorators/current-user.decorator';
@@ -28,6 +29,8 @@ class AvailabilityQueryDto {
   @IsOptional() @Type(() => Date) @IsDate() to?: Date;
 }
 
+@ApiTags('Bookings')
+@ApiBearerAuth()
 @Controller()
 export class BookingsController {
   constructor(
@@ -36,6 +39,7 @@ export class BookingsController {
   ) {}
 
   @Get('properties/:id/availability')
+  @ApiOperation({ summary: 'List availability blocks for a property' })
   listAvailability(
     @Param('id') id: string,
     @Query() query: AvailabilityQueryDto,
@@ -49,6 +53,7 @@ export class BookingsController {
   @Post('bookings')
   @UseGuards(AppAuthGuard)
   @HttpCode(201)
+  @ApiOperation({ summary: 'Create a short-stay booking' })
   create(
     @CurrentUser() current: AuthenticatedUser,
     @Body() dto: CreateBookingDto,
@@ -58,18 +63,21 @@ export class BookingsController {
 
   @Get('bookings/my')
   @UseGuards(AppAuthGuard)
+  @ApiOperation({ summary: "List the authenticated user's bookings" })
   myBookings(@CurrentUser() current: AuthenticatedUser) {
     return this.bookings.listMyBookings(current.userId);
   }
 
   @Get('bookings/managed')
   @UseGuards(AppAuthGuard)
+  @ApiOperation({ summary: 'List bookings on managed properties' })
   managed(@CurrentUser() current: AuthenticatedUser) {
     return this.bookings.listManaged(current.userId);
   }
 
   @Patch('bookings/:id/cancel')
   @UseGuards(AppAuthGuard)
+  @ApiOperation({ summary: 'Cancel a booking' })
   cancel(@CurrentUser() current: AuthenticatedUser, @Param('id') id: string) {
     return this.bookings.cancelBooking(current.userId, id);
   }

@@ -7,6 +7,7 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import {
   CurrentUser,
   OptionalUser,
@@ -27,11 +28,13 @@ import { MediaService } from './media.service';
  * Why split it: R2 (S3-compatible) is reached directly by the browser
  * without our API proxying the bytes. The API only handles auth and metadata.
  */
+@ApiTags('Media')
 @Controller('properties/:id/media')
 export class MediaController {
   constructor(private readonly media: MediaService) {}
 
   @Get()
+  @ApiOperation({ summary: 'List media for a property' })
   list(
     @Param('id') id: string,
     @OptionalUser() current: AuthenticatedUser | null,
@@ -42,6 +45,8 @@ export class MediaController {
   @Post('presign')
   @UseGuards(AppAuthGuard)
   @HttpCode(201)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get a presigned R2 upload URL' })
   presign(
     @CurrentUser() current: AuthenticatedUser,
     @Param('id') id: string,
@@ -53,6 +58,8 @@ export class MediaController {
   @Post('confirm')
   @UseGuards(AppAuthGuard)
   @HttpCode(201)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Confirm a media upload' })
   confirm(
     @CurrentUser() current: AuthenticatedUser,
     @Param('id') id: string,

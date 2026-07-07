@@ -19,6 +19,7 @@ import {
   Max,
   Min,
 } from 'class-validator';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AppAuthGuard } from '../common/guards/auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../common/decorators/current-user.decorator';
@@ -46,6 +47,7 @@ class AvailableSlotsQueryDto {
  * Visit-slot management endpoints. Templates and manual blocks are owner/
  * agent-only; the read endpoint for available slots is public (marketplace).
  */
+@ApiTags('VisitSlots')
 @Controller()
 export class VisitSlotsController {
   constructor(private readonly slots: VisitSlotsService) {}
@@ -53,6 +55,8 @@ export class VisitSlotsController {
   @Post('properties/:id/visit-templates')
   @UseGuards(AppAuthGuard)
   @HttpCode(201)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Create a weekly visit-slot template' })
   createTemplate(
     @CurrentUser() current: AuthenticatedUser,
     @Param('id') id: string,
@@ -62,6 +66,8 @@ export class VisitSlotsController {
   }
 
   @Get('properties/:id/visit-templates')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'List visit-slot templates for a property' })
   listTemplates(
     @CurrentUser() current: AuthenticatedUser,
     @Param('id') id: string,
@@ -71,6 +77,8 @@ export class VisitSlotsController {
 
   @Patch('visit-templates/:templateId/deactivate')
   @UseGuards(AppAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Deactivate a template' })
   deactivateTemplate(
     @CurrentUser() current: AuthenticatedUser,
     @Param('templateId') templateId: string,
@@ -81,6 +89,8 @@ export class VisitSlotsController {
   @Post('properties/:id/visit-slots/block')
   @UseGuards(AppAuthGuard)
   @HttpCode(201)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Manually block a time range' })
   blockSlot(
     @CurrentUser() current: AuthenticatedUser,
     @Param('id') id: string,
@@ -93,6 +103,7 @@ export class VisitSlotsController {
   }
 
   @Get('properties/:id/visit-slots')
+  @ApiOperation({ summary: 'List available visit slots (public)' })
   listAvailable(
     @Param('id') id: string,
     @Query() query: AvailableSlotsQueryDto,

@@ -10,6 +10,12 @@
             "description": ""
           }
         },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get platform-wide statistics",
         "tags": [
           "Admin"
         ]
@@ -41,6 +47,12 @@
             "description": ""
           }
         },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List all users",
         "tags": [
           "Admin"
         ]
@@ -74,6 +86,12 @@
             "description": ""
           }
         },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Moderate a property (change status)",
         "tags": [
           "Admin"
         ]
@@ -98,6 +116,7 @@
             "description": ""
           }
         },
+        "summary": "Request a 6-digit OTP via WhatsApp",
         "tags": [
           "Auth"
         ]
@@ -122,6 +141,7 @@
             "description": ""
           }
         },
+        "summary": "Verify OTP and issue JWT tokens",
         "tags": [
           "Auth"
         ]
@@ -136,6 +156,7 @@
             "description": ""
           }
         },
+        "summary": "Rotate refresh token and issue new pair",
         "tags": [
           "Auth"
         ]
@@ -150,6 +171,12 @@
             "description": ""
           }
         },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get authenticated user profile",
         "tags": [
           "Users"
         ]
@@ -172,6 +199,12 @@
             "description": ""
           }
         },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Update authenticated user profile",
         "tags": [
           "Users"
         ]
@@ -186,6 +219,12 @@
             "description": ""
           }
         },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List organizations the user belongs to",
         "tags": [
           "Users"
         ]
@@ -200,6 +239,7 @@
             "description": ""
           }
         },
+        "summary": "Liveness check",
         "tags": [
           "Health"
         ]
@@ -214,6 +254,7 @@
             "description": ""
           }
         },
+        "summary": "List cities, optionally filtered by country",
         "tags": [
           "Locations"
         ]
@@ -228,6 +269,7 @@
             "description": ""
           }
         },
+        "summary": "List arrondissements (boroughs) for a given city",
         "tags": [
           "Locations"
         ]
@@ -242,6 +284,7 @@
             "description": ""
           }
         },
+        "summary": "List quartiers (neighborhoods) for a borough",
         "tags": [
           "Locations"
         ]
@@ -256,6 +299,12 @@
             "description": ""
           }
         },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List active properties (public marketplace)",
         "tags": [
           "Properties"
         ]
@@ -278,6 +327,32 @@
             "description": ""
           }
         },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Create a new property",
+        "tags": [
+          "Properties"
+        ]
+      }
+    },
+    "/api/v1/properties/mine": {
+      "get": {
+        "operationId": "PropertiesController_listMine",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List the authenticated user's properties",
         "tags": [
           "Properties"
         ]
@@ -301,6 +376,12 @@
             "description": ""
           }
         },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get a single property by id",
         "tags": [
           "Properties"
         ]
@@ -332,6 +413,12 @@
             "description": ""
           }
         },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Update an existing property",
         "tags": [
           "Properties"
         ]
@@ -355,6 +442,12 @@
             "description": ""
           }
         },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Archive a property",
         "tags": [
           "Properties"
         ]
@@ -388,6 +481,12 @@
             "description": ""
           }
         },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Create a weekly visit-slot template",
         "tags": [
           "VisitSlots"
         ]
@@ -409,6 +508,12 @@
             "description": ""
           }
         },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List visit-slot templates for a property",
         "tags": [
           "VisitSlots"
         ]
@@ -432,6 +537,12 @@
             "description": ""
           }
         },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Deactivate a template",
         "tags": [
           "VisitSlots"
         ]
@@ -465,6 +576,12 @@
             "description": ""
           }
         },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Manually block a time range",
         "tags": [
           "VisitSlots"
         ]
@@ -488,6 +605,7 @@
             "description": ""
           }
         },
+        "summary": "List available visit slots (public)",
         "tags": [
           "VisitSlots"
         ]
@@ -512,6 +630,12 @@
             "description": ""
           }
         },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Book a visit slot",
         "tags": [
           "Visits"
         ]
@@ -526,6 +650,12 @@
             "description": ""
           }
         },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List the user's own visit bookings",
         "tags": [
           "Visits"
         ]
@@ -540,6 +670,12 @@
             "description": ""
           }
         },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List visit bookings on managed properties",
         "tags": [
           "Visits"
         ]
@@ -563,6 +699,12 @@
             "description": ""
           }
         },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Confirm a visit booking",
         "tags": [
           "Visits"
         ]
@@ -586,6 +728,12 @@
             "description": ""
           }
         },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Cancel a visit booking",
         "tags": [
           "Visits"
         ]
@@ -609,6 +757,12 @@
             "description": ""
           }
         },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List availability blocks for a property",
         "tags": [
           "Bookings"
         ]
@@ -633,6 +787,12 @@
             "description": ""
           }
         },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Create a short-stay booking",
         "tags": [
           "Bookings"
         ]
@@ -647,6 +807,32 @@
             "description": ""
           }
         },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List the authenticated user's bookings",
+        "tags": [
+          "Bookings"
+        ]
+      }
+    },
+    "/api/v1/bookings/managed": {
+      "get": {
+        "operationId": "BookingsController_managed",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List bookings on managed properties",
         "tags": [
           "Bookings"
         ]
@@ -670,6 +856,12 @@
             "description": ""
           }
         },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Cancel a booking",
         "tags": [
           "Bookings"
         ]
@@ -694,6 +886,32 @@
             "description": ""
           }
         },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Create a draft lease",
+        "tags": [
+          "Leases"
+        ]
+      }
+    },
+    "/api/v1/leases/managed": {
+      "get": {
+        "operationId": "LeasesController_managed",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List leases on properties the user owns or manages",
         "tags": [
           "Leases"
         ]
@@ -717,6 +935,12 @@
             "description": ""
           }
         },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Activate a draft lease (generates rent schedule)",
         "tags": [
           "Leases"
         ]
@@ -740,6 +964,12 @@
             "description": ""
           }
         },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get the rent schedule for a lease",
         "tags": [
           "Leases"
         ]
@@ -764,6 +994,12 @@
             "description": ""
           }
         },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Open a maintenance ticket",
         "tags": [
           "Maintenance"
         ]
@@ -776,6 +1012,12 @@
             "description": ""
           }
         },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List tickets visible to the actor",
         "tags": [
           "Maintenance"
         ]
@@ -790,6 +1032,32 @@
             "description": ""
           }
         },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List tickets reported by the user",
+        "tags": [
+          "Maintenance"
+        ]
+      }
+    },
+    "/api/v1/maintenance/tickets/managed": {
+      "get": {
+        "operationId": "MaintenanceController_managed",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List tickets on managed properties",
         "tags": [
           "Maintenance"
         ]
@@ -823,6 +1091,12 @@
             "description": ""
           }
         },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Update a ticket status or estimated cost",
         "tags": [
           "Maintenance"
         ]
@@ -856,6 +1130,12 @@
             "description": ""
           }
         },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Assign a ticket to a technician",
         "tags": [
           "Maintenance"
         ]
@@ -880,6 +1160,12 @@
             "description": ""
           }
         },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Create a mandate (delegation to an org)",
         "tags": [
           "Mandates"
         ]
@@ -894,6 +1180,12 @@
             "description": ""
           }
         },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List pending owner approvals",
         "tags": [
           "Mandates"
         ]
@@ -927,125 +1219,14 @@
             "description": ""
           }
         },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Approve or reject a pending approval",
         "tags": [
           "Mandates"
-        ]
-      }
-    },
-    "/api/v1/payments": {
-      "post": {
-        "operationId": "PaymentsController_initiate",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/InitiatePaymentDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Payments"
-        ]
-      }
-    },
-    "/api/v1/payments/{id}/validate": {
-      "post": {
-        "operationId": "PaymentsController_validate",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ValidatePaymentDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Payments"
-        ]
-      }
-    },
-    "/api/v1/payments/my": {
-      "get": {
-        "operationId": "PaymentsController_myPayments",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Payments"
-        ]
-      }
-    },
-    "/api/v1/payments/webhooks/mobile-money": {
-      "post": {
-        "operationId": "PaymentsController_webhook",
-        "parameters": [
-          {
-            "name": "x-mobile-money-signature",
-            "required": true,
-            "in": "header",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Payments"
-        ]
-      }
-    },
-    "/api/v1/receipts/{id}": {
-      "get": {
-        "operationId": "ReceiptController_findOne",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Receipt"
         ]
       }
     },
@@ -1067,6 +1248,7 @@
             "description": ""
           }
         },
+        "summary": "List media for a property",
         "tags": [
           "Media"
         ]
@@ -1100,6 +1282,12 @@
             "description": ""
           }
         },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get a presigned R2 upload URL",
         "tags": [
           "Media"
         ]
@@ -1133,8 +1321,196 @@
             "description": ""
           }
         },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Confirm a media upload",
         "tags": [
           "Media"
+        ]
+      }
+    },
+    "/api/v1/payments": {
+      "post": {
+        "operationId": "PaymentsController_initiate",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InitiatePaymentDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Initiate a payment (cash or mobile money)",
+        "tags": [
+          "Payments"
+        ]
+      }
+    },
+    "/api/v1/payments/{id}/validate": {
+      "post": {
+        "operationId": "PaymentsController_validate",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ValidatePaymentDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Validate a cash payment",
+        "tags": [
+          "Payments"
+        ]
+      }
+    },
+    "/api/v1/payments/my": {
+      "get": {
+        "operationId": "PaymentsController_myPayments",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List the user's own payments",
+        "tags": [
+          "Payments"
+        ]
+      }
+    },
+    "/api/v1/payments/pending-validation": {
+      "get": {
+        "operationId": "PaymentsController_pendingValidation",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List cash payments awaiting agent validation",
+        "tags": [
+          "Payments"
+        ]
+      }
+    },
+    "/api/v1/payments/managed": {
+      "get": {
+        "operationId": "PaymentsController_managed",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List payments on managed properties",
+        "tags": [
+          "Payments"
+        ]
+      }
+    },
+    "/api/v1/payments/webhooks/mobile-money": {
+      "post": {
+        "operationId": "PaymentsController_webhook",
+        "parameters": [
+          {
+            "name": "x-mobile-money-signature",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Mobile money provider webhook",
+        "tags": [
+          "Payments"
+        ]
+      }
+    },
+    "/api/v1/receipts/{id}": {
+      "get": {
+        "operationId": "ReceiptController_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get a payment receipt",
+        "tags": [
+          "Receipts"
         ]
       }
     },
@@ -1157,6 +1533,12 @@
             "description": ""
           }
         },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Create a sale inquiry",
         "tags": [
           "Sales"
         ]
@@ -1171,6 +1553,12 @@
             "description": ""
           }
         },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List the buyer's own inquiries",
         "tags": [
           "Sales"
         ]
@@ -1185,6 +1573,12 @@
             "description": ""
           }
         },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List inquiries on managed properties",
         "tags": [
           "Sales"
         ]
@@ -1218,6 +1612,12 @@
             "description": ""
           }
         },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Update inquiry status",
         "tags": [
           "Sales"
         ]
@@ -1305,19 +1705,19 @@
         "type": "object",
         "properties": {}
       },
-      "InitiatePaymentDto": {
-        "type": "object",
-        "properties": {}
-      },
-      "ValidatePaymentDto": {
-        "type": "object",
-        "properties": {}
-      },
       "PresignMediaDto": {
         "type": "object",
         "properties": {}
       },
       "ConfirmMediaDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "InitiatePaymentDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "ValidatePaymentDto": {
         "type": "object",
         "properties": {}
       },
