@@ -79,6 +79,12 @@ export function mapPublicProperty(api: PublicProperty): Property {
       reason === 'RENTED' || reason === 'SOLD' || reason === 'RESERVED'
         ? (reason as UnavailableReason)
         : undefined,
+    visitEnabled: api.visitEnabled ?? false,
+    visitType:
+      api.visitType === 'FREE' || api.visitType === 'PAID'
+        ? api.visitType
+        : null,
+    visitPrice: api.visitPrice ?? null,
     lat: api.lat ?? 0,
     lng: api.lng ?? 0,
   };

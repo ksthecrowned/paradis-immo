@@ -539,6 +539,10 @@ async function seedTestUsers(
       description:
         'Belle villa R+1 située à Loandjili, dans un quartier calme et résidentiel de Pointe-Noire. La maison offre de beaux volumes, une cuisine équipée, un salon lumineux et un jardin arboré avec parking sécurisé.',
       status: PropertyStatus.ACTIVE,
+      visitType: VisitType.PAID,
+      visitPrice: new Prisma.Decimal(5000),
+      visitEnabled: true,
+      visitDuration: 45,
       quartierId: quartiers.loandjili,
       address: 'Loandjili, Pointe-Noire',
       lat: -4.7825,
@@ -590,6 +594,9 @@ async function seedTestUsers(
       lng: 11.8582,
       countryId: cgId,
       visitEnabled: true,
+      visitType: VisitType.PAID,
+      visitPrice: new Prisma.Decimal(5000),
+      visitDuration: 45,
       bedrooms: 4,
       bathrooms: 2,
       surface: 180,
@@ -803,6 +810,40 @@ async function seedTestUsers(
         },
       });
       slotIndex += 1;
+    }
+  }
+
+  // Paid-visit slots on Villa (sale)
+  let saleSlotIndex = 0;
+  for (let day = 1; day <= 7 && saleSlotIndex < SEED_IDS.visitSlotsSale.length; day += 1) {
+    const date = new Date(slotBase);
+    date.setDate(date.getDate() + day);
+    if (date.getDay() === 0 || date.getDay() === 6) continue;
+    for (const hour of [10, 15]) {
+      const startAt = new Date(date);
+      startAt.setHours(hour, 0, 0, 0);
+      const endAt = new Date(startAt);
+      endAt.setMinutes(endAt.getMinutes() + 45);
+      const slotId = SEED_IDS.visitSlotsSale[saleSlotIndex];
+      if (!slotId) break;
+      await prisma.visitSlot.upsert({
+        where: { id: slotId },
+        update: {
+          status: VisitSlotStatus.AVAILABLE,
+          startAt,
+          endAt,
+          propertyId: DEMO_PROPERTY_SALE_ID,
+        },
+        create: {
+          id: slotId,
+          propertyId: DEMO_PROPERTY_SALE_ID,
+          startAt,
+          endAt,
+          status: VisitSlotStatus.AVAILABLE,
+          source: VisitSlotSource.MANUAL,
+        },
+      });
+      saleSlotIndex += 1;
     }
   }
 

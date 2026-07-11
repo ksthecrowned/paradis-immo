@@ -56,6 +56,14 @@ export const SEED_IDS = {
     '896d3f6c-7767-4001-8234-719ca258a647',
     '970f7827-5464-4f35-b07a-a7237d261551',
   ],
+  visitSlotsSale: [
+    '6b75501d-5218-47f4-a63b-3c4104d065af',
+    '2c156677-4b3e-43ae-ad8f-cc09ae32f7ad',
+    '365e5eac-3147-4f7a-be00-a050a3a87f86',
+    'f5103efd-4619-47dd-9f2c-d3dc15e06641',
+    '52816823-1ba3-4445-b4be-b57064e64c70',
+    'ed048b4c-907b-46d3-931c-6625302d45a8',
+  ],
 } as const;
 
 export const PARADIS_IMMO_ORG_ID = SEED_IDS.orgParadisImmo;

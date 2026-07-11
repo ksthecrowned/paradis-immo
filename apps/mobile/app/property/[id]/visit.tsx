@@ -2,18 +2,21 @@ import { CircleIconButton } from '@/components/ui/CircleIconButton';
 import { PropertySummaryCard } from '@/components/property/PropertySummaryCard';
 import { SuccessScreen } from '@/components/ui/SuccessScreen';
 import { colors, radii, spacing } from '@/constants/theme';
-import { ensureAuthenticated } from '@/lib/auth-guard';
-import { getAgency, getAgent } from '@/lib/agencies';
+import { useFeedback } from '@/context/FeedbackContext';
 import { useCatalogProperty } from '@/hooks/use-catalog-property';
+import { getAgency, getAgent } from '@/lib/agencies';
+import { ensureAuthenticated } from '@/lib/auth-guard';
+import { getErrorMessage } from '@/lib/feedback';
+import { initiatePayment } from '@/lib/payments';
+import { bookVisit, listVisitSlots } from '@/lib/visits';
 import {
-  createMockPaymentSession,
-  getMockVisitDays,
-  getMockVisitSlots,
-  type MockVisitSlot,
-} from '@/lib/mock-conversion';
+  groupVisitSlotsByDay,
+  type VisitDay,
+  type VisitSlotRow,
+} from '@/lib/visit-ui';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -26,6 +29,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function VisitScreen(): React.JSX.Element {
   const insets = useSafeAreaInsets();
+  const { showFeedback } = useFeedback();
   const { id } = useLocalSearchParams<{ id: string }>();
   const propertyId = String(id ?? '');
   const { property, loading } = useCatalogProperty(propertyId);
@@ -38,18 +42,19 @@ export default function VisitScreen(): React.JSX.Element {
     [property],
   );
 
-  const days = useMemo(() => getMockVisitDays(propertyId), [propertyId]);
-  const [dayKey, setDayKey] = useState(days[0]?.key ?? '');
+  const [days, setDays] = useState<VisitDay[]>([]);
+  const [slotsByDay, setSlotsByDay] = useState<
+    (dayKey: string) => VisitSlotRow[]
+  >(() => () => []);
+  const [dayKey, setDayKey] = useState('');
   const [slotId, setSlotId] = useState<string | null>(null);
+  const [slotsLoading, setSlotsLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
   const [ready, setReady] = useState(false);
 
-  const slots = useMemo(
-    () => getMockVisitSlots(propertyId, dayKey),
-    [propertyId, dayKey],
-  );
-  const selected: MockVisitSlot | undefined = slots.find((s) => s.id === slotId);
+  const slots = useMemo(() => slotsByDay(dayKey), [slotsByDay, dayKey]);
+  const selected = slots.find((s) => s.id === slotId);
 
   useFocusEffect(
     useCallback(() => {
@@ -67,30 +72,93 @@ export default function VisitScreen(): React.JSX.Element {
     }, [propertyId]),
   );
 
-  const handleConfirm = (): void => {
+  useEffect(() => {
+    if (!property || !ready) return;
+    let cancelled = false;
+    void (async () => {
+      setSlotsLoading(true);
+      try {
+        const from = new Date();
+        const to = new Date();
+        to.setDate(to.getDate() + 21);
+        const raw = await listVisitSlots(property.id, from, to);
+        if (cancelled) return;
+        const grouped = groupVisitSlotsByDay(raw, property);
+        setDays(grouped.days);
+        setSlotsByDay(() => grouped.slotsForDay);
+        setDayKey((prev) =>
+          prev && grouped.days.some((d) => d.key === prev)
+            ? prev
+            : (grouped.days[0]?.key ?? ''),
+        );
+        setSlotId(null);
+      } catch (err) {
+        if (!cancelled) {
+          showFeedback({
+            type: 'error',
+            title: 'Créneaux',
+            message: getErrorMessage(
+              err,
+              'Impossible de charger les créneaux',
+            ),
+          });
+          setDays([]);
+          setSlotsByDay(() => () => []);
+        }
+      } finally {
+        if (!cancelled) setSlotsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [property, ready, showFeedback]);
+
+  const handleConfirm = async (): Promise<void> => {
     if (!property || !selected) return;
     setSubmitting(true);
     try {
-      if (selected.paid) {
-        const session = createMockPaymentSession({
-          kind: 'visit',
-          propertyId: property.id,
-          amountLabel: selected.priceLabel ?? '5 000 FCFA',
-          title: `Visite · ${property.title}`,
+      const booking = await bookVisit(property.id, selected.id);
+      const isPaid = property.visitType === 'PAID';
+      if (isPaid) {
+        const amount = property.visitPrice ?? 0;
+        const payment = await initiatePayment({
+          amount,
+          currency: 'XAF',
+          method: 'CASH',
+          idempotencyKey: `visit-${booking.id}-${Date.now()}`,
         });
-        router.push(`/payment/${session.id}`);
+        router.push({
+          pathname: '/payment/[id]',
+          params: {
+            id: payment.id,
+            propertyId: property.id,
+            visitBookingId: booking.id,
+            amount: String(amount),
+          },
+        });
         return;
       }
       setDone(true);
+    } catch (err) {
+      showFeedback({
+        type: 'error',
+        title: 'Visite',
+        message: getErrorMessage(err, 'Impossible de réserver ce créneau'),
+      });
     } finally {
       setSubmitting(false);
     }
   };
 
-  if (!property) {
+  if (loading || !property) {
     return (
       <View style={[styles.screen, styles.centered]}>
-        <Text style={styles.missing}>Bien introuvable</Text>
+        {loading ? (
+          <ActivityIndicator color={colors.primary} />
+        ) : (
+          <Text style={styles.missing}>Bien introuvable</Text>
+        )}
       </View>
     );
   }
@@ -135,39 +203,45 @@ export default function VisitScreen(): React.JSX.Element {
       >
         <PropertySummaryCard property={property} />
         <Text style={styles.attribution}>
-          Visite avec {agent?.displayName ?? 'un agent'} ·{' '}
-          {agency?.shortName ?? 'Agence'}
+          Visite avec {agent?.displayName ?? property.agentName ?? 'un agent'} ·{' '}
+          {agency?.shortName ?? property.agencyName ?? 'Agence'}
         </Text>
 
         <Text style={styles.section}>Jour</Text>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.dayRow}
-        >
-          {days.map((day) => {
-            const active = day.key === dayKey;
-            return (
-              <Pressable
-                key={day.key}
-                style={[styles.dayChip, active && styles.dayChipActive]}
-                onPress={() => {
-                  setDayKey(day.key);
-                  setSlotId(null);
-                }}
-                accessibilityRole="button"
-                accessibilityState={{ selected: active }}
-              >
-                <Text style={[styles.dayText, active && styles.dayTextActive]}>
-                  {day.label}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
+        {slotsLoading ? (
+          <ActivityIndicator color={colors.primary} />
+        ) : days.length === 0 ? (
+          <Text style={styles.empty}>Aucun créneau disponible.</Text>
+        ) : (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.dayRow}
+          >
+            {days.map((day) => {
+              const active = day.key === dayKey;
+              return (
+                <Pressable
+                  key={day.key}
+                  style={[styles.dayChip, active && styles.dayChipActive]}
+                  onPress={() => {
+                    setDayKey(day.key);
+                    setSlotId(null);
+                  }}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: active }}
+                >
+                  <Text style={[styles.dayText, active && styles.dayTextActive]}>
+                    {day.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        )}
 
         <Text style={styles.section}>Créneaux</Text>
-        {slots.length === 0 ? (
+        {slotsLoading ? null : slots.length === 0 ? (
           <Text style={styles.empty}>Aucun créneau pour ce jour.</Text>
         ) : (
           slots.map((slot) => {
@@ -212,7 +286,9 @@ export default function VisitScreen(): React.JSX.Element {
             pressed && selected && styles.ctaPressed,
           ]}
           disabled={!selected || submitting}
-          onPress={handleConfirm}
+          onPress={() => {
+            void handleConfirm();
+          }}
           accessibilityRole="button"
           accessibilityLabel="Confirmer la visite"
         >

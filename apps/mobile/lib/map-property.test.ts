@@ -87,15 +87,20 @@ describe('mapPublicProperty', () => {
     expect(p.location).toContain('Pointe-Noire');
   });
 
-  test('available listing defaults', () => {
+  test('maps visit FREE fields', () => {
+    const p = mapPublicProperty(base);
+    expect(p.visitEnabled).toBe(true);
+    expect(p.visitType).toBe('FREE');
+    expect(p.visitPrice).toBeNull();
+  });
+
+  test('maps visit PAID fields', () => {
     const p = mapPublicProperty({
       ...base,
-      listingAvailability: 'AVAILABLE',
-      unavailableReason: null,
-      media: [],
+      visitType: 'PAID',
+      visitPrice: 5000,
     });
-    expect(p.availability).toBe('AVAILABLE');
-    expect(p.unavailableReason).toBeUndefined();
-    expect(p.coverImage).toBe('');
+    expect(p.visitType).toBe('PAID');
+    expect(p.visitPrice).toBe(5000);
   });
 });

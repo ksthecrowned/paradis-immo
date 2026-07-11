@@ -70,6 +70,9 @@ export type Property = {
   availability: PropertyAvailability;
   /** Why the listing is unavailable; set when availability is UNAVAILABLE. */
   unavailableReason?: UnavailableReason;
+  visitEnabled?: boolean;
+  visitType?: 'FREE' | 'PAID' | null;
+  visitPrice?: number | null;
   /** @deprecated Prefer `mode`. Kept for older call sites. */
   status?: 'sale' | 'rent';
   lat: number;

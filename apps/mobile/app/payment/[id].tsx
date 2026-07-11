@@ -2,10 +2,9 @@ import { CircleIconButton } from '@/components/ui/CircleIconButton';
 import { PropertySummaryCard } from '@/components/property/PropertySummaryCard';
 import { SuccessScreen } from '@/components/ui/SuccessScreen';
 import { colors, radii, spacing } from '@/constants/theme';
-import { ensureAuthenticated } from '@/lib/auth-guard';
+import { useCatalogProperty } from '@/hooks/use-catalog-property';
 import { getAgency, getAgent } from '@/lib/agencies';
-import { getMockPaymentSession } from '@/lib/mock-conversion';
-import { getPropertyById } from '@/lib/mock-properties';
+import { ensureAuthenticated } from '@/lib/auth-guard';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
@@ -15,25 +14,26 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-type PayMethod = 'mm' | 'cash';
-
 export default function PaymentScreen(): React.JSX.Element {
   const insets = useSafeAreaInsets();
-  const { id } = useLocalSearchParams<{ id: string }>();
-  const paymentId = String(id ?? '');
-  const session = useMemo(
-    () => getMockPaymentSession(paymentId),
-    [paymentId],
-  );
-  const property = useMemo(
-    () => (session ? getPropertyById(session.propertyId) : undefined),
-    [session],
-  );
+  const params = useLocalSearchParams<{
+    id: string;
+    propertyId?: string;
+    visitBookingId?: string;
+    amount?: string;
+  }>();
+  const paymentId = String(params.id ?? '');
+  const propertyId = String(params.propertyId ?? '');
+  const visitBookingId = params.visitBookingId
+    ? String(params.visitBookingId)
+    : undefined;
+  const amount = Number(params.amount ?? 0);
+
+  const { property, loading } = useCatalogProperty(propertyId);
   const agency = useMemo(
     () => (property ? getAgency(property.agencyId) : undefined),
     [property],
@@ -43,8 +43,11 @@ export default function PaymentScreen(): React.JSX.Element {
     [property],
   );
 
-  const [method, setMethod] = useState<PayMethod>('mm');
-  const [phone, setPhone] = useState('');
+  const amountLabel = useMemo(() => {
+    if (!amount) return '—';
+    return `${amount.toLocaleString('fr-FR').replace(/\u202f/g, ' ')} FCFA`;
+  }, [amount]);
+
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
   const [ready, setReady] = useState(false);
@@ -55,25 +58,25 @@ export default function PaymentScreen(): React.JSX.Element {
       void (async () => {
         const ok = await ensureAuthenticated(
           router,
-          `/payment/${paymentId}`,
+          `/payment/${paymentId}?propertyId=${propertyId}&amount=${amount}${
+            visitBookingId ? `&visitBookingId=${visitBookingId}` : ''
+          }`,
         );
         if (active) setReady(ok);
       })();
       return () => {
         active = false;
       };
-    }, [paymentId]),
+    }, [paymentId, propertyId, amount, visitBookingId]),
   );
 
   const handlePay = (): void => {
     setSubmitting(true);
-    setTimeout(() => {
-      setSubmitting(false);
-      setDone(true);
-    }, 500);
+    setDone(true);
+    setSubmitting(false);
   };
 
-  if (!ready) {
+  if (!ready || loading) {
     return (
       <View style={[styles.screen, styles.centered]}>
         <ActivityIndicator color={colors.primary} />
@@ -81,7 +84,7 @@ export default function PaymentScreen(): React.JSX.Element {
     );
   }
 
-  if (!session || !property) {
+  if (!propertyId || !property || !paymentId) {
     return (
       <View style={[styles.screen, styles.centered, { padding: spacing.lg }]}>
         <Text style={styles.missing}>Paiement introuvable</Text>
@@ -96,9 +99,11 @@ export default function PaymentScreen(): React.JSX.Element {
     return (
       <SuccessScreen
         title="Paiement enregistré"
-        message="Merci. Votre paiement a bien été pris en compte."
+        message="Paiement en espèces en attente de validation par l’agence. Vous serez notifié une fois confirmé."
         primaryLabel="Voir mon activité"
         onPrimary={() => router.replace('/(tabs)/activity')}
+        secondaryLabel="Retour au bien"
+        onSecondary={() => router.replace(`/property/${property.id}`)}
       />
     );
   }
@@ -123,71 +128,40 @@ export default function PaymentScreen(): React.JSX.Element {
         <PropertySummaryCard property={property} />
 
         <View style={styles.amountCard}>
-          <Text style={styles.amountLabel}>{session.title}</Text>
-          <Text style={styles.amountValue}>{session.amountLabel}</Text>
+          <Text style={styles.amountLabel}>Visite · {property.title}</Text>
+          <Text style={styles.amountValue}>{amountLabel}</Text>
         </View>
 
         <Text style={styles.section}>Mode de paiement</Text>
         <View style={styles.methods}>
-          <Pressable
-            style={[styles.method, method === 'mm' && styles.methodActive]}
-            onPress={() => setMethod('mm')}
-          >
+          <View style={[styles.method, styles.methodDisabled]}>
             <Ionicons
               name="phone-portrait-outline"
               size={18}
-              color={method === 'mm' ? colors.surface : colors.primary}
+              color={colors.muted}
             />
-            <Text
-              style={[
-                styles.methodText,
-                method === 'mm' && styles.methodTextActive,
-              ]}
-            >
+            <Text style={[styles.methodText, styles.methodTextMuted]}>
               Mobile Money
             </Text>
-          </Pressable>
-          <Pressable
-            style={[styles.method, method === 'cash' && styles.methodActive]}
-            onPress={() => setMethod('cash')}
-          >
-            <Ionicons
-              name="cash-outline"
-              size={18}
-              color={method === 'cash' ? colors.surface : colors.primary}
-            />
-            <Text
-              style={[
-                styles.methodText,
-                method === 'cash' && styles.methodTextActive,
-              ]}
-            >
+          </View>
+          <View style={[styles.method, styles.methodActive]}>
+            <Ionicons name="cash-outline" size={18} color={colors.surface} />
+            <Text style={[styles.methodText, styles.methodTextActive]}>
               Espèces
             </Text>
-          </Pressable>
-        </View>
-
-        {method === 'mm' ? (
-          <>
-            <Text style={styles.label}>Numéro Mobile Money</Text>
-            <TextInput
-              value={phone}
-              onChangeText={setPhone}
-              placeholder="+242 06 …"
-              placeholderTextColor={colors.muted}
-              style={styles.input}
-              keyboardType="phone-pad"
-            />
-          </>
-        ) : (
-          <View style={styles.cashBox}>
-            <Text style={styles.cashText}>
-              {`Payez en espèces auprès d’un agent de ${agency?.name ?? 'l’agence'}${
-                agent ? ` (${agent.displayName})` : ''
-              }. Présentez cette référence : ${session.id.slice(-8).toUpperCase()}.`}
-            </Text>
           </View>
-        )}
+        </View>
+        <Text style={styles.mmHint}>Mobile Money — bientôt disponible</Text>
+
+        <View style={styles.cashBox}>
+          <Text style={styles.cashText}>
+            {`Payez en espèces auprès d’un agent de ${agency?.name ?? property.agencyName ?? 'l’agence'}${
+              agent || property.agentName
+                ? ` (${agent?.displayName ?? property.agentName})`
+                : ''
+            }. Présentez la référence : ${paymentId.slice(-8).toUpperCase()}.`}
+          </Text>
+        </View>
       </ScrollView>
 
       <View
@@ -205,14 +179,12 @@ export default function PaymentScreen(): React.JSX.Element {
           disabled={submitting}
           onPress={handlePay}
           accessibilityRole="button"
-          accessibilityLabel={method === 'mm' ? 'Payer' : 'J’ai compris'}
+          accessibilityLabel="Confirmer le paiement espèces"
         >
           {submitting ? (
             <ActivityIndicator color={colors.surface} />
           ) : (
-            <Text style={styles.ctaText}>
-              {method === 'mm' ? 'Payer' : 'J’ai compris'}
-            </Text>
+            <Text style={styles.ctaText}>J’ai compris</Text>
           )}
         </Pressable>
       </View>
@@ -272,18 +244,17 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     borderColor: colors.primary,
   },
+  methodDisabled: {
+    opacity: 0.55,
+  },
   methodText: { fontSize: 13, fontWeight: '700', color: colors.ink },
   methodTextActive: { color: colors.surface },
-  label: { fontSize: 13, fontWeight: '700', color: colors.muted },
-  input: {
-    minHeight: 52,
-    borderRadius: radii.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-    paddingHorizontal: 14,
-    fontSize: 15,
-    color: colors.ink,
+  methodTextMuted: { color: colors.muted },
+  mmHint: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.muted,
+    marginTop: -4,
   },
   cashBox: {
     padding: 14,
