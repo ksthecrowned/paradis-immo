@@ -5,9 +5,14 @@
 export const SEED_IDS = {
   orgParadisImmo: '7beb9e56-cd2b-4235-befe-e0aa5f2b3b4b',
   orgOwner: 'dc9625dc-388d-4c66-ae4a-af6b9f3524e8',
+  orgCoteSauvage: '6bb0b69e-7450-4ccb-95bf-6257688c455d',
+  orgHabitatPn: '2ff0710b-9f7d-404c-b1db-c4b6c54772ca',
 
   userAdmin: '264c573a-c000-446e-b990-70f1ccb0a1fd',
   userAgent: '2a036ccd-fb37-4baf-ac47-ce70b42af47f',
+  userAgentParadis2: 'f96f3e4f-df26-44b4-b19b-29b6069531b2',
+  userAgentCote: '07164a84-b60b-4855-8f76-7dfb834297a4',
+  userAgentHabitat: '61181f29-f925-4aab-92b7-139dbeab1035',
   userOwner: 'ec93037b-cd31-499f-9e14-f620e44eceeb',
   userTenant: '5e0becd9-83fc-48af-b9db-f2c9a3918d75',
 

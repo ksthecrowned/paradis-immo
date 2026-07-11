@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import { PrismaPg } from '@prisma/adapter-pg';
 import {
+  AffiliationStatus,
   GlobalRole,
   OrgMemberRole,
   OrganizationType,
@@ -114,6 +115,90 @@ async function upsertOrgMember(
     create: { userId, organizationId, role },
     update: { role },
   });
+}
+
+async function seedPartnerAgencies(cgId: string): Promise<void> {
+  await prisma.organization.upsert({
+    where: { id: SEED_IDS.orgCoteSauvage },
+    update: {
+      name: 'Agence Côte Sauvage',
+      shortName: 'Côte Sauvage',
+      tagline: 'Villas et locations en bord de mer',
+      address: 'Av. de la Côte, Loandjili',
+      phone: '+242 06 500 11 22',
+      cityLabel: 'Pointe-Noire',
+      logoColor: '#0F766E',
+      isOfficial: false,
+      verified: true,
+      foundedYear: 2014,
+      rating: 4.6,
+      reviewCount: 42,
+      dealSuccessPercent: 88,
+      type: OrganizationType.AGENCY,
+      affiliationStatus: AffiliationStatus.APPROVED,
+    },
+    create: {
+      id: SEED_IDS.orgCoteSauvage,
+      name: 'Agence Côte Sauvage',
+      shortName: 'Côte Sauvage',
+      tagline: 'Villas et locations en bord de mer',
+      address: 'Av. de la Côte, Loandjili',
+      phone: '+242 06 500 11 22',
+      cityLabel: 'Pointe-Noire',
+      logoColor: '#0F766E',
+      isOfficial: false,
+      verified: true,
+      foundedYear: 2014,
+      rating: 4.6,
+      reviewCount: 42,
+      dealSuccessPercent: 88,
+      type: OrganizationType.AGENCY,
+      affiliationStatus: AffiliationStatus.APPROVED,
+      countryId: cgId,
+    },
+  });
+
+  await prisma.organization.upsert({
+    where: { id: SEED_IDS.orgHabitatPn },
+    update: {
+      name: 'Habitat Pointe-Noire',
+      shortName: 'Habitat PN',
+      tagline: 'Appartements et bureaux au centre-ville',
+      address: 'Bd. Général de Gaulle, Centre-ville',
+      phone: '+242 06 500 33 44',
+      cityLabel: 'Pointe-Noire',
+      logoColor: '#B45309',
+      isOfficial: false,
+      verified: true,
+      foundedYear: 2018,
+      rating: 4.4,
+      reviewCount: 31,
+      dealSuccessPercent: 82,
+      type: OrganizationType.AGENCY,
+      affiliationStatus: AffiliationStatus.APPROVED,
+    },
+    create: {
+      id: SEED_IDS.orgHabitatPn,
+      name: 'Habitat Pointe-Noire',
+      shortName: 'Habitat PN',
+      tagline: 'Appartements et bureaux au centre-ville',
+      address: 'Bd. Général de Gaulle, Centre-ville',
+      phone: '+242 06 500 33 44',
+      cityLabel: 'Pointe-Noire',
+      logoColor: '#B45309',
+      isOfficial: false,
+      verified: true,
+      foundedYear: 2018,
+      rating: 4.4,
+      reviewCount: 31,
+      dealSuccessPercent: 82,
+      type: OrganizationType.AGENCY,
+      affiliationStatus: AffiliationStatus.APPROVED,
+      countryId: cgId,
+    },
+  });
+
+  console.log('✓ Partner agencies: Côte Sauvage, Habitat Pointe-Noire');
 }
 
 /** One-shot cleanup when migrating seed IDs from string slugs → UUIDs. */
@@ -302,6 +387,33 @@ async function seedTestUsers(
       name: TEST_ACCOUNTS.agent.name,
       globalRoles: [GlobalRole.TENANT],
       org: { organizationId: PARADIS_IMMO_ID, role: OrgMemberRole.AGENT },
+    },
+    {
+      id: SEED_IDS.userAgentParadis2,
+      phone: '+242060000005',
+      name: 'Claire Mouanda',
+      globalRoles: [GlobalRole.TENANT],
+      org: { organizationId: PARADIS_IMMO_ID, role: OrgMemberRole.AGENT },
+    },
+    {
+      id: SEED_IDS.userAgentCote,
+      phone: '+242060000006',
+      name: 'Grace Mabiala',
+      globalRoles: [GlobalRole.TENANT],
+      org: {
+        organizationId: SEED_IDS.orgCoteSauvage,
+        role: OrgMemberRole.AGENT,
+      },
+    },
+    {
+      id: SEED_IDS.userAgentHabitat,
+      phone: '+242060000007',
+      name: 'Amina Nguimbi',
+      globalRoles: [GlobalRole.TENANT],
+      org: {
+        organizationId: SEED_IDS.orgHabitatPn,
+        role: OrgMemberRole.AGENT,
+      },
     },
     {
       id: TEST_USER_IDS.owner,
@@ -801,20 +913,40 @@ async function main() {
   }
   console.log(`✓ Pointe-Noire: ${pnrArrondissements.length} arrondissements`);
 
-  // 4. Paradis Immo platform organization (AGENCY type, APPROVED)
+  // 4. Paradis Immo platform organization (official marketplace agency)
+  const paradisHub = {
+    name: 'Agence Paradis Immo',
+    shortName: 'Paradis Immo',
+    tagline: "L'agence officielle de la plateforme",
+    address: 'Centre-ville, Pointe-Noire',
+    phone: '+242 06 500 00 00',
+    cityLabel: 'Pointe-Noire',
+    logoColor: '#7065F0',
+    isOfficial: true,
+    verified: true,
+    foundedYear: 2012,
+    rating: 4.9,
+    reviewCount: 128,
+    dealSuccessPercent: 94,
+  } as const;
   const paradis = await prisma.organization.upsert({
     where: { id: PARADIS_IMMO_ID },
-    update: {},
+    update: {
+      ...paradisHub,
+      type: OrganizationType.PLATFORM,
+      affiliationStatus: null,
+    },
     create: {
       id: PARADIS_IMMO_ID,
-      name: 'Paradis Immo',
-      type: 'AGENCY',
-      affiliationStatus: 'APPROVED',
+      type: OrganizationType.PLATFORM,
+      affiliationStatus: null,
       countryId: cg.id,
+      ...paradisHub,
     },
   });
   console.log(`✓ Organization: ${paradis.name} (${paradis.id})`);
 
+  await seedPartnerAgencies(cg.id);
   const demoQuartier = await prisma.quartier.findFirst({
     where: {
       name: 'Poto-Poto-Centre',
