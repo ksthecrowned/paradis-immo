@@ -3,7 +3,7 @@ import { PropertySummaryCard } from '@/components/property/PropertySummaryCard';
 import { SuccessScreen } from '@/components/ui/SuccessScreen';
 import { colors, radii, spacing } from '@/constants/theme';
 import { ensureAuthenticated } from '@/lib/auth-guard';
-import { getAgency, getAgent } from '@/lib/mock-agencies';
+import { getAgency, getAgent } from '@/lib/agencies';
 import { useCatalogProperty } from '@/hooks/use-catalog-property';
 import {
   createMockPaymentSession,

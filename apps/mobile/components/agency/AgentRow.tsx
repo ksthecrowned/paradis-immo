@@ -1,6 +1,5 @@
 import { colors, radii, spacing } from '@/constants/theme';
-import { getAgency, getAgent } from '@/lib/mock-agencies';
-import { listPropertiesByAgent } from '@/lib/mock-properties';
+import { getAgency, getAgent } from '@/lib/agencies';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
@@ -9,6 +8,8 @@ export function AgentRow({
   agentId,
   fallbackName,
   fallbackPhone,
+  fallbackAgencyId,
+  listingCount: listingCountProp,
   showAgencyLink = false,
   showListingCount = false,
   showPhone = false,
@@ -19,6 +20,8 @@ export function AgentRow({
   agentId: string;
   fallbackName?: string;
   fallbackPhone?: string | null;
+  fallbackAgencyId?: string;
+  listingCount?: number;
   showAgencyLink?: boolean;
   showListingCount?: boolean;
   showPhone?: boolean;
@@ -26,22 +29,21 @@ export function AgentRow({
   compact?: boolean;
   onPressAgency?: () => void;
   onPress?: () => void;
-}): React.JSX.Element | null {
+}): React.JSX.Element {
   const agent = getAgent(agentId);
-  const name = agent?.name ?? fallbackName ?? 'Conseiller Paradis Immo';
-  const phone = agent?.phone ?? fallbackPhone ?? null;
-  const agency = agent ? getAgency(agent.agencyId) : null;
-  const listingCount =
-    showListingCount && agent
-      ? listPropertiesByAgent(agent.id).length
-      : 0;
+  const name =
+    agent?.displayName ?? fallbackName ?? 'Conseiller Paradis Immo';
+  const phone = agent?.phone || fallbackPhone || null;
+  const agencyId = agent?.agencyId ?? fallbackAgencyId;
+  const agency = agencyId ? getAgency(agencyId) : undefined;
+  const listingCount = listingCountProp ?? 0;
 
   const handleAgency = (): void => {
     if (onPressAgency) {
       onPressAgency();
       return;
     }
-    if (agent) router.push(`/agency/${agent.agencyId}`);
+    if (agencyId) router.push(`/agency/${agencyId}`);
   };
 
   const handleCall = (): void => {
@@ -49,14 +51,15 @@ export function AgentRow({
     void Linking.openURL(`tel:${phone.replace(/\s/g, '')}`);
   };
 
-  const initials = agent?.initials
-    ?? name
+  const initials =
+    agent?.initials ??
+    name
       .split(/\s+/)
       .filter(Boolean)
       .slice(0, 2)
       .map((part) => part[0]?.toUpperCase() ?? '')
-      .join('')
-    || 'PI';
+      .join('') ||
+    'PI';
   const role = agent?.role ?? 'Conseiller';
   const specialty = agent
     ? `${agent.specialty} · ${agent.yearsExperience} ans d’exp.`

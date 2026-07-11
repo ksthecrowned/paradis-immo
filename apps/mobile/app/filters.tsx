@@ -1,6 +1,6 @@
 import { CircleIconButton } from '@/components/ui/CircleIconButton';
 import { colors, radii, spacing } from '@/constants/theme';
-import { listAgencies } from '@/lib/mock-agencies';
+import { fetchAgencies, type Agency } from '@/lib/agencies';
 import { PROPERTY_FEATURE_CATALOG } from '@/lib/property-features';
 import {
   DEFAULT_SEARCH_FILTERS,
@@ -11,7 +11,7 @@ import {
 import type { PropertyFeatureId } from '@/types/property';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -53,6 +53,21 @@ export default function FiltersScreen(): React.JSX.Element {
     initial.features,
   );
   const [agencyIds, setAgencyIds] = useState<string[]>(initial.agencyIds);
+  const [agencies, setAgencies] = useState<Agency[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetchAgencies()
+      .then((rows) => {
+        if (!cancelled) setAgencies(rows);
+      })
+      .catch(() => {
+        if (!cancelled) setAgencies([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   const [availableOnly, setAvailableOnly] = useState(initial.availableOnly);
 
   const toggleFeature = (id: PropertyFeatureId): void => {
@@ -188,7 +203,7 @@ export default function FiltersScreen(): React.JSX.Element {
 
         <FilterSection title="Agence" subtitle="Une ou plusieurs agences">
           <View style={styles.chipRow}>
-            {listAgencies().map((agency) => {
+            {agencies.map((agency) => {
               const active = agencyIds.includes(agency.id);
               return (
                 <Pressable

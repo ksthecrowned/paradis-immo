@@ -5,7 +5,7 @@ import { colors, radii, spacing } from '@/constants/theme';
 import { fetchCatalogProperty } from '@/lib/catalog';
 import { isFavorite, toggleFavorite } from '@/lib/favorites';
 import { getErrorMessage } from '@/lib/feedback';
-import { getAgency } from '@/lib/mock-agencies';
+import { getAgency } from '@/lib/agencies';
 import { getPropertyGallery } from '@/lib/mock-properties';
 import {
   buildPropertyDetailRows,
@@ -759,6 +759,7 @@ export default function PropertyScreen(): React.JSX.Element {
                 agentId={property.agentId}
                 fallbackName={property.agentName}
                 fallbackPhone={property.agentPhone}
+                fallbackAgencyId={property.agencyId}
                 compact
                 showAgencyLink
                 onPressAgency={() => {

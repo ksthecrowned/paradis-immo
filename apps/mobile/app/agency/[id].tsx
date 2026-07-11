@@ -5,20 +5,20 @@ import { CircleIconButton } from '@/components/ui/CircleIconButton';
 import { SegmentTabs } from '@/components/ui/SegmentTabs';
 import { colors, radii, spacing } from '@/constants/theme';
 import {
-  getAgency,
-  getAgent,
-  listAgencyReviews,
-  listAgentsByAgency,
-} from '@/lib/mock-agencies';
-import {
-  listPropertiesByAgency,
-  listPropertiesByAgent,
-} from '@/lib/mock-properties';
+  fetchAgency,
+  type Agency,
+  type Agent,
+} from '@/lib/agencies';
+import { fetchCatalogProperties } from '@/lib/catalog';
+import { getErrorMessage } from '@/lib/feedback';
+import { listAgencyReviews } from '@/lib/mock-agency-reviews';
+import type { Property } from '@/types/property';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
+  ActivityIndicator,
   FlatList,
   Linking,
   Pressable,
@@ -40,37 +40,75 @@ export default function AgencyHubScreen(): React.JSX.Element {
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
   const agencyId = String(id ?? '');
-  const agency = useMemo(() => getAgency(agencyId), [agencyId]);
 
+  const [agency, setAgency] = useState<Agency | null>(null);
+  const [agents, setAgents] = useState<Agent[]>([]);
+  const [allProperties, setAllProperties] = useState<Property[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [segment, setSegment] = useState<Segment>('properties');
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
 
-  const agents = useMemo(
-    () => (agency ? listAgentsByAgency(agency.id) : []),
-    [agency],
-  );
-  const allProperties = useMemo(
-    () => (agency ? listPropertiesByAgency(agency.id) : []),
-    [agency],
-  );
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!agencyId) {
+        setError('Agence introuvable');
+        setLoading(false);
+        return;
+      }
+      setLoading(true);
+      setError(null);
+      try {
+        const [detail, props] = await Promise.all([
+          fetchAgency(agencyId),
+          fetchCatalogProperties({ organizationId: agencyId }),
+        ]);
+        if (cancelled) return;
+        setAgency(detail);
+        setAgents(detail.agents);
+        setAllProperties(props);
+      } catch (err) {
+        if (!cancelled) {
+          setAgency(null);
+          setError(getErrorMessage(err, 'Impossible de charger l’agence'));
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [agencyId]);
+
   const reviews = useMemo(
     () => (agency ? listAgencyReviews(agency.id) : []),
     [agency],
   );
   const selectedAgent = selectedAgentId
-    ? getAgent(selectedAgentId)
+    ? agents.find((a) => a.id === selectedAgentId)
     : undefined;
 
   const properties = useMemo(() => {
-    if (!agency) return [];
-    if (selectedAgentId) return listPropertiesByAgent(selectedAgentId);
+    if (selectedAgentId) {
+      return allProperties.filter((p) => p.agentId === selectedAgentId);
+    }
     return allProperties;
-  }, [agency, selectedAgentId, allProperties]);
+  }, [allProperties, selectedAgentId]);
+
+  if (loading) {
+    return (
+      <View style={[styles.screen, styles.missing, { paddingTop: insets.top }]}>
+        <ActivityIndicator color={colors.primary} />
+      </View>
+    );
+  }
 
   if (!agency) {
     return (
       <View style={[styles.screen, styles.missing, { paddingTop: insets.top }]}>
-        <Text style={styles.missingTitle}>Agence introuvable</Text>
+        <Text style={styles.missingTitle}>{error ?? 'Agence introuvable'}</Text>
         <Pressable
           style={styles.missingBtn}
           onPress={() => router.back()}
@@ -83,6 +121,7 @@ export default function AgencyHubScreen(): React.JSX.Element {
   }
 
   const handleCallAgency = (): void => {
+    if (!agency.phone) return;
     void Linking.openURL(`tel:${agency.phone.replace(/\s/g, '')}`);
   };
 
@@ -234,7 +273,7 @@ export default function AgencyHubScreen(): React.JSX.Element {
               <Text style={styles.emptySubtitle}>
                 {selectedAgentId
                   ? 'Cet agent n’a pas d’annonce pour le moment.'
-                  : 'Cette agence n’a pas d’annonce pour le moment.'}
+                  : 'Aucun bien pour cette agence'}
               </Text>
             </View>
           }
@@ -269,20 +308,28 @@ export default function AgencyHubScreen(): React.JSX.Element {
               <Text style={styles.emptyTitle}>Aucun agent</Text>
             </View>
           }
-          renderItem={({ item }) => (
-            <View style={styles.agentCard}>
-              <AgentRow
-                agentId={item.id}
-                showListingCount
-                showPhone
-                onPress={() => {
-                  setSelectedAgentId(item.id);
-                  setSegment('properties');
-                }}
-              />
-              <Text style={styles.agentHint}>Voir ses biens</Text>
-            </View>
-          )}
+          renderItem={({ item }) => {
+            const listingCount = allProperties.filter(
+              (p) => p.agentId === item.id,
+            ).length;
+            return (
+              <View style={styles.agentCard}>
+                <AgentRow
+                  agentId={item.id}
+                  fallbackName={item.displayName}
+                  fallbackPhone={item.phone}
+                  listingCount={listingCount}
+                  showListingCount
+                  showPhone
+                  onPress={() => {
+                    setSelectedAgentId(item.id);
+                    setSegment('properties');
+                  }}
+                />
+                <Text style={styles.agentHint}>Voir ses biens</Text>
+              </View>
+            );
+          }}
         />
       </View>
     );
@@ -620,6 +667,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: colors.ink,
+    textAlign: 'center',
   },
   missingBtn: {
     paddingHorizontal: 20,

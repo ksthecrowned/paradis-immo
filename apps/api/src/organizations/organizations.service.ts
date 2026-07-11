@@ -45,7 +45,10 @@ export type PublicOrganizationDetail = PublicOrganization & {
 };
 
 const publicOrgWhere: Prisma.OrganizationWhereInput = {
-  OR: [{ type: OrganizationType.AGENCY }, { isOfficial: true }],
+  OR: [
+    { isOfficial: true },
+    { type: OrganizationType.AGENCY, shortName: { not: null } },
+  ],
 };
 
 @Injectable()

@@ -3,10 +3,10 @@ import { AgencyChip } from '@/components/agency/AgencyChip';
 import { colors, radii, spacing } from '@/constants/theme';
 import { useFeedback } from '@/context/FeedbackContext';
 import { useUserLocation } from '@/context/LocationContext';
+import { fetchAgencies, type Agency } from '@/lib/agencies';
 import { PROPERTY_CATEGORIES } from '@/lib/categories';
 import { fetchCatalogProperties } from '@/lib/catalog';
 import { getErrorMessage } from '@/lib/feedback';
-import { listAgencies } from '@/lib/mock-agencies';
 import type { Property } from '@/types/property';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
@@ -41,6 +41,7 @@ export default function HomeScreen(): React.JSX.Element {
   const { showFeedback } = useFeedback();
   const { label, loading, denied, refresh } = useUserLocation();
   const [properties, setProperties] = useState<Property[]>([]);
+  const [agencies, setAgencies] = useState<Agency[]>([]);
   const [catalogLoading, setCatalogLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [catalogError, setCatalogError] = useState<string | null>(null);
@@ -50,7 +51,12 @@ export default function HomeScreen(): React.JSX.Element {
     else setCatalogLoading(true);
     setCatalogError(null);
     try {
-      setProperties(await fetchCatalogProperties({ limit: 50 }));
+      const [props, orgs] = await Promise.all([
+        fetchCatalogProperties({ limit: 50 }),
+        fetchAgencies(),
+      ]);
+      setProperties(props);
+      setAgencies(orgs);
     } catch (err) {
       setCatalogError(
         getErrorMessage(err, 'Impossible de charger les biens'),
@@ -262,7 +268,7 @@ export default function HomeScreen(): React.JSX.Element {
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={styles.agenciesRow}
               >
-                {listAgencies().map((agency) => (
+                {agencies.map((agency) => (
                   <AgencyChip key={agency.id} agencyId={agency.id} />
                 ))}
               </ScrollView>

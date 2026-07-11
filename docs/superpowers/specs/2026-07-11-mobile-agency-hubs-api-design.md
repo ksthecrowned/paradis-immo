@@ -84,7 +84,8 @@ type PublicAgent = {
 
 | Method | Path | Behavior |
 |--------|------|----------|
-| `GET` | `/organizations` | Public marketplace orgs: `(type = AGENCY) OR (isOfficial = true)`. Order: `isOfficial DESC`, then `name ASC`. Return `{ data: PublicOrganization[] }` (same envelope style as properties if used). |
+| `GET` | `/organizations` | Public marketplace orgs: `isOfficial = true` **or** (`type = AGENCY` **and** `shortName` set). Order: `isOfficial DESC`, then `name ASC`. Return `{ data: PublicOrganization[] }`. |
+
 | `GET` | `/organizations/:id` | One public org as above, or 404 if not in public set. Include `agents: PublicAgent[]` — members with role `AGENT`; `id` = `user.id` (align with catalog `PublicProperty.agent`). |
 
 Do not expose OWNER-only personal orgs in the public list.

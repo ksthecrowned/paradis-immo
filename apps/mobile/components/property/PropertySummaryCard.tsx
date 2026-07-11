@@ -1,5 +1,5 @@
 import { colors, radii, spacing } from '@/constants/theme';
-import { getAgency } from '@/lib/mock-agencies';
+import { getAgency } from '@/lib/agencies';
 import { getPropertyGallery } from '@/lib/mock-properties';
 import {
   propertyPriceLabel,
@@ -30,9 +30,9 @@ export function PropertySummaryCard({
             {property.location ?? 'Congo'}
           </Text>
         </View>
-        {agency ? (
+        {(agency || property.agencyName) ? (
           <Text style={styles.agency} numberOfLines={1}>
-            {agency.shortName}
+            {agency?.shortName ?? property.agencyName}
           </Text>
         ) : null}
         <Text style={styles.price}>{propertyPriceLabel(property)}</Text>

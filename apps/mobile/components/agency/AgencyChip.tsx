@@ -1,24 +1,30 @@
 import { colors, radii } from '@/constants/theme';
-import { getAgency } from '@/lib/mock-agencies';
+import { getAgency } from '@/lib/agencies';
 import { router } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 export function AgencyChip({
   agencyId,
+  fallbackLabel,
   onPress,
 }: {
   agencyId: string;
+  fallbackLabel?: string;
   onPress?: () => void;
-}): React.JSX.Element | null {
+}): React.JSX.Element {
   const agency = getAgency(agencyId);
-  if (!agency) return null;
+  const shortName =
+    (agency?.shortName ?? fallbackLabel?.trim()) || 'Agence';
+  const name = agency?.name ?? shortName;
+  const logoColor = agency?.logoColor ?? '#7065F0';
+  const isOfficial = agency?.isOfficial === true;
 
   const handlePress = (): void => {
     if (onPress) {
       onPress();
       return;
     }
-    router.push(`/agency/${agency.id}`);
+    router.push(`/agency/${agencyId}`);
   };
 
   return (
@@ -26,15 +32,15 @@ export function AgencyChip({
       onPress={handlePress}
       style={styles.chip}
       accessibilityRole="button"
-      accessibilityLabel={`Agence ${agency.name}`}
+      accessibilityLabel={`Agence ${name}`}
     >
-      <View style={[styles.dot, { backgroundColor: agency.logoColor }]}>
-        <Text style={styles.dotText}>{agency.shortName.slice(0, 1)}</Text>
+      <View style={[styles.dot, { backgroundColor: logoColor }]}>
+        <Text style={styles.dotText}>{shortName.slice(0, 1)}</Text>
       </View>
       <Text style={styles.label} numberOfLines={1}>
-        {agency.shortName}
+        {shortName}
       </Text>
-      {agency.isOfficial ? (
+      {isOfficial ? (
         <View style={styles.official}>
           <Text style={styles.officialText}>Officiel</Text>
         </View>
