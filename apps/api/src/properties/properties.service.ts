@@ -13,6 +13,13 @@ import {
 } from './dto/create-property.dto';
 import { FilterPropertiesDto } from './dto/filter-properties.dto';
 import { OrganizationsService } from '../organizations/organizations.service';
+import {
+  assertListingStatusForMode,
+  coerceListingStatusForWrite,
+  isListingStatusValue,
+  resolvePublicListing,
+  type ListingStatusValue,
+} from './listing-status';
 
 export interface PublicProperty {
   id: string;
@@ -35,8 +42,9 @@ export interface PublicProperty {
   visitPrice: number | null;
   visitDuration: number | null;
   features: string[];
-  listingAvailability: 'AVAILABLE' | 'UNAVAILABLE';
-  unavailableReason: 'RENTED' | 'SOLD' | 'RESERVED' | null;
+  listingStatus: ListingStatusValue;
+  availableFrom: string | null;
+  isFeatured: boolean;
   floor: string | null;
   yearBuilt: number | null;
   condition: string | null;
@@ -276,6 +284,18 @@ export class PropertiesService {
       existing.organizationId,
     );
 
+    const nextMode = dto.mode ?? existing.mode;
+    let nextListingStatus: ListingStatusValue | undefined;
+    if (dto.listingStatus !== undefined) {
+      nextListingStatus = coerceListingStatusForWrite(
+        nextMode,
+        dto.listingStatus,
+      );
+      assertListingStatusForMode(nextMode, nextListingStatus);
+    } else if (dto.mode !== undefined && dto.mode === 'RENT_SHORT') {
+      nextListingStatus = 'AVAILABLE';
+    }
+
     const updated = await this.prisma.property.update({
       where: { id },
       data: {
@@ -304,6 +324,20 @@ export class PropertiesService {
           : {}),
         ...(dto.visitDuration !== undefined
           ? { visitDuration: dto.visitDuration }
+          : {}),
+        ...(nextListingStatus !== undefined
+          ? { listingStatus: nextListingStatus }
+          : {}),
+        ...(dto.availableFrom !== undefined
+          ? {
+              availableFrom:
+                dto.availableFrom === null
+                  ? null
+                  : new Date(dto.availableFrom),
+            }
+          : {}),
+        ...(dto.isFeatured !== undefined
+          ? { isFeatured: dto.isFeatured }
           : {}),
       },
       include: this.publicInclude(),
@@ -385,6 +419,12 @@ export class PropertiesService {
         },
       },
       media: { orderBy: { position: 'asc' } },
+      leases: {
+        where: { status: 'ACTIVE' },
+        orderBy: { endDate: 'asc' },
+        take: 1,
+        select: { endDate: true },
+      },
     };
   }
 
@@ -421,8 +461,9 @@ export class PropertiesService {
       }>;
       features?: unknown;
       mapViews?: unknown;
-      listingAvailability?: string;
-      unavailableReason?: string | null;
+      listingStatus?: string;
+      availableFrom?: Date | null;
+      isFeatured?: boolean;
       floor?: string | null;
       yearBuilt?: number | null;
       condition?: string | null;
@@ -430,6 +471,7 @@ export class PropertiesService {
       parkingSpaces?: number | null;
       orientation?: string | null;
       landTitle?: string | null;
+      leases?: Array<{ endDate: Date }>;
     },
   ): PublicProperty {
     const arr = p.quartier.arrondissement;
@@ -466,6 +508,16 @@ export class PropertiesService {
         position: m.position,
       }));
 
+    const rawStatus = isListingStatusValue(p.listingStatus)
+      ? p.listingStatus
+      : 'AVAILABLE';
+    const resolved = resolvePublicListing({
+      mode: p.mode,
+      listingStatus: rawStatus,
+      availableFrom: p.availableFrom ?? null,
+      activeLeaseEndDate: p.leases?.[0]?.endDate ?? null,
+    });
+
     return {
       id: p.id,
       title: p.title,
@@ -487,14 +539,9 @@ export class PropertiesService {
       visitPrice: p.visitPrice !== null ? Number(p.visitPrice) : null,
       visitDuration: p.visitDuration,
       features: this.jsonStringArray(p.features),
-      listingAvailability:
-        p.listingAvailability === 'UNAVAILABLE' ? 'UNAVAILABLE' : 'AVAILABLE',
-      unavailableReason:
-        p.unavailableReason === 'RENTED' ||
-        p.unavailableReason === 'SOLD' ||
-        p.unavailableReason === 'RESERVED'
-          ? p.unavailableReason
-          : null,
+      listingStatus: resolved.listingStatus,
+      availableFrom: resolved.availableFrom,
+      isFeatured: Boolean(p.isFeatured),
       floor: p.floor ?? null,
       yearBuilt: p.yearBuilt ?? null,
       condition: p.condition ?? null,

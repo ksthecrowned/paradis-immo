@@ -1,6 +1,7 @@
 import { Type } from 'class-transformer';
 import {
   IsBoolean,
+  IsDateString,
   IsEnum,
   IsNumber,
   IsOptional,
@@ -13,6 +14,7 @@ import {
   PropertyMode,
   PropertyType,
   VisitType,
+  ListingStatus,
 } from '@prisma/client';
 
 export class CreatePropertyDto {
@@ -95,6 +97,18 @@ export class UpdatePropertyDto {
   @IsOptional() @IsEnum(VisitType) visitType?: VisitType;
   @IsOptional() visitPrice?: number;
   @IsOptional() visitDuration?: number;
+
+  @IsOptional()
+  @IsEnum(ListingStatus)
+  listingStatus?: ListingStatus;
+
+  @IsOptional()
+  @IsDateString()
+  availableFrom?: string | null;
+
+  @IsOptional()
+  @IsBoolean()
+  isFeatured?: boolean;
 
   @IsOptional()
   @ValidateNested()
