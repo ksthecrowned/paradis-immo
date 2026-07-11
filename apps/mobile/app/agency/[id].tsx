@@ -1,11 +1,13 @@
 import PropertyCard from '@/components/property/card';
 import { AgentRow } from '@/components/agency/AgentRow';
+import { StarRating } from '@/components/agency/StarRating';
 import { CircleIconButton } from '@/components/ui/CircleIconButton';
 import { SegmentTabs } from '@/components/ui/SegmentTabs';
 import { colors, radii, spacing } from '@/constants/theme';
 import {
   getAgency,
   getAgent,
+  listAgencyReviews,
   listAgentsByAgency,
 } from '@/lib/mock-agencies';
 import {
@@ -29,6 +31,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 const TABS = [
   { key: 'properties', label: 'Biens' },
   { key: 'agents', label: 'Agents' },
+  { key: 'reviews', label: 'Avis' },
 ] as const;
 
 type Segment = (typeof TABS)[number]['key'];
@@ -48,6 +51,10 @@ export default function AgencyHubScreen(): React.JSX.Element {
   );
   const allProperties = useMemo(
     () => (agency ? listPropertiesByAgency(agency.id) : []),
+    [agency],
+  );
+  const reviews = useMemo(
+    () => (agency ? listAgencyReviews(agency.id) : []),
     [agency],
   );
   const selectedAgent = selectedAgentId
@@ -101,57 +108,78 @@ export default function AgencyHubScreen(): React.JSX.Element {
           </CircleIconButton>
         </View>
 
-        <View style={styles.header}>
-          <View style={[styles.logo, { backgroundColor: agency.logoColor }]}>
-            <Text style={styles.logoText}>{agency.shortName.slice(0, 1)}</Text>
-          </View>
-          <Text style={styles.name}>{agency.name}</Text>
-          <Text style={styles.tagline}>{agency.tagline}</Text>
-          {agency.verified ? (
-            <View style={styles.verifiedChip}>
-              <Ionicons
-                name="checkmark-circle"
-                size={16}
-                color={colors.success}
-              />
-              <Text style={styles.verifiedText}>Agence vérifiée</Text>
+        <View style={styles.identityCard}>
+          <View style={styles.identityTop}>
+            <View style={styles.identityText}>
+              <Text style={styles.name}>{agency.name}</Text>
+              <View style={styles.ratingRow}>
+                <StarRating rating={agency.rating} size={14} />
+                <Text style={styles.ratingValue}>
+                  {agency.rating.toFixed(1)}
+                </Text>
+                <Text style={styles.ratingMeta}>
+                  · {agency.reviewCount} avis
+                </Text>
+              </View>
+              <View style={styles.badgeRow}>
+                {agency.isOfficial ? (
+                  <View style={styles.officialBadge}>
+                    <Text style={styles.officialBadgeText}>Officiel</Text>
+                  </View>
+                ) : null}
+                {agency.rating >= 4.8 ? (
+                  <View style={styles.topBadge}>
+                    <Ionicons name="star" size={12} color="#B45309" />
+                    <Text style={styles.topBadgeText}>Top</Text>
+                  </View>
+                ) : null}
+              </View>
             </View>
-          ) : null}
-        </View>
+            <View style={[styles.logo, { backgroundColor: agency.logoColor }]}>
+              <Text style={styles.logoText}>{agency.shortName.slice(0, 1)}</Text>
+            </View>
+          </View>
 
-        <View style={styles.statsRow}>
-          <View style={styles.stat}>
-            <Text style={styles.statValue}>{allProperties.length}</Text>
-            <Text style={styles.statLabel}>Biens</Text>
+          <View style={styles.infoBlock}>
+            <View style={styles.infoRow}>
+              <Ionicons name="location-outline" size={16} color={colors.primary} />
+              <Text style={styles.infoText}>
+                {agency.address}, {agency.city}
+              </Text>
+            </View>
+            <Pressable
+              style={styles.infoRow}
+              onPress={handleCallAgency}
+              accessibilityRole="button"
+            >
+              <Ionicons name="call-outline" size={16} color={colors.primary} />
+              <Text style={[styles.infoText, styles.infoLink]}>
+                {agency.phone}
+              </Text>
+            </Pressable>
+            <View style={styles.infoRow}>
+              <Ionicons name="briefcase-outline" size={16} color={colors.primary} />
+              <Text style={styles.infoText}>{agency.tagline}</Text>
+            </View>
           </View>
-          <View style={styles.statDivider} />
-          <View style={styles.stat}>
-            <Text style={styles.statValue}>{agents.length}</Text>
-            <Text style={styles.statLabel}>Agents</Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.stat}>
-            <Text style={styles.statValue}>{agency.foundedYear}</Text>
-            <Text style={styles.statLabel}>Depuis</Text>
-          </View>
-        </View>
 
-        <View style={styles.infoCard}>
-          <View style={styles.infoRow}>
-            <Ionicons name="location-outline" size={18} color={colors.primary} />
-            <Text style={styles.infoText}>
-              {agency.address}, {agency.city}
-            </Text>
+          <View style={styles.dealBlock}>
+            <View style={styles.dealHeader}>
+              <Text style={styles.dealLabel}>Succès transactions</Text>
+              <Text style={styles.dealValue}>{agency.dealSuccessPercent}%</Text>
+            </View>
+            <View style={styles.dealTrack}>
+              <View
+                style={[
+                  styles.dealFill,
+                  {
+                    width: `${agency.dealSuccessPercent}%`,
+                    backgroundColor: agency.logoColor,
+                  },
+                ]}
+              />
+            </View>
           </View>
-          <Pressable
-            style={styles.infoRow}
-            onPress={handleCallAgency}
-            accessibilityRole="button"
-            accessibilityLabel="Appeler l’agence"
-          >
-            <Ionicons name="call-outline" size={18} color={colors.primary} />
-            <Text style={[styles.infoText, styles.infoLink]}>{agency.phone}</Text>
-          </Pressable>
         </View>
       </View>
 
@@ -161,12 +189,12 @@ export default function AgencyHubScreen(): React.JSX.Element {
           value={segment}
           onChange={(key) => {
             setSegment(key as Segment);
-            if (key === 'agents') setSelectedAgentId(null);
+            if (key !== 'properties') setSelectedAgentId(null);
           }}
         />
       </View>
 
-      {selectedAgentId && selectedAgent ? (
+      {selectedAgentId && selectedAgent && segment === 'properties' ? (
         <View style={styles.filterBar}>
           <Text style={styles.filterLabel} numberOfLines={1}>
             Agent : {selectedAgent.displayName}
@@ -223,35 +251,83 @@ export default function AgencyHubScreen(): React.JSX.Element {
     );
   }
 
+  if (segment === 'agents') {
+    return (
+      <View style={styles.screen}>
+        <FlatList
+          data={agents}
+          keyExtractor={(item) => item.id}
+          ListHeaderComponent={listHeader}
+          contentContainerStyle={[
+            styles.listContent,
+            { paddingBottom: insets.bottom + spacing.lg },
+            agents.length === 0 && styles.listEmpty,
+          ]}
+          ItemSeparatorComponent={() => <View style={styles.agentSep} />}
+          ListEmptyComponent={
+            <View style={styles.empty}>
+              <Text style={styles.emptyTitle}>Aucun agent</Text>
+            </View>
+          }
+          renderItem={({ item }) => (
+            <View style={styles.agentCard}>
+              <AgentRow
+                agentId={item.id}
+                showListingCount
+                showPhone
+                onPress={() => {
+                  setSelectedAgentId(item.id);
+                  setSegment('properties');
+                }}
+              />
+              <Text style={styles.agentHint}>Voir ses biens</Text>
+            </View>
+          )}
+        />
+      </View>
+    );
+  }
+
   return (
     <View style={styles.screen}>
       <FlatList
-        data={agents}
+        data={reviews}
         keyExtractor={(item) => item.id}
         ListHeaderComponent={listHeader}
         contentContainerStyle={[
           styles.listContent,
           { paddingBottom: insets.bottom + spacing.lg },
-          agents.length === 0 && styles.listEmpty,
+          reviews.length === 0 && styles.listEmpty,
         ]}
         ItemSeparatorComponent={() => <View style={styles.agentSep} />}
         ListEmptyComponent={
           <View style={styles.empty}>
-            <Text style={styles.emptyTitle}>Aucun agent</Text>
+            <Text style={styles.emptyTitle}>Aucun avis</Text>
+            <Text style={styles.emptySubtitle}>
+              Aucun avis pour le moment.
+            </Text>
           </View>
         }
         renderItem={({ item }) => (
-          <View style={styles.agentCard}>
-            <AgentRow
-              agentId={item.id}
-              showListingCount
-              showPhone
-              onPress={() => {
-                setSelectedAgentId(item.id);
-                setSegment('properties');
-              }}
-            />
-            <Text style={styles.agentHint}>Voir ses biens</Text>
+          <View style={styles.reviewCard}>
+            <View style={styles.reviewTop}>
+              <View style={styles.reviewAvatar}>
+                <Text style={styles.reviewAvatarText}>
+                  {item.authorName.slice(0, 1)}
+                </Text>
+              </View>
+              <View style={styles.reviewBody}>
+                <Text style={styles.reviewAuthor}>{item.authorName}</Text>
+                <Text style={styles.reviewProperty} numberOfLines={1}>
+                  {item.propertyTitle}
+                </Text>
+              </View>
+              <Text style={styles.reviewDate}>{item.createdLabel}</Text>
+            </View>
+            <Text style={styles.reviewText} numberOfLines={3}>
+              {item.body}
+            </Text>
+            <StarRating rating={item.rating} size={13} />
           </View>
         )}
       />
@@ -265,7 +341,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bg,
   },
   hero: {
-    paddingBottom: spacing.md,
+    paddingBottom: spacing.sm,
   },
   topBar: {
     paddingHorizontal: spacing.md,
@@ -273,11 +349,74 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
-  header: {
+  identityCard: {
+    marginHorizontal: spacing.md,
+    padding: 16,
+    borderRadius: 24,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    gap: 14,
+  },
+  identityTop: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  identityText: {
+    flex: 1,
+    minWidth: 0,
+    gap: 6,
+  },
+  name: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: colors.ink,
+  },
+  ratingRow: {
+    flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    paddingHorizontal: spacing.md,
-    paddingBottom: spacing.md,
+    flexWrap: 'wrap',
+  },
+  ratingValue: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: colors.ink,
+  },
+  ratingMeta: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: colors.muted,
+  },
+  badgeRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  officialBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: radii.full,
+    backgroundColor: colors.primary,
+  },
+  officialBadgeText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: colors.surface,
+  },
+  topBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: radii.full,
+    backgroundColor: colors.warningSoft,
+  },
+  topBadgeText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#B45309',
   },
   logo: {
     width: 72,
@@ -285,97 +424,57 @@ const styles = StyleSheet.create({
     borderRadius: radii.full,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 4,
-    borderWidth: 3,
-    borderColor: colors.surface,
   },
   logoText: {
     fontSize: 28,
     fontWeight: '800',
     color: colors.surface,
   },
-  name: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: colors.ink,
-    textAlign: 'center',
-  },
-  tagline: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: colors.muted,
-    textAlign: 'center',
-    maxWidth: 300,
-  },
-  verifiedChip: {
-    marginTop: 4,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: radii.full,
-    backgroundColor: '#DCFCE7',
-  },
-  verifiedText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: colors.success,
-  },
-  statsRow: {
-    marginHorizontal: spacing.md,
-    marginBottom: spacing.md,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.surface,
-    borderRadius: radii.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingVertical: 14,
-  },
-  stat: {
-    flex: 1,
-    alignItems: 'center',
-    gap: 2,
-  },
-  statValue: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: colors.ink,
-  },
-  statLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.muted,
-  },
-  statDivider: {
-    width: 1,
-    height: 28,
-    backgroundColor: colors.border,
-  },
-  infoCard: {
-    marginHorizontal: spacing.md,
-    gap: 10,
-    padding: 14,
-    borderRadius: radii.lg,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
+  infoBlock: {
+    gap: 8,
   },
   infoRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 8,
   },
   infoText: {
     flex: 1,
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '500',
     color: colors.ink,
   },
   infoLink: {
     fontWeight: '700',
     color: colors.primary,
+  },
+  dealBlock: {
+    gap: 8,
+  },
+  dealHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  dealLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.ink,
+  },
+  dealValue: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: colors.primary,
+  },
+  dealTrack: {
+    height: 8,
+    borderRadius: radii.full,
+    backgroundColor: colors.primaryMuted,
+    overflow: 'hidden',
+  },
+  dealFill: {
+    height: '100%',
+    borderRadius: radii.full,
   },
   tabsWrap: {
     paddingHorizontal: spacing.md,
@@ -430,6 +529,59 @@ const styles = StyleSheet.create({
     paddingLeft: 64,
     marginTop: -4,
     marginBottom: 4,
+  },
+  reviewCard: {
+    marginHorizontal: spacing.md,
+    padding: 14,
+    borderRadius: radii.lg,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    gap: 8,
+  },
+  reviewTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  reviewAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: radii.full,
+    backgroundColor: colors.primaryMuted,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  reviewAvatarText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: colors.primary,
+  },
+  reviewBody: {
+    flex: 1,
+    minWidth: 0,
+    gap: 2,
+  },
+  reviewAuthor: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: colors.ink,
+  },
+  reviewProperty: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.muted,
+  },
+  reviewDate: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: colors.muted,
+  },
+  reviewText: {
+    fontSize: 13,
+    lineHeight: 18,
+    color: colors.ink,
+    fontWeight: '500',
   },
   empty: {
     alignItems: 'center',

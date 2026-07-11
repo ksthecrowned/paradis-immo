@@ -59,8 +59,8 @@ export const MOCK_PROPERTIES: Property[] = [
     ],
     lat: -4.7825,
     lng: 11.8582,
-    agencyId: 'ag-cote-sauvage',
-    agentId: 'ag-cote-sauvage-1',
+    agencyId: 'ag-paradis-immo',
+    agentId: 'ag-paradis-immo-1',
   },
   {
     id: '2',

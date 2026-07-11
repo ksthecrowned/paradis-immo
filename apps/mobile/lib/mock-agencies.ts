@@ -10,6 +10,10 @@ export type Agency = {
   phone: string;
   verified: boolean;
   foundedYear: number;
+  isOfficial: boolean;
+  rating: number;
+  reviewCount: number;
+  dealSuccessPercent: number;
 };
 
 export type Agent = {
@@ -23,7 +27,33 @@ export type Agent = {
   yearsExperience: number;
 };
 
+export type AgencyReview = {
+  id: string;
+  agencyId: string;
+  authorName: string;
+  propertyTitle: string;
+  body: string;
+  rating: number;
+  createdLabel: string;
+};
+
 export const MOCK_AGENCIES: Agency[] = [
+  {
+    id: 'ag-paradis-immo',
+    name: 'Agence Paradis Immo',
+    shortName: 'Paradis Immo',
+    city: 'Pointe-Noire',
+    logoColor: '#7065F0',
+    tagline: 'L’agence officielle de la plateforme',
+    address: 'Centre-ville, Pointe-Noire',
+    phone: '+242 06 500 00 00',
+    verified: true,
+    foundedYear: 2012,
+    isOfficial: true,
+    rating: 4.9,
+    reviewCount: 128,
+    dealSuccessPercent: 94,
+  },
   {
     id: 'ag-cote-sauvage',
     name: 'Agence Côte Sauvage',
@@ -35,6 +65,10 @@ export const MOCK_AGENCIES: Agency[] = [
     phone: '+242 06 500 11 22',
     verified: true,
     foundedYear: 2014,
+    isOfficial: false,
+    rating: 4.6,
+    reviewCount: 42,
+    dealSuccessPercent: 88,
   },
   {
     id: 'ag-habitat-pn',
@@ -47,6 +81,10 @@ export const MOCK_AGENCIES: Agency[] = [
     phone: '+242 06 500 33 44',
     verified: true,
     foundedYear: 2018,
+    isOfficial: false,
+    rating: 4.4,
+    reviewCount: 31,
+    dealSuccessPercent: 82,
   },
   {
     id: 'ag-mongo-immo',
@@ -59,10 +97,34 @@ export const MOCK_AGENCIES: Agency[] = [
     phone: '+242 06 500 55 66',
     verified: false,
     foundedYear: 2021,
+    isOfficial: false,
+    rating: 4.1,
+    reviewCount: 12,
+    dealSuccessPercent: 75,
   },
 ];
 
 export const MOCK_AGENTS: Agent[] = [
+  {
+    id: 'ag-paradis-immo-1',
+    agencyId: 'ag-paradis-immo',
+    displayName: 'Claire Mouanda',
+    initials: 'CM',
+    role: 'Conseillère senior',
+    phone: '+242 06 600 00 01',
+    specialty: 'Vente & mandats',
+    yearsExperience: 9,
+  },
+  {
+    id: 'ag-paradis-immo-2',
+    agencyId: 'ag-paradis-immo',
+    displayName: 'Eric Makosso',
+    initials: 'EM',
+    role: 'Conseiller location',
+    phone: '+242 06 600 00 02',
+    specialty: 'Location longue durée',
+    yearsExperience: 6,
+  },
   {
     id: 'ag-cote-sauvage-1',
     agencyId: 'ag-cote-sauvage',
@@ -125,8 +187,49 @@ export const MOCK_AGENTS: Agent[] = [
   },
 ];
 
+export const MOCK_AGENCY_REVIEWS: AgencyReview[] = [
+  {
+    id: 'rev-pi-1',
+    agencyId: 'ag-paradis-immo',
+    authorName: 'Patricia K.',
+    propertyTitle: 'Villa Whispering Pines',
+    body: 'Accompagnement clair du premier contact à la visite. Équipe réactive et professionnelle.',
+    rating: 5,
+    createdLabel: 'Il y a 2 semaines',
+  },
+  {
+    id: 'rev-pi-2',
+    agencyId: 'ag-paradis-immo',
+    authorName: 'Marc T.',
+    propertyTitle: 'Appartement Centre-ville',
+    body: 'Très bon suivi pour la location. Les créneaux de visite étaient bien organisés.',
+    rating: 5,
+    createdLabel: 'Il y a 1 mois',
+  },
+  {
+    id: 'rev-pi-3',
+    agencyId: 'ag-paradis-immo',
+    authorName: 'Nadia B.',
+    propertyTitle: 'Maison Tié-Tié',
+    body: 'Agence sérieuse, informations transparentes sur le bien et le quartier.',
+    rating: 4,
+    createdLabel: 'Il y a 2 mois',
+  },
+  {
+    id: 'rev-cs-1',
+    agencyId: 'ag-cote-sauvage',
+    authorName: 'Hervé L.',
+    propertyTitle: 'Maison Tié-Tié',
+    body: 'Bon accueil pour une location à la journée. Je recommande.',
+    rating: 5,
+    createdLabel: 'Il y a 3 semaines',
+  },
+];
+
 export function listAgencies(): Agency[] {
-  return MOCK_AGENCIES;
+  return [...MOCK_AGENCIES].sort(
+    (a, b) => Number(b.isOfficial) - Number(a.isOfficial),
+  );
 }
 
 export function getAgency(id: string): Agency | undefined {
@@ -139,6 +242,14 @@ export function listAgentsByAgency(agencyId: string): Agent[] {
 
 export function getAgent(id: string): Agent | undefined {
   return MOCK_AGENTS.find((agent) => agent.id === id);
+}
+
+export function listAgencyReviews(agencyId: string): AgencyReview[] {
+  return MOCK_AGENCY_REVIEWS.filter((review) => review.agencyId === agencyId);
+}
+
+export function isOfficialAgency(id: string): boolean {
+  return getAgency(id)?.isOfficial === true;
 }
 
 export {

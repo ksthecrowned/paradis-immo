@@ -3,6 +3,7 @@ import { AgentRow } from '@/components/agency/AgentRow';
 import { APP_MAP_USER_INTERFACE_STYLE } from '@/constants/maps';
 import { colors, radii, spacing } from '@/constants/theme';
 import { isFavorite, toggleFavorite } from '@/lib/favorites';
+import { getAgency } from '@/lib/mock-agencies';
 import {
   getPropertyById,
   getPropertyGallery,
@@ -410,7 +411,8 @@ export default function PropertyScreen(): React.JSX.Element {
                   color={colors.success}
                 />
                 <Text style={styles.verifiedText}>
-                  Annonce vérifiée · Paradis Immo
+                  Annonce vérifiée ·{' '}
+                  {getAgency(property.agencyId)?.shortName ?? 'Agence'}
                 </Text>
               </View>
             </View>

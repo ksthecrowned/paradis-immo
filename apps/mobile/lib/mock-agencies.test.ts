@@ -3,6 +3,7 @@ import {
   getAgency,
   getAgent,
   listAgencies,
+  listAgencyReviews,
   listAgentsByAgency,
   listPropertiesByAgency,
   listPropertiesByAgent,
@@ -11,6 +12,12 @@ import {
 describe('mock agencies', () => {
   test('lists at least 3 agencies', () => {
     expect(listAgencies().length).toBeGreaterThanOrEqual(3);
+  });
+
+  test('lists official agency first', () => {
+    const list = listAgencies();
+    expect(list[0]?.id).toBe('ag-paradis-immo');
+    expect(list[0]?.isOfficial).toBe(true);
   });
 
   test('each agency has at least 2 agents', () => {
@@ -31,5 +38,11 @@ describe('mock agencies', () => {
     const agent = listAgentsByAgency(listAgencies()[0]!.id)[0]!;
     const props = listPropertiesByAgent(agent.id);
     expect(props.every((p) => p.agentId === agent.id)).toBe(true);
+  });
+
+  test('listAgencyReviews returns reviews for agency', () => {
+    const reviews = listAgencyReviews('ag-paradis-immo');
+    expect(reviews.length).toBeGreaterThan(0);
+    expect(reviews.every((r) => r.agencyId === 'ag-paradis-immo')).toBe(true);
   });
 });

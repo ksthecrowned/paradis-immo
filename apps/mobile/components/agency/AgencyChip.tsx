@@ -34,6 +34,11 @@ export function AgencyChip({
       <Text style={styles.label} numberOfLines={1}>
         {agency.shortName}
       </Text>
+      {agency.isOfficial ? (
+        <View style={styles.official}>
+          <Text style={styles.officialText}>Officiel</Text>
+        </View>
+      ) : null}
     </Pressable>
   );
 }
@@ -59,5 +64,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   dotText: { fontSize: 11, fontWeight: '800', color: colors.surface },
-  label: { fontSize: 12, fontWeight: '700', color: colors.ink, maxWidth: 140 },
+  label: { fontSize: 12, fontWeight: '700', color: colors.ink, maxWidth: 120 },
+  official: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: radii.full,
+    backgroundColor: colors.primary,
+  },
+  officialText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: colors.surface,
+  },
 });
