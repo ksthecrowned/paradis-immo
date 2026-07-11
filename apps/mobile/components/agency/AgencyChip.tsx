@@ -1,5 +1,6 @@
 import { colors, radii } from '@/constants/theme';
 import { getAgency } from '@/lib/agencies';
+import { Octicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
@@ -42,7 +43,7 @@ export function AgencyChip({
       </Text>
       {isOfficial ? (
         <View style={styles.official}>
-          <Text style={styles.officialText}>Officiel</Text>
+          <Octicons name="verified" size={16} color="#0083ff" />
         </View>
       ) : null}
     </Pressable>
@@ -72,14 +73,6 @@ const styles = StyleSheet.create({
   dotText: { fontSize: 11, fontWeight: '800', color: colors.surface },
   label: { fontSize: 12, fontWeight: '700', color: colors.ink, maxWidth: 120 },
   official: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: radii.full,
-    backgroundColor: colors.primary,
-  },
-  officialText: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: colors.surface,
+    padding: 4,
   },
 });

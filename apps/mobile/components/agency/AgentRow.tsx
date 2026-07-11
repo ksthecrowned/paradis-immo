@@ -52,13 +52,7 @@ export function AgentRow({
   };
 
   const initials =
-    agent?.initials ??
-    name
-      .split(/\s+/)
-      .filter(Boolean)
-      .slice(0, 2)
-      .map((part) => part[0]?.toUpperCase() ?? '')
-      .join('') ||
+    agent?.initials || (agent?.displayName ? agent.displayName.split(' ').map(part => part[0]?.toUpperCase() ?? '').join('') : '') ||
     'PI';
   const role = agent?.role ?? 'Conseiller';
   const specialty = agent
