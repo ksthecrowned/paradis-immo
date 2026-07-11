@@ -28,10 +28,10 @@ Replace `mock-properties` as the source of truth for listing discovery and detai
 
 ## API — Prisma
 
-Add to `Property` (all nullable except availability default):
+Add to `Property` (all nullable except listing availability default).
 
 ```prisma
-enum PropertyAvailability {
+enum ListingAvailability {
   AVAILABLE
   UNAVAILABLE
 }
@@ -42,38 +42,44 @@ enum UnavailableReason {
   RESERVED
 }
 
-// on Property:
-features           Json?    // string[] PropertyFeatureId
-availability       PropertyAvailability @default(AVAILABLE)
-unavailableReason  UnavailableReason?
-floor              String?
-yearBuilt          Int?
-condition          String?
-lotSize            Float?
-parkingSpaces      Int?
-orientation        String?
-landTitle          String?
-mapViews           Json?    // string[] PropertyMapView
+// on Property — ADD (do not rename relation `availability` → AvailabilityBlock[]):
+features             Json?                 // string[] PropertyFeatureId
+listingAvailability  ListingAvailability   @default(AVAILABLE)
+unavailableReason    UnavailableReason?
+floor                String?
+yearBuilt            Int?
+condition            String?
+lotSize              Float?
+parkingSpaces        Int?
+orientation          String?
+landTitle            String?
+mapViews             Json?                 // string[] PropertyMapView
 ```
 
-Migration + regenerate client. Seed the four demo properties with values aligned to former mobile mocks (features, availability/reasons, extras).
+> Note: scalar is **`listingAvailability`**, not `availability` (that name is the AvailabilityBlock relation).
+
+Migration + regenerate client. Seed the four demo properties with values aligned to former mobile mocks (features, listingAvailability/reasons, extras).
 
 ## API — Public responses
 
 Extend `PublicProperty` (list + detail):
 
 ```ts
+listingAvailability: 'AVAILABLE' | 'UNAVAILABLE';
+unavailableReason: 'RENTED' | 'SOLD' | 'RESERVED' | null;
+features: string[];
+mapViews: string[];
+// floor, yearBuilt, condition, lotSize, parkingSpaces, orientation, landTitle
 media: Array<{ id: string; url: string; type: string; position: number }>;
-organization: { id: string; name: string; type: string }; // prefer this name over ownerOrg in mobile adapter
+organization: { id: string; name: string; type: string }; // prefer over ownerOrg in mobile adapter
 agent: { id: string; name: string; phone: string | null } | null;
-// plus new scalar fields above
 ```
 
 **Agent resolution:** first `OrganizationMember` with role `AGENT` on `property.organizationId`, include `user.name` / `user.phone`. If none → `null`.
 
 **Media:** include ordered `PropertyMedia` on list and detail (list may cap e.g. first 5 URLs; detail full list).
 
-Keep existing filters (`status`, `mode`, `cityId`, price range, etc.). Optional later: `availableOnly` query — mobile can filter client-side from `availability` for this pass if cheaper.
+Keep existing filters (`status`, `mode`, `cityId`, price range, etc.). Mobile can filter `availableOnly` client-side from mapped `Property.availability` (from `listingAvailability`).
 
 ## Mobile
 
@@ -89,7 +95,9 @@ Keep existing filters (`status`, `mode`, `cityId`, price range, etc.). Optional 
 | location | `quartier.name, city.name` |
 | surface | `surface != null ? \`${surface} m²\` : undefined` |
 | category | map `APARTMENT→apartment`, etc. |
-| features, mapViews, availability, unavailableReason, floor, … | API or defaults |
+| features, mapViews, floor, … | API or defaults |
+| availability | from `listingAvailability` |
+| unavailableReason | API |
 | agencyId | `organization.id` |
 | agentId | `agent?.id` ?? documented fallback constant for UI components that require a string |
 
