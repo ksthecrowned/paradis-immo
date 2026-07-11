@@ -63,6 +63,7 @@ export interface PropertyFilters {
   maxPrice?: number;
   status?: string;
   limit?: number;
+  organizationId?: string;
 }
 
 export async function listProperties(
@@ -77,6 +78,7 @@ export async function listProperties(
   if (filters.mode) params.set('mode', filters.mode);
   if (filters.minPrice != null) params.set('minPrice', String(filters.minPrice));
   if (filters.maxPrice != null) params.set('maxPrice', String(filters.maxPrice));
+  if (filters.organizationId) params.set('organizationId', filters.organizationId);
 
   const result = await apiFetch<{ data: PublicProperty[]; meta?: unknown }>(
     `/properties?${params}`,
