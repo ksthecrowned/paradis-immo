@@ -1,4 +1,4 @@
-import PropertyCard from '@/components/property/card';
+import PropertyCard, { PropertyCardSkeleton } from '@/components/property/card';
 import { AgencyChip } from '@/components/agency/AgencyChip';
 import { colors, radii, spacing } from '@/constants/theme';
 import { useFeedback } from '@/context/FeedbackContext';
@@ -175,7 +175,11 @@ export default function HomeScreen(): React.JSX.Element {
         }
         ListEmptyComponent={
           catalogLoading ? (
-            <ActivityIndicator color={colors.primary} style={{ marginTop: 40 }} />
+            <View style={styles.skeletonList}>
+              {[0, 1, 2].map((key) => (
+                <PropertyCardSkeleton key={key} />
+              ))}
+            </View>
           ) : (
             <View style={styles.emptyCatalog}>
               <Text style={styles.emptyCatalogTitle}>
@@ -444,6 +448,10 @@ const styles = StyleSheet.create({
     paddingVertical: 40,
     paddingHorizontal: spacing.lg,
     gap: 8,
+  },
+  skeletonList: {
+    gap: spacing.md,
+    paddingTop: spacing.sm,
   },
   emptyCatalogTitle: {
     fontSize: 17,

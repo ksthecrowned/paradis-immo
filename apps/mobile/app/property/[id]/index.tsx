@@ -1,47 +1,47 @@
-import { CircleIconButton } from '@/components/ui/CircleIconButton';
 import { AgentRow } from '@/components/agency/AgentRow';
+import { CircleIconButton } from '@/components/ui/CircleIconButton';
 import { APP_MAP_USER_INTERFACE_STYLE } from '@/constants/maps';
 import { colors, radii, spacing } from '@/constants/theme';
+import { getAgency } from '@/lib/agencies';
 import { fetchCatalogProperty } from '@/lib/catalog';
 import { isFavorite, toggleFavorite } from '@/lib/favorites';
 import { getErrorMessage } from '@/lib/feedback';
-import { getAgency } from '@/lib/agencies';
 import { getPropertyGallery } from '@/lib/mock-properties';
 import {
-  buildPropertyDetailRows,
-  formatDistance,
-  getNeighborhoodPlaces,
-  NEIGHBORHOOD_KIND_META
+    buildPropertyDetailRows,
+    formatDistance,
+    getNeighborhoodPlaces,
+    NEIGHBORHOOD_KIND_META
 } from '@/lib/neighborhood';
 import { resolvePropertyFeatures } from '@/lib/property-features';
 import { propertyMapViewPath } from '@/lib/property-map-views';
 import {
-  propertyAvailabilityBadgeLabel,
-  propertyPriceLabel,
-  propertyStatusLabel,
-  resolvePropertyMapViews,
-  isPropertyAvailable,
-  type Property,
-  type PropertyMapView,
+    isConversionBlocked,
+    listingStatusLabel,
+    propertyPriceLabel,
+    propertyStatusLabel,
+    resolvePropertyMapViews,
+    type Property,
+    type PropertyMapView,
 } from '@/types/property';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
-  Animated,
-  Image,
-  Modal,
-  Pressable,
-  ScrollView,
-  Share,
-  StyleSheet,
-  Text,
-  View,
-  type ImageSourcePropType,
-  type NativeScrollEvent,
-  type NativeSyntheticEvent,
+    ActivityIndicator,
+    Animated,
+    Image,
+    Modal,
+    Pressable,
+    ScrollView,
+    Share,
+    StyleSheet,
+    Text,
+    View,
+    type ImageSourcePropType,
+    type NativeScrollEvent,
+    type NativeSyntheticEvent,
 } from 'react-native';
 import MapView from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -244,11 +244,21 @@ export default function PropertyScreen(): React.JSX.Element {
 
   const statusLabel = propertyStatusLabel(property);
   const priceLabel = propertyPriceLabel(property);
-  const availabilityBadge = propertyAvailabilityBadgeLabel(property);
-  const available = isPropertyAvailable(property);
+  const statusBadge = listingStatusLabel(property);
+  const blocked = isConversionBlocked(property);
+  const available = !blocked;
   const previewPhotos = gallery.slice(0, 4);
   const isShortStay = property.mode === 'RENT_SHORT';
   const ctaLabel = isShortStay ? 'Réserver' : 'Réserver une visite';
+
+  const blockedTitle =
+    property.listingStatus === 'UNDER_OFFER'
+      ? 'Ce bien est sous offre'
+      : property.listingStatus === 'OCCUPIED'
+        ? 'Ce bien est actuellement occupé'
+        : property.listingStatus === 'SOLD'
+          ? 'Ce bien a été vendu'
+          : 'Ce bien n’est plus disponible';
 
   const handleCtaPress = (): void => {
     if (property.mode === 'RENT_SHORT') {
@@ -451,9 +461,9 @@ export default function PropertyScreen(): React.JSX.Element {
               <View style={styles.statusBadge}>
                 <Text style={styles.statusBadgeText}>{statusLabel}</Text>
               </View>
-              {availabilityBadge ? (
+              {statusBadge ? (
                 <View style={styles.indispoBadge}>
-                  <Text style={styles.indispoBadgeText}>{availabilityBadge}</Text>
+                  <Text style={styles.indispoBadgeText}>{statusBadge}</Text>
                 </View>
               ) : null}
               <View style={styles.verifiedChip}>
@@ -711,11 +721,9 @@ export default function PropertyScreen(): React.JSX.Element {
           </Pressable>
         ) : (
           <View style={styles.unavailableBanner}>
-            <Text style={styles.unavailableTitle}>
-              Ce bien n’est plus disponible
-            </Text>
-            {availabilityBadge ? (
-              <Text style={styles.unavailableReason}>{availabilityBadge}</Text>
+            <Text style={styles.unavailableTitle}>{blockedTitle}</Text>
+            {statusBadge ? (
+              <Text style={styles.unavailableReason}>{statusBadge}</Text>
             ) : null}
           </View>
         )}
@@ -1052,7 +1060,7 @@ const styles = StyleSheet.create({
     color: colors.surface,
   },
   indispoBadge: {
-    backgroundColor: '#E5E7EB',
+    backgroundColor: '#FEE2E2',
     paddingHorizontal: 12,
     paddingVertical: 7,
     borderRadius: radii.full,
@@ -1060,7 +1068,7 @@ const styles = StyleSheet.create({
   indispoBadgeText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#4B5563',
+    color: colors.danger,
   },
   verifiedChip: {
     flexDirection: 'row',
@@ -1373,9 +1381,9 @@ const styles = StyleSheet.create({
     flex: 1,
     minHeight: 54,
     borderRadius: radii.lg,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: '#FEE2E2',
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: '#FECACA',
     paddingHorizontal: 16,
     justifyContent: 'center',
     gap: 2,
@@ -1383,12 +1391,12 @@ const styles = StyleSheet.create({
   unavailableTitle: {
     fontSize: 14,
     fontWeight: '800',
-    color: '#4B5563',
+    color: colors.danger,
   },
   unavailableReason: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#6B7280',
+    color: colors.danger,
   },
   ctaSecondary: {
     width: 54,

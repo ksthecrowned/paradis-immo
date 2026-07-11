@@ -1,6 +1,6 @@
-import PropertyCard from '@/components/property/card';
 import { AgentRow } from '@/components/agency/AgentRow';
 import { StarRating } from '@/components/agency/StarRating';
+import PropertyCard, { PropertyCardSkeleton } from '@/components/property/card';
 import { CircleIconButton } from '@/components/ui/CircleIconButton';
 import { SegmentTabs } from '@/components/ui/SegmentTabs';
 import { colors, radii, spacing } from '@/constants/theme';
@@ -13,12 +13,11 @@ import { fetchCatalogProperties } from '@/lib/catalog';
 import { getErrorMessage } from '@/lib/feedback';
 import { listAgencyReviews } from '@/lib/mock-agency-reviews';
 import type { Property } from '@/types/property';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, Octicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
   FlatList,
   Linking,
   Pressable,
@@ -99,8 +98,14 @@ export default function AgencyHubScreen(): React.JSX.Element {
 
   if (loading) {
     return (
-      <View style={[styles.screen, styles.missing, { paddingTop: insets.top }]}>
-        <ActivityIndicator color={colors.primary} />
+      <View style={[styles.screen, { paddingTop: insets.top + spacing.md }]}>
+        <View style={styles.skeletonList}>
+          {[0, 1, 2].map((key) => (
+            <View key={key} style={styles.cardPad}>
+              <PropertyCardSkeleton />
+            </View>
+          ))}
+        </View>
       </View>
     );
   }
@@ -163,7 +168,7 @@ export default function AgencyHubScreen(): React.JSX.Element {
               <View style={styles.badgeRow}>
                 {agency.isOfficial ? (
                   <View style={styles.officialBadge}>
-                    <Text style={styles.officialBadgeText}>Officiel</Text>
+                    <Octicons name="verified" size={12} color={colors.primary} />
                   </View>
                 ) : null}
                 {agency.rating >= 4.8 ? (
@@ -441,15 +446,9 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   officialBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
     borderRadius: radii.full,
     backgroundColor: colors.primary,
-  },
-  officialBadgeText: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: colors.surface,
+    padding: 4,
   },
   topBadge: {
     flexDirection: 'row',
@@ -553,6 +552,10 @@ const styles = StyleSheet.create({
   },
   cardPad: {
     paddingHorizontal: spacing.md,
+  },
+  skeletonList: {
+    gap: spacing.md,
+    paddingHorizontal: 0,
   },
   separator: {
     height: spacing.md,

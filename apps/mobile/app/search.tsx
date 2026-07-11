@@ -1,4 +1,4 @@
-import PropertyCard from '@/components/property/card';
+import PropertyCard, { PropertyCardSkeleton } from '@/components/property/card';
 import { CircleIconButton } from '@/components/ui/CircleIconButton';
 import { colors, radii, spacing } from '@/constants/theme';
 import { fetchCatalogProperties } from '@/lib/catalog';
@@ -14,7 +14,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   FlatList,
   Pressable,
   ScrollView,
@@ -197,35 +196,33 @@ export default function SearchScreen(): React.JSX.Element {
           )
         }
         ListEmptyComponent={
-          <View style={styles.empty}>
-            {loading ? (
-              <ActivityIndicator color={colors.primary} />
-            ) : (
+          loading ? (
+            <View style={styles.skeletonList}>
+              {[0, 1, 2, 3].map((key) => (
+                <PropertyCardSkeleton key={key} variant="compact" />
+              ))}
+            </View>
+          ) : (
+            <View style={styles.empty}>
               <Ionicons name="home-outline" size={36} color={colors.muted} />
-            )}
-            <Text style={styles.emptyTitle}>
-              {loading
-                ? 'Chargement…'
-                : error
-                  ? 'Chargement impossible'
-                  : 'Aucun bien trouvé'}
-            </Text>
-            <Text style={styles.emptySubtitle}>
-              {error ??
-                (loading
-                  ? 'Recherche des annonces…'
-                  : 'Essayez un autre quartier ou assouplissez vos filtres.')}
-            </Text>
-            {!loading && activeFilterCount > 0 && !error ? (
-              <Pressable
-                style={styles.emptyAction}
-                onPress={openFilters}
-                accessibilityRole="button"
-              >
-                <Text style={styles.emptyActionText}>Modifier les filtres</Text>
-              </Pressable>
-            ) : null}
-          </View>
+              <Text style={styles.emptyTitle}>
+                {error ? 'Chargement impossible' : 'Aucun bien trouvé'}
+              </Text>
+              <Text style={styles.emptySubtitle}>
+                {error ??
+                  'Essayez un autre quartier ou assouplissez vos filtres.'}
+              </Text>
+              {activeFilterCount > 0 && !error ? (
+                <Pressable
+                  style={styles.emptyAction}
+                  onPress={openFilters}
+                  accessibilityRole="button"
+                >
+                  <Text style={styles.emptyActionText}>Modifier les filtres</Text>
+                </Pressable>
+              ) : null}
+            </View>
+          )
         }
         renderItem={({ item }) => (
           <PropertyCard
@@ -364,6 +361,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     gap: 8,
     paddingTop: 48,
+  },
+  skeletonList: {
+    gap: spacing.sm,
+    paddingTop: spacing.sm,
   },
   emptyTitle: {
     marginTop: 8,
