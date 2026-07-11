@@ -9,6 +9,7 @@ export type AuthUser = {
   id: string;
   phone: string;
   name: string | null;
+  email?: string | null;
   roles: string[];
 };
 
@@ -41,6 +42,7 @@ function unwrapTokens(body: TokenEnvelope): AuthTokens | null {
       id: user.id,
       phone: user.phone,
       name: user.name ?? null,
+      email: user.email ?? null,
       roles: user.roles ?? [],
     },
   };
@@ -70,6 +72,20 @@ export async function getStoredUser(): Promise<AuthUser | null> {
   } catch {
     return null;
   }
+}
+
+export async function updateStoredUser(
+  patch: Partial<Pick<AuthUser, 'name' | 'email'>>,
+): Promise<AuthUser | null> {
+  const user = await getStoredUser();
+  if (!user) return null;
+  const next: AuthUser = {
+    ...user,
+    name: patch.name !== undefined ? patch.name : user.name,
+    email: patch.email !== undefined ? patch.email : (user.email ?? null),
+  };
+  await AsyncStorage.setItem(USER_KEY, JSON.stringify(next));
+  return next;
 }
 
 export async function isAuthenticated(): Promise<boolean> {

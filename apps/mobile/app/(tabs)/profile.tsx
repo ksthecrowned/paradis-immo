@@ -83,6 +83,18 @@ export default function ProfileScreen(): React.JSX.Element {
 
   const menu: MenuItem[] = [
     {
+      key: 'leases',
+      label: 'Mes locations',
+      icon: 'key-outline',
+      onPress: () => router.push('/leases'),
+    },
+    {
+      key: 'documents',
+      label: 'Mes documents',
+      icon: 'document-text-outline',
+      onPress: () => router.push('/profile/documents'),
+    },
+    {
       key: 'favorites',
       label: 'Mes favoris',
       icon: 'heart-outline',
@@ -99,6 +111,12 @@ export default function ProfileScreen(): React.JSX.Element {
       label: 'Notifications',
       icon: 'notifications-outline',
       onPress: () => router.push('/notifications'),
+    },
+    {
+      key: 'settings',
+      label: 'Réglages',
+      icon: 'settings-outline',
+      onPress: () => router.push('/profile/settings'),
     },
     {
       key: 'help',
@@ -143,7 +161,16 @@ export default function ProfileScreen(): React.JSX.Element {
                   {user?.phone || 'Connectez-vous pour synchroniser'}
                 </Text>
               </View>
-              {!user ? (
+              {user ? (
+                <Pressable
+                  style={styles.editBtn}
+                  onPress={() => router.push('/profile/edit')}
+                  accessibilityRole="button"
+                  accessibilityLabel="Modifier"
+                >
+                  <Text style={styles.editBtnText}>Modifier</Text>
+                </Pressable>
+              ) : (
                 <Pressable
                   style={styles.loginBtn}
                   onPress={() => router.push('/(auth)/login')}
@@ -151,7 +178,7 @@ export default function ProfileScreen(): React.JSX.Element {
                 >
                   <Text style={styles.loginBtnText}>Connexion</Text>
                 </Pressable>
-              ) : null}
+              )}
             </>
           )}
         </View>
@@ -256,6 +283,17 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: colors.surface,
+  },
+  editBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: radii.full,
+    backgroundColor: colors.primaryMuted,
+  },
+  editBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.primary,
   },
   menu: {
     borderRadius: radii.xl,

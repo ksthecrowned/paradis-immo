@@ -85,6 +85,10 @@ export default function ActivityScreen(): React.JSX.Element {
   }, []);
 
   const onItemPress = (item: ActivityItem): void => {
+    if (item.segment === 'rents' && item.leaseId) {
+      router.push(`/leases/${item.leaseId}`);
+      return;
+    }
     router.push(`/property/${item.propertyId}`);
   };
 
