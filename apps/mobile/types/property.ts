@@ -21,9 +21,12 @@ export type PropertyFeatureId =
 
 export type PropertyMapView = 'neighborhood' | 'streetView' | 'tour360';
 
-export type PropertyAvailability = 'AVAILABLE' | 'UNAVAILABLE';
-
-export type UnavailableReason = 'RENTED' | 'SOLD' | 'RESERVED';
+export type ListingStatus =
+  | 'AVAILABLE'
+  | 'SOLD'
+  | 'UNDER_OFFER'
+  | 'OCCUPIED'
+  | 'AVAILABLE_SOON';
 
 export type Property = {
   id: string;
@@ -66,10 +69,12 @@ export type Property = {
   /** Display name / phone from API agent when mock agent is absent. */
   agentName?: string;
   agentPhone?: string | null;
-  /** Marketplace availability (Dispo / Indispo). */
-  availability: PropertyAvailability;
-  /** Why the listing is unavailable; set when availability is UNAVAILABLE. */
-  unavailableReason?: UnavailableReason;
+  /** Mode-aware marketplace listing status. */
+  listingStatus: ListingStatus;
+  /** ISO date when AVAILABLE_SOON. */
+  availableFrom?: string | null;
+  /** Featured / Coup de cœur ribbon. */
+  isFeatured?: boolean;
   visitEnabled?: boolean;
   visitType?: 'FREE' | 'PAID' | null;
   visitPrice?: number | null;
@@ -112,22 +117,11 @@ export function propertyPriceLabel(property: Property): string {
   return property.price;
 }
 
-export function isPropertyAvailable(property: Property): boolean {
-  return property.availability !== 'UNAVAILABLE';
-}
-
-export function unavailableReasonLabel(reason: UnavailableReason): string {
-  if (reason === 'RENTED') return 'Loué';
-  if (reason === 'SOLD') return 'Vendu';
-  return 'Réservé';
-}
-
-/** Detail badge; null when the listing is available. */
-export function propertyAvailabilityBadgeLabel(
-  property: Property,
-): string | null {
-  if (isPropertyAvailable(property) || !property.unavailableReason) {
-    return null;
-  }
-  return `Indispo · ${unavailableReasonLabel(property.unavailableReason)}`;
-}
+export {
+  isConversionBlocked,
+  isGrayscaleCard,
+  isPropertyAvailable,
+  listingStatusLabel,
+  listingStatusLabel as propertyAvailabilityBadgeLabel,
+  passesAvailableOnlyFilter,
+} from '@/lib/listing-status';
