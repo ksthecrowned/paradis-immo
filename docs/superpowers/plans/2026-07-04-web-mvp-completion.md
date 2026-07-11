@@ -1,6 +1,6 @@
 # Web MVP Completion — Implementation Plan
 
-> **Superseded (2026-07-04):** Use **`docs/superpowers/plans/2026-07-04-web-mvp-product-plan.md`** and spec **`docs/superpowers/specs/2026-07-04-web-mvp-product-design.md`** (product-grade web MVP, all modes, media, landing teaser). This file remains as historical snapshot of the earlier W1–W10 outline.
+> **Superseded (2026-07-09):** Use **`docs/superpowers/plans/2026-07-04-web-mvp-product-plan.md`** (tasks 1–12) and spec **`docs/superpowers/specs/2026-07-04-web-mvp-product-design.md`**. Tasks 1–11 of the product plan are implemented; Task 12 is final verification (`pnpm test` + smoke checklist in root `README.md`). This file remains as a historical snapshot of the earlier W1–W10 outline.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 

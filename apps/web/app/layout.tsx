@@ -1,7 +1,10 @@
 import type { Metadata } from 'next';
 import { Poppins } from 'next/font/google';
 import './globals.css';
+import { AuthSessionProvider } from '@/components/auth-session-provider';
 import { PrelineBoot } from '@/components/preline-boot';
+import { ThemeProvider } from '@/components/theme-provider';
+import { ThemeScript } from '@/components/theme-script';
 
 const poppins = Poppins({
   variable: '--font-poppins',
@@ -25,11 +28,19 @@ export default function RootLayout({
       data-bs-theme="dark"
       data-topbar-color="dark"
       data-sidebar-color="dark"
+      suppressHydrationWarning
       className={`${poppins.variable} h-full antialiased`}
     >
+      <head>
+        <ThemeScript />
+      </head>
       <body className="min-h-full flex flex-col font-sans">
-        {children}
-        <PrelineBoot />
+        <AuthSessionProvider>
+          <ThemeProvider>
+            {children}
+            <PrelineBoot />
+          </ThemeProvider>
+        </AuthSessionProvider>
       </body>
     </html>
   );

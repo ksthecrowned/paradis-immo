@@ -68,6 +68,48 @@ export default function HomeScreen(): React.JSX.Element {
 
   return (
     <View style={styles.screen}>
+      <View style={[styles.stickyHeader, { paddingTop: insets.top + 12 }]}>
+        <View style={styles.header}>
+          <Pressable
+            style={styles.locationBlock}
+            onPress={handleLocationPress}
+            accessibilityRole="button"
+            accessibilityLabel="Actualiser la position"
+          >
+            <Text style={styles.locationLabel}>Votre position</Text>
+            <View style={styles.locationRow}>
+              <Ionicons name="location" size={16} color={colors.primary} />
+              {loading ? (
+                <ActivityIndicator
+                  size="small"
+                  color={colors.primary}
+                  style={styles.locationLoader}
+                />
+              ) : (
+                <Text style={styles.locationValue} numberOfLines={1}>
+                  {label}
+                </Text>
+              )}
+              <Ionicons name="chevron-down" size={18} color={colors.ink} />
+            </View>
+          </Pressable>
+
+          <Pressable
+            onPress={() => router.push('/notifications')}
+            style={styles.notificationButton}
+            accessibilityRole="button"
+            accessibilityLabel="Notifications"
+          >
+            <Ionicons
+              name="notifications-outline"
+              size={24}
+              color={colors.ink}
+            />
+            <View style={styles.notificationBadge} />
+          </Pressable>
+        </View>
+      </View>
+
       <FlatList
         data={MOCK_PROPERTIES}
         keyExtractor={(item) => item.id}
@@ -81,7 +123,6 @@ export default function HomeScreen(): React.JSX.Element {
         contentContainerStyle={[
           styles.content,
           {
-            paddingTop: insets.top + 12,
             paddingBottom: insets.bottom + spacing.lg,
           },
         ]}
@@ -89,50 +130,6 @@ export default function HomeScreen(): React.JSX.Element {
         ItemSeparatorComponent={() => <View style={styles.separator} />}
         ListHeaderComponent={
           <View style={styles.headerBlock}>
-            <View style={styles.header}>
-              <Pressable
-                style={styles.locationBlock}
-                onPress={handleLocationPress}
-                accessibilityRole="button"
-                accessibilityLabel="Actualiser la position"
-              >
-                <Text style={styles.locationLabel}>Votre position</Text>
-                <View style={styles.locationRow}>
-                  <Ionicons name="location" size={16} color={colors.primary} />
-                  {loading ? (
-                    <ActivityIndicator
-                      size="small"
-                      color={colors.primary}
-                      style={styles.locationLoader}
-                    />
-                  ) : (
-                    <Text style={styles.locationValue} numberOfLines={1}>
-                      {label}
-                    </Text>
-                  )}
-                  <Ionicons
-                    name="chevron-down"
-                    size={18}
-                    color={colors.ink}
-                  />
-                </View>
-              </Pressable>
-
-              <Pressable
-                onPress={() => router.push('/notifications')}
-                style={styles.notificationButton}
-                accessibilityRole="button"
-                accessibilityLabel="Notifications"
-              >
-                <Ionicons
-                  name="notifications-outline"
-                  size={24}
-                  color={colors.ink}
-                />
-                <View style={styles.notificationBadge} />
-              </Pressable>
-            </View>
-
             <View style={styles.searchRow}>
               <Pressable
                 style={styles.searchField}
@@ -219,6 +216,14 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.bg,
   },
+  stickyHeader: {
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.sm,
+    backgroundColor: colors.bg,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
+    zIndex: 2,
+  },
   list: {
     flex: 1,
   },
@@ -228,6 +233,7 @@ const styles = StyleSheet.create({
   headerBlock: {
     gap: spacing.md,
     marginBottom: spacing.md,
+    paddingTop: spacing.md,
   },
   separator: {
     height: spacing.md,

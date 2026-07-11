@@ -9,28 +9,17 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { Type } from 'class-transformer';
 import {
   IsDateString,
-  IsInt,
   IsOptional,
   IsString,
-  Matches,
-  Max,
-  Min,
 } from 'class-validator';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AppAuthGuard } from '../common/guards/auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { VisitSlotsService } from './visit-slots.service';
-
-class CreateTemplateDto {
-  @Type(() => Number) @IsInt() @Min(0) @Max(6) dayOfWeek!: number;
-  @Matches(/^\d{2}:\d{2}$/) startTime!: string;
-  @Matches(/^\d{2}:\d{2}$/) endTime!: string;
-  @Type(() => Number) @IsInt() @Min(1) @Max(1440) slotMinutes!: number;
-}
+import { CreateTemplateDto } from './dto/create-template.dto';
 
 class BlockSlotDto {
   @IsDateString() startAt!: string;
@@ -66,6 +55,7 @@ export class VisitSlotsController {
   }
 
   @Get('properties/:id/visit-templates')
+  @UseGuards(AppAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'List visit-slot templates for a property' })
   listTemplates(

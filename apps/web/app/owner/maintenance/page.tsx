@@ -1,11 +1,5 @@
-import { PlaceholderSection } from '@/components/placeholder-section';
+import { OwnerMaintenancePage } from './owner-maintenance';
 
-export default function OwnerMaintenancePage(): React.JSX.Element {
-  return (
-    <PlaceholderSection
-      title="Maintenance"
-      description="Tickets de maintenance ouverts sur vos biens."
-      apiReady={true}
-    />
-  );
+export default function Page(): React.JSX.Element {
+  return <OwnerMaintenancePage />;
 }

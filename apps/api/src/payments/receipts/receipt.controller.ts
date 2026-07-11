@@ -27,4 +27,24 @@ export class ReceiptController {
     }
     return receipt;
   }
+
+  @Get('payments/:paymentId/receipt')
+  @UseGuards(AppAuthGuard)
+  @ApiOperation({ summary: 'Get the receipt for a validated payment' })
+  async findByPayment(
+    @CurrentUser() current: AuthenticatedUser,
+    @Param('paymentId') paymentId: string,
+  ) {
+    const receipt = await this.receipts.findByPaymentIdForUser(
+      paymentId,
+      current.userId,
+    );
+    if (!receipt) {
+      throw new NotFoundException({
+        code: 'RECEIPT_NOT_FOUND',
+        message: 'No receipt for this payment yet',
+      });
+    }
+    return receipt;
+  }
 }

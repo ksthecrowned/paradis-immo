@@ -19,10 +19,11 @@ describe('Health (e2e)', () => {
     await app.close();
   });
 
-  it('GET /api/v1/health returns ok', () => {
-    return request(app.getHttpServer())
+  it('GET /api/v1/health returns ok with db status', async () => {
+    const res = await request(app.getHttpServer())
       .get('/api/v1/health')
-      .expect(200)
-      .expect({ status: 'ok' });
+      .expect(200);
+    expect(res.body.status).toBe('ok');
+    expect(res.body.db).toBe('up');
   });
 });

@@ -1,11 +1,5 @@
-import { PlaceholderSection } from '@/components/placeholder-section';
+import { AdminModerationPage } from './admin-moderation';
 
-export default function AdminModerationPage(): React.JSX.Element {
-  return (
-    <PlaceholderSection
-      title="Modération"
-      description="Annonces signalées et actions de pause ou archivage."
-      apiReady={true}
-    />
-  );
+export default function Page(): React.JSX.Element {
+  return <AdminModerationPage />;
 }

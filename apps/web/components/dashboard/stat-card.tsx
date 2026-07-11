@@ -29,7 +29,7 @@ export function StatCard({
 
   const inner = (
     <div className="flex h-full flex-col overflow-hidden rounded-md border border-border bg-card">
-      <div className="flex items-start justify-between gap-3 p-5 pb-2">
+      <div className="flex items-start justify-between gap-3 p-5">
         <div className="min-w-0">
           <p className="text-[13px] font-medium text-muted">{label}</p>
           <p className="mt-2 text-[28px] font-semibold leading-none tracking-tight text-foreground">

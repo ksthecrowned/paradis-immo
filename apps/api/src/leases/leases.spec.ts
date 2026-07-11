@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { EventPublisher } from '../events/event.publisher';
 import { LeasesService } from './leases.service';
 import { RentScheduleGenerator } from './rent-schedule.generator.service';
+import { MandateApprovalService } from '../mandates/mandate-approval.service';
 import { generateRentSchedule } from './rent-schedule.generator';
 
 describe('RentScheduleGenerator (unit)', () => {
@@ -56,6 +57,12 @@ describe('LeasesService — schedule generation', () => {
         LeasesService,
         RentScheduleGenerator,
         PrismaService,
+        {
+          provide: MandateApprovalService,
+          useValue: {
+            requireApproval: jest.fn(),
+          },
+        },
         { provide: EventPublisher, useValue: eventBus },
       ],
     }).compile();

@@ -1,6 +1,7 @@
 import {
   Injectable,
   Logger,
+  ServiceUnavailableException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
@@ -49,6 +50,14 @@ export class AuthService {
   ) {}
 
   async requestOtp(input: { phone: string }): Promise<void> {
+    const MAX_REQUESTS_PER_HOUR = 5;
+    const count = await this.otpStore.incrementRequestCount(input.phone);
+    if (count > MAX_REQUESTS_PER_HOUR) {
+      throw new ServiceUnavailableException({
+        code: 'OTP_RATE_LIMIT',
+        message: 'Too many OTP requests for this phone; try again later',
+      });
+    }
     const code = this.generateCode();
     await this.otpStore.put(input.phone, code);
     await this.infobip.sendOtp({ to: input.phone, code });

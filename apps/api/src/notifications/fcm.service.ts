@@ -14,8 +14,10 @@ export class FcmService {
     deviceToken: string,
     title: string,
     body: string,
+    data?: Record<string, string>,
   ): Promise<{ ok: boolean; reason?: string }> {
     void body;
+    void data;
     if (!process.env.FCM_CREDENTIALS) {
       this.logger.warn(
         `[FCM] not configured — would push to ${deviceToken.slice(0, 8)}…: ${title}`,

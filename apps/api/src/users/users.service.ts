@@ -17,6 +17,7 @@ export interface PublicOrganization {
   id: string;
   name: string;
   type: string;
+  memberRole: string;
 }
 
 type UserWithRoles = User & { roles: { role: GlobalRole }[] };
@@ -41,13 +42,14 @@ export class UsersService {
 
   async updateMe(
     userId: string,
-    patch: { name?: string; avatarUrl?: string },
+    patch: { name?: string; avatarUrl?: string; fcmToken?: string },
   ): Promise<PublicUser> {
     const updated = await this.prisma.user.update({
       where: { id: userId },
       data: {
         ...(patch.name !== undefined ? { name: patch.name } : {}),
         ...(patch.avatarUrl !== undefined ? { avatarUrl: patch.avatarUrl } : {}),
+        ...(patch.fcmToken !== undefined ? { fcmToken: patch.fcmToken } : {}),
       },
       include: { roles: true },
     });
@@ -66,6 +68,7 @@ export class UsersService {
       id: m.organization.id,
       name: m.organization.name,
       type: m.organization.type,
+      memberRole: m.role,
     }));
   }
 

@@ -47,7 +47,6 @@ describe('UsersService', () => {
     otpStore = moduleRef.get(OtpStore);
     auth = moduleRef.get(AuthService);
     await prisma.onModuleInit();
-    await otpStore.onModuleInit();
 
     // Provision user via the auth flow (creates TENANT role)
     await prisma.user.deleteMany({ where: { phone } }).catch(() => undefined);
@@ -64,7 +63,6 @@ describe('UsersService', () => {
       await prisma.user.deleteMany({ where: { id: userId } });
     }
     await prisma.onModuleDestroy();
-    await otpStore.onModuleDestroy();
   });
 
   it('getMe returns the authenticated user', async () => {

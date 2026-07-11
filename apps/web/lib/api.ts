@@ -1,22 +1,14 @@
 /**
  * apiFetch — typed wrapper around the Paradis Immo backend.
  *
- * - Reads the access token from `localStorage` on every call (no
- *   module-level cache; we want to survive multi-tab updates).
- * - On a 401 with `code === 'TOKEN_EXPIRED'`, attempts a single
- *   /auth/refresh round-trip, then replays the original request
- *   with the new access token. A second 401 bubbles up.
- * - Non-2xx responses throw an Error whose `.message` is the API's
- *   `message` (falls back to status text). The full body is
- *   attached on `.cause` for callers that want to inspect it.
- *
- * Server-side rendering: when `window` is undefined (e.g. during
- * `generateMetadata` or static generation) we skip the token —
- * authenticated calls should be made from a client component.
+ * - Reads the access token from the NextAuth session (cookie JWT).
+ * - On 401, forces a session re-read (JWT callback may refresh via refreshToken),
+ *   then retries once. If refresh failed, signs out on the client.
  */
 
-export const API_URL: string =
-  process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001/api/v1';
+import { API_URL } from '@/lib/config';
+
+export { API_URL };
 
 export class ApiError extends Error {
   readonly status: number;
@@ -29,110 +21,42 @@ export class ApiError extends Error {
   }
 }
 
-type TokenStore = {
-  getItem(key: string): string | null;
-  setItem(key: string, value: string): void;
-  removeItem(key: string): void;
-};
-
-function getStore(): TokenStore | null {
-  if (typeof window !== 'undefined' && window.localStorage) {
-    return window.localStorage;
-  }
-  // Allow tests to inject a store via globalThis.
-  const g = globalThis as { localStorage?: TokenStore };
-  return g.localStorage ?? null;
-}
-
-function readAccessToken(): string | null {
-  return getStore()?.getItem('accessToken') ?? null;
-}
-
-function writeTokens(accessToken: string, refreshToken: string): void {
-  const s = getStore();
-  if (!s) return;
-  s.setItem('accessToken', accessToken);
-  s.setItem('refreshToken', refreshToken);
-}
-
-function clearTokens(): void {
-  const s = getStore();
-  if (!s) return;
-  s.removeItem('accessToken');
-  s.removeItem('refreshToken');
-}
-
 export type ApiFetchOptions = Omit<RequestInit, 'body'> & {
   body?: unknown;
   /** When true, skip attaching the Bearer token (public endpoints). */
   anonymous?: boolean;
 };
 
-export async function apiFetch<T>(
-  path: string,
-  options: ApiFetchOptions = {},
-): Promise<T> {
-  const { body, anonymous, headers, ...rest } = options;
-  const url = path.startsWith('http') ? path : `${API_URL}${path}`;
-
-  const buildHeaders = (): Headers => {
-    const h = new Headers();
-    if (body !== undefined) h.set('Content-Type', 'application/json');
-    if (!anonymous) {
-      const tok = readAccessToken();
-      if (tok) h.set('Authorization', `Bearer ${tok}`);
-    }
-    if (headers) {
-      const incoming = new Headers(headers as HeadersInit);
-      incoming.forEach((v, k) => h.set(k, v));
-    }
-    return h;
-  };
-
-  const exec = async (): Promise<Response> => {
-    const init: RequestInit = {
-      ...rest,
-      headers: buildHeaders(),
-      body: body === undefined ? undefined : JSON.stringify(body),
-    };
-    const res = await fetch(url, init);
-    return res;
-  };
-
-  let res = await exec();
-  if (res.status === 401 && !anonymous) {
-    // Single refresh attempt.
-    const refreshed = await tryRefresh();
-    if (refreshed) {
-      res = await exec();
-    } else {
-      clearTokens();
-    }
+async function resolveAccessToken(): Promise<string | null> {
+  if (typeof window === 'undefined') {
+    const { auth } = await import('@/auth');
+    const session = await auth();
+    if (session?.error === 'RefreshAccessTokenError') return null;
+    return session?.accessToken ?? null;
   }
 
-  const text = await res.text();
-  let parsed: unknown = null;
-  if (text) {
-    try {
-      parsed = JSON.parse(text);
-    } catch {
-      parsed = text;
-    }
-  }
+  const { getSession } = await import('next-auth/react');
+  const session = await getSession();
+  if (session?.error === 'RefreshAccessTokenError') return null;
+  return session?.accessToken ?? null;
+}
 
-  if (!res.ok) {
-    const apiMessage =
-      parsed &&
-      typeof parsed === 'object' &&
-      'message' in parsed &&
-      typeof (parsed as { message?: unknown }).message === 'string'
-        ? (parsed as { message: string }).message
-        : '';
-    const message: string = apiMessage || res.statusText || `Request failed (${res.status})`;
-    throw new ApiError(message, res.status, parsed);
+async function forceSessionRefresh(): Promise<string | null> {
+  if (typeof window === 'undefined') {
+    return resolveAccessToken();
   }
-  // The Paradis Immo API returns `{ statusCode, data, ... }`. Most
-  // callers want `data`. We unwrap when the shape matches.
+  // Hitting the session endpoint re-runs the JWT callback (refresh if expired).
+  const { getSession } = await import('next-auth/react');
+  const session = await getSession();
+  if (session?.error === 'RefreshAccessTokenError') {
+    const { signOut } = await import('next-auth/react');
+    await signOut({ callbackUrl: '/login' });
+    return null;
+  }
+  return session?.accessToken ?? null;
+}
+
+function unwrapData<T>(parsed: unknown): T {
   if (
     parsed &&
     typeof parsed === 'object' &&
@@ -144,38 +68,73 @@ export async function apiFetch<T>(
   return parsed as T;
 }
 
-async function tryRefresh(): Promise<boolean> {
-  const store = getStore();
-  const refreshToken = store?.getItem('refreshToken');
-  if (!refreshToken) return false;
+function errorMessage(parsed: unknown, statusText: string, status: number): string {
+  if (
+    parsed &&
+    typeof parsed === 'object' &&
+    'message' in parsed &&
+    typeof (parsed as { message?: unknown }).message === 'string'
+  ) {
+    return (parsed as { message: string }).message;
+  }
+  return statusText || `Request failed (${status})`;
+}
+
+async function parseBody(res: Response): Promise<unknown> {
+  const text = await res.text();
+  if (!text) return null;
   try {
-    const res = await fetch(`${API_URL}/auth/refresh`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refreshToken }),
-    });
-    if (!res.ok) return false;
-    const body = (await res.json()) as {
-      data?: { accessToken?: string; refreshToken?: string };
-    };
-    const a = body?.data?.accessToken;
-    const r = body?.data?.refreshToken;
-    if (!a || !r) return false;
-    writeTokens(a, r);
-    return true;
+    return JSON.parse(text);
   } catch {
-    return false;
+    return text;
   }
 }
 
-/**
- * Test-only escape hatch. We don't keep module state in api.ts
- * (tokens live in localStorage), so this is mostly a hook for
- * future instrumentation. Left here to keep the public surface
- * symmetrical with other helpers that may need it.
- */
-export function __resetApiForTests(): void {
-  /* no-op */
+export async function apiFetch<T>(
+  path: string,
+  options: ApiFetchOptions = {},
+): Promise<T> {
+  const { body, anonymous, headers, ...rest } = options;
+  const url = path.startsWith('http') ? path : `${API_URL}${path}`;
+
+  const buildHeaders = async (token: string | null): Promise<Headers> => {
+    const h = new Headers();
+    if (body !== undefined) h.set('Content-Type', 'application/json');
+    if (!anonymous && token) {
+      h.set('Authorization', `Bearer ${token}`);
+    }
+    if (headers) {
+      const incoming = new Headers(headers as HeadersInit);
+      incoming.forEach((v, k) => h.set(k, v));
+    }
+    return h;
+  };
+
+  const exec = async (token: string | null): Promise<Response> => {
+    return fetch(url, {
+      ...rest,
+      headers: await buildHeaders(token),
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+  };
+
+  let token = anonymous ? null : await resolveAccessToken();
+  let res = await exec(token);
+
+  if (res.status === 401 && !anonymous) {
+    token = await forceSessionRefresh();
+    if (token) {
+      res = await exec(token);
+    }
+  }
+
+  const parsed = await parseBody(res);
+
+  if (!res.ok) {
+    throw new ApiError(errorMessage(parsed, res.statusText, res.status), res.status, parsed);
+  }
+
+  return unwrapData<T>(parsed);
 }
 
 type PaginatedApiBody<T> = {
@@ -195,12 +154,11 @@ export async function apiFetchPaginated<T>(
   const { body, anonymous, headers, ...rest } = options;
   const url = path.startsWith('http') ? path : `${API_URL}${path}`;
 
-  const buildHeaders = (): Headers => {
+  const buildHeaders = async (token: string | null): Promise<Headers> => {
     const h = new Headers();
     if (body !== undefined) h.set('Content-Type', 'application/json');
-    if (!anonymous) {
-      const tok = readAccessToken();
-      if (tok) h.set('Authorization', `Bearer ${tok}`);
+    if (!anonymous && token) {
+      h.set('Authorization', `Bearer ${token}`);
     }
     if (headers) {
       const incoming = new Headers(headers as HeadersInit);
@@ -209,46 +167,28 @@ export async function apiFetchPaginated<T>(
     return h;
   };
 
-  const exec = async (): Promise<Response> => {
-    const init: RequestInit = {
+  const exec = async (token: string | null): Promise<Response> => {
+    return fetch(url, {
       ...rest,
-      headers: buildHeaders(),
+      headers: await buildHeaders(token),
       body: body === undefined ? undefined : JSON.stringify(body),
-    };
-    return fetch(url, init);
+    });
   };
 
-  let res = await exec();
+  let token = anonymous ? null : await resolveAccessToken();
+  let res = await exec(token);
+
   if (res.status === 401 && !anonymous) {
-    const refreshed = await tryRefresh();
-    if (refreshed) {
-      res = await exec();
-    } else {
-      clearTokens();
+    token = await forceSessionRefresh();
+    if (token) {
+      res = await exec(token);
     }
   }
 
-  const text = await res.text();
-  let parsed: unknown = null;
-  if (text) {
-    try {
-      parsed = JSON.parse(text);
-    } catch {
-      parsed = text;
-    }
-  }
+  const parsed = await parseBody(res);
 
   if (!res.ok) {
-    const apiMessage =
-      parsed &&
-      typeof parsed === 'object' &&
-      'message' in parsed &&
-      typeof (parsed as { message?: unknown }).message === 'string'
-        ? (parsed as { message: string }).message
-        : '';
-    const message: string =
-      apiMessage || res.statusText || `Request failed (${res.status})`;
-    throw new ApiError(message, res.status, parsed);
+    throw new ApiError(errorMessage(parsed, res.statusText, res.status), res.status, parsed);
   }
 
   const envelope = parsed as PaginatedApiBody<T>;
@@ -264,4 +204,8 @@ export async function apiFetchPaginated<T>(
       totalPages: Math.max(1, Math.ceil(total / pageSize) || 1),
     },
   };
+}
+
+export function __resetApiForTests(): void {
+  /* no-op */
 }

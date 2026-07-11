@@ -46,6 +46,8 @@ export interface PublicVisitBooking {
   status: string;
   paymentId: string | null;
   createdAt: string;
+  slotStartAt?: string;
+  slotEndAt?: string;
 }
 
 @Injectable()
@@ -363,9 +365,14 @@ export class VisitSlotsService {
   async listMyBookings(userId: string): Promise<PublicVisitBooking[]> {
     const rows = await this.prisma.visitBooking.findMany({
       where: { userId },
+      include: { slot: true },
       orderBy: { createdAt: 'desc' },
     });
-    return rows.map((b) => this.bookingToPublic(b));
+    return rows.map((b) => ({
+      ...this.bookingToPublic(b),
+      slotStartAt: b.slot.startAt.toISOString(),
+      slotEndAt: b.slot.endAt.toISOString(),
+    }));
   }
 
   async listManagedBookings(userId: string): Promise<PublicVisitBooking[]> {
@@ -382,9 +389,14 @@ export class VisitSlotsService {
     const ids = properties.map((p) => p.id);
     const rows = await this.prisma.visitBooking.findMany({
       where: { propertyId: { in: ids } },
+      include: { slot: true },
       orderBy: { createdAt: 'desc' },
     });
-    return rows.map((b) => this.bookingToPublic(b));
+    return rows.map((b) => ({
+      ...this.bookingToPublic(b),
+      slotStartAt: b.slot.startAt.toISOString(),
+      slotEndAt: b.slot.endAt.toISOString(),
+    }));
   }
 
   // ------------------------------------------------------------------

@@ -9,4 +9,9 @@ export class UpdateMeDto {
   @IsOptional()
   @IsUrl({ require_tld: false }, { message: 'avatarUrl must be a valid URL' })
   avatarUrl?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(512)
+  fcmToken?: string;
 }

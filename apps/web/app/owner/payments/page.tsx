@@ -1,11 +1,5 @@
-import { PlaceholderSection } from '@/components/placeholder-section';
+import { OwnerPaymentsPage } from './owner-payments';
 
-export default function OwnerPaiementsPage(): React.JSX.Element {
-  return (
-    <PlaceholderSection
-      title="Paiements"
-      description="Loyers perçus, en attente et en retard."
-      apiReady={true}
-    />
-  );
+export default function Page(): React.JSX.Element {
+  return <OwnerPaymentsPage />;
 }

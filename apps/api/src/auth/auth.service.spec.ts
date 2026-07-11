@@ -44,7 +44,6 @@ describe('AuthService', () => {
     otpStore = moduleRef.get(OtpStore);
     prisma = moduleRef.get(PrismaService);
     await prisma.onModuleInit();
-    await otpStore.onModuleInit();
 
     country =
       (await prisma.country.findUnique({ where: { code: 'CG' } })) ??
@@ -64,11 +63,11 @@ describe('AuthService', () => {
 
   afterAll(async () => {
     await prisma.user.deleteMany({ where: { phone } }).catch(() => undefined);
+    await prisma.otpChallenge.deleteMany({ where: { phone } }).catch(() => undefined);
     await prisma.onModuleDestroy();
-    await otpStore.onModuleDestroy();
   });
 
-  it('requestOtp stores a 6-digit code in Redis with 5min TTL', async () => {
+  it('requestOtp stores a 6-digit code in Postgres with 5min TTL', async () => {
     await service.requestOtp({ phone });
     const code = await otpStore.peek(phone);
     expect(code).toMatch(/^\d{6}$/);

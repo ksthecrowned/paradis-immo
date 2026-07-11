@@ -74,7 +74,8 @@ export class NotificationsService {
       }
       const title = this.renderPushTitle(input.type);
       const body = this.renderPushBody(input.payload);
-      result = await this.fcm.sendPush(user.fcmToken, title, body);
+      const data = this.renderPushData(input.type, input.payload);
+      result = await this.fcm.sendPush(user.fcmToken, title, body, data);
     }
 
     const updated = result.ok
@@ -153,6 +154,29 @@ export class NotificationsService {
     return entries
       .map(([k, v]) => `${k}: ${typeof v === 'string' ? v : JSON.stringify(v)}`)
       .join(' — ');
+  }
+
+  private renderPushData(
+    type: string,
+    payload: Record<string, unknown>,
+  ): Record<string, string> {
+    const data: Record<string, string> = { type };
+    for (const key of [
+      'propertyId',
+      'paymentId',
+      'visitBookingId',
+      'bookingId',
+      'leaseId',
+    ]) {
+      const value = payload[key];
+      if (typeof value === 'string' && value.length > 0) {
+        data[key] = value;
+      }
+    }
+    if (!data.propertyId && typeof payload.receiptUrl === 'string') {
+      data.screen = 'activity';
+    }
+    return data;
   }
 
   private async markSent(id: string): Promise<PublicNotification> {

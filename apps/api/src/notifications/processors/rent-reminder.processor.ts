@@ -1,8 +1,7 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
-import { Queue, Worker } from 'bullmq';
+import { Injectable, Logger } from '@nestjs/common';
+import { Cron } from '@nestjs/schedule';
 import { RentScheduleStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
-import { DOMAIN_EVENTS } from '../../events/event.types';
 import { NotificationsService } from '../notifications.service';
 
 /**
@@ -34,9 +33,6 @@ const DAY_MS = 24 * 60 * 60 * 1000;
  * Pure helper — given a dueDate and a reference "now", return the
  * reminder tier that matches, or null if the schedule falls on no
  * reminder day.
- *
- * Days are measured in *whole UTC days* between the two instants. A
- * schedule due in exactly 7 days → days = 7 → tier J-7.
  */
 export function pickReminderTier(
   dueDate: Date,
@@ -57,62 +53,25 @@ export function pickReminderTier(
 }
 
 /**
- * Consumes a daily job (scheduled for 8am Africa/Brazzaville by the
- * repeatable job registered in `onModuleInit`) and emits rent
- * reminders for each `RentSchedule` whose dueDate falls on a reminder
- * day.
- *
- * Idempotency: a schedule is reminded at most once per tier. We check
- * the `Notification` table for a row of the matching type already
- * linked to this rentScheduleId before sending.
+ * Daily job (8am Africa/Brazzaville) that emits rent reminders for each
+ * `RentSchedule` whose dueDate falls on a reminder day.
  */
 @Injectable()
-export class RentReminderProcessor implements OnModuleInit {
+export class RentReminderProcessor {
   private readonly logger = new Logger(RentReminderProcessor.name);
-  private queue!: Queue;
-  private worker!: Worker;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationsService,
   ) {}
 
-  onModuleInit(): Promise<void> {
-    if (!process.env.REDIS_URL) {
-      this.logger.warn(
-        'REDIS_URL not set — skipping RENT_REMINDER_DAILY scheduler',
-      );
-      return Promise.resolve();
-    }
-    const u = new URL(process.env.REDIS_URL);
-    const connection = {
-      host: u.hostname || 'localhost',
-      port: Number(u.port || 6379),
-      ...(u.password ? { password: decodeURIComponent(u.password) } : {}),
-    };
-    this.queue = new Queue(DOMAIN_EVENTS.RENT_REMINDER_DAILY, { connection });
-    this.worker = new Worker(
-      DOMAIN_EVENTS.RENT_REMINDER_DAILY,
-      async () => this.runDaily(new Date()),
-      { connection },
-    );
-    // 8am Africa/Brazzaville daily. Repeatable job is unique by name so
-    // a re-registration replaces the existing schedule.
-    void this.queue.add(
-      'rent-reminder-daily',
-      {},
-      {
-        repeat: { pattern: '0 8 * * *', tz: 'Africa/Brazzaville' },
-        jobId: 'rent-reminder-daily',
-      },
-    );
-    return Promise.resolve();
+  @Cron('0 8 * * *', { timeZone: 'Africa/Brazzaville' })
+  async runScheduled(): Promise<void> {
+    await this.runDaily(new Date());
   }
 
   /**
-   * Public for direct invocation from tests — no BullMQ dependency.
-   * Scans every non-PAID RentSchedule and dispatches reminders for
-   * the matching tier.
+   * Public for direct invocation from tests.
    */
   async runDaily(
     now: Date,
@@ -142,10 +101,6 @@ export class RentReminderProcessor implements OnModuleInit {
     for (const s of schedules) {
       const tier = pickReminderTier(s.dueDate, now);
       if (!tier) continue;
-      // Idempotence: a notification of this exact type already exists
-      // for this rentScheduleId → skip. We reach into the JSON payload
-      // via a raw SQL fragment because Prisma's high-level `Json`
-      // filters don't expose path-equality in 7.x reliably.
       const existing = await this.prisma.$queryRaw<Array<{ id: string }>>`
         SELECT id FROM "Notification"
         WHERE type = ${tier.type}::text

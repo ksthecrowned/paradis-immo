@@ -1,11 +1,5 @@
-import { PlaceholderSection } from '@/components/placeholder-section';
+import { AgentLeasesPage } from './agent-leases';
 
-export default function AgentLeasesPage(): React.JSX.Element {
-  return (
-    <PlaceholderSection
-      title="Baux"
-      description="Création et suivi des contrats de location pour les biens mandatés."
-      apiReady={true}
-    />
-  );
+export default function Page(): React.JSX.Element {
+  return <AgentLeasesPage />;
 }

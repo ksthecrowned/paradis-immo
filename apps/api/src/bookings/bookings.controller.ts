@@ -10,19 +10,14 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { Type } from 'class-transformer';
-import { IsDate, IsOptional, IsString } from 'class-validator';
+import { IsDate, IsOptional } from 'class-validator';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AppAuthGuard } from '../common/guards/auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { BookingsService } from './bookings.service';
 import { AvailabilityService } from './availability.service';
-
-class CreateBookingDto {
-  @IsString() propertyId!: string;
-  @Type(() => Date) @IsDate() startDate!: Date;
-  @Type(() => Date) @IsDate() endDate!: Date;
-}
+import { CreateBookingDto } from './dto/create-booking.dto';
 
 class AvailabilityQueryDto {
   @IsOptional() @Type(() => Date) @IsDate() from?: Date;

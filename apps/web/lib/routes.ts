@@ -18,6 +18,7 @@ export const ROUTES = {
     maintenance: '/owner/maintenance',
     maintenanceTicket: (id: string) => `/owner/maintenance/${id}`,
     mandate: '/owner/mandate',
+    bookings: '/owner/bookings',
   },
   agent: {
     dashboard: '/agent/dashboard',
@@ -26,6 +27,8 @@ export const ROUTES = {
     leases: '/agent/leases',
     paymentsValidation: '/agent/payments/validation',
     maintenance: '/agent/maintenance',
+    sales: '/agent/sales',
+    bookings: '/agent/bookings',
   },
   admin: {
     dashboard: '/admin/dashboard',
@@ -45,6 +48,7 @@ export interface NavItem {
 export const OWNER_NAV: NavItem[] = [
   { href: ROUTES.owner.dashboard, label: 'Tableau de bord', exact: true },
   { href: ROUTES.owner.properties, label: 'Biens' },
+  { href: ROUTES.owner.bookings, label: 'Réservations' },
   { href: ROUTES.owner.visits, label: 'Visites' },
   { href: ROUTES.owner.leases, label: 'Baux' },
   { href: ROUTES.owner.payments, label: 'Paiements' },
@@ -55,8 +59,10 @@ export const OWNER_NAV: NavItem[] = [
 export const AGENT_NAV: NavItem[] = [
   { href: ROUTES.agent.dashboard, label: 'Tableau de bord', exact: true },
   { href: ROUTES.agent.portfolio, label: 'Portefeuille' },
+  { href: ROUTES.agent.bookings, label: 'Réservations' },
   { href: ROUTES.agent.visits, label: 'Visites' },
   { href: ROUTES.agent.leases, label: 'Baux' },
+  { href: ROUTES.agent.sales, label: 'Demandes vente' },
   { href: ROUTES.agent.paymentsValidation, label: 'Validation paiements' },
   { href: ROUTES.agent.maintenance, label: 'Maintenance' },
 ];
@@ -85,6 +91,8 @@ const BREADCRUMB_LABELS: Record<string, string> = {
   maintenance: 'Maintenance',
   mandate: 'Mon mandat',
   portfolio: 'Portefeuille',
+  sales: 'Demandes vente',
+  bookings: 'Réservations',
   users: 'Utilisateurs',
   moderation: 'Modération',
   config: 'Configuration',

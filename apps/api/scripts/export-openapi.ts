@@ -42,7 +42,6 @@ function logStep(msg: string): void {
 async function exportOpenApi(): Promise<void> {
   logStep('export:openapi: starting');
   logStep(`env DATABASE_URL=${process.env.DATABASE_URL ? 'set' : 'unset'}`);
-  logStep(`env REDIS_URL=${process.env.REDIS_URL ? 'set' : 'unset'}`);
   const app = await NestFactory.create(AppModule, {
     logger: ['error', 'warn'],
   });

@@ -1,11 +1,5 @@
-import { PlaceholderSection } from '@/components/placeholder-section';
+import { OwnerLeasesPage } from './owner-leases';
 
-export default function OwnerBauxPage(): React.JSX.Element {
-  return (
-    <PlaceholderSection
-      title="Baux"
-      description="Baux actifs et historique des locations."
-      apiReady={false}
-    />
-  );
+export default function Page(): React.JSX.Element {
+  return <OwnerLeasesPage />;
 }

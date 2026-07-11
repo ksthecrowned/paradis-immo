@@ -1,7 +1,5 @@
 'use client';
 
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
 import { DashIcon } from '@/components/dash-icon';
 import {
   DASH_ICONS,
@@ -14,6 +12,8 @@ import {
   isNavActive,
   type NavItem,
 } from '@/lib/routes';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 
 export type DashboardRole = 'owner' | 'agent' | 'admin';
 
@@ -25,7 +25,8 @@ const ROLE_NAV: Record<DashboardRole, NavItem[]> = {
 
 const NAV_BADGES: Partial<Record<string, string>> = {
   '/admin/dashboard': '03',
-  '/agent/payments/validation': '3',
+  '/agent/payments/validation': '03',
+  '/owner/dashboard': '01',
 };
 
 export interface SidebarNavProps {

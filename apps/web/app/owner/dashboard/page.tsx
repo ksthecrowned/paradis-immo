@@ -1,9 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { apiFetch, ApiError } from '@/lib/api';
-import { getTokens } from '@/lib/auth';
+import { useRequireSession } from '@/hooks/use-require-session';
 import {
   OwnerDashboard,
   type OwnerDashboardCounts,
@@ -44,17 +43,14 @@ function formatDate(iso: string): string {
 }
 
 export default function OwnerDashboardPage(): React.JSX.Element {
-  const router = useRouter();
+  const { ready } = useRequireSession();
   const [counts, setCounts] = useState<OwnerDashboardCounts | null>(null);
   const [payments, setPayments] = useState<OwnerPaymentRow[]>([]);
   const [visits, setVisits] = useState<OwnerVisitRow[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!getTokens().accessToken) {
-      router.replace('/login');
-      return;
-    }
+    if (!ready) return;
     let cancelled = false;
     (async (): Promise<void> => {
       try {
@@ -100,7 +96,7 @@ export default function OwnerDashboardPage(): React.JSX.Element {
     return () => {
       cancelled = true;
     };
-  }, [router]);
+  }, [ready]);
 
   if (error) {
     return (

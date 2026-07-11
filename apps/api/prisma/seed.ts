@@ -12,6 +12,11 @@ import {
   PropertyStatus,
   PropertyType,
   PriceUnit,
+  MediaType,
+  SaleInquiryStatus,
+  VisitSlotSource,
+  VisitSlotStatus,
+  VisitType,
 } from '@prisma/client';
 
 const connectionString = process.env.DATABASE_URL;
@@ -40,7 +45,15 @@ const TEST_USER_IDS = {
 const PARADIS_IMMO_ID = 'org_paradis_immo';
 const OWNER_ORG_ID = 'org_test_owner';
 const DEMO_PROPERTY_ID = 'prop_test_demo';
+const DEMO_PROPERTY_SALE_ID = 'prop_test_sale';
+const DEMO_PROPERTY_SHORT_ID = 'prop_test_short';
+const DEMO_MEDIA_ID = 'media_test_demo_1';
+const DEMO_SALE_INQUIRY_ID = 'inquiry_test_sale_1';
 const DEMO_PAYMENT_ID = 'pay_test_pending_cash';
+
+/** Public image URL for demo gallery (no R2 required). */
+const DEMO_PHOTO_URL =
+  'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800&q=80';
 
 async function syncGlobalRoles(userId: string, roles: GlobalRole[]): Promise<void> {
   await prisma.userRole.deleteMany({ where: { userId } });
@@ -140,6 +153,8 @@ async function seedTestUsers(cgId: string, quartierId: string): Promise<void> {
     update: {
       title: 'Appartement démo Poto-Poto',
       status: PropertyStatus.ACTIVE,
+      visitType: VisitType.FREE,
+      visitEnabled: true,
     },
     create: {
       id: DEMO_PROPERTY_ID,
@@ -157,8 +172,120 @@ async function seedTestUsers(cgId: string, quartierId: string): Promise<void> {
       address: '12 av. de la Paix, Poto-Poto',
       countryId: cgId,
       visitEnabled: true,
+      visitType: VisitType.FREE,
+      bedrooms: 3,
+      bathrooms: 2,
+      surface: 85,
     },
   });
+
+  await prisma.property.upsert({
+    where: { id: DEMO_PROPERTY_SALE_ID },
+    update: { status: PropertyStatus.ACTIVE },
+    create: {
+      id: DEMO_PROPERTY_SALE_ID,
+      ownerId: TEST_USER_IDS.owner,
+      organizationId: PARADIS_IMMO_ID,
+      title: 'Villa à vendre Bacongo',
+      description: 'Maison familiale avec jardin — démo vente.',
+      type: PropertyType.HOUSE,
+      mode: PropertyMode.SALE,
+      status: PropertyStatus.ACTIVE,
+      price: new Prisma.Decimal(45000000),
+      currency: 'XAF',
+      priceUnit: PriceUnit.TOTAL,
+      quartierId,
+      address: '8 rue des Manguiers, Bacongo',
+      countryId: cgId,
+      visitEnabled: true,
+      bedrooms: 4,
+      bathrooms: 3,
+      surface: 220,
+    },
+  });
+
+  await prisma.property.upsert({
+    where: { id: DEMO_PROPERTY_SHORT_ID },
+    update: { status: PropertyStatus.ACTIVE },
+    create: {
+      id: DEMO_PROPERTY_SHORT_ID,
+      ownerId: TEST_USER_IDS.owner,
+      organizationId: PARADIS_IMMO_ID,
+      title: 'Studio courte durée Moungali',
+      description: 'Location meublée à la nuit — démo RENT_SHORT.',
+      type: PropertyType.APARTMENT,
+      mode: PropertyMode.RENT_SHORT,
+      status: PropertyStatus.ACTIVE,
+      price: new Prisma.Decimal(35000),
+      currency: 'XAF',
+      priceUnit: PriceUnit.NIGHT,
+      quartierId,
+      address: '5 av. Matsoua, Moungali',
+      countryId: cgId,
+      visitEnabled: false,
+      bedrooms: 1,
+      bathrooms: 1,
+      surface: 42,
+    },
+  });
+
+  await prisma.propertyMedia.upsert({
+    where: { id: DEMO_MEDIA_ID },
+    update: { url: DEMO_PHOTO_URL },
+    create: {
+      id: DEMO_MEDIA_ID,
+      propertyId: DEMO_PROPERTY_ID,
+      type: MediaType.PHOTO,
+      url: DEMO_PHOTO_URL,
+      position: 0,
+    },
+  });
+
+  await prisma.saleInquiry.upsert({
+    where: { id: DEMO_SALE_INQUIRY_ID },
+    update: { status: SaleInquiryStatus.NEW },
+    create: {
+      id: DEMO_SALE_INQUIRY_ID,
+      propertyId: DEMO_PROPERTY_SALE_ID,
+      userId: TEST_USER_IDS.tenant,
+      message: 'Intéressé par une visite cette semaine.',
+      status: SaleInquiryStatus.NEW,
+    },
+  });
+
+  // Demo visit slots — next 5 weekdays at 10:00 and 14:00
+  const slotBase = new Date();
+  slotBase.setHours(0, 0, 0, 0);
+  let slotIndex = 0;
+  for (let day = 1; day <= 7 && slotIndex < 10; day += 1) {
+    const date = new Date(slotBase);
+    date.setDate(date.getDate() + day);
+    if (date.getDay() === 0 || date.getDay() === 6) continue;
+    for (const hour of [10, 14]) {
+      const startAt = new Date(date);
+      startAt.setHours(hour, 0, 0, 0);
+      const endAt = new Date(startAt);
+      endAt.setMinutes(endAt.getMinutes() + 45);
+      const slotId = `slot_test_demo_${slotIndex}`;
+      await prisma.visitSlot.upsert({
+        where: { id: slotId },
+        update: {
+          status: VisitSlotStatus.AVAILABLE,
+          startAt,
+          endAt,
+        },
+        create: {
+          id: slotId,
+          propertyId: DEMO_PROPERTY_ID,
+          startAt,
+          endAt,
+          status: VisitSlotStatus.AVAILABLE,
+          source: VisitSlotSource.MANUAL,
+        },
+      });
+      slotIndex += 1;
+    }
+  }
 
   await prisma.payment.upsert({
     where: { id: DEMO_PAYMENT_ID },
@@ -179,6 +306,11 @@ async function seedTestUsers(cgId: string, quartierId: string): Promise<void> {
   for (const [role, info] of Object.entries(TEST_ACCOUNTS)) {
     console.log(`    ${role.padEnd(8)} ${info.phone}  → ${info.path}`);
   }
+  console.log('✓ Demo properties:');
+  console.log(`    ${DEMO_PROPERTY_ID}  RENT_LONG  (visites activées, créneaux seed)`);
+  console.log(`    ${DEMO_PROPERTY_SALE_ID}  SALE`);
+  console.log(`    ${DEMO_PROPERTY_SHORT_ID}  RENT_SHORT`);
+  console.log(`    ${DEMO_SALE_INQUIRY_ID}  sale inquiry (NEW)`);
 }
 
 async function main() {

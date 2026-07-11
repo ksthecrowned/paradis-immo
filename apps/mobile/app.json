@@ -1,25 +1,70 @@
 {
   "expo": {
-    "name": "mobile",
-    "slug": "mobile",
+    "name": "Paradis Immo",
+    "slug": "paradis-immo",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "scheme": "paradis-immo",
+    "icon": "./assets/logo-paradis-immo.png",
     "userInterfaceStyle": "light",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Paradis Immo utilise votre position pour afficher les biens près de chez vous."
+      },
+      "config": {
+        "googleMapsApiKey": "AIzaSyDrMnIhSgl6Zx-mUMQjubE4rD1EE89FjUo"
+      }
     },
     "android": {
-      "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyDrMnIhSgl6Zx-mUMQjubE4rD1EE89FjUo"
+        }
       },
-      "predictiveBackGestureEnabled": false
+      "adaptiveIcon": {
+        "backgroundColor": "#F7F7FD",
+        "foregroundImage": "./assets/logo-paradis-immo.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "POST_NOTIFICATIONS",
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION"
+      ],
+      "package": "com.paradisimmo.mobile"
     },
     "web": {
-      "favicon": "./assets/favicon.png"
-    }
+      "favicon": "./assets/logo-paradis-immo.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/logo-paradis-immo.png",
+          "color": "#7065F0",
+          "defaultChannel": "default"
+        }
+      ],
+      "expo-status-bar",
+      "expo-image",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/logo-paradis-immo.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#F7F7FD",
+          "width": 250,
+          "height": 250
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Paradis Immo utilise votre position pour afficher les biens près de chez vous."
+        }
+      ]
+    ]
   }
 }

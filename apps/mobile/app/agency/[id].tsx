@@ -13,10 +13,12 @@ import {
   listPropertiesByAgent,
 } from '@/lib/mock-properties';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
 import {
   FlatList,
+  Linking,
   Pressable,
   StyleSheet,
   Text,
@@ -44,6 +46,10 @@ export default function AgencyHubScreen(): React.JSX.Element {
     () => (agency ? listAgentsByAgency(agency.id) : []),
     [agency],
   );
+  const allProperties = useMemo(
+    () => (agency ? listPropertiesByAgency(agency.id) : []),
+    [agency],
+  );
   const selectedAgent = selectedAgentId
     ? getAgent(selectedAgentId)
     : undefined;
@@ -51,8 +57,8 @@ export default function AgencyHubScreen(): React.JSX.Element {
   const properties = useMemo(() => {
     if (!agency) return [];
     if (selectedAgentId) return listPropertiesByAgent(selectedAgentId);
-    return listPropertiesByAgency(agency.id);
-  }, [agency, selectedAgentId]);
+    return allProperties;
+  }, [agency, selectedAgentId, allProperties]);
 
   if (!agency) {
     return (
@@ -69,32 +75,94 @@ export default function AgencyHubScreen(): React.JSX.Element {
     );
   }
 
-  return (
-    <View style={styles.screen}>
-      <View style={[styles.topBar, { paddingTop: insets.top + spacing.sm }]}>
-        <CircleIconButton
-          onPress={() => router.back()}
-          accessibilityLabel="Retour"
-        >
-          <Ionicons name="chevron-back" size={24} color={colors.ink} />
-        </CircleIconButton>
-      </View>
+  const handleCallAgency = (): void => {
+    void Linking.openURL(`tel:${agency.phone.replace(/\s/g, '')}`);
+  };
 
-      <View style={styles.header}>
-        <View style={[styles.logo, { backgroundColor: agency.logoColor }]}>
-          <Text style={styles.logoText}>{agency.shortName.slice(0, 1)}</Text>
+  const listHeader = (
+    <View>
+      <View style={[styles.hero, { paddingTop: insets.top + spacing.sm }]}>
+        <LinearGradient
+          colors={[`${agency.logoColor}33`, colors.bg]}
+          style={StyleSheet.absoluteFill}
+        />
+        <View style={styles.topBar}>
+          <CircleIconButton
+            onPress={() => router.back()}
+            accessibilityLabel="Retour"
+          >
+            <Ionicons name="chevron-back" size={24} color={colors.ink} />
+          </CircleIconButton>
+          <CircleIconButton
+            onPress={handleCallAgency}
+            accessibilityLabel="Appeler l’agence"
+          >
+            <Ionicons name="call-outline" size={22} color={colors.ink} />
+          </CircleIconButton>
         </View>
-        <Text style={styles.name}>{agency.name}</Text>
-        <Text style={styles.meta}>
-          {agency.city} · {listPropertiesByAgency(agency.id).length} biens
-        </Text>
+
+        <View style={styles.header}>
+          <View style={[styles.logo, { backgroundColor: agency.logoColor }]}>
+            <Text style={styles.logoText}>{agency.shortName.slice(0, 1)}</Text>
+          </View>
+          <Text style={styles.name}>{agency.name}</Text>
+          <Text style={styles.tagline}>{agency.tagline}</Text>
+          {agency.verified ? (
+            <View style={styles.verifiedChip}>
+              <Ionicons
+                name="checkmark-circle"
+                size={16}
+                color={colors.success}
+              />
+              <Text style={styles.verifiedText}>Agence vérifiée</Text>
+            </View>
+          ) : null}
+        </View>
+
+        <View style={styles.statsRow}>
+          <View style={styles.stat}>
+            <Text style={styles.statValue}>{allProperties.length}</Text>
+            <Text style={styles.statLabel}>Biens</Text>
+          </View>
+          <View style={styles.statDivider} />
+          <View style={styles.stat}>
+            <Text style={styles.statValue}>{agents.length}</Text>
+            <Text style={styles.statLabel}>Agents</Text>
+          </View>
+          <View style={styles.statDivider} />
+          <View style={styles.stat}>
+            <Text style={styles.statValue}>{agency.foundedYear}</Text>
+            <Text style={styles.statLabel}>Depuis</Text>
+          </View>
+        </View>
+
+        <View style={styles.infoCard}>
+          <View style={styles.infoRow}>
+            <Ionicons name="location-outline" size={18} color={colors.primary} />
+            <Text style={styles.infoText}>
+              {agency.address}, {agency.city}
+            </Text>
+          </View>
+          <Pressable
+            style={styles.infoRow}
+            onPress={handleCallAgency}
+            accessibilityRole="button"
+            accessibilityLabel="Appeler l’agence"
+          >
+            <Ionicons name="call-outline" size={18} color={colors.primary} />
+            <Text style={[styles.infoText, styles.infoLink]}>{agency.phone}</Text>
+          </Pressable>
+        </View>
       </View>
 
       <View style={styles.tabsWrap}>
         <SegmentTabs
           tabs={[...TABS]}
           value={segment}
-          onChange={(key) => setSegment(key as Segment)}
+          onChange={(key) => {
+            setSegment(key as Segment);
+            if (key === 'agents') setSelectedAgentId(null);
+          }}
         />
       </View>
 
@@ -113,11 +181,16 @@ export default function AgencyHubScreen(): React.JSX.Element {
           </Pressable>
         </View>
       ) : null}
+    </View>
+  );
 
-      {segment === 'properties' ? (
+  if (segment === 'properties') {
+    return (
+      <View style={styles.screen}>
         <FlatList
           data={properties}
           keyExtractor={(item) => item.id}
+          ListHeaderComponent={listHeader}
           contentContainerStyle={[
             styles.listContent,
             { paddingBottom: insets.bottom + spacing.lg },
@@ -126,6 +199,9 @@ export default function AgencyHubScreen(): React.JSX.Element {
           ItemSeparatorComponent={() => <View style={styles.separator} />}
           ListEmptyComponent={
             <View style={styles.empty}>
+              <View style={styles.emptyIcon}>
+                <Ionicons name="home-outline" size={28} color={colors.primary} />
+              </View>
               <Text style={styles.emptyTitle}>Aucun bien</Text>
               <Text style={styles.emptySubtitle}>
                 {selectedAgentId
@@ -135,40 +211,50 @@ export default function AgencyHubScreen(): React.JSX.Element {
             </View>
           }
           renderItem={({ item }) => (
-            <PropertyCard
-              property={item}
-              onPress={() => router.push(`/property/${item.id}`)}
-            />
-          )}
-        />
-      ) : (
-        <FlatList
-          data={agents}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={[
-            styles.listContent,
-            { paddingBottom: insets.bottom + spacing.lg },
-            agents.length === 0 && styles.listEmpty,
-          ]}
-          ItemSeparatorComponent={() => <View style={styles.agentSep} />}
-          ListEmptyComponent={
-            <View style={styles.empty}>
-              <Text style={styles.emptyTitle}>Aucun agent</Text>
-            </View>
-          }
-          renderItem={({ item }) => (
-            <View style={styles.agentCard}>
-              <AgentRow
-                agentId={item.id}
-                onPress={() => {
-                  setSelectedAgentId(item.id);
-                  setSegment('properties');
-                }}
+            <View style={styles.cardPad}>
+              <PropertyCard
+                property={item}
+                onPress={() => router.push(`/property/${item.id}`)}
               />
             </View>
           )}
         />
-      )}
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.screen}>
+      <FlatList
+        data={agents}
+        keyExtractor={(item) => item.id}
+        ListHeaderComponent={listHeader}
+        contentContainerStyle={[
+          styles.listContent,
+          { paddingBottom: insets.bottom + spacing.lg },
+          agents.length === 0 && styles.listEmpty,
+        ]}
+        ItemSeparatorComponent={() => <View style={styles.agentSep} />}
+        ListEmptyComponent={
+          <View style={styles.empty}>
+            <Text style={styles.emptyTitle}>Aucun agent</Text>
+          </View>
+        }
+        renderItem={({ item }) => (
+          <View style={styles.agentCard}>
+            <AgentRow
+              agentId={item.id}
+              showListingCount
+              showPhone
+              onPress={() => {
+                setSelectedAgentId(item.id);
+                setSegment('properties');
+              }}
+            />
+            <Text style={styles.agentHint}>Voir ses biens</Text>
+          </View>
+        )}
+      />
     </View>
   );
 }
@@ -178,9 +264,14 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.bg,
   },
+  hero: {
+    paddingBottom: spacing.md,
+  },
   topBar: {
     paddingHorizontal: spacing.md,
     paddingBottom: spacing.sm,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
   },
   header: {
     alignItems: 'center',
@@ -189,15 +280,17 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.md,
   },
   logo: {
-    width: 64,
-    height: 64,
+    width: 72,
+    height: 72,
     borderRadius: radii.full,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 4,
+    borderWidth: 3,
+    borderColor: colors.surface,
   },
   logoText: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: '800',
     color: colors.surface,
   },
@@ -207,13 +300,86 @@ const styles = StyleSheet.create({
     color: colors.ink,
     textAlign: 'center',
   },
-  meta: {
+  tagline: {
     fontSize: 14,
     fontWeight: '500',
     color: colors.muted,
+    textAlign: 'center',
+    maxWidth: 300,
+  },
+  verifiedChip: {
+    marginTop: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: radii.full,
+    backgroundColor: '#DCFCE7',
+  },
+  verifiedText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.success,
+  },
+  statsRow: {
+    marginHorizontal: spacing.md,
+    marginBottom: spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingVertical: 14,
+  },
+  stat: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 2,
+  },
+  statValue: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: colors.ink,
+  },
+  statLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.muted,
+  },
+  statDivider: {
+    width: 1,
+    height: 28,
+    backgroundColor: colors.border,
+  },
+  infoCard: {
+    marginHorizontal: spacing.md,
+    gap: 10,
+    padding: 14,
+    borderRadius: radii.lg,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  infoText: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '500',
+    color: colors.ink,
+  },
+  infoLink: {
+    fontWeight: '700',
+    color: colors.primary,
   },
   tabsWrap: {
     paddingHorizontal: spacing.md,
+    marginTop: spacing.md,
     marginBottom: spacing.sm,
   },
   filterBar: {
@@ -234,29 +400,52 @@ const styles = StyleSheet.create({
     color: colors.ink,
   },
   listContent: {
-    paddingHorizontal: spacing.md,
+    flexGrow: 1,
   },
   listEmpty: {
     flexGrow: 1,
+  },
+  cardPad: {
+    paddingHorizontal: spacing.md,
   },
   separator: {
     height: spacing.md,
   },
   agentSep: {
-    height: 8,
+    height: 10,
   },
   agentCard: {
+    marginHorizontal: spacing.md,
     paddingHorizontal: 12,
+    paddingBottom: 10,
     borderRadius: radii.lg,
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
+  },
+  agentHint: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.primary,
+    paddingLeft: 64,
+    marginTop: -4,
+    marginBottom: 4,
   },
   empty: {
     alignItems: 'center',
     justifyContent: 'center',
     paddingTop: 48,
     gap: 8,
+    paddingHorizontal: spacing.md,
+  },
+  emptyIcon: {
+    width: 64,
+    height: 64,
+    borderRadius: radii.full,
+    backgroundColor: colors.primaryMuted,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
   },
   emptyTitle: {
     fontSize: 17,

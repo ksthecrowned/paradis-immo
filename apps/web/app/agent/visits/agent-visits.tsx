@@ -1,7 +1,6 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import {
   DashboardPageHeader,
   ListDataTable,
@@ -15,7 +14,7 @@ import {
   listManagedVisits,
   type PublicVisitBooking,
 } from '@/lib/agent/visits';
-import { getTokens } from '@/lib/auth';
+import { useRequireSession } from '@/hooks/use-require-session';
 
 function visitTone(status: string): 'success' | 'warning' | 'danger' | 'neutral' {
   if (status === 'CONFIRMED') return 'success';
@@ -44,7 +43,7 @@ function formatDate(iso: string): string {
 }
 
 export function AgentVisitsPage(): React.JSX.Element {
-  const router = useRouter();
+  const { ready } = useRequireSession();
   const [rows, setRows] = useState<PublicVisitBooking[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -66,12 +65,9 @@ export function AgentVisitsPage(): React.JSX.Element {
   }, []);
 
   useEffect(() => {
-    if (!getTokens().accessToken) {
-      router.replace('/login');
-      return;
-    }
+    if (!ready) return;
     void load();
-  }, [load, router]);
+  }, [load, ready]);
 
   const handleConfirm = useCallback(
     async (id: string) => {

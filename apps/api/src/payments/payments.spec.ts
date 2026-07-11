@@ -1,3 +1,4 @@
+import { ForbiddenException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -125,7 +126,7 @@ describe('PaymentsService', () => {
         address: 'X',
         countryId,
         ownerId: ownerUserId,
-        organizationId: ownerOrg.id,
+        organizationId: agentOrgId,
       },
     });
     propertyId = prop.id;
@@ -369,9 +370,30 @@ describe('PaymentsService', () => {
     });
   });
 
+  it('validateCashPayment throws ForbiddenException for unrelated user', async () => {
+    const payment = await payments.initiatePayment({
+      userId: tenantUserId,
+      amount: '10000',
+      currency: 'XAF',
+      method: 'CASH',
+      idempotencyKey: `cash-${Date.now()}-forbidden`,
+    });
+    createdPaymentIds.push(payment.id);
+
+    await expect(
+      payments.validateCashPayment(tenantUserId, payment.id, [
+        {
+          type: 'RENT_SCHEDULE',
+          refId: rentScheduleId,
+          amount: '10000',
+          rentScheduleId,
+        },
+      ]),
+    ).rejects.toThrow(ForbiddenException);
+  });
+
   it('listManaged excludes payments for users with no managed properties', async () => {
-    // agentUserId has no properties of their own and is not a member of ownerOrg.
-    const managed = await payments.listManaged(agentUserId);
+    const managed = await payments.listManaged(tenantUserId);
     expect(managed).toEqual([]);
   });
 });

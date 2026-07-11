@@ -1,4 +1,3 @@
-import { AgencyChip } from '@/components/agency/AgencyChip';
 import { colors, radii, spacing } from '@/constants/theme';
 import { isFavorite, toggleFavorite as persistToggleFavorite } from '@/lib/favorites';
 import {
@@ -81,106 +80,34 @@ export default function PropertyCard({
     : require('@/assets/images/house2.jpg');
 
   return (
-    <Pressable
-      style={({ pressed }) => [
-        styles.card,
-        compact && styles.cardCompact,
-        pressed && styles.cardPressed,
-      ]}
-      onPress={onPress}
-    >
-      <View style={[styles.imageWrap, compact && styles.imageWrapCompact]}>
-        <Image
-          source={imageSource}
-          style={compact ? styles.imageCompact : styles.image}
-          resizeMode="cover"
-        />
+    <>
+      <Pressable
+        style={({ pressed }) => [
+          styles.card,
+          compact && styles.cardCompact,
+          pressed && styles.cardPressed,
+        ]}
+        onPress={onPress}
+      >
+        <View style={[styles.imageWrap, compact && styles.imageWrapCompact]}>
+          <Image
+            source={imageSource}
+            style={compact ? styles.imageCompact : styles.image}
+            resizeMode="cover"
+          />
 
-        <View style={[styles.badge, compact && styles.badgeCompact]}>
-          <Text
-            style={[styles.badgeText, compact && styles.badgeTextCompact]}
-            numberOfLines={1}
-          >
-            {statusLabel}
-          </Text>
-        </View>
-
-        {!compact ? (
-          <Pressable
-            style={styles.favoriteBtn}
-            onPress={(e) => {
-              e.stopPropagation?.();
-              toggleFavorite();
-            }}
-            hitSlop={8}
-            accessibilityRole="button"
-            accessibilityLabel={
-              favorited ? 'Retirer des favoris' : 'Ajouter aux favoris'
-            }
-          >
-            <Ionicons
-              name={favorited ? 'heart' : 'heart-outline'}
-              size={20}
-              color={favorited ? colors.danger : colors.ink}
-            />
-          </Pressable>
-        ) : null}
-      </View>
-
-      <View style={[styles.body, compact && styles.bodyCompact]}>
-        <View style={[styles.topRow, compact && styles.topRowCompact]}>
-          <View style={styles.locationRow}>
-            <Ionicons name="location" size={compact ? 12 : 14} color={colors.muted} />
-            <Text style={[styles.location, compact && styles.locationCompact]} numberOfLines={1}>
-              {property.location ?? 'Congo'}
+          <View style={[styles.badge, compact && styles.badgeCompact]}>
+            <Text
+              style={[styles.badgeText, compact && styles.badgeTextCompact]}
+              numberOfLines={1}
+            >
+              {statusLabel}
             </Text>
           </View>
+
           {!compact ? (
-            <Text style={styles.price}>{priceLabel}</Text>
-          ) : null}
-        </View>
-
-        <Text
-          style={[styles.title, compact && styles.titleCompact]}
-          numberOfLines={compact ? 2 : 1}
-        >
-          {property.title}
-        </Text>
-
-        {!compact ? (
-          <View style={styles.agencyWrap}>
-            <AgencyChip agencyId={property.agencyId} />
-          </View>
-        ) : null}
-
-        {compact ? (
-          <Text style={styles.priceCompact}>{priceLabel}</Text>
-        ) : null}
-
-        <View style={[styles.footer, compact && styles.footerCompact]}>
-          <View style={styles.amenities}>
-            {amenities.slice(0, compact ? 2 : amenities.length).map((item) => (
-              <View
-                key={item.label}
-                style={[styles.chip, compact && styles.chipCompact]}
-              >
-                <Ionicons
-                  name={item.icon}
-                  size={compact ? 11 : 12}
-                  color={colors.muted}
-                />
-                <Text
-                  style={[styles.chipText, compact && styles.chipTextCompact]}
-                >
-                  {item.label}
-                </Text>
-              </View>
-            ))}
-          </View>
-
-          {compact ? (
             <Pressable
-              style={styles.favoriteBtnCompact}
+              style={styles.favoriteBtn}
               onPress={(e) => {
                 e.stopPropagation?.();
                 toggleFavorite();
@@ -193,14 +120,93 @@ export default function PropertyCard({
             >
               <Ionicons
                 name={favorited ? 'heart' : 'heart-outline'}
-                size={18}
+                size={20}
                 color={favorited ? colors.danger : colors.ink}
               />
             </Pressable>
           ) : null}
         </View>
+
+        <View style={[styles.body, compact && styles.bodyCompact]}>
+          <View style={[styles.topRow, compact && styles.topRowCompact]}>
+            <View style={styles.locationRow}>
+              <Ionicons name="location" size={compact ? 12 : 14} color={colors.muted} />
+              <Text style={[styles.location, compact && styles.locationCompact]} numberOfLines={1}>
+                {property.location ?? 'Congo'}
+              </Text>
+            </View>
+            {!compact ? (
+              <Text style={styles.price}>{priceLabel}</Text>
+            ) : null}
+          </View>
+
+          <Text
+            style={[styles.title, compact && styles.titleCompact]}
+            numberOfLines={compact ? 2 : 1}
+          >
+            {property.title}
+          </Text>
+
+          {compact ? (
+            <Text style={styles.priceCompact}>{priceLabel}</Text>
+          ) : null}
+
+          <View style={[styles.footer, compact && styles.footerCompact]}>
+            <View style={styles.amenities}>
+              {amenities.slice(0, compact ? 2 : amenities.length).map((item) => (
+                <View
+                  key={item.label}
+                  style={[styles.chip, compact && styles.chipCompact]}
+                >
+                  <Ionicons
+                    name={item.icon}
+                    size={compact ? 11 : 12}
+                    color={colors.muted}
+                  />
+                  <Text
+                    style={[styles.chipText, compact && styles.chipTextCompact]}
+                  >
+                    {item.label}
+                  </Text>
+                </View>
+              ))}
+            </View>
+
+            {compact ? (
+              <Pressable
+                style={styles.favoriteBtnCompact}
+                onPress={(e) => {
+                  e.stopPropagation?.();
+                  toggleFavorite();
+                }}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel={
+                  favorited ? 'Retirer des favoris' : 'Ajouter aux favoris'
+                }
+              >
+                <Ionicons
+                  name={favorited ? 'heart' : 'heart-outline'}
+                  size={18}
+                  color={favorited ? colors.danger : colors.ink}
+                />
+              </Pressable>
+            ) : null}
+          </View>
+        </View>
+      </Pressable>
+      <View style={styles.popularBadgeWrap}>
+        <View style={styles.popularBadge}>
+          <Ionicons
+            name="sparkles-outline"
+            size={14}
+            color={colors.surface}
+          />
+          <Text style={styles.popularBadgeText}>Popular</Text>
+        </View>
+        <View style={styles.popularBadgeTriangle} />
       </View>
-    </Pressable>
+    </>
   );
 }
 
@@ -264,6 +270,35 @@ const styles = StyleSheet.create({
   },
   badgeTextCompact: {
     fontSize: 10,
+  },
+  popularBadgeWrap: {
+    position: 'absolute',
+    top: 200,
+    left: -10,
+  },
+  popularBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 16,
+    paddingVertical: 7,
+    borderRadius: radii.sm,
+    borderBottomLeftRadius: 0,
+    backgroundColor: colors.primary,
+  },
+  popularBadgeText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.surface,
+  },
+  popularBadgeTriangle: {
+    width: 0,
+    height: 0,
+    borderStyle: 'solid',
+    borderTopWidth: 10,
+    borderLeftWidth: 10,
+    borderTopColor: '#4338CA',
+    borderLeftColor: 'transparent',
   },
   favoriteBtn: {
     position: 'absolute',
@@ -349,9 +384,6 @@ const styles = StyleSheet.create({
   titleCompact: {
     fontSize: 14,
     lineHeight: 18,
-  },
-  agencyWrap: {
-    marginTop: 4,
   },
   footer: {
     flexDirection: 'row',

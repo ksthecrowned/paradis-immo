@@ -15,16 +15,12 @@ import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { MandatesService } from './mandates.service';
 import { MandateApprovalService } from './mandate-approval.service';
+import { DecideApprovalDto } from './dto/decide-approval.dto';
 
 class CreateMandateDto {
   @IsString() propertyId!: string;
   @IsString() organizationId!: string;
   @IsOptional() @Type(() => Date) @IsDate() endDate?: Date;
-}
-
-class DecideApprovalDto {
-  approve!: boolean;
-  @IsOptional() @IsString() note?: string;
 }
 
 @ApiTags('Mandates')

@@ -10,6 +10,8 @@ import { EventPublisher } from '../events/event.publisher';
 import { DOMAIN_EVENTS } from '../events/event.types';
 import { RentScheduleGenerator } from './rent-schedule.generator.service';
 import { ListLeasesDto } from './dto/list-leases.dto';
+import { MandateApprovalService } from '../mandates/mandate-approval.service';
+import type { PublicMandateApproval } from '../mandates/mandate-approval.service';
 
 export interface PublicLease {
   id: string;
@@ -49,6 +51,7 @@ export class LeasesService {
     private readonly prisma: PrismaService,
     private readonly events: EventPublisher,
     private readonly scheduleGen: RentScheduleGenerator,
+    private readonly approvals: MandateApprovalService,
   ) {}
 
   async createLease(
@@ -147,6 +150,51 @@ export class LeasesService {
     return rows.map((l) => this.toPublic(l));
   }
 
+  async listMyLeases(userId: string): Promise<PublicLease[]> {
+    const rows = await this.prisma.lease.findMany({
+      where: { tenantId: userId },
+      orderBy: { createdAt: 'desc' },
+    });
+    return rows.map((l) => this.toPublic(l));
+  }
+
+  /**
+   * Under an active mandate, agents must request owner sign-off before activation.
+   */
+  async requestLeaseSign(
+    userId: string,
+    leaseId: string,
+  ): Promise<PublicMandateApproval> {
+    const lease = await this.prisma.lease.findUnique({
+      where: { id: leaseId },
+      include: {
+        property: { select: { id: true, ownerId: true, organizationId: true } },
+      },
+    });
+    if (!lease) {
+      throw new NotFoundException({
+        code: 'LEASE_NOT_FOUND',
+        message: 'Lease does not exist',
+      });
+    }
+    await this.assertCanManageLease(userId, lease);
+
+    const mandate = await this.findActiveMandate(lease.propertyId);
+    if (!mandate) {
+      throw new BadRequestException({
+        code: 'NO_ACTIVE_MANDATE',
+        message: 'No active mandate on this property',
+      });
+    }
+
+    return this.approvals.requireApproval({
+      mandateId: mandate.id,
+      actionType: 'LEASE_SIGN',
+      payload: { leaseId },
+      requestedByUserId: userId,
+    });
+  }
+
   /**
    * Activate a `DRAFT` lease. Generates the full rent schedule in one shot
    * (idempotent on re-run thanks to `@@unique([leaseId, dueDate])`).
@@ -188,6 +236,15 @@ export class LeasesService {
       throw new BadRequestException({
         code: 'LEASE_TERMINATED',
         message: 'A terminated lease cannot be re-activated',
+      });
+    }
+
+    const mandate = await this.findActiveMandate(lease.propertyId);
+    if (mandate && !(await this.hasApprovedLeaseSign(leaseId, mandate.id))) {
+      throw new BadRequestException({
+        code: 'LEASE_SIGN_APPROVAL_REQUIRED',
+        message:
+          'Owner must approve LEASE_SIGN before activation under an active mandate',
       });
     }
 
@@ -247,5 +304,52 @@ export class LeasesService {
       status: lease.status,
       createdAt: lease.createdAt.toISOString(),
     };
+  }
+
+  private async findActiveMandate(propertyId: string) {
+    return this.prisma.mandate.findFirst({
+      where: { propertyId, status: 'ACTIVE' },
+    });
+  }
+
+  private async hasApprovedLeaseSign(
+    leaseId: string,
+    mandateId: string,
+  ): Promise<boolean> {
+    const rows = await this.prisma.mandateApproval.findMany({
+      where: {
+        mandateId,
+        actionType: 'LEASE_SIGN',
+        status: 'APPROVED',
+      },
+    });
+    return rows.some((row) => {
+      const payload = row.payload as { leaseId?: string } | null;
+      return payload?.leaseId === leaseId;
+    });
+  }
+
+  private async assertCanManageLease(
+    userId: string,
+    lease: {
+      property: { ownerId: string; organizationId: string };
+    },
+  ): Promise<void> {
+    if (lease.property.ownerId === userId) return;
+    const membership = await this.prisma.organizationMember.findUnique({
+      where: {
+        userId_organizationId: {
+          userId,
+          organizationId: lease.property.organizationId,
+        },
+      },
+    });
+    if (!membership) {
+      throw new ForbiddenException({
+        code: 'NOT_PROPERTY_OWNER',
+        message:
+          'Only the owner or a member of the managing org can manage this lease',
+      });
+    }
   }
 }

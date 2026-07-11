@@ -1,9 +1,13 @@
 import { Module } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
+import { ScheduleModule } from '@nestjs/schedule';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { AdminModule } from './admin/admin.module';
 import { AuthModule } from './auth/auth.module';
 import { BookingsModule } from './bookings/bookings.module';
 import { EventModule } from './events/event.module';
 import { HealthModule } from './health/health.module';
+import { FavoritesModule } from './favorites/favorites.module';
 import { LeasesModule } from './leases/leases.module';
 import { LocationsModule } from './locations/locations.module';
 import { MaintenanceModule } from './maintenance/maintenance.module';
@@ -20,6 +24,8 @@ import { VisitSlotsModule } from './visit-slots/visit-slots.module';
 
 @Module({
   imports: [
+    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 100 }]),
+    ScheduleModule.forRoot(),
     PrismaModule,
     EventModule,
     AdminModule,
@@ -31,6 +37,7 @@ import { VisitSlotsModule } from './visit-slots/visit-slots.module';
     PropertiesModule,
     VisitSlotsModule,
     BookingsModule,
+    FavoritesModule,
     LeasesModule,
     MaintenanceModule,
     MandatesModule,
@@ -39,5 +46,6 @@ import { VisitSlotsModule } from './visit-slots/visit-slots.module';
     PaymentsModule,
     SalesModule,
   ],
+  providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
 export class AppModule {}

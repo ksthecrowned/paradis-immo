@@ -1,7 +1,6 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import {
   DashboardPageHeader,
   ListDataTable,
@@ -14,7 +13,7 @@ import {
   validatePayment,
   type PublicPayment,
 } from '@/lib/agent/payments';
-import { getTokens } from '@/lib/auth';
+import { useRequireSession } from '@/hooks/use-require-session';
 
 function formatMoney(amount: string, currency: string): string {
   return new Intl.NumberFormat('fr-FR', {
@@ -35,7 +34,7 @@ function formatDate(iso: string): string {
 }
 
 export function AgentPaymentsValidationPage(): React.JSX.Element {
-  const router = useRouter();
+  const { ready } = useRequireSession();
   const [rows, setRows] = useState<PublicPayment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -59,12 +58,9 @@ export function AgentPaymentsValidationPage(): React.JSX.Element {
   }, []);
 
   useEffect(() => {
-    if (!getTokens().accessToken) {
-      router.replace('/login');
-      return;
-    }
+    if (!ready) return;
     void load();
-  }, [load, router]);
+  }, [load, ready]);
 
   const handleValidate = useCallback(
     async (payment: PublicPayment) => {

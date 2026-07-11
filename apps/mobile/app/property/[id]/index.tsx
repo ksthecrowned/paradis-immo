@@ -386,14 +386,6 @@ export default function PropertyScreen(): React.JSX.Element {
               <Text style={styles.price}>{priceLabel}</Text>
             </View>
 
-            <AgentRow
-              agentId={property.agentId}
-              showAgencyLink
-              onPressAgency={() =>
-                router.push(`/agency/${property.agencyId}`)
-              }
-            />
-
             <View style={styles.titleRow}>
               <Text style={styles.title} numberOfLines={2}>
                 {property.title}
@@ -694,6 +686,18 @@ export default function PropertyScreen(): React.JSX.Element {
           >
             <View style={styles.actionsHandle} />
             <Text style={styles.actionsTitle}>Actions</Text>
+
+            <View style={styles.actionsAgent}>
+              <AgentRow
+                agentId={property.agentId}
+                compact
+                showAgencyLink
+                onPressAgency={() => {
+                  setActionsOpen(false);
+                  router.push(`/agency/${property.agencyId}`);
+                }}
+              />
+            </View>
 
             {property.mode === 'SALE' ? (
               <Pressable
@@ -1328,6 +1332,12 @@ const styles = StyleSheet.create({
     color: colors.ink,
     marginBottom: 8,
     paddingHorizontal: 4,
+  },
+  actionsAgent: {
+    marginBottom: 8,
+    paddingHorizontal: 4,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
   },
   actionRow: {
     minHeight: 52,

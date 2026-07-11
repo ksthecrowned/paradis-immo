@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -141,6 +142,58 @@ export class PaymentsService {
         code: 'PAYMENT_NOT_VALIDATABLE',
         message: `Payment in status ${payment.status} cannot be validated`,
       });
+    }
+
+    const firstAlloc = allocations.find(
+      (a) => a.type === 'RENT_SCHEDULE' && a.rentScheduleId,
+    );
+    let property: { ownerId: string; organizationId: string } | null = null;
+    if (firstAlloc?.rentScheduleId) {
+      const sched = await this.prisma.rentSchedule.findUnique({
+        where: { id: firstAlloc.rentScheduleId },
+        include: {
+          lease: {
+            select: {
+              property: {
+                select: { ownerId: true, organizationId: true },
+              },
+            },
+          },
+        },
+      });
+      property = sched?.lease?.property ?? null;
+    }
+    if (!property) {
+      const user = await this.prisma.user.findUnique({
+        where: { id: agentUserId },
+        include: { roles: true },
+      });
+      const isAdmin =
+        user?.roles.some((r) => r.role === 'PLATFORM_ADMIN') ?? false;
+      if (!isAdmin) {
+        throw new ForbiddenException({
+          code: 'NOT_VALIDATION_AGENT',
+          message:
+            'Only the property owner, an agent of the managing org, or a platform admin can validate this payment',
+        });
+      }
+    } else {
+      const isOwner = property.ownerId === agentUserId;
+      const membership = await this.prisma.organizationMember.findUnique({
+        where: {
+          userId_organizationId: {
+            userId: agentUserId,
+            organizationId: property.organizationId,
+          },
+        },
+      });
+      if (!isOwner && !membership) {
+        throw new ForbiddenException({
+          code: 'NOT_VALIDATION_AGENT',
+          message:
+            'Only the property owner or an agent of the managing org can validate this payment',
+        });
+      }
     }
 
     const updated = await this.prisma.$transaction(async (tx) => {

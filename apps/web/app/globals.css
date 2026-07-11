@@ -4,11 +4,11 @@
 @plugin "@tailwindcss/forms";
 
 /*
- * Darkone Bootstrap theme — mapped from:
- * html[data-bs-theme=dark][data-topbar-color=dark]
- * html[data-bs-theme=dark][data-sidebar-color=dark]
+ * Darkone-inspired tokens.
+ * Toggle via html[data-bs-theme="dark" | "light"].
  */
-:root {
+:root,
+html[data-bs-theme="dark"] {
   --background: #171c21;
   --foreground: #f1f1f1;
 
@@ -23,12 +23,35 @@
   --search: #232a31;
   --input-border: #3a4551;
   --input-focus-border: #4a5663;
-  --accent: #6658dd;
+  --accent: #7065f0;
   --accent-light: #7c6ffc;
   --accent-muted: rgba(102, 88, 221, 0.15);
   --success: #22c997;
   --warning: #f5a623;
   --danger: #ef4444;
+}
+
+html[data-bs-theme="light"] {
+  --background: #f5f6fa;
+  --foreground: #3b4758;
+
+  --topbar: #ffffff;
+  --sidebar: #ffffff;
+  --card: #ffffff;
+  --card-hover: #f1f3f9;
+  --border: #e7e9ef;
+  --muted: #8391a2;
+  --active: #313a46;
+  --heading: #6c757d;
+  --search: #f1f3fa;
+  --input-border: #dee2e6;
+  --input-focus-border: #b8c2cc;
+  --accent: #7065f0;
+  --accent-light: #7c6ffc;
+  --accent-muted: rgba(102, 88, 221, 0.12);
+  --success: #1abc9c;
+  --warning: #f7b84b;
+  --danger: #f1556c;
 }
 
 @theme inline {

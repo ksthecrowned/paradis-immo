@@ -1,9 +1,11 @@
 'use client';
 
+import { useTheme } from '@/components/theme-provider';
 import { DASH_CHART_COLORS } from '@/lib/dash-icons';
+import type { ThemeMode } from '@/lib/theme';
 import type { ApexOptions } from 'apexcharts';
 import dynamic from 'next/dynamic';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 
 const ReactApexChart = dynamic(() => import('react-apexcharts'), { ssr: false });
 
@@ -79,7 +81,14 @@ function ChartRangeToggle({
   );
 }
 
-function buildComboOptions(categories: string[]): ApexOptions {
+function chartPalette(theme: ThemeMode): { muted: string; border: string } {
+  return theme === 'light'
+    ? { muted: '#8391a2', border: '#e7e9ef' }
+    : { muted: '#afb9cf', border: '#272f37' };
+}
+
+function buildComboOptions(categories: string[], theme: ThemeMode): ApexOptions {
+  const palette = chartPalette(theme);
   return {
     chart: {
       type: 'line',
@@ -87,7 +96,7 @@ function buildComboOptions(categories: string[]): ApexOptions {
       background: 'transparent',
       fontFamily: 'inherit',
     },
-    theme: { mode: 'dark' },
+    theme: { mode: theme },
     stroke: { width: [0, 3, 3], curve: 'smooth', dashArray: [0, 0, 5] },
     colors: [DASH_CHART_COLORS.purple, DASH_CHART_COLORS.green, DASH_CHART_COLORS.violet],
     plotOptions: {
@@ -97,13 +106,13 @@ function buildComboOptions(categories: string[]): ApexOptions {
     legend: {
       position: 'bottom',
       horizontalAlign: 'center',
-      labels: { colors: '#afb9cf' },
+      labels: { colors: palette.muted },
       markers: { size: 4, offsetX: -2 },
       itemMargin: { horizontal: 12 },
     },
     xaxis: {
       categories,
-      labels: { style: { colors: '#afb9cf', fontSize: '11px' } },
+      labels: { style: { colors: palette.muted, fontSize: '11px' } },
       axisBorder: { show: false },
       axisTicks: { show: false },
     },
@@ -111,31 +120,34 @@ function buildComboOptions(categories: string[]): ApexOptions {
       min: 0,
       max: 80,
       tickAmount: 4,
-      labels: { style: { colors: '#afb9cf', fontSize: '11px' } },
+      labels: { style: { colors: palette.muted, fontSize: '11px' } },
     },
     grid: {
-      borderColor: '#272f37',
+      borderColor: palette.border,
       strokeDashArray: 4,
       padding: { left: 8, right: 8 },
     },
-    tooltip: { theme: 'dark' },
+    tooltip: { theme },
   };
 }
 
-const donutOptions: ApexOptions = {
-  chart: { type: 'donut', background: 'transparent' },
-  theme: { mode: 'dark' },
-  labels: ['Location courte', 'Location longue', 'Vente'],
-  colors: [DASH_CHART_COLORS.purple, DASH_CHART_COLORS.blue, DASH_CHART_COLORS.green],
-  legend: { show: false },
-  dataLabels: { enabled: false },
-  plotOptions: {
-    pie: {
-      donut: { size: '72%' },
+function buildDonutOptions(theme: ThemeMode): ApexOptions {
+  return {
+    chart: { type: 'donut', background: 'transparent' },
+    theme: { mode: theme },
+    labels: ['Location courte', 'Location longue', 'Vente'],
+    colors: [DASH_CHART_COLORS.purple, DASH_CHART_COLORS.blue, DASH_CHART_COLORS.green],
+    legend: { show: false },
+    dataLabels: { enabled: false },
+    plotOptions: {
+      pie: {
+        donut: { size: '72%' },
+      },
     },
-  },
-  stroke: { width: 0 },
-};
+    stroke: { width: 0 },
+    tooltip: { theme },
+  };
+}
 
 const donutSeries = [33, 50, 17];
 
@@ -146,8 +158,13 @@ const CATEGORY_ROWS = [
 ];
 
 export function RevenueChart(): React.JSX.Element {
+  const { theme } = useTheme();
   const [range, setRange] = useState<RangeKey>('1y');
   const data = DATA_BY_RANGE[range];
+  const options = useMemo(
+    () => buildComboOptions(data.categories, theme),
+    [data.categories, theme],
+  );
 
   return (
     <div className="flex h-full flex-col rounded-md border border-border bg-card p-5">
@@ -157,7 +174,8 @@ export function RevenueChart(): React.JSX.Element {
       </div>
       <div className="min-h-0 flex-1">
         <ReactApexChart
-          options={buildComboOptions(data.categories)}
+          key={theme}
+          options={options}
           series={[
             { name: 'Revenus', type: 'column', data: data.revenue },
             { name: 'Clics', type: 'line', data: data.clicks },
@@ -172,7 +190,9 @@ export function RevenueChart(): React.JSX.Element {
 }
 
 export function PropertyModeChart(): React.JSX.Element {
+  const { theme } = useTheme();
   const [range, setRange] = useState<RangeKey>('1y');
+  const options = useMemo(() => buildDonutOptions(theme), [theme]);
 
   return (
     <div className="flex h-full flex-col rounded-md border border-border bg-card p-5">
@@ -183,7 +203,8 @@ export function PropertyModeChart(): React.JSX.Element {
         <ChartRangeToggle range={range} onChange={setRange} />
       </div>
       <ReactApexChart
-        options={donutOptions}
+        key={theme}
+        options={options}
         series={donutSeries}
         type="donut"
         height={180}
@@ -259,7 +280,7 @@ export function SessionsMapCard(): React.JSX.Element {
             className="absolute"
             style={{ left: pin.x, top: pin.y }}
           >
-            <span className="block size-2 rounded-full bg-white ring-2 ring-accent" />
+            <span className="block size-2 rounded-full bg-active ring-2 ring-accent" />
             <span className="mt-1 block whitespace-nowrap text-[10px] text-muted">
               {pin.label}
             </span>

@@ -9,24 +9,13 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { Type } from 'class-transformer';
-import { IsDate, IsNumber, IsString } from 'class-validator';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AppAuthGuard } from '../common/guards/auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { LeasesService } from './leases.service';
 import { ListLeasesDto } from './dto/list-leases.dto';
-
-class CreateLeaseDto {
-  @IsString() propertyId!: string;
-  @IsString() tenantId!: string;
-  @Type(() => Date) @IsDate() startDate!: Date;
-  @Type(() => Date) @IsDate() endDate!: Date;
-  @Type(() => Number) @IsNumber() monthlyRent!: number;
-  @Type(() => Number) @IsNumber() deposit!: number;
-  @IsString() currency!: string;
-}
+import { CreateLeaseDto } from './dto/create-lease.dto';
 
 @ApiTags('Leases')
 @ApiBearerAuth()
@@ -55,6 +44,24 @@ export class LeasesController {
     @Query() filter: ListLeasesDto,
   ) {
     return this.leases.listManaged(current.userId, filter);
+  }
+
+  @Get('my')
+  @ApiOperation({ summary: "List the authenticated tenant's leases" })
+  my(@CurrentUser() current: AuthenticatedUser) {
+    return this.leases.listMyLeases(current.userId);
+  }
+
+  @Post(':id/request-sign')
+  @HttpCode(201)
+  @ApiOperation({
+    summary: 'Request owner LEASE_SIGN approval (mandated properties)',
+  })
+  requestSign(
+    @CurrentUser() current: AuthenticatedUser,
+    @Param('id') id: string,
+  ) {
+    return this.leases.requestLeaseSign(current.userId, id);
   }
 
   @Patch(':id/activate')

@@ -639,3 +639,18 @@ model Notification {
   sentAt    DateTime?
   createdAt DateTime            @default(now())
 }
+
+// =====================================================================
+// Auth — OTP challenges (replaces Redis for MVP)
+// =====================================================================
+
+model OtpChallenge {
+  phone              String   @id
+  code               String
+  attempts           Int      @default(0)
+  expiresAt          DateTime
+  requestCount       Int      @default(1)
+  requestWindowEndAt DateTime
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}

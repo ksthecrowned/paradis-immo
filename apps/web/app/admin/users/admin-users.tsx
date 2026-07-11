@@ -9,6 +9,7 @@ import {
 } from '@/components/dashboard';
 import { ApiError } from '@/lib/api';
 import { listUsers, type AdminUser } from '@/lib/admin/users';
+import { useRequireSession } from '@/hooks/use-require-session';
 
 const ROLE_LABELS: Record<string, string> = {
   TENANT: 'Locataire',
@@ -31,6 +32,7 @@ function formatDate(iso: string): string {
 }
 
 export function AdminUsersPage(): React.JSX.Element {
+  const { ready } = useRequireSession();
   const [error, setError] = useState<string | null>(null);
 
   const handleError = useCallback((err: unknown) => {
@@ -113,15 +115,19 @@ export function AdminUsersPage(): React.JSX.Element {
         </div>
       ) : null}
 
-      <PaginatedDataTable
-        fetchFn={listUsers}
-        columns={columns}
-        entityLabel="utilisateurs"
-        searchPlaceholder="Rechercher un utilisateur…"
-        emptyMessage="Aucun utilisateur trouvé."
-        onError={handleError}
-        tableId="admin-users-table"
-      />
+      {ready ? (
+        <PaginatedDataTable
+          fetchFn={listUsers}
+          columns={columns}
+          entityLabel="utilisateurs"
+          searchPlaceholder="Rechercher un utilisateur…"
+          emptyMessage="Aucun utilisateur trouvé."
+          onError={handleError}
+          tableId="admin-users-table"
+        />
+      ) : (
+        <div className="h-48 animate-pulse rounded-xl border border-border bg-card" />
+      )}
     </section>
   );
 }

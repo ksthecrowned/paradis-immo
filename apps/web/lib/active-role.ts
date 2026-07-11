@@ -44,8 +44,8 @@ export function resolveActiveRole(availableRoles: string[]): ActiveRole {
   if (eligible.length === 0) return 'owner';
   const store = readStore();
   const stored = store?.getItem(STORAGE_KEY);
-  if (stored && eligible.includes(stored)) {
-    return stored as ActiveRole;
+  if (isActiveRole(stored) && eligible.includes(stored)) {
+    return stored;
   }
   const fallback = ROLE_PRIORITY.find((r) => eligible.includes(r)) ?? 'owner';
   return fallback;

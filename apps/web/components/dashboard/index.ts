@@ -21,4 +21,5 @@ export {
   RevenueChart,
   SessionsMapCard,
 } from './revenue-chart';
+export { RoleSwitcher } from './role-switcher';
 export { Topbar, type TopbarProps } from './topbar';

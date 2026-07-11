@@ -2,21 +2,17 @@
   "name": "paradis-immo",
   "version": "0.1.0",
   "private": true,
-  "workspaces": [
-    "apps/*"
-  ],
   "scripts": {
-    "build": "pnpm -r build",
-    "dev": "pnpm -r dev",
-    "start": "pnpm -r start",
-    "test": "pnpm --filter api test",
-    "test:e2e": "pnpm --filter api test:e2e",
-    "lint": "pnpm -r lint",
-    "export:openapi": "pnpm --filter api export:openapi",
+    "install:api": "cd apps/api && bun install",
+    "install:web": "cd apps/web && bun install",
+    "install:mobile": "cd apps/mobile && bun install",
+    "install:all": "bun run install:api && bun run install:web && bun run install:mobile",
+    "build": "cd apps/api && bun run build && cd ../web && bun run build",
+    "test": "cd apps/api && bun run test",
+    "test:e2e": "cd apps/api && bun run test:e2e",
+    "lint": "cd apps/web && bun run lint",
+    "export:openapi": "cd apps/api && bun run export:openapi",
     "generate:types": "node scripts/generate-types.mjs"
-  },
-  "devDependencies": {
-    "openapi-typescript": "^7.4.4"
   },
   "engines": {
     "node": ">=18"

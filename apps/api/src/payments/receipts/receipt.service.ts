@@ -160,6 +160,41 @@ export class ReceiptService {
     });
   }
 
+  async findByPaymentIdForUser(
+    paymentId: string,
+    userId: string,
+  ): Promise<PublicReceipt | null> {
+    const receipt = await this.prisma.receipt.findUnique({
+      where: { paymentId },
+      include: {
+        payment: {
+          include: {
+            user: { select: { id: true } },
+            allocations: {
+              take: 1,
+              where: { type: 'RENT_SCHEDULE' },
+              include: {
+                rentSchedule: {
+                  include: {
+                    lease: {
+                      select: {
+                        property: {
+                          select: { ownerId: true, organizationId: true },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+    if (!receipt) return null;
+    return this.findByIdForUser(receipt.id, userId);
+  }
+
   private toPublic(receipt: {
     id: string;
     paymentId: string;

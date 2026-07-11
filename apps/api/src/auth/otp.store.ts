@@ -1,12 +1,6 @@
-import {
-  Injectable,
-  Logger,
-  OnModuleDestroy,
-  OnModuleInit,
-} from '@nestjs/common';
-import Redis from 'ioredis';
+import { Injectable, Logger } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
 
-const REDIS_URL = process.env.REDIS_URL ?? 'redis://localhost:6379';
 const OTP_TTL_SECONDS = 5 * 60;
 
 interface OtpRecord {
@@ -15,77 +9,91 @@ interface OtpRecord {
 }
 
 @Injectable()
-export class OtpStore implements OnModuleInit, OnModuleDestroy {
+export class OtpStore {
   private readonly logger = new Logger(OtpStore.name);
-  private client!: Redis;
 
-  onModuleInit() {
-    this.client = new Redis(REDIS_URL, {
-      maxRetriesPerRequest: 3,
-      lazyConnect: false,
-    });
-    this.client.on('error', (err) => {
-      this.logger.warn(`Redis error: ${err.message}`);
-    });
-  }
-
-  async onModuleDestroy() {
-    if (this.client) {
-      await this.client.quit().catch(() => undefined);
-    }
-  }
-
-  private key(phone: string): string {
-    return `paradis-immo:otp:${phone}`;
-  }
+  constructor(private readonly prisma: PrismaService) {}
 
   async put(phone: string, code: string): Promise<void> {
-    const record: OtpRecord = { code, attempts: 0 };
-    await this.client.set(
-      this.key(phone),
-      JSON.stringify(record),
-      'EX',
-      OTP_TTL_SECONDS,
-    );
+    const expiresAt = new Date(Date.now() + OTP_TTL_SECONDS * 1000);
+    await this.prisma.otpChallenge.upsert({
+      where: { phone },
+      create: {
+        phone,
+        code,
+        attempts: 0,
+        expiresAt,
+        requestCount: 1,
+        requestWindowEndAt: new Date(Date.now() + 3600 * 1000),
+      },
+      update: {
+        code,
+        attempts: 0,
+        expiresAt,
+      },
+    });
   }
 
   async peek(phone: string): Promise<string | null> {
-    const raw = await this.client.get(this.key(phone));
-    if (!raw) return null;
-    try {
-      return (JSON.parse(raw) as OtpRecord).code;
-    } catch {
-      return null;
-    }
+    const row = await this.prisma.otpChallenge.findUnique({ where: { phone } });
+    if (!row || row.expiresAt < new Date()) return null;
+    return row.code;
   }
 
   async getWithAttempts(phone: string): Promise<OtpRecord | null> {
-    const raw = await this.client.get(this.key(phone));
-    if (!raw) return null;
-    try {
-      return JSON.parse(raw) as OtpRecord;
-    } catch {
-      return null;
-    }
+    const row = await this.prisma.otpChallenge.findUnique({ where: { phone } });
+    if (!row || row.expiresAt < new Date()) return null;
+    return { code: row.code, attempts: row.attempts };
   }
 
   async incrementAttempts(phone: string): Promise<OtpRecord | null> {
-    const key = this.key(phone);
-    const raw = await this.client.get(key);
-    if (!raw) return null;
-    const record = JSON.parse(raw) as OtpRecord;
-    record.attempts += 1;
-    const ttl = await this.client.ttl(key);
-    await this.client.set(
-      key,
-      JSON.stringify(record),
-      'EX',
-      ttl > 0 ? ttl : OTP_TTL_SECONDS,
-    );
-    return record;
+    const row = await this.prisma.otpChallenge.findUnique({ where: { phone } });
+    if (!row || row.expiresAt < new Date()) return null;
+    const updated = await this.prisma.otpChallenge.update({
+      where: { phone },
+      data: { attempts: { increment: 1 } },
+    });
+    return { code: updated.code, attempts: updated.attempts };
   }
 
   async del(phone: string): Promise<void> {
-    await this.client.del(this.key(phone));
+    await this.prisma.otpChallenge.deleteMany({ where: { phone } });
+  }
+
+  async incrementRequestCount(
+    phone: string,
+    windowSeconds = 3600,
+  ): Promise<number> {
+    const now = new Date();
+    const windowEnd = new Date(now.getTime() + windowSeconds * 1000);
+    const existing = await this.prisma.otpChallenge.findUnique({
+      where: { phone },
+    });
+
+    if (!existing || existing.requestWindowEndAt <= now) {
+      const count = 1;
+      await this.prisma.otpChallenge.upsert({
+        where: { phone },
+        create: {
+          phone,
+          code: '',
+          attempts: 0,
+          expiresAt: now,
+          requestCount: count,
+          requestWindowEndAt: windowEnd,
+        },
+        update: {
+          requestCount: count,
+          requestWindowEndAt: windowEnd,
+        },
+      });
+      return count;
+    }
+
+    const updated = await this.prisma.otpChallenge.update({
+      where: { phone },
+      data: { requestCount: { increment: 1 } },
+    });
+    return updated.requestCount;
   }
 }

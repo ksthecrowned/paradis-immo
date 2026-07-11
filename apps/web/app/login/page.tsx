@@ -1,10 +1,12 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { DashIcon } from '@/components/dash-icon';
-import { DASH_STAT_ICONS } from '@/lib/dash-icons';
-import { requestOtp, verifyOtp, getTokens } from '@/lib/auth';
+import { useTheme } from '@/components/theme-provider';
+import { DASH_ICONS, DASH_STAT_ICONS } from '@/lib/dash-icons';
+import { useSession } from 'next-auth/react';
+import { requestOtp, loginWithOtp, getClientSession } from '@/lib/auth';
 import { DEV_TEST_ACCOUNTS } from '@/lib/dev-test-accounts';
 
 const isDev = process.env.NODE_ENV === 'development';
@@ -18,17 +20,34 @@ const btnPrimaryClass =
 const btnSecondaryClass =
   'inline-flex w-full items-center justify-center rounded-lg border border-border bg-card px-4 py-2.5 text-sm font-medium text-foreground hover:bg-sidebar';
 
+function resolvePostLoginPath(phone: string, roles: string[]): string {
+  const devAccount = DEV_TEST_ACCOUNTS.find((a) => a.phone === phone);
+  if (devAccount?.path && devAccount.path !== '—') {
+    return devAccount.path;
+  }
+  if (roles.includes('PLATFORM_ADMIN')) {
+    return '/admin/dashboard';
+  }
+  return '/owner/dashboard';
+}
+
 export default function LoginPage(): React.JSX.Element {
   const router = useRouter();
+  const { data: session, status } = useSession();
+  const { theme, toggleTheme } = useTheme();
   const [phone, setPhone] = useState('+242');
   const [code, setCode] = useState('');
   const [stage, setStage] = useState<'phone' | 'code'>('phone');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  if (typeof window !== 'undefined' && getTokens().accessToken) {
-    router.replace('/owner/dashboard');
-  }
+  useEffect(() => {
+    if (status === 'authenticated' && session?.user) {
+      router.replace(
+        resolvePostLoginPath(session.user.phone, session.user.roles ?? []),
+      );
+    }
+  }, [status, session, router]);
 
   async function onRequestOtp(e: FormEvent<HTMLFormElement>): Promise<void> {
     e.preventDefault();
@@ -49,16 +68,15 @@ export default function LoginPage(): React.JSX.Element {
     setBusy(true);
     setError(null);
     try {
-      const session = await verifyOtp(phone.trim(), code.trim());
-      const trimmedPhone = phone.trim();
-      const devAccount = DEV_TEST_ACCOUNTS.find((a) => a.phone === trimmedPhone);
-      if (devAccount?.path && devAccount.path !== '—') {
-        router.replace(devAccount.path);
-      } else if (session.user.roles?.includes('PLATFORM_ADMIN')) {
-        router.replace('/admin/dashboard');
-      } else {
-        router.replace('/owner/dashboard');
+      const result = await loginWithOtp(phone.trim(), code.trim());
+      if (!result.ok) {
+        setError(result.error);
+        return;
       }
+      const session = await getClientSession();
+      const roles = session?.user?.roles ?? [];
+      router.replace(resolvePostLoginPath(phone.trim(), roles));
+      router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Code invalide');
     } finally {
@@ -67,7 +85,20 @@ export default function LoginPage(): React.JSX.Element {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-background px-4 py-12">
+    <main className="relative flex min-h-screen items-center justify-center bg-background px-4 py-12">
+      <button
+        type="button"
+        onClick={toggleTheme}
+        className="absolute end-4 top-4 inline-flex size-11 items-center justify-center rounded-full border border-border bg-card text-muted transition-colors hover:bg-card-hover hover:text-active"
+        aria-label={theme === 'dark' ? 'Passer en mode clair' : 'Passer en mode sombre'}
+        title={theme === 'dark' ? 'Mode clair' : 'Mode sombre'}
+      >
+        <DashIcon
+          icon={theme === 'dark' ? DASH_ICONS.sun : DASH_ICONS.moon}
+          width={22}
+          height={22}
+        />
+      </button>
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
           <div className="mx-auto mb-4 flex size-14 items-center justify-center rounded-2xl bg-accent shadow-[0_4px_14px_rgba(102,88,221,0.35)]">

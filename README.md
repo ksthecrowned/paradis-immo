@@ -6,9 +6,9 @@ Monorepo **pnpm** :
 
 | App           | Stack                             | Port   |
 | ------------- | --------------------------------- | ------ |
-| `apps/api`    | NestJS, Prisma, PostgreSQL, Redis | `3001` |
+| `apps/api`    | NestJS, Prisma, PostgreSQL        | `3001` |
 | `apps/web`    | Next.js, Tailwind, Preline        | `3000` |
-| `apps/mobile` | Expo (à venir)                    | —      |
+| `apps/mobile` | Expo (marketplace + OTP)          | Expo Go |
 
 ---
 
@@ -17,7 +17,6 @@ Monorepo **pnpm** :
 - Node.js ≥ 18
 - [pnpm](https://pnpm.io)
 - PostgreSQL
-- Redis (stockage OTP)
 
 ---
 
@@ -32,7 +31,6 @@ Renseigne au minimum dans `.env` (racine, lu par l’API) :
 
 ```env
 DATABASE_URL=postgresql://postgres:postpass@localhost:5432/paradis_immo
-REDIS_URL=redis://localhost:6379
 JWT_SECRET=change-me
 JWT_REFRESH_SECRET=change-me-too
 ```
@@ -45,9 +43,25 @@ Côté web (`apps/web/.env`) :
 NEXT_PUBLIC_API_URL=http://127.0.0.1:3001/api/v1
 AUTH_SECRET=  # openssl rand -base64 32
 AUTH_URL=http://localhost:3000
+
+# Optionnel — liens App Store / Play sur la landing
+NEXT_PUBLIC_APP_STORE_URL=
+NEXT_PUBLIC_PLAY_STORE_URL=
 ```
 
-L’auth web utilise **NextAuth (Auth.js v5)** : OTP Nest → session JWT cookie avec `accessToken` + `refreshToken`. Le refresh est géré dans le callback JWT (avant expiration de l’access token, 14 min). Les routes `/owner`, `/agent`, `/admin` sont protégées par `proxy.ts` (convention Next.js 16).
+Optionnel — upload photos propriétaire (Cloudflare R2) dans `.env` racine ou `apps/api/.env` :
+
+```env
+R2_ACCOUNT_ID=
+R2_ACCESS_KEY_ID=
+R2_SECRET_ACCESS_KEY=
+R2_BUCKET_NAME=
+R2_PUBLIC_URL=https://cdn.example.com
+```
+
+Sans R2, la création de bien et la galerie fonctionnent ; le **presign upload** renvoie une erreur explicite. Le seed inclut une photo Unsplash sur le bien démo (pas besoin de R2).
+
+L’auth web utilise **NextAuth (Auth.js v5)** : OTP Nest → session JWT cookie avec `accessToken` + `refreshToken`. Le refresh est géré dans le callback JWT (avant expiration de l’access token, 14 min). Les routes `/owner`, `/agent`, `/admin` sont protégées par `middleware.ts` (auth + garde admin).
 
 ### Base de données
 
@@ -63,7 +77,9 @@ Le seed crée :
 - le pays Congo (CG), villes Brazzaville / Pointe-Noire
 - l’organisation plateforme **Paradis Immo** (`org_paradis_immo`)
 - les **comptes de test** (voir ci-dessous)
-- un bien démo actif
+- **3 biens démo actifs** : location longue, vente, courte durée
+- **1 photo** sur le bien location longue (URL publique, sans R2)
+- une **demande de vente** (NEW) sur le bien SALE
 - un paiement cash en attente de validation
 
 ---
@@ -124,7 +140,12 @@ Ces comptes sont définis dans `apps/api/prisma/seed.ts` et rappelés côté web
 
 ### Données de démo (seed)
 
-- Bien actif « Appartement démo Poto-Poto » (org Paradis Immo)
+| ID | Mode | Titre |
+|----|------|-------|
+| `prop_test_demo` | RENT_LONG | Appartement démo Poto-Poto (visites + 1 photo) |
+| `prop_test_sale` | SALE | Villa à vendre Bacongo |
+| `prop_test_short` | RENT_SHORT | Studio courte durée Moungali |
+
 - Paiement cash **75 000 XAF** en `PENDING_VALIDATION` → visible pour l’agent sur `/agent/payments/validation`
 
 ### Premier login hors comptes seed
@@ -166,22 +187,97 @@ Chemins en anglais, labels UI en français.
 | -------------------- | ---------------------------- |
 | Tableau de bord      | `/agent/dashboard`           |
 | Portefeuille         | `/agent/portfolio`           |
+| Réservations         | `/agent/bookings`            |
 | Visites              | `/agent/visits`              |
 | Baux                 | `/agent/leases`              |
+| Demandes vente       | `/agent/sales`               |
 | Validation paiements | `/agent/payments/validation` |
 | Maintenance          | `/agent/maintenance`         |
 
 ### Propriétaire
 
-| Page            | Route                |
-| --------------- | -------------------- |
-| Tableau de bord | `/owner/dashboard`   |
-| Biens           | `/owner/properties`  |
-| Visites         | `/owner/visits`      |
-| Baux            | `/owner/leases`      |
-| Paiements       | `/owner/payments`    |
-| Maintenance     | `/owner/maintenance` |
-| Mandat          | `/owner/mandate`     |
+| Page            | Route                                      |
+| --------------- | ------------------------------------------ |
+| Tableau de bord | `/owner/dashboard`                         |
+| Biens           | `/owner/properties`                        |
+| Ajouter un bien | `/owner/properties/add`                    |
+| Créneaux visite | `/owner/properties/[id]/visit-slots`       |
+| Réservations    | `/owner/bookings`                          |
+| Visites         | `/owner/visits`                            |
+| Baux            | `/owner/leases`                            |
+| Paiements       | `/owner/payments`                          |
+| Maintenance     | `/owner/maintenance`                       |
+| Mandat          | `/owner/mandate`                           |
+
+---
+
+## Checklist smoke (MVP web)
+
+Parcours manuels à valider après `prisma:seed` + `pnpm dev`. Détail : `docs/superpowers/specs/2026-07-04-web-mvp-product-design.md` § Test plan.
+
+| # | Flow | Compte | Étapes |
+|---|------|--------|--------|
+| 1 | Créer un bien RENT_LONG + 2 photos | Propriétaire | `/owner/properties/add` → upload (R2 requis) → voir dans la liste |
+| 2 | Créer biens SALE et RENT_SHORT | Propriétaire | Modes vente et courte durée sur le formulaire |
+| 3 | Créneaux de visite | Propriétaire | Bien `prop_test_demo` → Créneaux → ajouter un modèle hebdo |
+| 4 | Valider paiement cash | Agent | `/agent/payments/validation` → valider le paiement seed 75 000 XAF |
+| 5 | Créer un bail | Agent | `/agent/leases` → `prop_test_demo` + `user_test_tenant` |
+| 6 | Demande de vente | Agent | `/agent/sales` → avancer le statut (inquiry seed sur `prop_test_sale`) |
+| 7 | Modération admin | Admin | `/admin/moderation` → mettre en pause un bien → landing ne l’affiche plus |
+| 8 | Garde auth admin | — | Déconnecté ou propriétaire → `/admin/users` redirige vers login ou owner |
+| 9 | Landing live | — | `/` affiche les biens ACTIVE ; clic → modal téléchargement app |
+
+**Raccourcis seed :** les flows 3, 4, 7 et 9 sont testables immédiatement sans créer de données supplémentaires.
+
+```bash
+# Vérification automatisée (Task 12)
+pnpm --filter api test
+pnpm --filter web build
+```
+
+---
+
+## App mobile (Expo)
+
+Design : `resources/figma-design.md` (onboarding Figma + kit Estatery). Logo : `resources/logo-paradis-immo.png`.
+
+### Setup
+
+```bash
+# 1. Copier le logo (depuis Downloads ou resources/)
+pnpm --filter mobile setup:logo
+
+# 2. Dépendances + config
+cd apps/mobile
+cp .env.example .env
+pnpm install
+```
+
+`EXPO_PUBLIC_API_URL` — sur émulateur Android : `http://10.0.2.2:3001/api/v1`.
+
+### Lancer
+
+```bash
+pnpm --filter mobile start
+```
+
+Parcours mobile : onboarding → OTP → marketplace (auth requise) → visites / réservations / paiements → favoris sync + push FCM.
+
+- Tabs, activité, visites, réservations et paiements : **connexion OTP obligatoire**
+- Fiche bien : consultation libre ; favoris / CTA → redirect login avec retour automatique
+- Déconnexion : onglet Activité
+
+## Tests E2E (flows critiques)
+
+```bash
+pnpm --filter api test:e2e -- test/flows
+```
+
+- `mandate-lease` — bail sous mandat bloqué jusqu’à approbation `LEASE_SIGN`
+- `paid-visit` — visite payante : réserver → payer → confirmer → créneau `BOOKED`
+- `booking` — rejet des réservations courtes durée qui se chevauchent
+
+Compte test locataire : `+242060000004` (OTP dans les logs API).
 
 ---
 

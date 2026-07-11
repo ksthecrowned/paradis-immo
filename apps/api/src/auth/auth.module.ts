@@ -17,6 +17,6 @@ import { OtpStore } from './otp.store';
   ],
   controllers: [AuthController],
   providers: [AuthService, OtpStore, InfobipOtpService, JwtStrategy],
-  exports: [AuthService, JwtModule],
+  exports: [AuthService, JwtModule, OtpStore],
 })
 export class AuthModule {}

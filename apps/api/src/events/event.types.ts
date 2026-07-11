@@ -1,5 +1,5 @@
 // Domain events emitted across the Paradis Immo platform.
-// Each event has a dedicated BullMQ queue named after the event name.
+// Handled in-process via `@nestjs/event-emitter` (`@OnEvent` listeners).
 
 export const DOMAIN_EVENTS = {
   LEASE_CREATED: 'lease.created',
@@ -12,8 +12,7 @@ export const DOMAIN_EVENTS = {
   RENT_OVERDUE: 'rent.overdue',
   /**
    * Internal scheduler event — fired daily at 8am Africa/Brazzaville
-   * by the repeatable job registered in `RentReminderProcessor`. No
-   * module emits this; only the processor's own BullMQ Worker listens.
+   * by `RentReminderProcessor`. No module emits this directly.
    */
   RENT_REMINDER_DAILY: 'rent.reminder.daily',
 } as const;
