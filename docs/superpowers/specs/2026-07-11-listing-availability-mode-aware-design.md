@@ -6,7 +6,7 @@
 
 ## Goal
 
-Marketplace availability must match product rules per mode: sale = free or sold; short-stay = always listable (calendar owns real nights); long-rent = free, occupied, or soon-free with countdown (not a generic “indispo”). Visit bookings never set listing status.
+Marketplace availability must match product rules per mode: sale = free, sous offre (`UNDER_OFFER`), or sold; short-stay = always listable (calendar owns real nights); long-rent = free, occupied, or soon-free with countdown (not a generic “indispo”). Visit bookings never set listing status. `UNDER_OFFER` / `SOLD` / `OCCUPIED` keep grayscale cards.
 
 ## Decisions
 
@@ -14,11 +14,11 @@ Marketplace availability must match product rules per mode: sale = free or sold;
 |-------|--------|
 | Architecture | Approach 1 — mode-aware `listingStatus` + `availableFrom` |
 | Soon-available date | Manual `availableFrom` **or** active lease `endDate` (C) |
-| Sale unavailable | `SOLD` only — no `RESERVED` |
+| Sale unavailable | `SOLD` + `UNDER_OFFER` (sous offre / pending) — both grayscale, no conversion CTAs |
 | Occupied long-rent CTAs | View only, no conversion (A) |
-| Filter « Disponibles seulement » | `AVAILABLE` + `AVAILABLE_SOON` + all `RENT_SHORT` (A) |
+| Filter « Disponibles seulement » | `AVAILABLE` + `AVAILABLE_SOON` + all `RENT_SHORT` (A) — excludes `SOLD`, `OCCUPIED`, `UNDER_OFFER` |
 | Popular ribbon | **C** — API `isFeatured`; status has its own badge |
-| Card chrome | Grayscale for `SOLD` / `OCCUPIED` only |
+| Card chrome | Grayscale for `SOLD`, `OCCUPIED`, **and `UNDER_OFFER`** |
 
 ## Domain & API
 
@@ -30,6 +30,7 @@ Remove `ListingAvailability` and `UnavailableReason`.
 enum ListingStatus {
   AVAILABLE
   SOLD
+  UNDER_OFFER   // sale only — sous offre / pending (MLS-like)
   OCCUPIED
   AVAILABLE_SOON
 }
@@ -44,8 +45,8 @@ isFeatured    Boolean       @default(false)
 
 | Mode | Allowed `listingStatus` |
 |------|-------------------------|
-| `SALE` | `AVAILABLE`, `SOLD` |
-| `RENT_SHORT` | Always treat/publish as `AVAILABLE` (ignore OCCUPIED/SOLD writes or coerce) |
+| `SALE` | `AVAILABLE`, `UNDER_OFFER`, `SOLD` |
+| `RENT_SHORT` | Always treat/publish as `AVAILABLE` (ignore OCCUPIED/SOLD/UNDER_OFFER writes or coerce) |
 | `RENT_LONG` | `AVAILABLE`, `OCCUPIED`, `AVAILABLE_SOON` |
 
 **`availableFrom` resolution** (PublicProperty):
@@ -61,12 +62,14 @@ isFeatured    Boolean       @default(false)
 | `AVAILABLE` | `AVAILABLE` |
 | `UNAVAILABLE` + `SOLD` | `SOLD` |
 | `UNAVAILABLE` + `RENTED` | `OCCUPIED` (RENT_LONG) / `AVAILABLE` if wrongly on other mode |
-| `UNAVAILABLE` + `RESERVED` | `AVAILABLE` (visit ≠ listing status) |
+| `UNAVAILABLE` + `RESERVED` on **SALE** | `UNDER_OFFER` (closest MLS pending semantics) |
+| `UNAVAILABLE` + `RESERVED` on **RENT_SHORT** | `AVAILABLE` (visit ≠ listing status) |
+| `UNAVAILABLE` + `RESERVED` on **RENT_LONG** | `OCCUPIED` |
 
 ### PublicProperty
 
 ```ts
-listingStatus: 'AVAILABLE' | 'SOLD' | 'OCCUPIED' | 'AVAILABLE_SOON';
+listingStatus: 'AVAILABLE' | 'SOLD' | 'UNDER_OFFER' | 'OCCUPIED' | 'AVAILABLE_SOON';
 availableFrom: string | null; // ISO date
 isFeatured: boolean;
 // remove listingAvailability, unavailableReason
@@ -74,11 +77,11 @@ isFeatured: boolean;
 
 ### Seed
 
-- One `SOLD` sale (grayscale demo)  
+- One `SOLD` sale + one `UNDER_OFFER` sale (both grayscale demos)  
 - One `OCCUPIED` long-rent  
 - One `AVAILABLE_SOON` long-rent with `availableFrom` or lease end  
 - Short-stay: `AVAILABLE` + `isFeatured` on at least one listing  
-- Drop RESERVED usages  
+- No visit-booking side effects on listing status  
 
 ## Mobile
 
@@ -87,25 +90,25 @@ isFeatured: boolean;
 Replace binary availability with:
 
 ```ts
-listingStatus: 'AVAILABLE' | 'SOLD' | 'OCCUPIED' | 'AVAILABLE_SOON';
+listingStatus: 'AVAILABLE' | 'SOLD' | 'UNDER_OFFER' | 'OCCUPIED' | 'AVAILABLE_SOON';
 availableFrom?: string | null;
 isFeatured?: boolean;
 ```
 
 Helpers (`lib/listing-status.ts`):
 
-- `isConversionBlocked(p)` → `SOLD` \| `OCCUPIED`  
+- `isConversionBlocked(p)` → `SOLD` \| `UNDER_OFFER` \| `OCCUPIED`  
 - `isGrayscaleCard(p)` → same  
-- `passesAvailableOnlyFilter(p)` → not SOLD/OCCUPIED (RENT_SHORT always passes)  
+- `passesAvailableOnlyFilter(p)` → not SOLD / UNDER_OFFER / OCCUPIED (RENT_SHORT always passes)  
 - `listingStatusLabel` / `daysUntilAvailable` / `sortMarketableFirst`
 
 `mapPublicProperty` maps new fields; deprecate old `availability` / `unavailableReason` (migrate call sites).
 
 ### Card UI
 
-- Grayscale only when `isGrayscaleCard`  
-- Photo overlay badge = mode/status (e.g. À vendre, Occupé, Bientôt · J-12) — not fake Popular  
-- Bottom ribbon = **Featured** (French: « Coup de cœur » or keep « Popular » only if product insists — prefer **« Coup de cœur »**) when `isFeatured`  
+- Grayscale only when `isGrayscaleCard` (`SOLD` | `UNDER_OFFER` | `OCCUPIED`)  
+- Photo overlay badge = mode/status (e.g. À vendre, Sous offre, Occupé, Bientôt · J-12) — not fake Popular  
+- Bottom ribbon = **Featured** (French: **« Coup de cœur »**) when `isFeatured`  
 - Refactor `card.tsx` into focused pieces under `components/property/`:
   - `PropertyCard.tsx` (orchestrator)
   - `PropertyCardImage.tsx`
@@ -115,7 +118,7 @@ Helpers (`lib/listing-status.ts`):
 
 ### Lists
 
-- After fetch: `sortMarketableFirst` (AVAILABLE / AVAILABLE_SOON / RENT_SHORT before SOLD / OCCUPIED; stable within groups)  
+- After fetch: `sortMarketableFirst` (AVAILABLE / AVAILABLE_SOON / RENT_SHORT before SOLD / UNDER_OFFER / OCCUPIED; stable within groups)  
 - Skeletons during catalog load  
 
 ### Detail
@@ -124,6 +127,7 @@ Helpers (`lib/listing-status.ts`):
 |--------|-------|-----|
 | AVAILABLE | optional soft | Normal by mode |
 | AVAILABLE_SOON | countdown / date | Visit OK (long) |
+| UNDER_OFFER | Sous offre | No conversion CTAs (grayscale) |
 | OCCUPIED | Occupé | No conversion CTAs |
 | SOLD | Vendu | No conversion CTAs |
 | RENT_SHORT | — | Book → calendar (separate pass) |
@@ -140,17 +144,18 @@ Helpers (`lib/listing-status.ts`):
 
 ## Acceptance
 
-1. SOLD / OCCUPIED → grayscale card, no CTA on detail  
+1. SOLD / UNDER_OFFER / OCCUPIED → grayscale card, no CTA on detail  
 2. AVAILABLE_SOON → color card + countdown badge; visit allowed  
 3. RENT_SHORT never grayscale from listing status  
 4. Featured ribbon only when `isFeatured`  
 5. Lists show skeletons then marketable-first order  
-6. `availableOnly` matches decision A  
-7. No `RESERVED` in API or mobile  
+6. `availableOnly` matches decision A (excludes UNDER_OFFER)  
+7. No visit-driven `RESERVED` listing status; sale pending = `UNDER_OFFER`  
 8. `card.tsx` split into reusable components; file no longer a 400+ line monolith  
 
 ## Follow-ups
 
 - Owner/agent web editors for status / featured / availableFrom  
 - Short-stay book calendar API pass  
-- Auto-flip AVAILABLE_SOON → AVAILABLE when `availableFrom` passes (cron)
+- Auto-flip AVAILABLE_SOON → AVAILABLE when `availableFrom` passes (cron)  
+- Auto-flip UNDER_OFFER → SOLD / AVAILABLE when deal closes or falls through  
