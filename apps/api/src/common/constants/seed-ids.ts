@@ -20,6 +20,8 @@ export const SEED_IDS = {
   propSale: '29faa8b3-dd07-46ba-96c1-6f5f536b83ec',
   propShort: 'b5afc862-ec6d-466f-bcee-764e6704dd8c',
   propLand: 'a50c3b1b-9cb9-4035-8326-552c1c5de0c3',
+  propUnderOffer: '3eccfbe0-7700-4061-b856-067bc4417bea',
+  propRentSoon: '24e9fe73-8bf0-4a8e-baf2-1b0d5b6565fb',
 
   saleInquiry: '477405ea-a863-4ec9-a81c-89aa0b635db8',
   paymentCash: 'fd7e35c5-f02e-4910-bb17-74a7b7aba6c8',
@@ -42,6 +44,14 @@ export const SEED_IDS = {
   mediaLand: [
     '8f2bae0c-9eb9-481f-9bf1-88d775acad17',
     'a8cd90c5-5b14-47e1-bb14-1cc89a6dec9c',
+  ],
+  mediaUnderOffer: [
+    '40ec1630-1e58-4b21-8d70-2f9f7304cec5',
+    '8904f563-1f96-44d5-a08e-fc54cd7530e0',
+  ],
+  mediaRentSoon: [
+    'c5610611-44a3-4990-b455-d71c3bc114b7',
+    '0078367e-372f-45ce-8560-c663570ec269',
   ],
 
   visitSlots: [

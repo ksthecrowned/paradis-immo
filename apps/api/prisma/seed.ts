@@ -14,8 +14,7 @@ import {
   PropertyType,
   PriceUnit,
   MediaType,
-  ListingAvailability,
-  UnavailableReason,
+  ListingStatus,
   SaleInquiryStatus,
   VisitSlotSource,
   VisitSlotStatus,
@@ -52,6 +51,8 @@ const DEMO_PROPERTY_ID = SEED_IDS.propRentLong;
 const DEMO_PROPERTY_SALE_ID = SEED_IDS.propSale;
 const DEMO_PROPERTY_SHORT_ID = SEED_IDS.propShort;
 const DEMO_PROPERTY_LAND_ID = SEED_IDS.propLand;
+const DEMO_PROPERTY_UNDER_OFFER_ID = SEED_IDS.propUnderOffer;
+const DEMO_PROPERTY_RENT_SOON_ID = SEED_IDS.propRentSoon;
 const DEMO_SALE_INQUIRY_ID = SEED_IDS.saleInquiry;
 const DEMO_PAYMENT_ID = SEED_IDS.paymentCash;
 
@@ -465,8 +466,9 @@ async function seedTestUsers(
       bedrooms: 3,
       bathrooms: 1,
       surface: 95,
-      listingAvailability: ListingAvailability.UNAVAILABLE,
-      unavailableReason: UnavailableReason.RENTED,
+      listingStatus: ListingStatus.OCCUPIED,
+      availableFrom: null,
+      isFeatured: false,
       floor: '2e étage',
       yearBuilt: 2012,
       condition: 'Bon état',
@@ -509,8 +511,9 @@ async function seedTestUsers(
       bedrooms: 3,
       bathrooms: 1,
       surface: 95,
-      listingAvailability: ListingAvailability.UNAVAILABLE,
-      unavailableReason: UnavailableReason.RENTED,
+      listingStatus: ListingStatus.OCCUPIED,
+      availableFrom: null,
+      isFeatured: false,
       floor: '2e étage',
       yearBuilt: 2012,
       condition: 'Bon état',
@@ -551,8 +554,9 @@ async function seedTestUsers(
       bedrooms: 4,
       bathrooms: 2,
       surface: 180,
-      listingAvailability: ListingAvailability.AVAILABLE,
-      unavailableReason: null,
+      listingStatus: ListingStatus.AVAILABLE,
+      availableFrom: null,
+      isFeatured: false,
       floor: 'R+1',
       yearBuilt: 2018,
       condition: 'Très bon état',
@@ -600,7 +604,9 @@ async function seedTestUsers(
       bedrooms: 4,
       bathrooms: 2,
       surface: 180,
-      listingAvailability: ListingAvailability.AVAILABLE,
+      listingStatus: ListingStatus.AVAILABLE,
+      availableFrom: null,
+      isFeatured: false,
       floor: 'R+1',
       yearBuilt: 2018,
       condition: 'Très bon état',
@@ -640,8 +646,9 @@ async function seedTestUsers(
       bedrooms: 3,
       bathrooms: 2,
       surface: 120,
-      listingAvailability: ListingAvailability.UNAVAILABLE,
-      unavailableReason: UnavailableReason.RESERVED,
+      listingStatus: ListingStatus.AVAILABLE,
+      availableFrom: null,
+      isFeatured: true,
       floor: 'RDC',
       yearBuilt: 2015,
       condition: 'Bon état',
@@ -685,8 +692,9 @@ async function seedTestUsers(
       bedrooms: 3,
       bathrooms: 2,
       surface: 120,
-      listingAvailability: ListingAvailability.UNAVAILABLE,
-      unavailableReason: UnavailableReason.RESERVED,
+      listingStatus: ListingStatus.AVAILABLE,
+      availableFrom: null,
+      isFeatured: true,
       floor: 'RDC',
       yearBuilt: 2015,
       condition: 'Bon état',
@@ -723,8 +731,9 @@ async function seedTestUsers(
       lng: 11.849,
       price: new Prisma.Decimal(12000000),
       surface: 400,
-      listingAvailability: ListingAvailability.UNAVAILABLE,
-      unavailableReason: UnavailableReason.SOLD,
+      listingStatus: ListingStatus.SOLD,
+      availableFrom: null,
+      isFeatured: false,
       condition: 'Terrain nu',
       lotSize: 400,
       landTitle: 'Attestation de détention coutumière',
@@ -751,8 +760,9 @@ async function seedTestUsers(
       countryId: cgId,
       visitEnabled: true,
       surface: 400,
-      listingAvailability: ListingAvailability.UNAVAILABLE,
-      unavailableReason: UnavailableReason.SOLD,
+      listingStatus: ListingStatus.SOLD,
+      availableFrom: null,
+      isFeatured: false,
       condition: 'Terrain nu',
       lotSize: 400,
       landTitle: 'Attestation de détention coutumière',
@@ -761,11 +771,171 @@ async function seedTestUsers(
     },
   });
 
+  const availableFromSoon = new Date();
+  availableFromSoon.setDate(availableFromSoon.getDate() + 12);
+  availableFromSoon.setHours(0, 0, 0, 0);
+
+  await prisma.property.upsert({
+    where: { id: DEMO_PROPERTY_UNDER_OFFER_ID },
+    update: {
+      title: 'Duplex Mpaka',
+      description:
+        'Duplex contemporain à Mpaka, actuellement sous offre. Volumes généreux, terrasse et parking sécurisé.',
+      status: PropertyStatus.ACTIVE,
+      quartierId: quartiers.loandjili,
+      address: 'Mpaka, Pointe-Noire',
+      lat: -4.7901,
+      lng: 11.862,
+      price: new Prisma.Decimal(45000000),
+      bedrooms: 3,
+      bathrooms: 2,
+      surface: 140,
+      listingStatus: ListingStatus.UNDER_OFFER,
+      availableFrom: null,
+      isFeatured: false,
+      floor: 'R+1',
+      yearBuilt: 2016,
+      condition: 'Bon état',
+      parkingSpaces: 1,
+      features: [
+        'cuisine',
+        'climatisation',
+        'wifi',
+        'terrasse',
+        'parking',
+        'securite',
+        'eau_courante',
+      ],
+      mapViews: ['neighborhood'],
+    },
+    create: {
+      id: DEMO_PROPERTY_UNDER_OFFER_ID,
+      ownerId: TEST_USER_IDS.owner,
+      organizationId: PARADIS_IMMO_ID,
+      title: 'Duplex Mpaka',
+      description:
+        'Duplex contemporain à Mpaka, actuellement sous offre. Volumes généreux, terrasse et parking sécurisé.',
+      type: PropertyType.HOUSE,
+      mode: PropertyMode.SALE,
+      status: PropertyStatus.ACTIVE,
+      price: new Prisma.Decimal(45000000),
+      currency: 'XAF',
+      priceUnit: PriceUnit.TOTAL,
+      quartierId: quartiers.loandjili,
+      address: 'Mpaka, Pointe-Noire',
+      lat: -4.7901,
+      lng: 11.862,
+      countryId: cgId,
+      visitEnabled: false,
+      bedrooms: 3,
+      bathrooms: 2,
+      surface: 140,
+      listingStatus: ListingStatus.UNDER_OFFER,
+      availableFrom: null,
+      isFeatured: false,
+      floor: 'R+1',
+      yearBuilt: 2016,
+      condition: 'Bon état',
+      parkingSpaces: 1,
+      features: [
+        'cuisine',
+        'climatisation',
+        'wifi',
+        'terrasse',
+        'parking',
+        'securite',
+        'eau_courante',
+      ],
+      mapViews: ['neighborhood'],
+    },
+  });
+
+  await prisma.property.upsert({
+    where: { id: DEMO_PROPERTY_RENT_SOON_ID },
+    update: {
+      title: 'Studio Lumumba',
+      description:
+        'Studio rénové près du centre Lumumba. Libre bientôt — idéal pour une location longue durée.',
+      status: PropertyStatus.ACTIVE,
+      visitType: VisitType.FREE,
+      visitEnabled: true,
+      quartierId: quartiers.centreVille,
+      address: 'Quartier Lumumba, Pointe-Noire',
+      lat: -4.7712,
+      lng: 11.868,
+      price: new Prisma.Decimal(75000),
+      bedrooms: 1,
+      bathrooms: 1,
+      surface: 42,
+      listingStatus: ListingStatus.AVAILABLE_SOON,
+      availableFrom: availableFromSoon,
+      isFeatured: false,
+      floor: '3e étage',
+      yearBuilt: 2010,
+      condition: 'Rénové',
+      features: [
+        'cuisine',
+        'climatisation',
+        'wifi',
+        'meuble',
+        'eau_courante',
+      ],
+      mapViews: ['neighborhood'],
+    },
+    create: {
+      id: DEMO_PROPERTY_RENT_SOON_ID,
+      ownerId: TEST_USER_IDS.owner,
+      organizationId: PARADIS_IMMO_ID,
+      title: 'Studio Lumumba',
+      description:
+        'Studio rénové près du centre Lumumba. Libre bientôt — idéal pour une location longue durée.',
+      type: PropertyType.APARTMENT,
+      mode: PropertyMode.RENT_LONG,
+      status: PropertyStatus.ACTIVE,
+      price: new Prisma.Decimal(75000),
+      currency: 'XAF',
+      priceUnit: PriceUnit.MONTH,
+      quartierId: quartiers.centreVille,
+      address: 'Quartier Lumumba, Pointe-Noire',
+      lat: -4.7712,
+      lng: 11.868,
+      countryId: cgId,
+      visitEnabled: true,
+      visitType: VisitType.FREE,
+      bedrooms: 1,
+      bathrooms: 1,
+      surface: 42,
+      listingStatus: ListingStatus.AVAILABLE_SOON,
+      availableFrom: availableFromSoon,
+      isFeatured: false,
+      floor: '3e étage',
+      yearBuilt: 2010,
+      condition: 'Rénové',
+      features: [
+        'cuisine',
+        'climatisation',
+        'wifi',
+        'meuble',
+        'eau_courante',
+      ],
+      mapViews: ['neighborhood'],
+    },
+  });
+
   await upsertPropertyMedia(DEMO_PROPERTY_ID, SEED_IDS.mediaRent, [2, 3, 4]);
   await upsertPropertyMedia(DEMO_PROPERTY_SALE_ID, SEED_IDS.mediaSale, [1, 5, 6]);
   await upsertPropertyMedia(DEMO_PROPERTY_SHORT_ID, SEED_IDS.mediaShort, [3, 1, 2]);
   await upsertPropertyMedia(DEMO_PROPERTY_LAND_ID, SEED_IDS.mediaLand, [4, 6]);
-
+  await upsertPropertyMedia(
+    DEMO_PROPERTY_UNDER_OFFER_ID,
+    SEED_IDS.mediaUnderOffer,
+    [1, 2],
+  );
+  await upsertPropertyMedia(
+    DEMO_PROPERTY_RENT_SOON_ID,
+    SEED_IDS.mediaRentSoon,
+    [3, 4],
+  );
   await prisma.saleInquiry.upsert({
     where: { id: DEMO_SALE_INQUIRY_ID },
     update: { status: SaleInquiryStatus.NEW },
@@ -867,10 +1037,12 @@ async function seedTestUsers(
     console.log(`    ${role.padEnd(8)} ${info.phone}  → ${info.path}`);
   }
   console.log('✓ Demo properties (Pointe-Noire + R2 photos):');
-  console.log(`    ${DEMO_PROPERTY_ID}  RENT_LONG  Appartement Centre-ville`);
-  console.log(`    ${DEMO_PROPERTY_SALE_ID}  SALE  Villa Whispering Pines`);
-  console.log(`    ${DEMO_PROPERTY_SHORT_ID}  RENT_SHORT  Maison Tié-Tié`);
-  console.log(`    ${DEMO_PROPERTY_LAND_ID}  SALE/LAND  Terrain Mongo-Poukou`);
+  console.log(`    ${DEMO_PROPERTY_ID}  RENT_LONG/OCCUPIED  Appartement Centre-ville`);
+  console.log(`    ${DEMO_PROPERTY_SALE_ID}  SALE/AVAILABLE  Villa Whispering Pines`);
+  console.log(`    ${DEMO_PROPERTY_SHORT_ID}  RENT_SHORT/FEATURED  Maison Tié-Tié`);
+  console.log(`    ${DEMO_PROPERTY_LAND_ID}  SALE/SOLD  Terrain Mongo-Poukou`);
+  console.log(`    ${DEMO_PROPERTY_UNDER_OFFER_ID}  SALE/UNDER_OFFER  Duplex Mpaka`);
+  console.log(`    ${DEMO_PROPERTY_RENT_SOON_ID}  RENT_LONG/AVAILABLE_SOON  Studio Lumumba`);
   console.log(`    ${DEMO_SALE_INQUIRY_ID}  sale inquiry (NEW)`);
 }
 
