@@ -34,6 +34,18 @@ export interface PublicProperty {
   visitType: string | null;
   visitPrice: number | null;
   visitDuration: number | null;
+  features: string[];
+  listingAvailability: 'AVAILABLE' | 'UNAVAILABLE';
+  unavailableReason: 'RENTED' | 'SOLD' | 'RESERVED' | null;
+  floor: string | null;
+  yearBuilt: number | null;
+  condition: string | null;
+  lotSize: number | null;
+  parkingSpaces: number | null;
+  orientation: string | null;
+  landTitle: string | null;
+  mapViews: string[];
+  media: Array<{ id: string; url: string; type: string; position: number }>;
   quartier: {
     id: string;
     name: string;
@@ -43,7 +55,9 @@ export interface PublicProperty {
       city: { id: string; name: string };
     };
   };
+  organization: { id: string; name: string; type: string };
   ownerOrg: { id: string; name: string; type: string };
+  agent: { id: string; name: string; phone: string | null } | null;
   ownerId: string;
   createdAt: string;
   updatedAt: string;
@@ -361,8 +375,22 @@ export class PropertiesService {
           },
         },
       },
-      organization: true,
+      organization: {
+        include: {
+          members: {
+            where: { role: 'AGENT' },
+            take: 1,
+            include: { user: true },
+          },
+        },
+      },
+      media: { orderBy: { position: 'asc' } },
     };
+  }
+
+  private jsonStringArray(value: unknown): string[] {
+    if (!Array.isArray(value)) return [];
+    return value.filter((item): item is string => typeof item === 'string');
   }
 
   private toPublic(
@@ -376,7 +404,32 @@ export class PropertiesService {
           city?: { id: string; name: string };
         };
       };
-      organization: { id: string; name: string; type: string };
+      organization: {
+        id: string;
+        name: string;
+        type: string;
+        members?: Array<{
+          id: string;
+          user: { id: string; name: string | null; phone: string };
+        }>;
+      };
+      media?: Array<{
+        id: string;
+        url: string;
+        type: string;
+        position: number;
+      }>;
+      features?: unknown;
+      mapViews?: unknown;
+      listingAvailability?: string;
+      unavailableReason?: string | null;
+      floor?: string | null;
+      yearBuilt?: number | null;
+      condition?: string | null;
+      lotSize?: unknown;
+      parkingSpaces?: number | null;
+      orientation?: string | null;
+      landTitle?: string | null;
     },
   ): PublicProperty {
     const arr = p.quartier.arrondissement;
@@ -391,6 +444,28 @@ export class PropertiesService {
         'PropertiesService.toPublic: arrondissement.city missing — include chain broken',
       );
     }
+    const org = {
+      id: p.organization.id,
+      name: p.organization.name,
+      type: p.organization.type,
+    };
+    const member = p.organization.members?.[0];
+    const agent = member
+      ? {
+          id: member.user.id,
+          name: member.user.name ?? 'Agent',
+          phone: member.user.phone ?? null,
+        }
+      : null;
+    const media = [...(p.media ?? [])]
+      .sort((a, b) => a.position - b.position)
+      .map((m) => ({
+        id: m.id,
+        url: m.url,
+        type: m.type,
+        position: m.position,
+      }));
+
     return {
       id: p.id,
       title: p.title,
@@ -411,6 +486,24 @@ export class PropertiesService {
       visitType: p.visitType,
       visitPrice: p.visitPrice !== null ? Number(p.visitPrice) : null,
       visitDuration: p.visitDuration,
+      features: this.jsonStringArray(p.features),
+      listingAvailability:
+        p.listingAvailability === 'UNAVAILABLE' ? 'UNAVAILABLE' : 'AVAILABLE',
+      unavailableReason:
+        p.unavailableReason === 'RENTED' ||
+        p.unavailableReason === 'SOLD' ||
+        p.unavailableReason === 'RESERVED'
+          ? p.unavailableReason
+          : null,
+      floor: p.floor ?? null,
+      yearBuilt: p.yearBuilt ?? null,
+      condition: p.condition ?? null,
+      lotSize: p.lotSize != null ? Number(p.lotSize) : null,
+      parkingSpaces: p.parkingSpaces ?? null,
+      orientation: p.orientation ?? null,
+      landTitle: p.landTitle ?? null,
+      mapViews: this.jsonStringArray(p.mapViews),
+      media,
       quartier: {
         id: p.quartier.id,
         name: p.quartier.name,
@@ -423,11 +516,9 @@ export class PropertiesService {
           },
         },
       },
-      ownerOrg: {
-        id: p.organization.id,
-        name: p.organization.name,
-        type: p.organization.type,
-      },
+      organization: org,
+      ownerOrg: org,
+      agent,
       ownerId: p.ownerId,
       createdAt: p.createdAt.toISOString(),
       updatedAt: p.updatedAt.toISOString(),
