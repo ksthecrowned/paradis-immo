@@ -1,4 +1,9 @@
-import type { Property, PropertyFeatureId, PropertyMode } from '@/types/property';
+import {
+  isPropertyAvailable,
+  type Property,
+  type PropertyFeatureId,
+  type PropertyMode,
+} from '@/types/property';
 
 export type SearchFilters = {
   q: string;
@@ -6,6 +11,7 @@ export type SearchFilters = {
   minBedrooms: number | null;
   features: PropertyFeatureId[];
   agencyIds: string[];
+  availableOnly: boolean;
 };
 
 export const DEFAULT_SEARCH_FILTERS: SearchFilters = {
@@ -14,6 +20,7 @@ export const DEFAULT_SEARCH_FILTERS: SearchFilters = {
   minBedrooms: null,
   features: [],
   agencyIds: [],
+  availableOnly: false,
 };
 
 export function countActiveFilters(filters: SearchFilters): number {
@@ -22,6 +29,7 @@ export function countActiveFilters(filters: SearchFilters): number {
   if (filters.minBedrooms != null) count += 1;
   count += filters.features.length;
   if (filters.agencyIds.length > 0) count += 1;
+  if (filters.availableOnly) count += 1;
   return count;
 }
 
@@ -57,6 +65,10 @@ export function filterProperties(
       return false;
     }
 
+    if (filters.availableOnly && !isPropertyAvailable(property)) {
+      return false;
+    }
+
     if (!query) return true;
 
     const haystack = [
@@ -85,6 +97,7 @@ export function filtersToParams(filters: SearchFilters): Record<string, string> 
   if (filters.agencyIds.length > 0) {
     params.agencies = filters.agencyIds.join(',');
   }
+  if (filters.availableOnly) params.available = '1';
   return params;
 }
 
@@ -124,5 +137,6 @@ export function paramsToFilters(
     minBedrooms,
     features,
     agencyIds,
+    availableOnly: raw('available') === '1',
   };
 }

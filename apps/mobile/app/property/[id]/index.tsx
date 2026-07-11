@@ -17,9 +17,11 @@ import {
 import { resolvePropertyFeatures } from '@/lib/property-features';
 import { propertyMapViewPath } from '@/lib/property-map-views';
 import {
+  propertyAvailabilityBadgeLabel,
   propertyPriceLabel,
   propertyStatusLabel,
   resolvePropertyMapViews,
+  isPropertyAvailable,
   type Property,
   type PropertyMapView,
 } from '@/types/property';
@@ -199,6 +201,8 @@ export default function PropertyScreen(): React.JSX.Element {
 
   const statusLabel = propertyStatusLabel(property);
   const priceLabel = propertyPriceLabel(property);
+  const availabilityBadge = propertyAvailabilityBadgeLabel(property);
+  const available = isPropertyAvailable(property);
   const previewPhotos = gallery.slice(0, 4);
   const isShortStay = property.mode === 'RENT_SHORT';
   const ctaLabel = isShortStay ? 'Réserver' : 'Réserver une visite';
@@ -404,6 +408,11 @@ export default function PropertyScreen(): React.JSX.Element {
               <View style={styles.statusBadge}>
                 <Text style={styles.statusBadgeText}>{statusLabel}</Text>
               </View>
+              {availabilityBadge ? (
+                <View style={styles.indispoBadge}>
+                  <Text style={styles.indispoBadgeText}>{availabilityBadge}</Text>
+                </View>
+              ) : null}
               <View style={styles.verifiedChip}>
                 <Ionicons
                   name="checkmark-circle"
@@ -643,17 +652,28 @@ export default function PropertyScreen(): React.JSX.Element {
           },
         ]}
       >
-        <Pressable
-          style={({ pressed }) => [
-            styles.ctaPrimary,
-            pressed && styles.ctaPrimaryPressed,
-          ]}
-          onPress={handleCtaPress}
-          accessibilityRole="button"
-          accessibilityLabel={ctaLabel}
-        >
-          <Text style={styles.ctaPrimaryText}>{ctaLabel}</Text>
-        </Pressable>
+        {available ? (
+          <Pressable
+            style={({ pressed }) => [
+              styles.ctaPrimary,
+              pressed && styles.ctaPrimaryPressed,
+            ]}
+            onPress={handleCtaPress}
+            accessibilityRole="button"
+            accessibilityLabel={ctaLabel}
+          >
+            <Text style={styles.ctaPrimaryText}>{ctaLabel}</Text>
+          </Pressable>
+        ) : (
+          <View style={styles.unavailableBanner}>
+            <Text style={styles.unavailableTitle}>
+              Ce bien n’est plus disponible
+            </Text>
+            {availabilityBadge ? (
+              <Text style={styles.unavailableReason}>{availabilityBadge}</Text>
+            ) : null}
+          </View>
+        )}
         <Pressable
           style={({ pressed }) => [
             styles.ctaSecondary,
@@ -701,7 +721,7 @@ export default function PropertyScreen(): React.JSX.Element {
               />
             </View>
 
-            {property.mode === 'SALE' ? (
+            {available && property.mode === 'SALE' ? (
               <Pressable
                 style={styles.actionRow}
                 onPress={() => {
@@ -717,7 +737,7 @@ export default function PropertyScreen(): React.JSX.Element {
               </Pressable>
             ) : null}
 
-            {property.mode === 'RENT_SHORT' ? (
+            {available && property.mode === 'RENT_SHORT' ? (
               <Pressable
                 style={styles.actionRow}
                 onPress={() => {
@@ -982,6 +1002,17 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: colors.surface,
+  },
+  indispoBadge: {
+    backgroundColor: '#FEE2E2',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: radii.full,
+  },
+  indispoBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.danger,
   },
   verifiedChip: {
     flexDirection: 'row',
@@ -1289,6 +1320,27 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: colors.surface,
+  },
+  unavailableBanner: {
+    flex: 1,
+    minHeight: 54,
+    borderRadius: radii.lg,
+    backgroundColor: '#FEE2E2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    paddingHorizontal: 16,
+    justifyContent: 'center',
+    gap: 2,
+  },
+  unavailableTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: colors.danger,
+  },
+  unavailableReason: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.danger,
   },
   ctaSecondary: {
     width: 54,

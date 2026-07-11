@@ -21,6 +21,10 @@ export type PropertyFeatureId =
 
 export type PropertyMapView = 'neighborhood' | 'streetView' | 'tour360';
 
+export type PropertyAvailability = 'AVAILABLE' | 'UNAVAILABLE';
+
+export type UnavailableReason = 'RENTED' | 'SOLD' | 'RESERVED';
+
 export type Property = {
   id: string;
   title: string;
@@ -57,6 +61,10 @@ export type Property = {
   agencyId: string;
   /** Referring agent (OrganizationMember). */
   agentId: string;
+  /** Marketplace availability (Dispo / Indispo). */
+  availability: PropertyAvailability;
+  /** Why the listing is unavailable; set when availability is UNAVAILABLE. */
+  unavailableReason?: UnavailableReason;
   /** @deprecated Prefer `mode`. Kept for older call sites. */
   status?: 'sale' | 'rent';
   lat: number;
@@ -94,4 +102,24 @@ export function propertyPriceLabel(property: Property): string {
   if (property.mode === 'RENT_LONG') return `${property.price} /mois`;
   if (property.mode === 'RENT_SHORT') return `${property.price} /jour`;
   return property.price;
+}
+
+export function isPropertyAvailable(property: Property): boolean {
+  return property.availability !== 'UNAVAILABLE';
+}
+
+export function unavailableReasonLabel(reason: UnavailableReason): string {
+  if (reason === 'RENTED') return 'Loué';
+  if (reason === 'SOLD') return 'Vendu';
+  return 'Réservé';
+}
+
+/** Detail badge; null when the listing is available. */
+export function propertyAvailabilityBadgeLabel(
+  property: Property,
+): string | null {
+  if (isPropertyAvailable(property) || !property.unavailableReason) {
+    return null;
+  }
+  return `Indispo · ${unavailableReasonLabel(property.unavailableReason)}`;
 }

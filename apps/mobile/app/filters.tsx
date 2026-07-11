@@ -53,6 +53,7 @@ export default function FiltersScreen(): React.JSX.Element {
     initial.features,
   );
   const [agencyIds, setAgencyIds] = useState<string[]>(initial.agencyIds);
+  const [availableOnly, setAvailableOnly] = useState(initial.availableOnly);
 
   const toggleFeature = (id: PropertyFeatureId): void => {
     setFeatures((current) =>
@@ -75,6 +76,7 @@ export default function FiltersScreen(): React.JSX.Element {
     setMinBedrooms(DEFAULT_SEARCH_FILTERS.minBedrooms);
     setFeatures([]);
     setAgencyIds([]);
+    setAvailableOnly(false);
   };
 
   const handleApply = (): void => {
@@ -84,6 +86,7 @@ export default function FiltersScreen(): React.JSX.Element {
       minBedrooms,
       features,
       agencyIds,
+      availableOnly,
     };
     router.replace({
       pathname: '/search',
@@ -119,6 +122,24 @@ export default function FiltersScreen(): React.JSX.Element {
         ]}
         showsVerticalScrollIndicator={false}
       >
+        <FilterSection title="Disponibilité">
+          <View style={styles.chipRow}>
+            <Pressable
+              style={[styles.chip, availableOnly && styles.chipActive]}
+              onPress={() => setAvailableOnly((value) => !value)}
+              accessibilityRole="button"
+              accessibilityState={{ selected: availableOnly }}
+              accessibilityLabel="Disponibles seulement"
+            >
+              <Text
+                style={[styles.chipText, availableOnly && styles.chipTextActive]}
+              >
+                Disponibles seulement
+              </Text>
+            </Pressable>
+          </View>
+        </FilterSection>
+
         <FilterSection title="Type d’annonce">
           <View style={styles.chipRow}>
             {MODES.map((item) => {

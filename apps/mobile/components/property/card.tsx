@@ -85,6 +85,7 @@ export default function PropertyCard({
         style={({ pressed }) => [
           styles.card,
           compact && styles.cardCompact,
+          property.availability === 'UNAVAILABLE' && styles.cardUnavailable,
           pressed && styles.cardPressed,
         ]}
         onPress={onPress}
@@ -217,6 +218,10 @@ const styles = StyleSheet.create({
     padding: spacing.sm,
     borderWidth: 1,
     borderColor: colors.border,
+  },
+  cardUnavailable: {
+    borderWidth: 2,
+    borderColor: colors.danger,
   },
   cardCompact: {
     flexDirection: 'row',

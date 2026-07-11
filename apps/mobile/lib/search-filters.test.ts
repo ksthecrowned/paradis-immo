@@ -20,6 +20,7 @@ const sample: Property[] = [
     lng: 0,
     agencyId: 'ag1',
     agentId: 'ag1-1',
+    availability: 'AVAILABLE',
   },
   {
     id: 'b',
@@ -32,6 +33,8 @@ const sample: Property[] = [
     lng: 0,
     agencyId: 'ag2',
     agentId: 'ag2-1',
+    availability: 'UNAVAILABLE',
+    unavailableReason: 'SOLD',
   },
 ];
 
@@ -66,5 +69,33 @@ describe('agencyIds filter', () => {
     });
     expect(params.agencies).toBe('ag1,ag2');
     expect(paramsToFilters(params).agencyIds).toEqual(['ag1', 'ag2']);
+  });
+});
+
+describe('availableOnly filter', () => {
+  test('keeps all when false', () => {
+    expect(
+      filterProperties(sample, {
+        ...DEFAULT_SEARCH_FILTERS,
+        availableOnly: false,
+      }),
+    ).toHaveLength(2);
+  });
+
+  test('excludes unavailable when true', () => {
+    const out = filterProperties(sample, {
+      ...DEFAULT_SEARCH_FILTERS,
+      availableOnly: true,
+    });
+    expect(out.map((p) => p.id)).toEqual(['a']);
+  });
+
+  test('round-trips available param', () => {
+    const params = filtersToParams({
+      ...DEFAULT_SEARCH_FILTERS,
+      availableOnly: true,
+    });
+    expect(params.available).toBe('1');
+    expect(paramsToFilters(params).availableOnly).toBe(true);
   });
 });
