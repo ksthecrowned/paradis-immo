@@ -8,6 +8,7 @@ import { EventPublisher } from '../../events/event.publisher';
 import { RolesGuard } from './roles.guard';
 import { OrgContextGuard } from './org-context.guard';
 import { AuthenticatedUser } from '../decorators/current-user.decorator';
+import { SEED_IDS } from '../constants/seed-ids';
 
 function makeCtx(
   user: AuthenticatedUser | null,
@@ -139,7 +140,7 @@ describe('OrgContextGuard', () => {
 
     // Paradis Immo AGENT member for agentUserId
     const paradis = await prisma.organization.findUniqueOrThrow({
-      where: { id: 'org_paradis_immo' },
+      where: { id: SEED_IDS.orgParadisImmo },
     });
     await prisma.organizationMember.create({
       data: {
@@ -219,7 +220,7 @@ describe('OrgContextGuard', () => {
       .mockReturnValue({ roles: ['AGENT'] });
     const ctx = makeCtx(
       { userId: outsiderUserId, roles: ['TENANT'] },
-      { [orgHeader]: 'org_paradis_immo' },
+      { [orgHeader]: SEED_IDS.orgParadisImmo },
     );
     await expect(guard.canActivate(ctx)).rejects.toThrow(ForbiddenException);
   });
@@ -253,7 +254,7 @@ describe('OrgContextGuard', () => {
       .mockReturnValue({ roles: ['AGENT'] });
     const ctx = makeCtx(
       { userId: agentUserId, roles: ['TENANT'] },
-      { [orgHeader]: 'org_paradis_immo' },
+      { [orgHeader]: SEED_IDS.orgParadisImmo },
     );
     await expect(guard.canActivate(ctx)).resolves.toBe(true);
   });

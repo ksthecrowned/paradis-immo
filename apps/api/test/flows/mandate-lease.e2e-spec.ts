@@ -6,6 +6,7 @@ import { OtpStore } from '../../src/auth/otp.store';
 import { EventPublisher } from '../../src/events/event.publisher';
 import { PrismaService } from '../../src/prisma/prisma.service';
 import { loginWithOtp } from './helpers';
+import { SEED_IDS } from '../../../src/common/constants/seed-ids';
 
 describe('Flow — mandate lease blocked until owner approves (e2e)', () => {
   let app: INestApplication;
@@ -81,12 +82,12 @@ describe('Flow — mandate lease blocked until owner approves (e2e)', () => {
       where: {
         userId_organizationId: {
           userId: agentId,
-          organizationId: 'org_paradis_immo',
+          organizationId: SEED_IDS.orgParadisImmo,
         },
       },
       create: {
         userId: agentId,
-        organizationId: 'org_paradis_immo',
+        organizationId: SEED_IDS.orgParadisImmo,
         role: 'AGENT',
       },
       update: { role: 'AGENT' },
@@ -105,7 +106,7 @@ describe('Flow — mandate lease blocked until owner approves (e2e)', () => {
         address: 'Flow test',
         countryId: cg.id,
         ownerId,
-        organizationId: 'org_paradis_immo',
+        organizationId: SEED_IDS.orgParadisImmo,
       },
     });
     propertyId = property.id;
@@ -126,7 +127,7 @@ describe('Flow — mandate lease blocked until owner approves (e2e)', () => {
     await prisma.organizationMember.deleteMany({
       where: {
         userId: agentId,
-        organizationId: 'org_paradis_immo',
+        organizationId: SEED_IDS.orgParadisImmo,
       },
     });
     await prisma.organizationMember.deleteMany({ where: { organizationId: agentOrgId } });

@@ -6,8 +6,9 @@ import {
 } from '@nestjs/common';
 import { Organization, OrgMemberRole, OrganizationType } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { SEED_IDS } from '../common/constants/seed-ids';
 
-const PARADIS_IMMO_ID = 'org_paradis_immo';
+const PARADIS_IMMO_ID = SEED_IDS.orgParadisImmo;
 
 @Injectable()
 export class OrganizationsService {

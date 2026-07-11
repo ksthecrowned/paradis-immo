@@ -21,6 +21,7 @@
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "prisma:seed": "ts-node --transpile-only prisma/seed.ts",
+    "seed:upload-images": "ts-node --transpile-only scripts/upload-seed-images.ts",
     "prisma:migrate": "prisma migrate dev",
     "prisma:generate": "prisma generate",
     "export:openapi": "ts-node --transpile-only scripts/export-openapi.ts"

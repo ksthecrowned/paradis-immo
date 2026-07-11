@@ -17,7 +17,7 @@ export const ORG_CONTEXT_KEY = 'paradis-immo:org-context';
  * the user is currently acting on behalf of.
  *
  * Example: an owner delegates management to Paradis Immo via a `Mandate`.
- * When the web app switches to "agent view", it sends `x-org-id: org_paradis_immo`
+ * When the web app switches to "agent view", it sends `x-org-id: <Paradis Immo org UUID>`
  * and the API checks the user is an `AGENT` member of that org.
  */
 export const ORG_ID_HEADER = 'x-org-id';

@@ -6,6 +6,7 @@ import { OtpStore } from '../../src/auth/otp.store';
 import { EventPublisher } from '../../src/events/event.publisher';
 import { PrismaService } from '../../src/prisma/prisma.service';
 import { loginWithOtp } from './helpers';
+import { SEED_IDS } from '../../../src/common/constants/seed-ids';
 
 describe('Flow — short-term booking overlap rejected (e2e)', () => {
   let app: INestApplication;
@@ -52,7 +53,7 @@ describe('Flow — short-term booking overlap rejected (e2e)', () => {
         address: 'Booking overlap test',
         countryId: cg.id,
         ownerId,
-        organizationId: 'org_paradis_immo',
+        organizationId: SEED_IDS.orgParadisImmo,
       },
     });
     propertyId = property.id;

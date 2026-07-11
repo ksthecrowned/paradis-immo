@@ -140,11 +140,14 @@ Ces comptes sont définis dans `apps/api/prisma/seed.ts` et rappelés côté web
 
 ### Données de démo (seed)
 
+IDs stables UUID dans `apps/api/src/common/constants/seed-ids.ts`. Photos R2 : `bun run seed:upload-images` puis `bun run prisma:seed`.
+
 | ID | Mode | Titre |
 |----|------|-------|
-| `prop_test_demo` | RENT_LONG | Appartement démo Poto-Poto (visites + 1 photo) |
-| `prop_test_sale` | SALE | Villa à vendre Bacongo |
-| `prop_test_short` | RENT_SHORT | Studio courte durée Moungali |
+| `823b9231-…6496d` (`SEED_IDS.propRentLong`) | RENT_LONG | Appartement Centre-ville (visites + photos R2) |
+| `29faa8b3-…b83ec` (`SEED_IDS.propSale`) | SALE | Villa Whispering Pines |
+| `b5afc862-…04dd8c` (`SEED_IDS.propShort`) | RENT_SHORT | Maison Tié-Tié |
+| `a50c3b1b-…de0c3` (`SEED_IDS.propLand`) | SALE / LAND | Terrain Mongo-Poukou |
 
 - Paiement cash **75 000 XAF** en `PENDING_VALIDATION` → visible pour l’agent sur `/agent/payments/validation`
 
@@ -159,11 +162,11 @@ INSERT INTO "UserRole" (id, "userId", role)
 VALUES (gen_random_uuid(), 'USER_ID', 'PLATFORM_ADMIN');
 ```
 
-Exemple agent (membre Paradis Immo) :
+Exemple agent (membre Paradis Immo — UUID `SEED_IDS.orgParadisImmo`) :
 
 ```sql
 INSERT INTO "OrganizationMember" (id, "organizationId", "userId", role)
-VALUES (gen_random_uuid(), 'org_paradis_immo', 'USER_ID', 'AGENT');
+VALUES (gen_random_uuid(), '7beb9e56-cd2b-4235-befe-e0aa5f2b3b4b', 'USER_ID', 'AGENT');
 ```
 
 ---

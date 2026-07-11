@@ -18,6 +18,7 @@ import {
   VisitSlotStatus,
   VisitType,
 } from '@prisma/client';
+import { SEED_IDS } from './seed-ids';
 
 const connectionString = process.env.DATABASE_URL;
 if (!connectionString) {
@@ -36,24 +37,61 @@ export const TEST_ACCOUNTS = {
 } as const;
 
 const TEST_USER_IDS = {
-  admin: 'user_test_admin',
-  agent: 'user_test_agent',
-  owner: 'user_test_owner',
-  tenant: 'user_test_tenant',
+  admin: SEED_IDS.userAdmin,
+  agent: SEED_IDS.userAgent,
+  owner: SEED_IDS.userOwner,
+  tenant: SEED_IDS.userTenant,
 } as const;
 
-const PARADIS_IMMO_ID = 'org_paradis_immo';
-const OWNER_ORG_ID = 'org_test_owner';
-const DEMO_PROPERTY_ID = 'prop_test_demo';
-const DEMO_PROPERTY_SALE_ID = 'prop_test_sale';
-const DEMO_PROPERTY_SHORT_ID = 'prop_test_short';
-const DEMO_MEDIA_ID = 'media_test_demo_1';
-const DEMO_SALE_INQUIRY_ID = 'inquiry_test_sale_1';
-const DEMO_PAYMENT_ID = 'pay_test_pending_cash';
+const PARADIS_IMMO_ID = SEED_IDS.orgParadisImmo;
+const OWNER_ORG_ID = SEED_IDS.orgOwner;
+const DEMO_PROPERTY_ID = SEED_IDS.propRentLong;
+const DEMO_PROPERTY_SALE_ID = SEED_IDS.propSale;
+const DEMO_PROPERTY_SHORT_ID = SEED_IDS.propShort;
+const DEMO_PROPERTY_LAND_ID = SEED_IDS.propLand;
+const DEMO_SALE_INQUIRY_ID = SEED_IDS.saleInquiry;
+const DEMO_PAYMENT_ID = SEED_IDS.paymentCash;
 
-/** Public image URL for demo gallery (no R2 required). */
-const DEMO_PHOTO_URL =
-  'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800&q=80';
+/** Stable R2 keys from `bun run seed:upload-images`. */
+function seedHouseUrl(n: 1 | 2 | 3 | 4 | 5 | 6): string {
+  const base = (process.env.R2_PUBLIC_URL ?? '').replace(/\/$/, '');
+  if (!base) {
+    throw new Error(
+      'R2_PUBLIC_URL is required for seed media. Run seed:upload-images first.',
+    );
+  }
+  return `${base}/seed/houses/house${n}.jpg`;
+}
+
+async function upsertPropertyMedia(
+  propertyId: string,
+  mediaIds: readonly string[],
+  houseNumbers: Array<1 | 2 | 3 | 4 | 5 | 6>,
+): Promise<void> {
+  for (let i = 0; i < houseNumbers.length; i += 1) {
+    const n = houseNumbers[i]!;
+    const id = mediaIds[i];
+    if (!id) {
+      throw new Error(`Missing media UUID for ${propertyId} index ${i}`);
+    }
+    await prisma.propertyMedia.upsert({
+      where: { id },
+      update: {
+        url: seedHouseUrl(n),
+        type: MediaType.PHOTO,
+        position: i,
+        propertyId,
+      },
+      create: {
+        id,
+        propertyId,
+        type: MediaType.PHOTO,
+        url: seedHouseUrl(n),
+        position: i,
+      },
+    });
+  }
+}
 
 async function syncGlobalRoles(userId: string, roles: GlobalRole[]): Promise<void> {
   await prisma.userRole.deleteMany({ where: { userId } });
@@ -76,7 +114,162 @@ async function upsertOrgMember(
   });
 }
 
-async function seedTestUsers(cgId: string, quartierId: string): Promise<void> {
+/** One-shot cleanup when migrating seed IDs from string slugs → UUIDs. */
+async function purgeLegacySeedArtifacts(): Promise<void> {
+  const legacyPropertyIds = [
+    'prop_test_demo',
+    'prop_test_sale',
+    'prop_test_short',
+    'prop_test_land',
+  ];
+  const legacyUserIds = [
+    'user_test_admin',
+    'user_test_agent',
+    'user_test_owner',
+    'user_test_tenant',
+  ];
+  const legacyOrgIds = ['org_paradis_immo', 'org_test_owner'];
+  const legacyMediaIds = ['media_test_demo_1'];
+  const legacyInquiryIds = ['inquiry_test_sale_1'];
+  const legacyPaymentIds = ['pay_test_pending_cash'];
+  const legacySlotIds = Array.from(
+    { length: 10 },
+    (_, i) => `slot_test_demo_${i}`,
+  );
+
+  await prisma.paymentAllocation.deleteMany({
+    where: { paymentId: { in: legacyPaymentIds } },
+  });
+  await prisma.receipt.deleteMany({
+    where: { paymentId: { in: legacyPaymentIds } },
+  });
+  await prisma.payment.deleteMany({
+    where: {
+      OR: [
+        { id: { in: legacyPaymentIds } },
+        { userId: { in: legacyUserIds } },
+      ],
+    },
+  });
+  await prisma.saleInquiry.deleteMany({
+    where: {
+      OR: [
+        { id: { in: legacyInquiryIds } },
+        { propertyId: { in: legacyPropertyIds } },
+        { userId: { in: legacyUserIds } },
+      ],
+    },
+  });
+  await prisma.maintenanceTicket.deleteMany({
+    where: { propertyId: { in: legacyPropertyIds } },
+  });
+  await prisma.rentSchedule.deleteMany({
+    where: { lease: { propertyId: { in: legacyPropertyIds } } },
+  });
+  await prisma.lease.deleteMany({
+    where: {
+      OR: [
+        { propertyId: { in: legacyPropertyIds } },
+        { tenantId: { in: legacyUserIds } },
+      ],
+    },
+  });
+  await prisma.mandateApproval.deleteMany({
+    where: { mandate: { propertyId: { in: legacyPropertyIds } } },
+  });
+  await prisma.mandate.deleteMany({
+    where: { propertyId: { in: legacyPropertyIds } },
+  });
+  await prisma.booking.deleteMany({
+    where: {
+      OR: [
+        { propertyId: { in: legacyPropertyIds } },
+        { userId: { in: legacyUserIds } },
+      ],
+    },
+  });
+  await prisma.visitBooking.deleteMany({
+    where: {
+      OR: [
+        { propertyId: { in: legacyPropertyIds } },
+        { userId: { in: legacyUserIds } },
+      ],
+    },
+  });
+  await prisma.visitSlot.deleteMany({
+    where: {
+      OR: [
+        { id: { in: legacySlotIds } },
+        { propertyId: { in: legacyPropertyIds } },
+      ],
+    },
+  });
+  await prisma.visitSlotTemplate.deleteMany({
+    where: { propertyId: { in: legacyPropertyIds } },
+  });
+  await prisma.availabilityBlock.deleteMany({
+    where: { propertyId: { in: legacyPropertyIds } },
+  });
+  await prisma.favorite.deleteMany({
+    where: {
+      OR: [
+        { propertyId: { in: legacyPropertyIds } },
+        { userId: { in: legacyUserIds } },
+      ],
+    },
+  });
+  await prisma.propertyDocument.deleteMany({
+    where: { propertyId: { in: legacyPropertyIds } },
+  });
+  await prisma.propertyMedia.deleteMany({
+    where: {
+      OR: [
+        { id: { in: legacyMediaIds } },
+        { propertyId: { in: legacyPropertyIds } },
+      ],
+    },
+  });
+  await prisma.property.deleteMany({
+    where: {
+      OR: [
+        { id: { in: legacyPropertyIds } },
+        { ownerId: { in: legacyUserIds } },
+        { organizationId: { in: legacyOrgIds } },
+      ],
+    },
+  });
+  await prisma.notification.deleteMany({
+    where: { userId: { in: legacyUserIds } },
+  });
+  await prisma.refreshToken.deleteMany({
+    where: { userId: { in: legacyUserIds } },
+  });
+  await prisma.organizationMember.deleteMany({
+    where: {
+      OR: [
+        { userId: { in: legacyUserIds } },
+        { organizationId: { in: legacyOrgIds } },
+      ],
+    },
+  });
+  await prisma.userRole.deleteMany({
+    where: { userId: { in: legacyUserIds } },
+  });
+  await prisma.user.deleteMany({ where: { id: { in: legacyUserIds } } });
+  await prisma.organization.deleteMany({
+    where: { id: { in: legacyOrgIds } },
+  });
+}
+
+async function seedTestUsers(
+  cgId: string,
+  quartiers: {
+    centreVille: string;
+    loandjili: string;
+    tieTie: string;
+    mongo: string;
+  },
+): Promise<void> {
   await prisma.organization.upsert({
     where: { id: OWNER_ORG_ID },
     update: { name: 'Propriétaire Test' },
@@ -125,10 +318,8 @@ async function seedTestUsers(cgId: string, quartierId: string): Promise<void> {
 
   for (const account of accounts) {
     await prisma.user.upsert({
-      where: {
-        phone_countryId: { phone: account.phone, countryId: cgId },
-      },
-      update: { name: account.name },
+      where: { id: account.id },
+      update: { name: account.name, phone: account.phone, countryId: cgId },
       create: {
         id: account.id,
         phone: account.phone,
@@ -137,109 +328,179 @@ async function seedTestUsers(cgId: string, quartierId: string): Promise<void> {
       },
     });
 
-    const user = await prisma.user.findUniqueOrThrow({
-      where: {
-        phone_countryId: { phone: account.phone, countryId: cgId },
-      },
-    });
-    await syncGlobalRoles(user.id, account.globalRoles);
+    await syncGlobalRoles(account.id, account.globalRoles);
     if (account.org) {
-      await upsertOrgMember(user.id, account.org.organizationId, account.org.role);
+      await upsertOrgMember(account.id, account.org.organizationId, account.org.role);
     }
   }
 
   await prisma.property.upsert({
     where: { id: DEMO_PROPERTY_ID },
     update: {
-      title: 'Appartement démo Poto-Poto',
+      title: 'Appartement Centre-ville',
+      description:
+        'Appartement meublé au 2e étage en plein centre-ville de Pointe-Noire, proche des commerces et des services. Séjour confortable, cuisine fonctionnelle et balcon avec vue sur la rue.\n\nParfait pour une location longue durée : wifi, climatisation, chauffe-eau et eau courante.',
       status: PropertyStatus.ACTIVE,
       visitType: VisitType.FREE,
       visitEnabled: true,
+      quartierId: quartiers.centreVille,
+      address: 'Avenue du Général de Gaulle, Centre-ville',
+      lat: -4.7698,
+      lng: 11.8665,
+      price: new Prisma.Decimal(100000),
+      bedrooms: 3,
+      bathrooms: 1,
+      surface: 95,
     },
     create: {
       id: DEMO_PROPERTY_ID,
       ownerId: TEST_USER_IDS.owner,
       organizationId: PARADIS_IMMO_ID,
-      title: 'Appartement démo Poto-Poto',
-      description: 'Bien de démonstration pour les tests locaux.',
+      title: 'Appartement Centre-ville',
+      description:
+        'Appartement meublé au 2e étage en plein centre-ville de Pointe-Noire, proche des commerces et des services.',
       type: PropertyType.APARTMENT,
       mode: PropertyMode.RENT_LONG,
       status: PropertyStatus.ACTIVE,
-      price: new Prisma.Decimal(150000),
+      price: new Prisma.Decimal(100000),
       currency: 'XAF',
       priceUnit: PriceUnit.MONTH,
-      quartierId,
-      address: '12 av. de la Paix, Poto-Poto',
+      quartierId: quartiers.centreVille,
+      address: 'Avenue du Général de Gaulle, Centre-ville',
+      lat: -4.7698,
+      lng: 11.8665,
       countryId: cgId,
       visitEnabled: true,
       visitType: VisitType.FREE,
       bedrooms: 3,
-      bathrooms: 2,
-      surface: 85,
+      bathrooms: 1,
+      surface: 95,
     },
   });
 
   await prisma.property.upsert({
     where: { id: DEMO_PROPERTY_SALE_ID },
-    update: { status: PropertyStatus.ACTIVE },
+    update: {
+      title: 'Villa Whispering Pines',
+      description:
+        'Belle villa R+1 située à Loandjili, dans un quartier calme et résidentiel de Pointe-Noire. La maison offre de beaux volumes, une cuisine équipée, un salon lumineux et un jardin arboré avec parking sécurisé.',
+      status: PropertyStatus.ACTIVE,
+      quartierId: quartiers.loandjili,
+      address: 'Loandjili, Pointe-Noire',
+      lat: -4.7825,
+      lng: 11.8582,
+      price: new Prisma.Decimal(70000000),
+      bedrooms: 4,
+      bathrooms: 2,
+      surface: 180,
+    },
     create: {
       id: DEMO_PROPERTY_SALE_ID,
       ownerId: TEST_USER_IDS.owner,
       organizationId: PARADIS_IMMO_ID,
-      title: 'Villa à vendre Bacongo',
-      description: 'Maison familiale avec jardin — démo vente.',
+      title: 'Villa Whispering Pines',
+      description:
+        'Belle villa R+1 située à Loandjili, dans un quartier calme et résidentiel de Pointe-Noire.',
       type: PropertyType.HOUSE,
       mode: PropertyMode.SALE,
       status: PropertyStatus.ACTIVE,
-      price: new Prisma.Decimal(45000000),
+      price: new Prisma.Decimal(70000000),
       currency: 'XAF',
       priceUnit: PriceUnit.TOTAL,
-      quartierId,
-      address: '8 rue des Manguiers, Bacongo',
+      quartierId: quartiers.loandjili,
+      address: 'Loandjili, Pointe-Noire',
+      lat: -4.7825,
+      lng: 11.8582,
       countryId: cgId,
       visitEnabled: true,
       bedrooms: 4,
-      bathrooms: 3,
-      surface: 220,
+      bathrooms: 2,
+      surface: 180,
     },
   });
 
   await prisma.property.upsert({
     where: { id: DEMO_PROPERTY_SHORT_ID },
-    update: { status: PropertyStatus.ACTIVE },
+    update: {
+      title: 'Maison Tié-Tié',
+      description:
+        'Maison cosy à Tié-Tié, proposée à la journée pour vos séjours à Pointe-Noire. Espace de vie agréable, cuisine équipée, wifi et climatisation.',
+      status: PropertyStatus.ACTIVE,
+      quartierId: quartiers.tieTie,
+      address: 'Tié-Tié, Pointe-Noire',
+      lat: -4.8012,
+      lng: 11.8748,
+      price: new Prisma.Decimal(45000),
+      bedrooms: 3,
+      bathrooms: 2,
+      surface: 120,
+    },
     create: {
       id: DEMO_PROPERTY_SHORT_ID,
       ownerId: TEST_USER_IDS.owner,
       organizationId: PARADIS_IMMO_ID,
-      title: 'Studio courte durée Moungali',
-      description: 'Location meublée à la nuit — démo RENT_SHORT.',
-      type: PropertyType.APARTMENT,
+      title: 'Maison Tié-Tié',
+      description:
+        'Maison cosy à Tié-Tié, proposée à la journée pour vos séjours à Pointe-Noire.',
+      type: PropertyType.HOUSE,
       mode: PropertyMode.RENT_SHORT,
       status: PropertyStatus.ACTIVE,
-      price: new Prisma.Decimal(35000),
+      price: new Prisma.Decimal(45000),
       currency: 'XAF',
       priceUnit: PriceUnit.NIGHT,
-      quartierId,
-      address: '5 av. Matsoua, Moungali',
+      quartierId: quartiers.tieTie,
+      address: 'Tié-Tié, Pointe-Noire',
+      lat: -4.8012,
+      lng: 11.8748,
       countryId: cgId,
       visitEnabled: false,
-      bedrooms: 1,
-      bathrooms: 1,
-      surface: 42,
+      bedrooms: 3,
+      bathrooms: 2,
+      surface: 120,
     },
   });
 
-  await prisma.propertyMedia.upsert({
-    where: { id: DEMO_MEDIA_ID },
-    update: { url: DEMO_PHOTO_URL },
+  await prisma.property.upsert({
+    where: { id: DEMO_PROPERTY_LAND_ID },
+    update: {
+      title: 'Terrain Mongo-Poukou',
+      description:
+        'Terrain constructible de 400 m² à Mongo-Mpoukou, dans un secteur en développement de Pointe-Noire.',
+      status: PropertyStatus.ACTIVE,
+      quartierId: quartiers.mongo,
+      address: 'Mongo-Mpoukou, Pointe-Noire',
+      lat: -4.7585,
+      lng: 11.849,
+      price: new Prisma.Decimal(12000000),
+      surface: 400,
+    },
     create: {
-      id: DEMO_MEDIA_ID,
-      propertyId: DEMO_PROPERTY_ID,
-      type: MediaType.PHOTO,
-      url: DEMO_PHOTO_URL,
-      position: 0,
+      id: DEMO_PROPERTY_LAND_ID,
+      ownerId: TEST_USER_IDS.owner,
+      organizationId: PARADIS_IMMO_ID,
+      title: 'Terrain Mongo-Poukou',
+      description:
+        'Terrain constructible de 400 m² à Mongo-Mpoukou, dans un secteur en développement de Pointe-Noire.',
+      type: PropertyType.LAND,
+      mode: PropertyMode.SALE,
+      status: PropertyStatus.ACTIVE,
+      price: new Prisma.Decimal(12000000),
+      currency: 'XAF',
+      priceUnit: PriceUnit.TOTAL,
+      quartierId: quartiers.mongo,
+      address: 'Mongo-Mpoukou, Pointe-Noire',
+      lat: -4.7585,
+      lng: 11.849,
+      countryId: cgId,
+      visitEnabled: true,
+      surface: 400,
     },
   });
+
+  await upsertPropertyMedia(DEMO_PROPERTY_ID, SEED_IDS.mediaRent, [2, 3, 4]);
+  await upsertPropertyMedia(DEMO_PROPERTY_SALE_ID, SEED_IDS.mediaSale, [1, 5, 6]);
+  await upsertPropertyMedia(DEMO_PROPERTY_SHORT_ID, SEED_IDS.mediaShort, [3, 1, 2]);
+  await upsertPropertyMedia(DEMO_PROPERTY_LAND_ID, SEED_IDS.mediaLand, [4, 6]);
 
   await prisma.saleInquiry.upsert({
     where: { id: DEMO_SALE_INQUIRY_ID },
@@ -266,7 +527,8 @@ async function seedTestUsers(cgId: string, quartierId: string): Promise<void> {
       startAt.setHours(hour, 0, 0, 0);
       const endAt = new Date(startAt);
       endAt.setMinutes(endAt.getMinutes() + 45);
-      const slotId = `slot_test_demo_${slotIndex}`;
+      const slotId = SEED_IDS.visitSlots[slotIndex];
+      if (!slotId) break;
       await prisma.visitSlot.upsert({
         where: { id: slotId },
         update: {
@@ -306,10 +568,11 @@ async function seedTestUsers(cgId: string, quartierId: string): Promise<void> {
   for (const [role, info] of Object.entries(TEST_ACCOUNTS)) {
     console.log(`    ${role.padEnd(8)} ${info.phone}  → ${info.path}`);
   }
-  console.log('✓ Demo properties:');
-  console.log(`    ${DEMO_PROPERTY_ID}  RENT_LONG  (visites activées, créneaux seed)`);
-  console.log(`    ${DEMO_PROPERTY_SALE_ID}  SALE`);
-  console.log(`    ${DEMO_PROPERTY_SHORT_ID}  RENT_SHORT`);
+  console.log('✓ Demo properties (Pointe-Noire + R2 photos):');
+  console.log(`    ${DEMO_PROPERTY_ID}  RENT_LONG  Appartement Centre-ville`);
+  console.log(`    ${DEMO_PROPERTY_SALE_ID}  SALE  Villa Whispering Pines`);
+  console.log(`    ${DEMO_PROPERTY_SHORT_ID}  RENT_SHORT  Maison Tié-Tié`);
+  console.log(`    ${DEMO_PROPERTY_LAND_ID}  SALE/LAND  Terrain Mongo-Poukou`);
   console.log(`    ${DEMO_SALE_INQUIRY_ID}  sale inquiry (NEW)`);
 }
 
@@ -395,10 +658,10 @@ async function main() {
 
   // 4. Paradis Immo platform organization (AGENCY type, APPROVED)
   const paradis = await prisma.organization.upsert({
-    where: { id: 'org_paradis_immo' },
+    where: { id: PARADIS_IMMO_ID },
     update: {},
     create: {
-      id: 'org_paradis_immo',
+      id: PARADIS_IMMO_ID,
       name: 'Paradis Immo',
       type: 'AGENCY',
       affiliationStatus: 'APPROVED',
@@ -416,7 +679,28 @@ async function main() {
   if (!demoQuartier) {
     throw new Error('Poto-Poto-Centre quartier missing after seed');
   }
-  await seedTestUsers(cg.id, demoQuartier.id);
+
+  async function pnrQuartier(name: string): Promise<string> {
+    const q = await prisma.quartier.findFirst({
+      where: {
+        name: `${name}-Centre`,
+        arrondissement: { cityId: pnr.id },
+      },
+    });
+    if (!q) throw new Error(`${name}-Centre quartier missing after seed`);
+    return q.id;
+  }
+
+  // Centre-ville listings use Lumumba (1er) as closest seed quartier.
+  const quartiers = {
+    centreVille: await pnrQuartier('Lumumba'),
+    loandjili: await pnrQuartier('Loandjili'),
+    tieTie: await pnrQuartier('Tié-Tié'),
+    mongo: await pnrQuartier('Mongo-Mpoukou'),
+  };
+
+  await purgeLegacySeedArtifacts();
+  await seedTestUsers(cg.id, quartiers);
 }
 
 main()

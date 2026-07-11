@@ -4,6 +4,7 @@ import { NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { OrganizationsService } from './organizations.service';
 import { EventPublisher } from '../events/event.publisher';
+import { SEED_IDS } from '../common/constants/seed-ids';
 
 describe('OrganizationsService', () => {
   let orgs: OrganizationsService;
@@ -54,7 +55,7 @@ describe('OrganizationsService', () => {
 
   it('getParadisImmo returns the seeded org', async () => {
     const paradis = await orgs.getParadisImmo();
-    expect(paradis.id).toBe('org_paradis_immo');
+    expect(paradis.id).toBe(SEED_IDS.orgParadisImmo);
     expect(paradis.type).toBe('AGENCY');
   });
 
@@ -82,7 +83,7 @@ describe('OrganizationsService', () => {
   it('ensureAgentMembership adds AGENT to Paradis Immo', async () => {
     const m = await orgs.ensureAgentMembership(userId);
     expect(m.role).toBe('AGENT');
-    expect(m.organizationId).toBe('org_paradis_immo');
+    expect(m.organizationId).toBe(SEED_IDS.orgParadisImmo);
   });
 
   it('ensureAgentMembership is idempotent', async () => {

@@ -5,6 +5,7 @@ import { AppModule } from '../src/app.module';
 import { OtpStore } from '../src/auth/otp.store';
 import { EventPublisher } from '../src/events/event.publisher';
 import { PrismaService } from '../src/prisma/prisma.service';
+import { SEED_IDS } from '../../src/common/constants/seed-ids';
 
 describe('Leases flow (e2e)', () => {
   let app: INestApplication;
@@ -61,7 +62,7 @@ describe('Leases flow (e2e)', () => {
         address: 'Test address',
         countryId: cg.id,
         ownerId,
-        organizationId: 'org_paradis_immo',
+        organizationId: SEED_IDS.orgParadisImmo,
       },
     });
     propertyId = property.id;
