@@ -73,8 +73,7 @@ type PublicOrganization = {
 };
 
 type PublicAgent = {
-  id: string; // OrganizationMember.id (stable membership id)
-  userId: string;
+  id: string; // User.id — same as PublicProperty.agent.id for hub ↔ listing match
   organizationId: string;
   name: string | null;
   phone: string | null;
@@ -86,7 +85,7 @@ type PublicAgent = {
 | Method | Path | Behavior |
 |--------|------|----------|
 | `GET` | `/organizations` | Public marketplace orgs: `(type = AGENCY) OR (isOfficial = true)`. Order: `isOfficial DESC`, then `name ASC`. Return `{ data: PublicOrganization[] }` (same envelope style as properties if used). |
-| `GET` | `/organizations/:id` | One public org as above, or 404 if not in public set. Include `agents: PublicAgent[]` — members with role `AGENT` (include `user.name`, `user.phone`). |
+| `GET` | `/organizations/:id` | One public org as above, or 404 if not in public set. Include `agents: PublicAgent[]` — members with role `AGENT`; `id` = `user.id` (align with catalog `PublicProperty.agent`). |
 
 Do not expose OWNER-only personal orgs in the public list.
 
