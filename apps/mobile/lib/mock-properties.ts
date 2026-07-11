@@ -61,7 +61,7 @@ export const MOCK_PROPERTIES: Property[] = [
     lng: 11.8582,
     agencyId: 'ag-paradis-immo',
     agentId: 'ag-paradis-immo-1',
-    availability: 'AVAILABLE',
+    listingStatus: 'AVAILABLE',
   },
   {
     id: '2',
@@ -98,8 +98,7 @@ export const MOCK_PROPERTIES: Property[] = [
     lng: 11.8665,
     agencyId: 'ag-habitat-pn',
     agentId: 'ag-habitat-pn-1',
-    availability: 'UNAVAILABLE',
-    unavailableReason: 'RENTED',
+    listingStatus: 'OCCUPIED',
   },
   {
     id: '3',
@@ -138,8 +137,8 @@ export const MOCK_PROPERTIES: Property[] = [
     lng: 11.8748,
     agencyId: 'ag-cote-sauvage',
     agentId: 'ag-cote-sauvage-2',
-    availability: 'UNAVAILABLE',
-    unavailableReason: 'RESERVED',
+    listingStatus: 'AVAILABLE',
+    isFeatured: true,
   },
   {
     id: '4',
@@ -161,8 +160,7 @@ export const MOCK_PROPERTIES: Property[] = [
     lng: 11.849,
     agencyId: 'ag-mongo-immo',
     agentId: 'ag-mongo-immo-1',
-    availability: 'UNAVAILABLE',
-    unavailableReason: 'SOLD',
+    listingStatus: 'SOLD',
   },
 ];
 

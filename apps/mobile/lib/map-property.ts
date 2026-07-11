@@ -1,15 +1,23 @@
 import type { PublicProperty } from '@/lib/properties';
 import type {
+  ListingStatus,
   Property,
   PropertyCategory,
   PropertyFeatureId,
   PropertyMapView,
   PropertyMode,
-  UnavailableReason,
 } from '@/types/property';
 
 /** Fallback when API has no agent — keeps AgentRow string id stable. */
 export const FALLBACK_AGENT_ID = 'api-agent-fallback';
+
+const LISTING_STATUSES: ReadonlySet<string> = new Set([
+  'AVAILABLE',
+  'SOLD',
+  'UNDER_OFFER',
+  'OCCUPIED',
+  'AVAILABLE_SOON',
+]);
 
 function formatPriceLabel(price: number, currency: string): string {
   const code = currency === 'XAF' || currency === 'FCFA' ? undefined : currency;
@@ -30,6 +38,13 @@ function typeToCategory(type: string): PropertyCategory {
   return 'house';
 }
 
+function mapListingStatus(value: string | undefined): ListingStatus {
+  if (value && LISTING_STATUSES.has(value)) {
+    return value as ListingStatus;
+  }
+  return 'AVAILABLE';
+}
+
 export function mapPublicProperty(api: PublicProperty): Property {
   const media = [...(api.media ?? [])].sort(
     (a, b) => a.position - b.position,
@@ -38,9 +53,6 @@ export function mapPublicProperty(api: PublicProperty): Property {
   const city = api.quartier.arrondissement.city.name;
   const q = api.quartier.name;
   const org = api.organization ?? api.ownerOrg;
-  const listing =
-    api.listingAvailability === 'UNAVAILABLE' ? 'UNAVAILABLE' : 'AVAILABLE';
-  const reason = api.unavailableReason;
   const mapViews = (api.mapViews?.length
     ? api.mapViews
     : api.lat != null
@@ -74,11 +86,9 @@ export function mapPublicProperty(api: PublicProperty): Property {
     agentId: api.agent?.id ?? FALLBACK_AGENT_ID,
     agentName: api.agent?.name,
     agentPhone: api.agent?.phone ?? null,
-    availability: listing,
-    unavailableReason:
-      reason === 'RENTED' || reason === 'SOLD' || reason === 'RESERVED'
-        ? (reason as UnavailableReason)
-        : undefined,
+    listingStatus: mapListingStatus(api.listingStatus),
+    availableFrom: api.availableFrom ?? null,
+    isFeatured: Boolean(api.isFeatured),
     visitEnabled: api.visitEnabled ?? false,
     visitType:
       api.visitType === 'FREE' || api.visitType === 'PAID'

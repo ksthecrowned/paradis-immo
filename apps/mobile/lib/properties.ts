@@ -1,4 +1,5 @@
 import { apiFetch } from '@/lib/api';
+import type { ListingStatus } from '@/types/property';
 
 export type PropertyMode = 'RENT_LONG' | 'RENT_SHORT' | 'SALE';
 export type PropertyType = 'APARTMENT' | 'HOUSE' | 'LAND' | 'COMMERCIAL';
@@ -26,8 +27,9 @@ export interface PublicProperty {
   visitPrice: number | null;
   visitDuration: number | null;
   features?: string[];
-  listingAvailability?: 'AVAILABLE' | 'UNAVAILABLE';
-  unavailableReason?: 'RENTED' | 'SOLD' | 'RESERVED' | null;
+  listingStatus?: ListingStatus;
+  availableFrom?: string | null;
+  isFeatured?: boolean;
   floor?: string | null;
   yearBuilt?: number | null;
   condition?: string | null;

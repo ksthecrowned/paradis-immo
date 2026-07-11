@@ -23,8 +23,9 @@ const base: PublicProperty = {
   visitPrice: null,
   visitDuration: null,
   features: ['wifi', 'cuisine'],
-  listingAvailability: 'UNAVAILABLE',
-  unavailableReason: 'RENTED',
+  listingStatus: 'OCCUPIED',
+  availableFrom: null,
+  isFeatured: false,
   floor: '2e étage',
   yearBuilt: 2012,
   condition: 'Bon état',
@@ -77,14 +78,25 @@ const base: PublicProperty = {
 };
 
 describe('mapPublicProperty', () => {
-  test('maps cover and unavailable', () => {
+  test('maps cover and occupied listing', () => {
     const p = mapPublicProperty(base);
     expect(p.coverImage).toContain('house2');
     expect(p.images?.[0]).toContain('house3');
-    expect(p.availability).toBe('UNAVAILABLE');
-    expect(p.unavailableReason).toBe('RENTED');
+    expect(p.listingStatus).toBe('OCCUPIED');
     expect(p.agencyId).toBe(base.organization!.id);
     expect(p.location).toContain('Pointe-Noire');
+  });
+
+  test('maps UNDER_OFFER and featured', () => {
+    const p = mapPublicProperty({
+      ...base,
+      mode: 'SALE',
+      listingStatus: 'UNDER_OFFER',
+      availableFrom: null,
+      isFeatured: true,
+    });
+    expect(p.listingStatus).toBe('UNDER_OFFER');
+    expect(p.isFeatured).toBe(true);
   });
 
   test('maps visit FREE fields', () => {

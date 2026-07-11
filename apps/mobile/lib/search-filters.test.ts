@@ -20,7 +20,7 @@ const sample: Property[] = [
     lng: 0,
     agencyId: 'ag1',
     agentId: 'ag1-1',
-    availability: 'AVAILABLE',
+    listingStatus: 'AVAILABLE',
   },
   {
     id: 'b',
@@ -33,8 +33,33 @@ const sample: Property[] = [
     lng: 0,
     agencyId: 'ag2',
     agentId: 'ag2-1',
-    availability: 'UNAVAILABLE',
-    unavailableReason: 'SOLD',
+    listingStatus: 'SOLD',
+  },
+  {
+    id: 'c',
+    title: 'C',
+    description: '',
+    price: '1',
+    coverImage: '',
+    mode: 'SALE',
+    lat: 0,
+    lng: 0,
+    agencyId: 'ag1',
+    agentId: 'ag1-1',
+    listingStatus: 'UNDER_OFFER',
+  },
+  {
+    id: 'd',
+    title: 'D',
+    description: '',
+    price: '1',
+    coverImage: '',
+    mode: 'RENT_SHORT',
+    lat: 0,
+    lng: 0,
+    agencyId: 'ag1',
+    agentId: 'ag1-1',
+    listingStatus: 'AVAILABLE',
   },
 ];
 
@@ -42,7 +67,7 @@ describe('agencyIds filter', () => {
   test('empty agencyIds keeps all', () => {
     expect(
       filterProperties(sample, { ...DEFAULT_SEARCH_FILTERS, agencyIds: [] }),
-    ).toHaveLength(2);
+    ).toHaveLength(4);
   });
 
   test('filters to selected agencies', () => {
@@ -50,7 +75,7 @@ describe('agencyIds filter', () => {
       ...DEFAULT_SEARCH_FILTERS,
       agencyIds: ['ag1'],
     });
-    expect(out.map((p) => p.id)).toEqual(['a']);
+    expect(out.map((p) => p.id).sort()).toEqual(['a', 'c', 'd']);
   });
 
   test('countActiveFilters counts agency selection as 1', () => {
@@ -79,15 +104,15 @@ describe('availableOnly filter', () => {
         ...DEFAULT_SEARCH_FILTERS,
         availableOnly: false,
       }),
-    ).toHaveLength(2);
+    ).toHaveLength(4);
   });
 
-  test('excludes unavailable when true', () => {
+  test('excludes SOLD and UNDER_OFFER when true', () => {
     const out = filterProperties(sample, {
       ...DEFAULT_SEARCH_FILTERS,
       availableOnly: true,
     });
-    expect(out.map((p) => p.id)).toEqual(['a']);
+    expect(out.map((p) => p.id).sort()).toEqual(['a', 'd']);
   });
 
   test('round-trips available param', () => {

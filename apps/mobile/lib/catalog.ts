@@ -1,4 +1,5 @@
 import { mapPublicProperty } from '@/lib/map-property';
+import { sortMarketableFirst } from '@/lib/listing-status';
 import {
   getProperty,
   listProperties,
@@ -10,7 +11,7 @@ export async function fetchCatalogProperties(
   filters: PropertyFilters = {},
 ): Promise<Property[]> {
   const rows = await listProperties(filters);
-  return rows.map(mapPublicProperty);
+  return sortMarketableFirst(rows.map(mapPublicProperty));
 }
 
 export async function fetchCatalogProperty(id: string): Promise<Property> {

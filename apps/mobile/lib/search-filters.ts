@@ -1,5 +1,5 @@
 import {
-  isPropertyAvailable,
+  passesAvailableOnlyFilter,
   type Property,
   type PropertyFeatureId,
   type PropertyMode,
@@ -65,7 +65,7 @@ export function filterProperties(
       return false;
     }
 
-    if (filters.availableOnly && !isPropertyAvailable(property)) {
+    if (filters.availableOnly && !passesAvailableOnlyFilter(property)) {
       return false;
     }
 
