@@ -1,4 +1,5 @@
 import { colors, radii, spacing } from '@/constants/theme';
+import { getAgency } from '@/lib/mock-agencies';
 import { getPropertyGallery } from '@/lib/mock-properties';
 import {
   propertyPriceLabel,
@@ -14,6 +15,7 @@ export function PropertySummaryCard({
 }): React.JSX.Element {
   const gallery = getPropertyGallery(property);
   const cover = gallery[0] ?? require('@/assets/images/house2.jpg');
+  const agency = getAgency(property.agencyId);
 
   return (
     <View style={styles.card}>
@@ -28,6 +30,11 @@ export function PropertySummaryCard({
             {property.location ?? 'Congo'}
           </Text>
         </View>
+        {agency ? (
+          <Text style={styles.agency} numberOfLines={1}>
+            {agency.shortName}
+          </Text>
+        ) : null}
         <Text style={styles.price}>{propertyPriceLabel(property)}</Text>
       </View>
     </View>
@@ -71,6 +78,11 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '500',
     color: colors.muted,
+  },
+  agency: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.primary,
   },
   price: {
     fontSize: 13,

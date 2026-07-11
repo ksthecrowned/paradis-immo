@@ -3,6 +3,7 @@ import { PropertySummaryCard } from '@/components/property/PropertySummaryCard';
 import { SuccessScreen } from '@/components/ui/SuccessScreen';
 import { colors, radii, spacing } from '@/constants/theme';
 import { ensureAuthenticated } from '@/lib/auth-guard';
+import { getAgency, getAgent } from '@/lib/mock-agencies';
 import { getMockPaymentSession } from '@/lib/mock-conversion';
 import { getPropertyById } from '@/lib/mock-properties';
 import { Ionicons } from '@expo/vector-icons';
@@ -32,6 +33,14 @@ export default function PaymentScreen(): React.JSX.Element {
   const property = useMemo(
     () => (session ? getPropertyById(session.propertyId) : undefined),
     [session],
+  );
+  const agency = useMemo(
+    () => (property ? getAgency(property.agencyId) : undefined),
+    [property],
+  );
+  const agent = useMemo(
+    () => (property ? getAgent(property.agentId) : undefined),
+    [property],
   );
 
   const [method, setMethod] = useState<PayMethod>('mm');
@@ -173,8 +182,9 @@ export default function PaymentScreen(): React.JSX.Element {
         ) : (
           <View style={styles.cashBox}>
             <Text style={styles.cashText}>
-              Payez en espèces auprès d’un agent Paradis Immo. Présentez cette
-              référence : {session.id.slice(-8).toUpperCase()}.
+              {`Payez en espèces auprès d’un agent de ${agency?.name ?? 'l’agence'}${
+                agent ? ` (${agent.displayName})` : ''
+              }. Présentez cette référence : ${session.id.slice(-8).toUpperCase()}.`}
             </Text>
           </View>
         )}

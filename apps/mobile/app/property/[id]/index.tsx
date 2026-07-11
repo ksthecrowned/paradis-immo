@@ -1,7 +1,7 @@
 import { CircleIconButton } from '@/components/ui/CircleIconButton';
+import { AgentRow } from '@/components/agency/AgentRow';
 import { APP_MAP_USER_INTERFACE_STYLE } from '@/constants/maps';
 import { colors, radii, spacing } from '@/constants/theme';
-import { useFeedback } from '@/context/FeedbackContext';
 import { isFavorite, toggleFavorite } from '@/lib/favorites';
 import {
   getPropertyById,
@@ -29,6 +29,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
   Image,
+  Modal,
   Pressable,
   ScrollView,
   Share,
@@ -104,10 +105,10 @@ function buildAmenities(property: Property): Array<{
 
 export default function PropertyScreen(): React.JSX.Element {
   const insets = useSafeAreaInsets();
-  const { showFeedback } = useFeedback();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [favorited, setFavorited] = useState(false);
   const [showCta, setShowCta] = useState(false);
+  const [actionsOpen, setActionsOpen] = useState(false);
   const [descriptionExpanded, setDescriptionExpanded] = useState(false);
   const [activeMapView, setActiveMapView] =
     useState<PropertyMapView>('neighborhood');
@@ -285,7 +286,7 @@ export default function PropertyScreen(): React.JSX.Element {
         ref={scrollRef}
         style={styles.scroll}
         contentContainerStyle={{
-          paddingBottom: insets.bottom + (showCta ? (property.mode === 'SALE' ? 140 : 100) : 32),
+          paddingBottom: insets.bottom + (showCta ? 100 : 32),
         }}
         showsVerticalScrollIndicator={false}
         bounces={false}
@@ -384,6 +385,14 @@ export default function PropertyScreen(): React.JSX.Element {
               </View>
               <Text style={styles.price}>{priceLabel}</Text>
             </View>
+
+            <AgentRow
+              agentId={property.agentId}
+              showAgencyLink
+              onPressAgency={() =>
+                router.push(`/agency/${property.agencyId}`)
+              }
+            />
 
             <View style={styles.titleRow}>
               <Text style={styles.title} numberOfLines={2}>
@@ -651,21 +660,125 @@ export default function PropertyScreen(): React.JSX.Element {
         >
           <Text style={styles.ctaPrimaryText}>{ctaLabel}</Text>
         </Pressable>
-        {property.mode === 'SALE' ? (
-          <Pressable
-            style={styles.ctaSecondary}
-            onPress={() =>
-              router.push(`/property/${property.id}/sale-inquiry`)
-            }
-            accessibilityRole="button"
-            accessibilityLabel="Faire une demande d’achat"
-          >
-            <Text style={styles.ctaSecondaryText}>
-              Faire une demande d’achat
-            </Text>
-          </Pressable>
-        ) : null}
+        <Pressable
+          style={({ pressed }) => [
+            styles.ctaSecondary,
+            pressed && styles.ctaSecondaryPressed,
+          ]}
+          onPress={() => setActionsOpen(true)}
+          accessibilityRole="button"
+          accessibilityLabel="Actions supplémentaires"
+        >
+          <Ionicons name="ellipsis-horizontal" size={22} color={colors.primary} />
+        </Pressable>
       </Animated.View>
+
+      <Modal
+        visible={actionsOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setActionsOpen(false)}
+      >
+        <View style={styles.actionsBackdrop}>
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={() => setActionsOpen(false)}
+            accessibilityRole="button"
+            accessibilityLabel="Fermer"
+          />
+          <View
+            style={[
+              styles.actionsSheet,
+              { paddingBottom: Math.max(insets.bottom, 16) },
+            ]}
+          >
+            <View style={styles.actionsHandle} />
+            <Text style={styles.actionsTitle}>Actions</Text>
+
+            {property.mode === 'SALE' ? (
+              <Pressable
+                style={styles.actionRow}
+                onPress={() => {
+                  setActionsOpen(false);
+                  router.push(`/property/${property.id}/sale-inquiry`);
+                }}
+                accessibilityRole="button"
+              >
+                <View style={styles.actionIcon}>
+                  <Ionicons name="home-outline" size={20} color={colors.primary} />
+                </View>
+                <Text style={styles.actionLabel}>Faire une demande d’achat</Text>
+              </Pressable>
+            ) : null}
+
+            {property.mode === 'RENT_SHORT' ? (
+              <Pressable
+                style={styles.actionRow}
+                onPress={() => {
+                  setActionsOpen(false);
+                  router.push(`/property/${property.id}/visit`);
+                }}
+                accessibilityRole="button"
+              >
+                <View style={styles.actionIcon}>
+                  <Ionicons
+                    name="calendar-outline"
+                    size={20}
+                    color={colors.primary}
+                  />
+                </View>
+                <Text style={styles.actionLabel}>Réserver une visite</Text>
+              </Pressable>
+            ) : null}
+
+            <Pressable
+              style={styles.actionRow}
+              onPress={() => {
+                setActionsOpen(false);
+                void handleShare();
+              }}
+              accessibilityRole="button"
+            >
+              <View style={styles.actionIcon}>
+                <Ionicons
+                  name="share-social-outline"
+                  size={20}
+                  color={colors.primary}
+                />
+              </View>
+              <Text style={styles.actionLabel}>Partager</Text>
+            </Pressable>
+
+            <Pressable
+              style={styles.actionRow}
+              onPress={() => {
+                setActionsOpen(false);
+                handleToggleFavorite();
+              }}
+              accessibilityRole="button"
+            >
+              <View style={styles.actionIcon}>
+                <Ionicons
+                  name={favorited ? 'heart' : 'heart-outline'}
+                  size={20}
+                  color={favorited ? colors.danger : colors.primary}
+                />
+              </View>
+              <Text style={styles.actionLabel}>
+                {favorited ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+              </Text>
+            </Pressable>
+
+            <Pressable
+              style={styles.actionsCancel}
+              onPress={() => setActionsOpen(false)}
+              accessibilityRole="button"
+            >
+              <Text style={styles.actionsCancelText}>Annuler</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -1145,21 +1258,23 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     paddingHorizontal: spacing.md,
-    gap: 8,
+    gap: 10,
     backgroundColor: 'transparent',
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   ctaPrimary: {
-    width: '100%',
+    flex: 1,
     minHeight: 54,
     borderRadius: radii.full,
     backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    // shadowColor: colors.navy,
-    // shadowOffset: { width: 0, height: 8 },
-    // shadowOpacity: 0.22,
-    // shadowRadius: 16,
-    // elevation: 8,
+    shadowColor: colors.navy,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.22,
+    shadowRadius: 16,
+    elevation: 8,
   },
   ctaPrimaryPressed: {
     backgroundColor: colors.primaryHover,
@@ -1170,14 +1285,84 @@ const styles = StyleSheet.create({
     color: colors.surface,
   },
   ctaSecondary: {
-    minHeight: 44,
+    width: 54,
+    height: 54,
+    borderRadius: radii.full,
+    backgroundColor: colors.primaryMuted,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: colors.navy,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.16,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  ctaSecondaryPressed: {
+    opacity: 0.85,
+  },
+  actionsBackdrop: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(16, 10, 85, 0.35)',
+  },
+  actionsSheet: {
+    marginHorizontal: 12,
+    marginBottom: 12,
+    borderRadius: 24,
+    backgroundColor: colors.surface,
+    paddingHorizontal: spacing.md,
+    paddingTop: 10,
+    gap: 4,
+  },
+  actionsHandle: {
+    alignSelf: 'center',
+    width: 42,
+    height: 5,
+    borderRadius: radii.full,
+    backgroundColor: '#D1D5DB',
+    marginBottom: 8,
+  },
+  actionsTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: colors.ink,
+    marginBottom: 8,
+    paddingHorizontal: 4,
+  },
+  actionRow: {
+    minHeight: 52,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 4,
+    borderRadius: radii.md,
+  },
+  actionIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: radii.full,
+    backgroundColor: colors.primaryMuted,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  ctaSecondaryText: {
-    fontSize: 14,
+  actionLabel: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.ink,
+  },
+  actionsCancel: {
+    marginTop: 8,
+    minHeight: 48,
+    borderRadius: radii.full,
+    backgroundColor: colors.bg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  actionsCancelText: {
+    fontSize: 15,
     fontWeight: '700',
-    color: colors.primary,
+    color: colors.muted,
   },
   missing: {
     flex: 1,

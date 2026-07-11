@@ -3,6 +3,7 @@ import { PropertySummaryCard } from '@/components/property/PropertySummaryCard';
 import { SuccessScreen } from '@/components/ui/SuccessScreen';
 import { colors, radii, spacing } from '@/constants/theme';
 import { ensureAuthenticated } from '@/lib/auth-guard';
+import { getAgency, getAgent } from '@/lib/mock-agencies';
 import { getPropertyById } from '@/lib/mock-properties';
 import {
   createMockPaymentSession,
@@ -28,6 +29,14 @@ export default function VisitScreen(): React.JSX.Element {
   const { id } = useLocalSearchParams<{ id: string }>();
   const propertyId = String(id ?? '');
   const property = useMemo(() => getPropertyById(propertyId), [propertyId]);
+  const agency = useMemo(
+    () => (property ? getAgency(property.agencyId) : undefined),
+    [property],
+  );
+  const agent = useMemo(
+    () => (property ? getAgent(property.agentId) : undefined),
+    [property],
+  );
 
   const days = useMemo(() => getMockVisitDays(propertyId), [propertyId]);
   const [dayKey, setDayKey] = useState(days[0]?.key ?? '');
@@ -125,6 +134,10 @@ export default function VisitScreen(): React.JSX.Element {
         showsVerticalScrollIndicator={false}
       >
         <PropertySummaryCard property={property} />
+        <Text style={styles.attribution}>
+          Visite avec {agent?.displayName ?? 'un agent'} ·{' '}
+          {agency?.shortName ?? 'Agence'}
+        </Text>
 
         <Text style={styles.section}>Jour</Text>
         <ScrollView
@@ -233,6 +246,11 @@ const styles = StyleSheet.create({
   },
   spacer: { width: 54 },
   content: { paddingHorizontal: spacing.md, gap: spacing.md },
+  attribution: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.muted,
+  },
   section: {
     fontSize: 15,
     fontWeight: '800',
