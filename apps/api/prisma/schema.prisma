@@ -256,16 +256,28 @@ model User {
 }
 
 model Organization {
-  id                String               @id @default(cuid())
-  name              String
-  type              OrganizationType
-  affiliationStatus AffiliationStatus?
-  countryId         String
-  country           Country              @relation(fields: [countryId], references: [id])
-  members           OrganizationMember[]
-  properties        Property[]
-  mandates          Mandate[]
-  createdAt         DateTime             @default(now())
+  id                 String               @id @default(cuid())
+  name               String
+  type               OrganizationType
+  affiliationStatus  AffiliationStatus?
+  shortName          String?
+  tagline            String?
+  address            String?
+  phone              String?
+  cityLabel          String?
+  logoColor          String?
+  isOfficial         Boolean              @default(false)
+  verified           Boolean              @default(false)
+  foundedYear        Int?
+  rating             Float?
+  reviewCount        Int                  @default(0)
+  dealSuccessPercent Int?
+  countryId          String
+  country            Country              @relation(fields: [countryId], references: [id])
+  members            OrganizationMember[]
+  properties         Property[]
+  mandates           Mandate[]
+  createdAt          DateTime             @default(now())
 }
 
 model OrganizationMember {
