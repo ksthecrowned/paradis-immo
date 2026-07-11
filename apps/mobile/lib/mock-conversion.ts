@@ -10,13 +10,29 @@ export type MockVisitSlot = {
 
 export type MockPaymentSession = {
   id: string;
-  kind: 'visit' | 'stay';
+  kind: 'visit' | 'stay' | 'rent';
   propertyId: string;
   amountLabel: string;
   title: string;
 };
 
 const paymentSessions = new Map<string, MockPaymentSession>();
+
+paymentSessions.set('pay-rent-jul', {
+  id: 'pay-rent-jul',
+  kind: 'rent',
+  propertyId: '2',
+  amountLabel: '100 000 FCFA',
+  title: 'Loyer · Juillet 2026',
+});
+
+paymentSessions.set('pay-rent-may', {
+  id: 'pay-rent-may',
+  kind: 'rent',
+  propertyId: '2',
+  amountLabel: '100 000 FCFA',
+  title: 'Loyer · Mai 2026',
+});
 
 const VISIT_DAYS = [
   { key: '2026-07-12', label: 'Sam. 12' },
@@ -108,7 +124,7 @@ export function getMockVisitSlots(
 }
 
 export function createMockPaymentSession(input: {
-  kind: 'visit' | 'stay';
+  kind: 'visit' | 'stay' | 'rent';
   propertyId: string;
   amountLabel: string;
   title: string;

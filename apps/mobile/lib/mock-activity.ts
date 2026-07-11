@@ -1,4 +1,5 @@
 import type { StatusTone } from '@/components/ui/StatusBadge';
+import { listRentActivityItems } from '@/lib/mock-leases';
 import { getPropertyById } from '@/lib/mock-properties';
 
 export type ActivitySegment =
@@ -12,6 +13,7 @@ export type ActivityItem = {
   id: string;
   segment: ActivitySegment;
   propertyId: string;
+  leaseId?: string;
   title: string;
   location: string;
   statusLabel: string;
@@ -84,23 +86,25 @@ const ITEMS: ActivityItem[] = [
     tone: 'warning',
     meta: 'Espèces · 5 000 FCFA',
   }),
-  base('2', {
-    id: 'act-r1',
-    segment: 'rents',
-    statusLabel: 'Payé',
-    tone: 'success',
-    meta: 'Juin 2026 · 100 000 FCFA',
-  }),
-  base('2', {
-    id: 'act-r2',
-    segment: 'rents',
-    statusLabel: 'À payer',
-    tone: 'danger',
-    meta: 'Juillet 2026 · 100 000 FCFA',
-  }),
 ];
 
 export function listMockActivity(segment: ActivitySegment): ActivityItem[] {
+  if (segment === 'rents') {
+    return listRentActivityItems().map((row) => {
+      const property = getPropertyById(row.propertyId);
+      return {
+        id: row.id,
+        segment: 'rents' as const,
+        propertyId: row.propertyId,
+        leaseId: row.leaseId,
+        title: property?.title ?? 'Bien',
+        location: property?.location ?? 'Pointe-Noire',
+        statusLabel: row.statusLabel,
+        tone: row.tone,
+        meta: row.meta,
+      };
+    });
+  }
   return ITEMS.filter((item) => item.segment === segment);
 }
 
