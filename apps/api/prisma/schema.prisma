@@ -57,15 +57,12 @@ enum PropertyType {
   COMMERCIAL
 }
 
-enum ListingAvailability {
+enum ListingStatus {
   AVAILABLE
-  UNAVAILABLE
-}
-
-enum UnavailableReason {
-  RENTED
   SOLD
-  RESERVED
+  UNDER_OFFER
+  OCCUPIED
+  AVAILABLE_SOON
 }
 
 enum PriceUnit {
@@ -377,8 +374,9 @@ model Property {
   bathrooms      Int?
   surface        Float?
   features            Json?
-  listingAvailability ListingAvailability @default(AVAILABLE)
-  unavailableReason   UnavailableReason?
+  listingStatus       ListingStatus @default(AVAILABLE)
+  availableFrom       DateTime?
+  isFeatured          Boolean       @default(false)
   floor               String?
   yearBuilt           Int?
   condition           String?
