@@ -57,6 +57,17 @@ enum PropertyType {
   COMMERCIAL
 }
 
+enum ListingAvailability {
+  AVAILABLE
+  UNAVAILABLE
+}
+
+enum UnavailableReason {
+  RENTED
+  SOLD
+  RESERVED
+}
+
 enum PriceUnit {
   NIGHT
   WEEK
@@ -353,6 +364,17 @@ model Property {
   bedrooms       Int?
   bathrooms      Int?
   surface        Float?
+  features            Json?
+  listingAvailability ListingAvailability @default(AVAILABLE)
+  unavailableReason   UnavailableReason?
+  floor               String?
+  yearBuilt           Int?
+  condition           String?
+  lotSize             Float?
+  parkingSpaces       Int?
+  orientation         String?
+  landTitle           String?
+  mapViews            Json?
   media          PropertyMedia[]
   documents      PropertyDocument[]
   favorites      Favorite[]
