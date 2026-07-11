@@ -56,7 +56,29 @@ describe('OrganizationsService', () => {
   it('getParadisImmo returns the seeded org', async () => {
     const paradis = await orgs.getParadisImmo();
     expect(paradis.id).toBe(SEED_IDS.orgParadisImmo);
-    expect(paradis.type).toBe('AGENCY');
+    expect(paradis.type).toBe('PLATFORM');
+    expect(paradis.isOfficial).toBe(true);
+  });
+
+  it('listPublic returns official first and excludes OWNER orgs', async () => {
+    const { data } = await orgs.listPublic();
+    expect(data.length).toBeGreaterThanOrEqual(3);
+    expect(data[0]?.isOfficial).toBe(true);
+    expect(data[0]?.id).toBe(SEED_IDS.orgParadisImmo);
+    expect(data.every((o) => o.type !== 'OWNER')).toBe(true);
+  });
+
+  it('getPublic includes agents with user ids', async () => {
+    const detail = await orgs.getPublic(SEED_IDS.orgParadisImmo);
+    expect(detail.agents.length).toBeGreaterThanOrEqual(2);
+    expect(detail.agents[0]?.id).toBeTruthy();
+    expect(detail.shortName).toBe('Paradis Immo');
+  });
+
+  it('getPublic 404s for OWNER org', async () => {
+    await expect(orgs.getPublic(SEED_IDS.orgOwner)).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
   });
 
   it('ensureOwnerOrg creates a personal OWNER org + member', async () => {
