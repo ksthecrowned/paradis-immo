@@ -6,8 +6,16 @@ import {
   type Property,
 } from '@/types/property';
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import { useEffect, useState } from 'react';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  type ViewStyle,
+} from 'react-native';
 
 export interface PropertyCardProps {
   property: Property;
@@ -20,6 +28,14 @@ export interface PropertyCardProps {
   onFavoriteChange?: (favorited: boolean) => void;
 }
 
+/** Whole-card desaturation — CSS on web, muted palette + washed image on native. */
+function unavailableCardStyle(): ViewStyle | undefined {
+  if (Platform.OS === 'web') {
+    return { filter: 'grayscale(1)' } as ViewStyle;
+  }
+  return undefined;
+}
+
 export default function PropertyCard({
   property,
   variant = 'default',
@@ -29,6 +45,7 @@ export default function PropertyCard({
 }: PropertyCardProps): React.JSX.Element {
   const [favorited, setFavorited] = useState(initialFavorited ?? false);
   const compact = variant === 'compact';
+  const unavailable = property.availability === 'UNAVAILABLE';
 
   useEffect(() => {
     if (initialFavorited != null) {
@@ -79,25 +96,43 @@ export default function PropertyCard({
     ? { uri: property.coverImage }
     : require('@/assets/images/house2.jpg');
 
+  const mutedIcon = unavailable ? '#9CA3AF' : colors.muted;
+  const inkColor = unavailable ? '#6B7280' : colors.ink;
+  const priceColor = unavailable ? '#6B7280' : colors.primary;
+
   return (
     <>
       <Pressable
         style={({ pressed }) => [
           styles.card,
           compact && styles.cardCompact,
-          property.availability === 'UNAVAILABLE' && styles.cardUnavailable,
+          unavailable && styles.cardUnavailable,
+          unavailable && unavailableCardStyle(),
           pressed && styles.cardPressed,
         ]}
         onPress={onPress}
+        accessibilityState={{ disabled: unavailable }}
       >
         <View style={[styles.imageWrap, compact && styles.imageWrapCompact]}>
           <Image
             source={imageSource}
-            style={compact ? styles.imageCompact : styles.image}
-            resizeMode="cover"
+            style={[
+              compact ? styles.imageCompact : styles.image,
+              unavailable && styles.imageUnavailable,
+            ]}
+            contentFit="cover"
           />
+          {unavailable ? (
+            <View style={styles.grayscaleWash} pointerEvents="none" />
+          ) : null}
 
-          <View style={[styles.badge, compact && styles.badgeCompact]}>
+          <View
+            style={[
+              styles.badge,
+              compact && styles.badgeCompact,
+              unavailable && styles.badgeUnavailable,
+            ]}
+          >
             <Text
               style={[styles.badgeText, compact && styles.badgeTextCompact]}
               numberOfLines={1}
@@ -131,25 +166,44 @@ export default function PropertyCard({
         <View style={[styles.body, compact && styles.bodyCompact]}>
           <View style={[styles.topRow, compact && styles.topRowCompact]}>
             <View style={styles.locationRow}>
-              <Ionicons name="location" size={compact ? 12 : 14} color={colors.muted} />
-              <Text style={[styles.location, compact && styles.locationCompact]} numberOfLines={1}>
+              <Ionicons
+                name="location"
+                size={compact ? 12 : 14}
+                color={mutedIcon}
+              />
+              <Text
+                style={[
+                  styles.location,
+                  compact && styles.locationCompact,
+                  unavailable && styles.textUnavailable,
+                ]}
+                numberOfLines={1}
+              >
                 {property.location ?? 'Congo'}
               </Text>
             </View>
             {!compact ? (
-              <Text style={styles.price}>{priceLabel}</Text>
+              <Text style={[styles.price, { color: priceColor }]}>
+                {priceLabel}
+              </Text>
             ) : null}
           </View>
 
           <Text
-            style={[styles.title, compact && styles.titleCompact]}
+            style={[
+              styles.title,
+              compact && styles.titleCompact,
+              { color: inkColor },
+            ]}
             numberOfLines={compact ? 2 : 1}
           >
             {property.title}
           </Text>
 
           {compact ? (
-            <Text style={styles.priceCompact}>{priceLabel}</Text>
+            <Text style={[styles.priceCompact, { color: priceColor }]}>
+              {priceLabel}
+            </Text>
           ) : null}
 
           <View style={[styles.footer, compact && styles.footerCompact]}>
@@ -157,15 +211,23 @@ export default function PropertyCard({
               {amenities.slice(0, compact ? 2 : amenities.length).map((item) => (
                 <View
                   key={item.label}
-                  style={[styles.chip, compact && styles.chipCompact]}
+                  style={[
+                    styles.chip,
+                    compact && styles.chipCompact,
+                    unavailable && styles.chipUnavailable,
+                  ]}
                 >
                   <Ionicons
                     name={item.icon}
                     size={compact ? 11 : 12}
-                    color={colors.muted}
+                    color={mutedIcon}
                   />
                   <Text
-                    style={[styles.chipText, compact && styles.chipTextCompact]}
+                    style={[
+                      styles.chipText,
+                      compact && styles.chipTextCompact,
+                      unavailable && styles.textUnavailable,
+                    ]}
                   >
                     {item.label}
                   </Text>
@@ -220,8 +282,8 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   cardUnavailable: {
-    borderWidth: 2,
-    borderColor: colors.danger,
+    backgroundColor: '#F3F4F6',
+    borderColor: '#E5E7EB',
   },
   cardCompact: {
     flexDirection: 'row',
@@ -253,6 +315,13 @@ const styles = StyleSheet.create({
     width: 96,
     height: 96,
   },
+  imageUnavailable: {
+    opacity: 0.55,
+  },
+  grayscaleWash: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(120, 120, 120, 0.45)',
+  },
   badge: {
     position: 'absolute',
     top: spacing.md,
@@ -261,6 +330,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 7,
     borderRadius: radii.full,
+  },
+  badgeUnavailable: {
+    backgroundColor: '#6B7280',
   },
   badgeCompact: {
     top: 8,
@@ -368,6 +440,9 @@ const styles = StyleSheet.create({
   locationCompact: {
     fontSize: 11,
   },
+  textUnavailable: {
+    color: '#9CA3AF',
+  },
   price: {
     fontSize: 20,
     fontWeight: '800',
@@ -417,6 +492,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     backgroundColor: colors.bg,
+  },
+  chipUnavailable: {
+    borderColor: '#E5E7EB',
+    backgroundColor: '#E5E7EB',
   },
   chipCompact: {
     paddingHorizontal: 7,

@@ -1052,7 +1052,7 @@ const styles = StyleSheet.create({
     color: colors.surface,
   },
   indispoBadge: {
-    backgroundColor: '#FEE2E2',
+    backgroundColor: '#E5E7EB',
     paddingHorizontal: 12,
     paddingVertical: 7,
     borderRadius: radii.full,
@@ -1060,7 +1060,7 @@ const styles = StyleSheet.create({
   indispoBadgeText: {
     fontSize: 12,
     fontWeight: '700',
-    color: colors.danger,
+    color: '#4B5563',
   },
   verifiedChip: {
     flexDirection: 'row',
@@ -1373,9 +1373,9 @@ const styles = StyleSheet.create({
     flex: 1,
     minHeight: 54,
     borderRadius: radii.lg,
-    backgroundColor: '#FEE2E2',
+    backgroundColor: '#F3F4F6',
     borderWidth: 1,
-    borderColor: '#FECACA',
+    borderColor: '#E5E7EB',
     paddingHorizontal: 16,
     justifyContent: 'center',
     gap: 2,
@@ -1383,12 +1383,12 @@ const styles = StyleSheet.create({
   unavailableTitle: {
     fontSize: 14,
     fontWeight: '800',
-    color: colors.danger,
+    color: '#4B5563',
   },
   unavailableReason: {
     fontSize: 12,
     fontWeight: '600',
-    color: colors.danger,
+    color: '#6B7280',
   },
   ctaSecondary: {
     width: 54,
