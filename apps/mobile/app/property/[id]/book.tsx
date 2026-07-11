@@ -7,7 +7,7 @@ import {
   nightsBetween,
   quoteShortStay,
 } from '@/lib/mock-conversion';
-import { getPropertyById } from '@/lib/mock-properties';
+import { useCatalogProperty } from '@/hooks/use-catalog-property';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
@@ -37,7 +37,7 @@ export default function BookScreen(): React.JSX.Element {
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
   const propertyId = String(id ?? '');
-  const property = useMemo(() => getPropertyById(propertyId), [propertyId]);
+  const { property, loading } = useCatalogProperty(propertyId);
 
   const [startIso, setStartIso] = useState(START_OPTIONS[0]!);
   const [endIso, setEndIso] = useState(END_OPTIONS[1]!);

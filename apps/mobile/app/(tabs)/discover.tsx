@@ -6,15 +6,14 @@ import {
   getFallbackCoords,
   useUserLocation,
 } from '@/context/LocationContext';
-import {
-  MOCK_PROPERTIES,
-  POINTE_NOIRE_REGION,
-} from '@/lib/mock-properties';
+import { fetchCatalogProperties } from '@/lib/catalog';
+import { POINTE_NOIRE_REGION } from '@/lib/mock-properties';
 import type { Property } from '@/types/property';
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   Pressable,
   StyleSheet,
   Text,
@@ -29,10 +28,32 @@ export default function DiscoverScreen(): React.JSX.Element {
   const mapRef = useRef<MapView>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [sheetHeight, setSheetHeight] = useState(180);
+  const [properties, setProperties] = useState<Property[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      void (async () => {
+        setLoading(true);
+        try {
+          const rows = await fetchCatalogProperties({ limit: 50 });
+          if (active) setProperties(rows);
+        } catch {
+          if (active) setProperties([]);
+        } finally {
+          if (active) setLoading(false);
+        }
+      })();
+      return () => {
+        active = false;
+      };
+    }, []),
+  );
 
   const selected = useMemo(
-    () => MOCK_PROPERTIES.find((p) => p.id === selectedId) ?? null,
-    [selectedId],
+    () => properties.find((p) => p.id === selectedId) ?? null,
+    [properties, selectedId],
   );
 
   const userRegion = useMemo((): Region => {
@@ -85,7 +106,7 @@ export default function DiscoverScreen(): React.JSX.Element {
           left: 0,
         }}
       >
-        {MOCK_PROPERTIES.map((property) => {
+        {properties.map((property) => {
           const active = property.id === selectedId;
           return (
             <Marker
@@ -116,7 +137,9 @@ export default function DiscoverScreen(): React.JSX.Element {
         <View style={styles.topChip}>
           <Ionicons name="map" size={16} color={colors.primary} />
           <Text style={styles.topChipText}>
-            {MOCK_PROPERTIES.length} biens à Pointe-Noire
+            {loading
+              ? 'Chargement…'
+              : `${properties.length} biens à Pointe-Noire`}
           </Text>
         </View>
       </View>

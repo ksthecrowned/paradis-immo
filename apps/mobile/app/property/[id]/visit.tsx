@@ -4,7 +4,7 @@ import { SuccessScreen } from '@/components/ui/SuccessScreen';
 import { colors, radii, spacing } from '@/constants/theme';
 import { ensureAuthenticated } from '@/lib/auth-guard';
 import { getAgency, getAgent } from '@/lib/mock-agencies';
-import { getPropertyById } from '@/lib/mock-properties';
+import { useCatalogProperty } from '@/hooks/use-catalog-property';
 import {
   createMockPaymentSession,
   getMockVisitDays,
@@ -28,7 +28,7 @@ export default function VisitScreen(): React.JSX.Element {
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
   const propertyId = String(id ?? '');
-  const property = useMemo(() => getPropertyById(propertyId), [propertyId]);
+  const { property, loading } = useCatalogProperty(propertyId);
   const agency = useMemo(
     () => (property ? getAgency(property.agencyId) : undefined),
     [property],

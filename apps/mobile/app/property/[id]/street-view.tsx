@@ -1,10 +1,8 @@
 import { CircleIconButton } from '@/components/ui/CircleIconButton';
 import { APP_MAP_USER_INTERFACE_STYLE } from '@/constants/maps';
 import { colors, radii, spacing } from '@/constants/theme';
-import {
-  getPropertyById,
-  getPropertyGallery,
-} from '@/lib/mock-properties';
+import { getPropertyGallery } from '@/lib/mock-properties';
+import { useCatalogProperty } from '@/hooks/use-catalog-property';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -24,7 +22,7 @@ export default function StreetViewScreen(): React.JSX.Element {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [showMapHint, setShowMapHint] = useState(true);
 
-  const property = useMemo(() => getPropertyById(String(id ?? '')), [id]);
+  const { property, loading } = useCatalogProperty(String(id ?? ''));
   const gallery = useMemo(
     () => (property ? getPropertyGallery(property) : []),
     [property],

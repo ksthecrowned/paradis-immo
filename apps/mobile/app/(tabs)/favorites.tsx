@@ -1,9 +1,9 @@
 import PropertyCard from '@/components/property/card';
 import { colors, radii, spacing } from '@/constants/theme';
+import { fetchCatalogProperty } from '@/lib/catalog';
 import {
   listFavoriteIds,
 } from '@/lib/favorites';
-import { getPropertyById } from '@/lib/mock-properties';
 import type { Property } from '@/types/property';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
@@ -29,10 +29,16 @@ export default function FavoritesScreen(): React.JSX.Element {
     if (!opts?.soft) setLoading(true);
     try {
       const ids = await listFavoriteIds();
-      const next = ids
-        .map((id) => getPropertyById(id))
-        .filter((item): item is Property => item != null);
-      setProperties(next);
+      const rows = await Promise.all(
+        ids.map(async (id) => {
+          try {
+            return await fetchCatalogProperty(id);
+          } catch {
+            return null;
+          }
+        }),
+      );
+      setProperties(rows.filter((item): item is Property => item != null));
     } finally {
       setLoading(false);
       setRefreshing(false);

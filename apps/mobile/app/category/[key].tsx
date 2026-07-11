@@ -6,22 +6,57 @@ import {
   getCategoryMeta,
   type CategoryKey,
 } from '@/lib/categories';
-import { MOCK_PROPERTIES } from '@/lib/mock-properties';
+import { fetchCatalogProperties } from '@/lib/catalog';
+import { getErrorMessage } from '@/lib/feedback';
+import type { Property } from '@/types/property';
 import { Ionicons } from '@expo/vector-icons';
-import { router, useLocalSearchParams } from 'expo-router';
-import { useMemo } from 'react';
-import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { useCallback, useMemo, useState } from 'react';
+import {
+  ActivityIndicator,
+  FlatList,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function CategoryScreen(): React.JSX.Element {
   const insets = useSafeAreaInsets();
   const { key } = useLocalSearchParams<{ key: string }>();
   const category = getCategoryMeta(String(key ?? ''));
+  const [catalog, setCatalog] = useState<Property[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      void (async () => {
+        setLoading(true);
+        setError(null);
+        try {
+          const rows = await fetchCatalogProperties({ limit: 50 });
+          if (active) setCatalog(rows);
+        } catch (err) {
+          if (active) {
+            setError(getErrorMessage(err, 'Impossible de charger les biens'));
+          }
+        } finally {
+          if (active) setLoading(false);
+        }
+      })();
+      return () => {
+        active = false;
+      };
+    }, []),
+  );
 
   const properties = useMemo(() => {
     if (!category) return [];
-    return filterByCategory(MOCK_PROPERTIES, category.key);
-  }, [category]);
+    return filterByCategory(catalog, category.key as CategoryKey);
+  }, [category, catalog]);
 
   if (!category) {
     return (

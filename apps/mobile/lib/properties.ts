@@ -25,6 +25,18 @@ export interface PublicProperty {
   visitType: VisitType | null;
   visitPrice: number | null;
   visitDuration: number | null;
+  features?: string[];
+  listingAvailability?: 'AVAILABLE' | 'UNAVAILABLE';
+  unavailableReason?: 'RENTED' | 'SOLD' | 'RESERVED' | null;
+  floor?: string | null;
+  yearBuilt?: number | null;
+  condition?: string | null;
+  lotSize?: number | null;
+  parkingSpaces?: number | null;
+  orientation?: string | null;
+  landTitle?: string | null;
+  mapViews?: string[];
+  media?: Array<{ id: string; url: string; type: string; position: number }>;
   quartier: {
     id: string;
     name: string;
@@ -34,6 +46,10 @@ export interface PublicProperty {
       city: { id: string; name: string };
     };
   };
+  organization?: { id: string; name: string; type: string };
+  ownerOrg?: { id: string; name: string; type: string };
+  agent?: { id: string; name: string; phone: string | null } | null;
+  ownerId?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -62,10 +78,11 @@ export async function listProperties(
   if (filters.minPrice != null) params.set('minPrice', String(filters.minPrice));
   if (filters.maxPrice != null) params.set('maxPrice', String(filters.maxPrice));
 
-  const result = await apiFetch<{ data: PublicProperty[] }>(
+  const result = await apiFetch<{ data: PublicProperty[]; meta?: unknown }>(
     `/properties?${params}`,
     { anonymous: true },
   );
+  if (Array.isArray(result)) return result;
   return result.data ?? [];
 }
 

@@ -2,12 +2,11 @@ import { CircleIconButton } from '@/components/ui/CircleIconButton';
 import { AgentRow } from '@/components/agency/AgentRow';
 import { APP_MAP_USER_INTERFACE_STYLE } from '@/constants/maps';
 import { colors, radii, spacing } from '@/constants/theme';
+import { fetchCatalogProperty } from '@/lib/catalog';
 import { isFavorite, toggleFavorite } from '@/lib/favorites';
+import { getErrorMessage } from '@/lib/feedback';
 import { getAgency } from '@/lib/mock-agencies';
-import {
-  getPropertyById,
-  getPropertyGallery,
-} from '@/lib/mock-properties';
+import { getPropertyGallery } from '@/lib/mock-properties';
 import {
   buildPropertyDetailRows,
   formatDistance,
@@ -27,9 +26,10 @@ import {
 } from '@/types/property';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   Animated,
   Image,
   Modal,
@@ -109,6 +109,10 @@ function buildAmenities(property: Property): Array<{
 export default function PropertyScreen(): React.JSX.Element {
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
+  const propertyId = String(id ?? '');
+  const [property, setProperty] = useState<Property | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
   const [favorited, setFavorited] = useState(false);
   const [showCta, setShowCta] = useState(false);
   const [actionsOpen, setActionsOpen] = useState(false);
@@ -120,7 +124,33 @@ export default function PropertyScreen(): React.JSX.Element {
   const scrollRef = useRef<ScrollView>(null);
   const scrollYOffsetRef = useRef(0);
 
-  const property = useMemo(() => getPropertyById(String(id ?? '')), [id]);
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      void (async () => {
+        if (!propertyId) return;
+        setLoading(true);
+        setLoadError(null);
+        try {
+          const row = await fetchCatalogProperty(propertyId);
+          if (active) setProperty(row);
+        } catch (err) {
+          if (active) {
+            setProperty(null);
+            setLoadError(
+              getErrorMessage(err, 'Impossible de charger ce bien'),
+            );
+          }
+        } finally {
+          if (active) setLoading(false);
+        }
+      })();
+      return () => {
+        active = false;
+      };
+    }, [propertyId]),
+  );
+
   const gallery = useMemo(
     () => (property ? getPropertyGallery(property) : []),
     [property],
@@ -184,10 +214,23 @@ export default function PropertyScreen(): React.JSX.Element {
     setShowCta(next);
   };
 
+  if (loading) {
+    return (
+      <View style={[styles.missing, { paddingTop: insets.top + spacing.lg }]}>
+        <ActivityIndicator color={colors.primary} />
+      </View>
+    );
+  }
+
   if (!property) {
     return (
       <View style={[styles.missing, { paddingTop: insets.top + spacing.lg }]}>
-        <Text style={styles.missingTitle}>Bien introuvable</Text>
+        <Text style={styles.missingTitle}>
+          {loadError ? 'Chargement impossible' : 'Bien introuvable'}
+        </Text>
+        {loadError ? (
+          <Text style={styles.missingSubtitle}>{loadError}</Text>
+        ) : null}
         <Pressable
           onPress={() => router.back()}
           style={styles.missingBtn}
@@ -421,7 +464,9 @@ export default function PropertyScreen(): React.JSX.Element {
                 />
                 <Text style={styles.verifiedText}>
                   Annonce vérifiée ·{' '}
-                  {getAgency(property.agencyId)?.shortName ?? 'Agence'}
+                  {property.agencyName ??
+                    getAgency(property.agencyId)?.shortName ??
+                    'Agence'}
                 </Text>
               </View>
             </View>
@@ -712,6 +757,8 @@ export default function PropertyScreen(): React.JSX.Element {
             <View style={styles.actionsAgent}>
               <AgentRow
                 agentId={property.agentId}
+                fallbackName={property.agentName}
+                fallbackPhone={property.agentPhone}
                 compact
                 showAgencyLink
                 onPressAgency={() => {
@@ -1439,6 +1486,13 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: colors.ink,
+  },
+  missingSubtitle: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: colors.muted,
+    textAlign: 'center',
+    paddingHorizontal: spacing.lg,
   },
   missingBtn: {
     paddingHorizontal: 20,

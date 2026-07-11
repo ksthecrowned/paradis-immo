@@ -1,9 +1,7 @@
 import { CircleIconButton } from '@/components/ui/CircleIconButton';
 import { colors, radii, spacing } from '@/constants/theme';
-import {
-  getPropertyById,
-  getPropertyGallery,
-} from '@/lib/mock-properties';
+import { getPropertyGallery } from '@/lib/mock-properties';
+import { useCatalogProperty } from '@/hooks/use-catalog-property';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -37,7 +35,7 @@ export default function PropertyGalleryScreen(): React.JSX.Element {
   const pagerRef = useRef<FlatList<ImageSourcePropType>>(null);
   const thumbsRef = useRef<FlatList<ImageSourcePropType>>(null);
 
-  const property = useMemo(() => getPropertyById(String(id ?? '')), [id]);
+  const { property, loading } = useCatalogProperty(String(id ?? ''));
   const gallery = useMemo(
     () => (property ? getPropertyGallery(property) : []),
     [property],

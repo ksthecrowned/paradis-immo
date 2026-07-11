@@ -4,14 +4,18 @@ import { colors, radii, spacing } from '@/constants/theme';
 import { useFeedback } from '@/context/FeedbackContext';
 import { useUserLocation } from '@/context/LocationContext';
 import { PROPERTY_CATEGORIES } from '@/lib/categories';
+import { fetchCatalogProperties } from '@/lib/catalog';
+import { getErrorMessage } from '@/lib/feedback';
 import { listAgencies } from '@/lib/mock-agencies';
-import { MOCK_PROPERTIES } from '@/lib/mock-properties';
+import type { Property } from '@/types/property';
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
+import { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -36,6 +40,32 @@ export default function HomeScreen(): React.JSX.Element {
   const insets = useSafeAreaInsets();
   const { showFeedback } = useFeedback();
   const { label, loading, denied, refresh } = useUserLocation();
+  const [properties, setProperties] = useState<Property[]>([]);
+  const [catalogLoading, setCatalogLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [catalogError, setCatalogError] = useState<string | null>(null);
+
+  const loadCatalog = useCallback(async (isRefresh = false) => {
+    if (isRefresh) setRefreshing(true);
+    else setCatalogLoading(true);
+    setCatalogError(null);
+    try {
+      setProperties(await fetchCatalogProperties({ limit: 50 }));
+    } catch (err) {
+      setCatalogError(
+        getErrorMessage(err, 'Impossible de charger les biens'),
+      );
+    } finally {
+      setCatalogLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      void loadCatalog();
+    }, [loadCatalog]),
+  );
 
   const handleLocationPress = (): void => {
     if (denied) {
@@ -111,7 +141,7 @@ export default function HomeScreen(): React.JSX.Element {
       </View>
 
       <FlatList
-        data={MOCK_PROPERTIES}
+        data={properties}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
           <PropertyCard
@@ -125,9 +155,42 @@ export default function HomeScreen(): React.JSX.Element {
           {
             paddingBottom: insets.bottom + spacing.lg,
           },
+          properties.length === 0 && styles.contentEmpty,
         ]}
         showsVerticalScrollIndicator={false}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => void loadCatalog(true)}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
+          />
+        }
+        ListEmptyComponent={
+          catalogLoading ? (
+            <ActivityIndicator color={colors.primary} style={{ marginTop: 40 }} />
+          ) : (
+            <View style={styles.emptyCatalog}>
+              <Text style={styles.emptyCatalogTitle}>
+                {catalogError ? 'Chargement impossible' : 'Aucun bien'}
+              </Text>
+              <Text style={styles.emptyCatalogSubtitle}>
+                {catalogError ??
+                  'Les annonces apparaîtront ici dès qu’elles seront publiées.'}
+              </Text>
+              {catalogError ? (
+                <Pressable
+                  style={styles.retryBtn}
+                  onPress={() => void loadCatalog()}
+                  accessibilityRole="button"
+                >
+                  <Text style={styles.retryBtnText}>Réessayer</Text>
+                </Pressable>
+              ) : null}
+            </View>
+          )
+        }
         ListHeaderComponent={
           <View style={styles.headerBlock}>
             <View style={styles.searchRow}>
@@ -365,6 +428,38 @@ const styles = StyleSheet.create({
     color: colors.ink,
   },
   chipTextActive: {
+    color: colors.surface,
+  },
+  contentEmpty: {
+    flexGrow: 1,
+  },
+  emptyCatalog: {
+    alignItems: 'center',
+    paddingVertical: 40,
+    paddingHorizontal: spacing.lg,
+    gap: 8,
+  },
+  emptyCatalogTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: colors.ink,
+  },
+  emptyCatalogSubtitle: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: colors.muted,
+    textAlign: 'center',
+  },
+  retryBtn: {
+    marginTop: 8,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: radii.full,
+    backgroundColor: colors.primary,
+  },
+  retryBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
     color: colors.surface,
   },
 });

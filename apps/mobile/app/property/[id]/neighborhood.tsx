@@ -1,7 +1,7 @@
 import { CircleIconButton } from '@/components/ui/CircleIconButton';
 import { APP_MAP_USER_INTERFACE_STYLE } from '@/constants/maps';
 import { colors, radii, spacing } from '@/constants/theme';
-import { getPropertyById } from '@/lib/mock-properties';
+import { useCatalogProperty } from '@/hooks/use-catalog-property';
 import {
   formatDistance,
   formatWalkTime,
@@ -28,7 +28,7 @@ export default function NeighborhoodScreen(): React.JSX.Element {
   const mapRef = useRef<MapView>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
-  const property = useMemo(() => getPropertyById(String(id ?? '')), [id]);
+  const { property, loading } = useCatalogProperty(String(id ?? ''));
   const places = useMemo(
     () => (property ? getNeighborhoodPlaces(property) : []),
     [property],

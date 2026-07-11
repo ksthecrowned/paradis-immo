@@ -59,8 +59,13 @@ export type Property = {
   mapViews?: PropertyMapView[];
   /** Managing agency (Organization). */
   agencyId: string;
+  /** Display name from API organization when available. */
+  agencyName?: string;
   /** Referring agent (OrganizationMember). */
   agentId: string;
+  /** Display name / phone from API agent when mock agent is absent. */
+  agentName?: string;
+  agentPhone?: string | null;
   /** Marketplace availability (Dispo / Indispo). */
   availability: PropertyAvailability;
   /** Why the listing is unavailable; set when availability is UNAVAILABLE. */

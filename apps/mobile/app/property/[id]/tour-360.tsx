@@ -1,9 +1,7 @@
 import { CircleIconButton } from '@/components/ui/CircleIconButton';
 import { colors, radii, spacing } from '@/constants/theme';
-import {
-  getPropertyById,
-  getPropertyGallery,
-} from '@/lib/mock-properties';
+import { getPropertyGallery } from '@/lib/mock-properties';
+import { useCatalogProperty } from '@/hooks/use-catalog-property';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -39,7 +37,7 @@ export default function Tour360Screen(): React.JSX.Element {
   const [index, setIndex] = useState(0);
   const listRef = useRef<FlatList<ImageSourcePropType>>(null);
 
-  const property = useMemo(() => getPropertyById(String(id ?? '')), [id]);
+  const { property, loading } = useCatalogProperty(String(id ?? ''));
   const gallery = useMemo(
     () => (property ? getPropertyGallery(property) : []),
     [property],

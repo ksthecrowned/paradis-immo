@@ -4,7 +4,7 @@ import { SuccessScreen } from '@/components/ui/SuccessScreen';
 import { colors, radii, spacing } from '@/constants/theme';
 import { getStoredUser } from '@/lib/auth';
 import { ensureAuthenticated } from '@/lib/auth-guard';
-import { getPropertyById } from '@/lib/mock-properties';
+import { useCatalogProperty } from '@/hooks/use-catalog-property';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
@@ -23,7 +23,7 @@ export default function SaleInquiryScreen(): React.JSX.Element {
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
   const propertyId = String(id ?? '');
-  const property = useMemo(() => getPropertyById(propertyId), [propertyId]);
+  const { property, loading } = useCatalogProperty(propertyId);
 
   const [message, setMessage] = useState('');
   const [budget, setBudget] = useState('');

@@ -7,6 +7,8 @@ import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 
 export function AgentRow({
   agentId,
+  fallbackName,
+  fallbackPhone,
   showAgencyLink = false,
   showListingCount = false,
   showPhone = false,
@@ -15,6 +17,8 @@ export function AgentRow({
   onPress,
 }: {
   agentId: string;
+  fallbackName?: string;
+  fallbackPhone?: string | null;
   showAgencyLink?: boolean;
   showListingCount?: boolean;
   showPhone?: boolean;
@@ -24,23 +28,39 @@ export function AgentRow({
   onPress?: () => void;
 }): React.JSX.Element | null {
   const agent = getAgent(agentId);
-  if (!agent) return null;
-  const agency = getAgency(agent.agencyId);
-  const listingCount = showListingCount
-    ? listPropertiesByAgent(agent.id).length
-    : 0;
+  const name = agent?.name ?? fallbackName ?? 'Conseiller Paradis Immo';
+  const phone = agent?.phone ?? fallbackPhone ?? null;
+  const agency = agent ? getAgency(agent.agencyId) : null;
+  const listingCount =
+    showListingCount && agent
+      ? listPropertiesByAgent(agent.id).length
+      : 0;
 
   const handleAgency = (): void => {
     if (onPressAgency) {
       onPressAgency();
       return;
     }
-    router.push(`/agency/${agent.agencyId}`);
+    if (agent) router.push(`/agency/${agent.agencyId}`);
   };
 
   const handleCall = (): void => {
-    void Linking.openURL(`tel:${agent.phone.replace(/\s/g, '')}`);
+    if (!phone) return;
+    void Linking.openURL(`tel:${phone.replace(/\s/g, '')}`);
   };
+
+  const initials = agent?.initials
+    ?? name
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase() ?? '')
+      .join('')
+    || 'PI';
+  const role = agent?.role ?? 'Conseiller';
+  const specialty = agent
+    ? `${agent.specialty} · ${agent.yearsExperience} ans d’exp.`
+    : 'Accompagnement locatif et vente';
 
   const body = (
     <>
@@ -52,20 +72,20 @@ export function AgentRow({
         ]}
       >
         <Text style={[styles.avatarText, compact && styles.avatarTextCompact]}>
-          {agent.initials}
+          {initials}
         </Text>
       </View>
       <View style={styles.body}>
         <Text style={[styles.name, compact && styles.nameCompact]} numberOfLines={1}>
-          {agent.displayName}
+          {name}
         </Text>
         <Text style={styles.role} numberOfLines={1}>
-          {agent.role}
+          {role}
           {agency ? ` · ${agency.shortName}` : ''}
         </Text>
         {!compact ? (
           <Text style={styles.specialty} numberOfLines={1}>
-            {agent.specialty} · {agent.yearsExperience} ans d’exp.
+            {specialty}
           </Text>
         ) : null}
         {showListingCount ? (
@@ -74,13 +94,13 @@ export function AgentRow({
           </Text>
         ) : null}
       </View>
-      {showPhone ? (
+      {showPhone && phone ? (
         <Pressable
           style={styles.iconBtn}
           onPress={handleCall}
           hitSlop={8}
           accessibilityRole="button"
-          accessibilityLabel={`Appeler ${agent.displayName}`}
+          accessibilityLabel={`Appeler ${name}`}
         >
           <Ionicons name="call-outline" size={18} color={colors.primary} />
         </Pressable>
@@ -107,7 +127,7 @@ export function AgentRow({
         style={[styles.row, compact && styles.rowCompact]}
         onPress={onPress}
         accessibilityRole="button"
-        accessibilityLabel={`${agent.displayName}, ${agent.role}`}
+        accessibilityLabel={`${name}, ${role}`}
       >
         {body}
       </Pressable>

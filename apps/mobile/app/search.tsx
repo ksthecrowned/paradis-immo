@@ -1,17 +1,20 @@
 import PropertyCard from '@/components/property/card';
 import { CircleIconButton } from '@/components/ui/CircleIconButton';
 import { colors, radii, spacing } from '@/constants/theme';
-import { MOCK_PROPERTIES } from '@/lib/mock-properties';
+import { fetchCatalogProperties } from '@/lib/catalog';
+import { getErrorMessage } from '@/lib/feedback';
 import {
   countActiveFilters,
   filterProperties,
   filtersToParams,
   paramsToFilters,
 } from '@/lib/search-filters';
+import type { Property } from '@/types/property';
 import { Ionicons } from '@expo/vector-icons';
-import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   FlatList,
   Pressable,
   ScrollView,
@@ -38,6 +41,32 @@ export default function SearchScreen(): React.JSX.Element {
 
   const initial = useMemo(() => paramsToFilters(params), [params]);
   const [query, setQuery] = useState(initial.q);
+  const [catalog, setCatalog] = useState<Property[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      void (async () => {
+        setLoading(true);
+        setError(null);
+        try {
+          const rows = await fetchCatalogProperties({ limit: 50 });
+          if (active) setCatalog(rows);
+        } catch (err) {
+          if (active) {
+            setError(getErrorMessage(err, 'Impossible de charger les biens'));
+          }
+        } finally {
+          if (active) setLoading(false);
+        }
+      })();
+      return () => {
+        active = false;
+      };
+    }, []),
+  );
 
   useEffect(() => {
     setQuery(initial.q);
@@ -53,8 +82,8 @@ export default function SearchScreen(): React.JSX.Element {
     [initial, query],
   );
   const results = useMemo(
-    () => filterProperties(MOCK_PROPERTIES, filters),
-    [filters],
+    () => filterProperties(catalog, filters),
+    [catalog, filters],
   );
   const activeFilterCount = countActiveFilters(filters);
   const showSuggestions = query.trim().length === 0;
@@ -169,12 +198,25 @@ export default function SearchScreen(): React.JSX.Element {
         }
         ListEmptyComponent={
           <View style={styles.empty}>
-            <Ionicons name="home-outline" size={36} color={colors.muted} />
-            <Text style={styles.emptyTitle}>Aucun bien trouvé</Text>
-            <Text style={styles.emptySubtitle}>
-              Essayez un autre quartier ou assouplissez vos filtres.
+            {loading ? (
+              <ActivityIndicator color={colors.primary} />
+            ) : (
+              <Ionicons name="home-outline" size={36} color={colors.muted} />
+            )}
+            <Text style={styles.emptyTitle}>
+              {loading
+                ? 'Chargement…'
+                : error
+                  ? 'Chargement impossible'
+                  : 'Aucun bien trouvé'}
             </Text>
-            {activeFilterCount > 0 ? (
+            <Text style={styles.emptySubtitle}>
+              {error ??
+                (loading
+                  ? 'Recherche des annonces…'
+                  : 'Essayez un autre quartier ou assouplissez vos filtres.')}
+            </Text>
+            {!loading && activeFilterCount > 0 && !error ? (
               <Pressable
                 style={styles.emptyAction}
                 onPress={openFilters}

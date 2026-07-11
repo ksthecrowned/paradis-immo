@@ -179,6 +179,12 @@ export function listPropertiesByAgent(agentId: string): Property[] {
 }
 
 export function getPropertyGallery(property: Property): ImageSourcePropType[] {
+  if (property.coverImage?.startsWith('http')) {
+    return [
+      { uri: property.coverImage },
+      ...(property.images ?? []).map((uri) => ({ uri })),
+    ];
+  }
   if (property.coverImage) {
     return [
       { uri: property.coverImage },
