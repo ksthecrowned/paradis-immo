@@ -298,6 +298,7 @@ model User {
   assignedTickets        MaintenanceTicket[]  @relation("TicketAssignee")
   notifications          Notification[]
   messageCharges         MessageCharge[]      @relation("MessageChargeUser")
+  assignedMandates       Mandate[]            @relation("MandateAssignedAgent")
 
   @@unique([phone, countryId])
 }
@@ -627,17 +628,20 @@ model SaleInquiry {
 // =====================================================================
 
 model Mandate {
-  id             String              @id @default(cuid())
-  propertyId     String
-  property       Property            @relation(fields: [propertyId], references: [id])
-  organizationId String
-  organization   Organization        @relation(fields: [organizationId], references: [id])
-  status         MandateStatus       @default(ACTIVE)
-  startDate      DateTime            @default(now())
-  endDate        DateTime?
-  leases         Lease[]
-  approvals      MandateApproval[]
-  createdAt      DateTime            @default(now())
+  id               String              @id @default(cuid())
+  propertyId       String
+  property         Property            @relation(fields: [propertyId], references: [id])
+  organizationId   String
+  organization     Organization        @relation(fields: [organizationId], references: [id])
+  /// Field agent (or gérant) responsible inside the agency — null = gérant-only ops
+  assignedAgentId  String?
+  assignedAgent    User?               @relation("MandateAssignedAgent", fields: [assignedAgentId], references: [id])
+  status           MandateStatus       @default(ACTIVE)
+  startDate        DateTime            @default(now())
+  endDate          DateTime?
+  leases           Lease[]
+  approvals        MandateApproval[]
+  createdAt        DateTime            @default(now())
 }
 
 model MandateApproval {
