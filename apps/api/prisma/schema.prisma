@@ -163,6 +163,24 @@ enum AllocatableType {
   RENT_SCHEDULE
   BOOKING
   VISIT_BOOKING
+  MESSAGING_DEBT
+}
+
+enum MessageChannel {
+  WHATSAPP_OTP
+  SMS_ALERT
+}
+
+enum MessagePayerType {
+  USER
+  ORGANIZATION
+}
+
+enum MessageChargeStatus {
+  FREE
+  OPEN
+  SETTLED
+  WAIVED
 }
 
 enum MaintenancePriority {
@@ -183,6 +201,7 @@ enum MaintenanceStatus {
 enum NotificationChannel {
   PUSH
   WHATSAPP
+  SMS
 }
 
 enum NotificationStatus {
@@ -226,28 +245,30 @@ model Country {
 }
 
 model User {
-  id            String               @id @default(cuid())
-  phone         String
-  email         String?
-  name          String?
-  avatarUrl     String?
-  fcmToken      String?
-  countryId     String
-  country       Country              @relation(fields: [countryId], references: [id])
-  createdAt     DateTime             @default(now())
-  updatedAt     DateTime             @updatedAt
-  orgMembers    OrganizationMember[]
-  roles         UserRole[]
-  refreshTokens RefreshToken[]
-  favorites     Favorite[]
-  visitBookings VisitBooking[]
-  bookings      Booking[]
-  leases        Lease[]              @relation("LeaseTenant")
-  saleInquiries SaleInquiry[]
-  payments      Payment[]
-  tickets       MaintenanceTicket[]  @relation("TicketReporter")
-  assignedTickets MaintenanceTicket[] @relation("TicketAssignee")
-  notifications Notification[]
+  id                  String               @id @default(cuid())
+  phone               String
+  email               String?
+  name                String?
+  avatarUrl           String?
+  fcmToken            String?
+  notificationChannel NotificationChannel  @default(PUSH)
+  countryId           String
+  country             Country              @relation(fields: [countryId], references: [id])
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  orgMembers          OrganizationMember[]
+  roles               UserRole[]
+  refreshTokens       RefreshToken[]
+  favorites           Favorite[]
+  visitBookings       VisitBooking[]
+  bookings            Booking[]
+  leases              Lease[]              @relation("LeaseTenant")
+  saleInquiries       SaleInquiry[]
+  payments            Payment[]
+  tickets             MaintenanceTicket[]  @relation("TicketReporter")
+  assignedTickets     MaintenanceTicket[]  @relation("TicketAssignee")
+  notifications       Notification[]
+  messageCharges      MessageCharge[]      @relation("MessageChargeUser")
 
   @@unique([phone, countryId])
 }
@@ -274,6 +295,7 @@ model Organization {
   members            OrganizationMember[]
   properties         Property[]
   mandates           Mandate[]
+  messageCharges     MessageCharge[]
   createdAt          DateTime             @default(now())
 }
 
@@ -609,6 +631,7 @@ model Payment {
   metadata        Json?
   allocations     PaymentAllocation[]
   receipt         Receipt?
+  messageCharges  MessageCharge[]
   createdAt       DateTime            @default(now())
   updatedAt       DateTime            @updatedAt
 }
@@ -632,6 +655,33 @@ model Receipt {
   url       String
   number    String   @unique
   createdAt DateTime @default(now())
+}
+
+model MessageCharge {
+  id                String              @id @default(cuid())
+  channel           MessageChannel
+  payerType         MessagePayerType
+  payerId           String
+  userId            String?
+  user              User?               @relation("MessageChargeUser", fields: [userId], references: [id])
+  organizationId    String?
+  organization      Organization?       @relation(fields: [organizationId], references: [id])
+  recipientPhone    String
+  occurredAt        DateTime            @default(now())
+  billingMonth      String
+  unitUsd           Decimal             @db.Decimal(12, 6)
+  fxRate            Decimal             @db.Decimal(12, 4)
+  amountXaf         Int
+  status            MessageChargeStatus
+  settledPaymentId  String?
+  settledPayment    Payment?            @relation(fields: [settledPaymentId], references: [id])
+  providerMessageId String?
+  idempotencyKey    String              @unique
+  createdAt         DateTime            @default(now())
+
+  @@index([payerType, payerId, status])
+  @@index([userId, channel, billingMonth])
+  @@index([billingMonth])
 }
 
 // =====================================================================
