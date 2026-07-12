@@ -451,6 +451,8 @@ async function seedTestUsers(
       id: TEST_USER_IDS.owner,
       phone: TEST_ACCOUNTS.owner.phone,
       name: TEST_ACCOUNTS.owner.name,
+      email: 'owner@paradisimmo.cg',
+      password: 'Owner123!',
       globalRoles: [GlobalRole.TENANT],
       org: { organizationId: OWNER_ORG_ID, role: OrgMemberRole.OWNER },
     },
@@ -1083,12 +1085,17 @@ async function seedTestUsers(
 
   console.log('✓ Test accounts:');
   console.log(
-    `    admin    ${TEST_ACCOUNTS.admin.email} / ${TEST_ACCOUNTS.admin.password}  → /admin/login (email, not OTP)`,
+    `    admin    admin@paradisimmo.cg / Admin123!  → /login → /admin/dashboard`,
   );
-  for (const [role, info] of Object.entries(TEST_ACCOUNTS)) {
-    if (role === 'admin') continue;
-    console.log(`    ${role.padEnd(8)} ${info.phone}  → ${info.path}`);
-  }
+  console.log(
+    `    owner    owner@paradisimmo.cg / Owner123!  → /login → /owner/dashboard`,
+  );
+  console.log(
+    `    agent    agent@paradisimmo.cg / Agent123!  → /login → /agent/dashboard`,
+  );
+  console.log(
+    `    tenant   ${TEST_ACCOUNTS.tenant.phone}  → mobile OTP only`,
+  );
   console.log('✓ Demo properties (Pointe-Noire + R2 photos):');
   console.log(
     `    ${DEMO_PROPERTY_ID}  RENT_LONG/OCCUPIED  Appartement Centre-ville`,
