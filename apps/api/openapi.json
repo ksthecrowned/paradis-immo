@@ -97,6 +97,26 @@
         ]
       }
     },
+    "/api/v1/owner/stats": {
+      "get": {
+        "operationId": "OwnerController_getStats",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Owner portfolio KPI counters",
+        "tags": [
+          "Owner"
+        ]
+      }
+    },
     "/api/v1/auth/otp/request": {
       "post": {
         "operationId": "AuthController_requestOtp",
@@ -116,7 +136,7 @@
             "description": ""
           }
         },
-        "summary": "Request a 6-digit OTP via WhatsApp",
+        "summary": "Request a 6-digit OTP via WhatsApp (mobile)",
         "tags": [
           "Auth"
         ]
@@ -141,7 +161,212 @@
             "description": ""
           }
         },
-        "summary": "Verify OTP and issue JWT tokens",
+        "summary": "Verify OTP and issue JWT tokens (mobile)",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/api/v1/auth/web/register": {
+      "post": {
+        "operationId": "AuthController_webRegister",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebRegisterDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": ""
+          }
+        },
+        "summary": "Start web email signup (magic link)",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/api/v1/auth/web/magic/resend": {
+      "post": {
+        "operationId": "AuthController_webMagicResend",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebRegisterDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": ""
+          }
+        },
+        "summary": "Resend web email magic link",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/api/v1/auth/web/magic/consume": {
+      "post": {
+        "operationId": "AuthController_webMagicConsume",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebMagicConsumeDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Consume magic link, set password, issue JWTs",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/api/v1/auth/web/login": {
+      "post": {
+        "operationId": "AuthController_webLogin",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebLoginDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Web email + password login",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/api/v1/auth/web/google": {
+      "post": {
+        "operationId": "AuthController_webGoogle",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebGoogleDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Web Google ID token login / signup",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/api/v1/auth/web/role": {
+      "post": {
+        "operationId": "AuthController_webRole",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebRoleDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Set Owner or Agent role (blocking onboarding)",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/api/v1/auth/admin/login": {
+      "post": {
+        "operationId": "AuthController_adminLogin",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminLoginDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Platform admin email/password (deprecated)",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/api/v1/auth/admin/google": {
+      "post": {
+        "operationId": "AuthController_adminGoogle",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminGoogleDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Platform admin Google (deprecated)",
         "tags": [
           "Auth"
         ]
@@ -159,6 +384,74 @@
         "summary": "Rotate refresh token and issue new pair",
         "tags": [
           "Auth"
+        ]
+      }
+    },
+    "/api/v1/messaging/org/{organizationId}/balance": {
+      "get": {
+        "operationId": "MessagingController_orgBalance",
+        "parameters": [
+          {
+            "name": "organizationId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Open SMS messaging balance for an organization",
+        "tags": [
+          "Messaging"
+        ]
+      }
+    },
+    "/api/v1/organizations": {
+      "get": {
+        "operationId": "OrganizationsController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "List public marketplace organizations",
+        "tags": [
+          "Organizations"
+        ]
+      }
+    },
+    "/api/v1/organizations/{id}": {
+      "get": {
+        "operationId": "OrganizationsController_get",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Get a public organization with agents",
+        "tags": [
+          "Organizations"
         ]
       }
     },
@@ -239,7 +532,7 @@
             "description": ""
           }
         },
-        "summary": "Liveness check",
+        "summary": "Liveness check with DB connectivity",
         "tags": [
           "Health"
         ]
@@ -867,6 +1160,83 @@
         ]
       }
     },
+    "/api/v1/favorites": {
+      "get": {
+        "operationId": "FavoritesController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List the authenticated user's favorite properties",
+        "tags": [
+          "Favorites"
+        ]
+      },
+      "post": {
+        "operationId": "FavoritesController_add",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddFavoriteDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Add a property to favorites",
+        "tags": [
+          "Favorites"
+        ]
+      }
+    },
+    "/api/v1/favorites/{propertyId}": {
+      "delete": {
+        "operationId": "FavoritesController_remove",
+        "parameters": [
+          {
+            "name": "propertyId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Remove a property from favorites",
+        "tags": [
+          "Favorites"
+        ]
+      }
+    },
     "/api/v1/leases": {
       "post": {
         "operationId": "LeasesController_create",
@@ -912,6 +1282,55 @@
           }
         ],
         "summary": "List leases on properties the user owns or manages",
+        "tags": [
+          "Leases"
+        ]
+      }
+    },
+    "/api/v1/leases/my": {
+      "get": {
+        "operationId": "LeasesController_my",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List the authenticated tenant's leases",
+        "tags": [
+          "Leases"
+        ]
+      }
+    },
+    "/api/v1/leases/{id}/request-sign": {
+      "post": {
+        "operationId": "LeasesController_requestSign",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Request owner LEASE_SIGN approval (mandated properties)",
         "tags": [
           "Leases"
         ]
@@ -972,6 +1391,95 @@
         "summary": "Get the rent schedule for a lease",
         "tags": [
           "Leases"
+        ]
+      }
+    },
+    "/api/v1/mandates": {
+      "post": {
+        "operationId": "MandatesController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateMandateDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Create a mandate (delegation to an org)",
+        "tags": [
+          "Mandates"
+        ]
+      }
+    },
+    "/api/v1/mandates/pending-approvals": {
+      "get": {
+        "operationId": "MandatesController_pending",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List pending owner approvals",
+        "tags": [
+          "Mandates"
+        ]
+      }
+    },
+    "/api/v1/mandates/approvals/{id}": {
+      "patch": {
+        "operationId": "MandatesController_decide",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DecideApprovalDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Approve or reject a pending approval",
+        "tags": [
+          "Mandates"
         ]
       }
     },
@@ -1138,95 +1646,6 @@
         "summary": "Assign a ticket to a technician",
         "tags": [
           "Maintenance"
-        ]
-      }
-    },
-    "/api/v1/mandates": {
-      "post": {
-        "operationId": "MandatesController_create",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateMandateDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": ""
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "Create a mandate (delegation to an org)",
-        "tags": [
-          "Mandates"
-        ]
-      }
-    },
-    "/api/v1/mandates/pending-approvals": {
-      "get": {
-        "operationId": "MandatesController_pending",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "List pending owner approvals",
-        "tags": [
-          "Mandates"
-        ]
-      }
-    },
-    "/api/v1/mandates/approvals/{id}": {
-      "patch": {
-        "operationId": "MandatesController_decide",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/DecideApprovalDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "Approve or reject a pending approval",
-        "tags": [
-          "Mandates"
         ]
       }
     },
@@ -1514,6 +1933,35 @@
         ]
       }
     },
+    "/api/v1/payments/{paymentId}/receipt": {
+      "get": {
+        "operationId": "ReceiptController_findByPayment",
+        "parameters": [
+          {
+            "name": "paymentId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get the receipt for a validated payment",
+        "tags": [
+          "Receipts"
+        ]
+      }
+    },
     "/api/v1/sales/inquiries": {
       "post": {
         "operationId": "SalesController_create",
@@ -1653,6 +2101,105 @@
         "type": "object",
         "properties": {}
       },
+      "WebRegisterDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "example": "owner@example.com"
+          }
+        },
+        "required": [
+          "email"
+        ]
+      },
+      "WebMagicConsumeDto": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string"
+          },
+          "password": {
+            "type": "string",
+            "minLength": 8
+          }
+        },
+        "required": [
+          "token",
+          "password"
+        ]
+      },
+      "WebLoginDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "password": {
+            "type": "string",
+            "minLength": 8
+          }
+        },
+        "required": [
+          "email",
+          "password"
+        ]
+      },
+      "WebGoogleDto": {
+        "type": "object",
+        "properties": {
+          "idToken": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "idToken"
+        ]
+      },
+      "WebRoleDto": {
+        "type": "object",
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": [
+              "OWNER",
+              "AGENT"
+            ]
+          }
+        },
+        "required": [
+          "role"
+        ]
+      },
+      "AdminLoginDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "example": "admin@paradisimmo.cg"
+          },
+          "password": {
+            "type": "string",
+            "minLength": 8
+          }
+        },
+        "required": [
+          "email",
+          "password"
+        ]
+      },
+      "AdminGoogleDto": {
+        "type": "object",
+        "properties": {
+          "idToken": {
+            "type": "string",
+            "description": "Google ID token from Sign in with Google"
+          }
+        },
+        "required": [
+          "idToken"
+        ]
+      },
       "UpdateMeDto": {
         "type": "object",
         "properties": {}
@@ -1681,7 +2228,19 @@
         "type": "object",
         "properties": {}
       },
+      "AddFavoriteDto": {
+        "type": "object",
+        "properties": {}
+      },
       "CreateLeaseDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CreateMandateDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "DecideApprovalDto": {
         "type": "object",
         "properties": {}
       },
@@ -1694,14 +2253,6 @@
         "properties": {}
       },
       "AssignTicketDto": {
-        "type": "object",
-        "properties": {}
-      },
-      "CreateMandateDto": {
-        "type": "object",
-        "properties": {}
-      },
-      "DecideApprovalDto": {
         "type": "object",
         "properties": {}
       },
