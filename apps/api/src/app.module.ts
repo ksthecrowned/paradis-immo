@@ -18,6 +18,7 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { PaymentsModule } from './payments/payments.module';
 import { SalesModule } from './sales/sales.module';
 import { OrganizationsModule } from './organizations/organizations.module';
+import { OwnerModule } from './owner/owner.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { PropertiesModule } from './properties/properties.module';
 import { UsersModule } from './users/users.module';
@@ -30,6 +31,7 @@ import { VisitSlotsModule } from './visit-slots/visit-slots.module';
     PrismaModule,
     EventModule,
     AdminModule,
+    OwnerModule,
     AuthModule,
     OrganizationsModule,
     UsersModule,
