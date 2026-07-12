@@ -21,8 +21,10 @@ const btnSecondaryClass =
   'inline-flex w-full items-center justify-center rounded-lg border border-border bg-card px-4 py-2.5 text-sm font-medium text-foreground hover:bg-sidebar';
 
 function resolvePostLoginPath(phone: string, roles: string[]): string {
-  const devAccount = DEV_TEST_ACCOUNTS.find((a) => a.phone === phone);
-  if (devAccount?.path && devAccount.path !== '—') {
+  const devAccount = DEV_TEST_ACCOUNTS.find(
+    (a) => 'phone' in a && a.phone === phone && a.phone !== '—',
+  );
+  if (devAccount?.path && devAccount.path !== '—' && !devAccount.path.includes('login')) {
     return devAccount.path;
   }
   if (roles.includes('PLATFORM_ADMIN')) {
@@ -108,6 +110,12 @@ export default function LoginPage(): React.JSX.Element {
           <p className="mt-2 text-sm text-muted">
             Connectez-vous avec votre numéro WhatsApp
           </p>
+          <p className="mt-2 text-xs text-muted">
+            Admin plateforme ?{' '}
+            <a href="/admin/login" className="font-semibold text-accent hover:underline">
+              Connexion email / Google
+            </a>
+          </p>
         </div>
 
         {stage === 'phone' ? (
@@ -140,19 +148,37 @@ export default function LoginPage(): React.JSX.Element {
                 <p className="text-xs font-semibold text-heading">Comptes de test (seed)</p>
                 <ul className="mt-2 space-y-1.5 text-xs text-muted">
                   {DEV_TEST_ACCOUNTS.map((account) => (
-                    <li key={account.phone}>
-                      <button
-                        type="button"
-                        onClick={() => setPhone(account.phone)}
-                        className="text-start hover:text-foreground"
-                      >
-                        <span className="font-medium text-foreground">{account.role}</span>
-                        {' — '}
-                        <span className="font-mono">{account.phone}</span>
-                        {account.path !== '—' ? (
-                          <span className="text-muted"> → {account.path}</span>
-                        ) : null}
-                      </button>
+                    <li key={account.role}>
+                      {account.phone === '—' ? (
+                        <a
+                          href="/admin/login"
+                          className="text-start hover:text-foreground"
+                        >
+                          <span className="font-medium text-foreground">
+                            {account.role}
+                          </span>
+                          {' — '}
+                          <span className="font-mono">
+                            {'email' in account ? account.email : 'email'}
+                          </span>
+                          <span className="text-muted"> → /admin/login</span>
+                        </a>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setPhone(account.phone)}
+                          className="text-start hover:text-foreground"
+                        >
+                          <span className="font-medium text-foreground">
+                            {account.role}
+                          </span>
+                          {' — '}
+                          <span className="font-mono">{account.phone}</span>
+                          {account.path !== '—' ? (
+                            <span className="text-muted"> → {account.path}</span>
+                          ) : null}
+                        </button>
+                      )}
                     </li>
                   ))}
                 </ul>

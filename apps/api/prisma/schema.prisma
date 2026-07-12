@@ -260,7 +260,11 @@ model Country {
 model User {
   id                     String               @id @default(cuid())
   phone                  String
-  email                  String?
+  email                  String?              @unique
+  /// scrypt hash `salt:hex` — platform admins only (email/password login)
+  passwordHash           String?
+  /// Google subject (`sub`) when linked for admin Google sign-in
+  googleId               String?              @unique
   name                   String?
   avatarUrl              String?
   fcmToken               String?

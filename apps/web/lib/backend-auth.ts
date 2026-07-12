@@ -9,6 +9,7 @@ export type BackendAuthUser = {
   id: string;
   phone: string;
   name?: string | null;
+  email?: string | null;
   roles: string[];
 };
 
@@ -41,9 +42,65 @@ function unwrapTokens(body: TokenEnvelope): BackendAuthTokens | null {
       id: user.id,
       phone: user.phone,
       name: user.name ?? null,
+      email: user.email ?? null,
       roles: user.roles ?? [],
     },
   };
+}
+
+export async function backendAdminLogin(
+  email: string,
+  password: string,
+): Promise<BackendAuthTokens> {
+  const res = await fetch(`${API_URL}/auth/admin/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify({ email: email.trim(), password }),
+  });
+  const body = (await res.json().catch(() => null)) as
+    | TokenEnvelope
+    | { message?: string }
+    | null;
+  if (!res.ok) {
+    const message =
+      body &&
+      typeof body === 'object' &&
+      'message' in body &&
+      typeof body.message === 'string'
+        ? body.message
+        : 'Email ou mot de passe incorrect';
+    throw new Error(message);
+  }
+  const tokens = unwrapTokens(body as TokenEnvelope);
+  if (!tokens) throw new Error('Réponse auth invalide');
+  return tokens;
+}
+
+export async function backendAdminGoogle(
+  idToken: string,
+): Promise<BackendAuthTokens> {
+  const res = await fetch(`${API_URL}/auth/admin/google`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify({ idToken }),
+  });
+  const body = (await res.json().catch(() => null)) as
+    | TokenEnvelope
+    | { message?: string }
+    | null;
+  if (!res.ok) {
+    const message =
+      body &&
+      typeof body === 'object' &&
+      'message' in body &&
+      typeof body.message === 'string'
+        ? body.message
+        : 'Connexion Google refusée';
+    throw new Error(message);
+  }
+  const tokens = unwrapTokens(body as TokenEnvelope);
+  if (!tokens) throw new Error('Réponse auth invalide');
+  return tokens;
 }
 
 export async function backendRequestOtp(

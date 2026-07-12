@@ -1,11 +1,29 @@
 import NextAuth from 'next-auth';
 import Credentials from 'next-auth/providers/credentials';
+import Google from 'next-auth/providers/google';
 import type { JWT } from 'next-auth/jwt';
 import {
   ACCESS_TOKEN_TTL_MS,
+  backendAdminGoogle,
+  backendAdminLogin,
   backendRefreshTokens,
   backendVerifyOtp,
 } from '@/lib/backend-auth';
+
+function sessionFromBackendUser(
+  tokens: Awaited<ReturnType<typeof backendAdminLogin>>,
+): JWT {
+  return {
+    id: tokens.user.id,
+    phone: tokens.user.phone,
+    email: tokens.user.email ?? null,
+    name: tokens.user.name ?? null,
+    roles: tokens.user.roles,
+    accessToken: tokens.accessToken,
+    refreshToken: tokens.refreshToken,
+    accessTokenExpires: Date.now() + ACCESS_TOKEN_TTL_MS,
+  };
+}
 
 async function refreshAccessToken(token: JWT): Promise<JWT> {
   try {
@@ -17,6 +35,7 @@ async function refreshAccessToken(token: JWT): Promise<JWT> {
       accessTokenExpires: Date.now() + ACCESS_TOKEN_TTL_MS,
       id: refreshed.user.id,
       phone: refreshed.user.phone,
+      email: refreshed.user.email ?? null,
       name: refreshed.user.name,
       roles: refreshed.user.roles,
       error: undefined,
@@ -28,6 +47,10 @@ async function refreshAccessToken(token: JWT): Promise<JWT> {
     };
   }
 }
+
+const googleConfigured =
+  Boolean(process.env.AUTH_GOOGLE_ID) &&
+  Boolean(process.env.AUTH_GOOGLE_SECRET);
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [
@@ -49,6 +72,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           return {
             id: tokens.user.id,
             phone: tokens.user.phone,
+            email: tokens.user.email ?? null,
             name: tokens.user.name ?? undefined,
             roles: tokens.user.roles,
             accessToken: tokens.accessToken,
@@ -59,6 +83,43 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         }
       },
     }),
+    Credentials({
+      id: 'admin-password',
+      name: 'Admin password',
+      credentials: {
+        email: { label: 'Email', type: 'email' },
+        password: { label: 'Password', type: 'password' },
+      },
+      async authorize(credentials) {
+        const email = credentials?.email;
+        const password = credentials?.password;
+        if (typeof email !== 'string' || typeof password !== 'string') {
+          return null;
+        }
+        try {
+          const tokens = await backendAdminLogin(email, password);
+          return {
+            id: tokens.user.id,
+            phone: tokens.user.phone,
+            email: tokens.user.email ?? email,
+            name: tokens.user.name ?? undefined,
+            roles: tokens.user.roles,
+            accessToken: tokens.accessToken,
+            refreshToken: tokens.refreshToken,
+          };
+        } catch {
+          return null;
+        }
+      },
+    }),
+    ...(googleConfigured
+      ? [
+          Google({
+            clientId: process.env.AUTH_GOOGLE_ID!,
+            clientSecret: process.env.AUTH_GOOGLE_SECRET!,
+          }),
+        ]
+      : []),
   ],
   session: {
     strategy: 'jwt',
@@ -66,14 +127,37 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   },
   pages: {
     signIn: '/login',
+    error: '/admin/login',
   },
   callbacks: {
-    async jwt({ token, user }) {
+    async signIn({ account }) {
+      if (account?.provider === 'google') {
+        if (!account.id_token) return '/admin/login?error=AccessDenied';
+        try {
+          await backendAdminGoogle(account.id_token);
+          return true;
+        } catch {
+          return '/admin/login?error=AccessDenied';
+        }
+      }
+      return true;
+    },
+    async jwt({ token, user, account }) {
+      if (account?.provider === 'google' && account.id_token) {
+        try {
+          const tokens = await backendAdminGoogle(account.id_token);
+          return sessionFromBackendUser(tokens);
+        } catch {
+          return { ...token, error: 'RefreshAccessTokenError' };
+        }
+      }
+
       if (user) {
         return {
           ...token,
           id: user.id,
           phone: user.phone,
+          email: user.email ?? null,
           name: user.name,
           roles: user.roles,
           accessToken: user.accessToken,
@@ -93,6 +177,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         ...session.user,
         id: token.id,
         phone: token.phone,
+        email: token.email ?? null,
         name: token.name ?? null,
         roles: token.roles ?? [],
       };

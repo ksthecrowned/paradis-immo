@@ -1,10 +1,24 @@
-import { auth } from '@/auth';
 import { NextResponse } from 'next/server';
+import { auth } from '@/auth';
 
 const PROTECTED_PREFIXES = ['/owner', '/agent', '/admin'];
 
 export const proxy = auth((req) => {
   const { pathname } = req.nextUrl;
+
+  if (pathname === '/admin/login') {
+    if (
+      req.auth &&
+      !req.auth.error &&
+      (req.auth.user?.roles ?? []).includes('PLATFORM_ADMIN')
+    ) {
+      return NextResponse.redirect(
+        new URL('/admin/dashboard', req.nextUrl.origin),
+      );
+    }
+    return NextResponse.next();
+  }
+
   const isProtected = PROTECTED_PREFIXES.some(
     (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
   );
@@ -14,7 +28,10 @@ export const proxy = auth((req) => {
   }
 
   if (!req.auth || req.auth.error === 'RefreshAccessTokenError') {
-    const login = new URL('/login', req.nextUrl.origin);
+    const loginPath = pathname.startsWith('/admin')
+      ? '/admin/login'
+      : '/login';
+    const login = new URL(loginPath, req.nextUrl.origin);
     login.searchParams.set('callbackUrl', pathname);
     return NextResponse.redirect(login);
   }

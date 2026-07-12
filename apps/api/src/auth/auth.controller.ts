@@ -1,6 +1,8 @@
 import { Body, Controller, HttpCode, Post } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
+import { AdminGoogleDto } from './dto/admin-google.dto';
+import { AdminLoginDto } from './dto/admin-login.dto';
 import { RequestOtpDto } from './dto/request-otp.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
 
@@ -22,6 +24,24 @@ export class AuthController {
   @ApiOperation({ summary: 'Verify OTP and issue JWT tokens' })
   async verifyOtp(@Body() dto: VerifyOtpDto) {
     return this.auth.verifyOtp(dto);
+  }
+
+  @Post('admin/login')
+  @HttpCode(200)
+  @ApiOperation({
+    summary: 'Platform admin login with email + password (no OTP)',
+  })
+  async adminLogin(@Body() dto: AdminLoginDto) {
+    return this.auth.loginAdminPassword(dto);
+  }
+
+  @Post('admin/google')
+  @HttpCode(200)
+  @ApiOperation({
+    summary: 'Platform admin login with Google ID token (no OTP)',
+  })
+  async adminGoogle(@Body() dto: AdminGoogleDto) {
+    return this.auth.loginAdminGoogle(dto);
   }
 
   @Post('refresh')

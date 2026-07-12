@@ -20,6 +20,7 @@ import {
   VisitType,
 } from '@prisma/client';
 import 'dotenv/config';
+import { hashPassword } from '../src/auth/password.util';
 import { SEED_IDS } from './seed-ids';
 
 const connectionString = process.env.DATABASE_URL;
@@ -30,10 +31,18 @@ const prisma = new PrismaClient({
   adapter: new PrismaPg({ connectionString }),
 });
 
+const ADMIN_SEED_EMAIL =
+  process.env.ADMIN_SEED_EMAIL?.trim().toLowerCase() ||
+  'admin@paradisimmo.cg';
+const ADMIN_SEED_PASSWORD =
+  process.env.ADMIN_SEED_PASSWORD?.trim() || 'Admin123!';
+
 /** Fixed phones for local OTP login — code printed in API logs when Infobip is off. */
 export const TEST_ACCOUNTS = {
   admin: {
     phone: '+242060000001',
+    email: ADMIN_SEED_EMAIL,
+    password: ADMIN_SEED_PASSWORD,
     name: 'Admin Test',
     path: '/admin/dashboard',
   },
@@ -389,6 +398,8 @@ async function seedTestUsers(
     id: string;
     phone: string;
     name: string;
+    email?: string;
+    password?: string;
     globalRoles: GlobalRole[];
     org?: { organizationId: string; role: OrgMemberRole };
   }> = [
@@ -396,6 +407,8 @@ async function seedTestUsers(
       id: TEST_USER_IDS.admin,
       phone: TEST_ACCOUNTS.admin.phone,
       name: TEST_ACCOUNTS.admin.name,
+      email: TEST_ACCOUNTS.admin.email,
+      password: TEST_ACCOUNTS.admin.password,
       globalRoles: [GlobalRole.TENANT, GlobalRole.PLATFORM_ADMIN],
     },
     {
@@ -448,14 +461,25 @@ async function seedTestUsers(
   ];
 
   for (const account of accounts) {
+    const passwordHash = account.password
+      ? await hashPassword(account.password)
+      : undefined;
     await prisma.user.upsert({
       where: { id: account.id },
-      update: { name: account.name, phone: account.phone, countryId: cgId },
+      update: {
+        name: account.name,
+        phone: account.phone,
+        countryId: cgId,
+        ...(account.email ? { email: account.email } : {}),
+        ...(passwordHash ? { passwordHash } : {}),
+      },
       create: {
         id: account.id,
         phone: account.phone,
         countryId: cgId,
         name: account.name,
+        email: account.email,
+        passwordHash,
       },
     });
 
@@ -1052,8 +1076,12 @@ async function seedTestUsers(
     },
   });
 
-  console.log('✓ Test accounts (OTP in API logs when Infobip is off):');
+  console.log('✓ Test accounts:');
+  console.log(
+    `    admin    ${TEST_ACCOUNTS.admin.email} / ${TEST_ACCOUNTS.admin.password}  → /admin/login (email, not OTP)`,
+  );
   for (const [role, info] of Object.entries(TEST_ACCOUNTS)) {
+    if (role === 'admin') continue;
     console.log(`    ${role.padEnd(8)} ${info.phone}  → ${info.path}`);
   }
   console.log('✓ Demo properties (Pointe-Noire + R2 photos):');

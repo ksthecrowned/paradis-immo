@@ -1,5 +1,6 @@
 import {
   ConflictException,
+  ForbiddenException,
   Injectable,
   Logger,
   NotFoundException,
@@ -8,15 +9,19 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Country, GlobalRole, User } from '@prisma/client';
+import { OAuth2Client } from 'google-auth-library';
 import * as crypto from 'node:crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { MessagingBillingService } from '../messaging/messaging-billing.service';
 import { InfobipOtpService } from './infobip-otp.service';
 import { OtpStore, type OtpPurpose } from './otp.store';
+import { hashPassword, verifyPassword } from './password.util';
 
 const MAX_OTP_ATTEMPTS = 5;
 const REFRESH_TTL_DAYS = 30;
 const ACCESS_TTL = '15m';
+
+type UserWithRoles = User & { roles: { role: GlobalRole }[] };
 
 interface JwtAccessPayload {
   sub: string;
@@ -45,6 +50,9 @@ interface PublicUser {
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
+  private readonly googleClient = new OAuth2Client(
+    process.env.GOOGLE_CLIENT_ID,
+  );
 
   constructor(
     private readonly prisma: PrismaService,
@@ -114,16 +122,116 @@ export class AuthService {
       input.purpose === 'LOGIN'
         ? await this.requireExistingUser(input.phone)
         : await this.getOrCreateUser(input.phone, country.id);
+    this.assertNotPlatformAdmin(user);
     await this.messaging.attachPhoneChargesToUser(input.phone, user.id);
 
     const tokens = await this.issueTokens(user);
     return { ...tokens, user: this.toPublicUser(user) };
   }
 
+  async loginAdminPassword(input: {
+    email: string;
+    password: string;
+  }): Promise<AuthTokens> {
+    const email = input.email.trim().toLowerCase();
+    const user = await this.prisma.user.findUnique({
+      where: { email },
+      include: { roles: true },
+    });
+    if (!user?.passwordHash) {
+      throw new UnauthorizedException({
+        code: 'ADMIN_INVALID_CREDENTIALS',
+        message: 'Email ou mot de passe incorrect',
+      });
+    }
+    this.assertIsPlatformAdmin(user);
+    const ok = await verifyPassword(input.password, user.passwordHash);
+    if (!ok) {
+      throw new UnauthorizedException({
+        code: 'ADMIN_INVALID_CREDENTIALS',
+        message: 'Email ou mot de passe incorrect',
+      });
+    }
+    const tokens = await this.issueTokens(user);
+    return { ...tokens, user: this.toPublicUser(user) };
+  }
+
+  async loginAdminGoogle(input: { idToken: string }): Promise<AuthTokens> {
+    const clientId = process.env.GOOGLE_CLIENT_ID;
+    if (!clientId) {
+      throw new ServiceUnavailableException({
+        code: 'GOOGLE_NOT_CONFIGURED',
+        message: 'Google sign-in is not configured',
+      });
+    }
+    let payload: {
+      sub?: string;
+      email?: string;
+      email_verified?: boolean;
+      name?: string;
+    };
+    try {
+      const ticket = await this.googleClient.verifyIdToken({
+        idToken: input.idToken,
+        audience: clientId,
+      });
+      payload = ticket.getPayload() ?? {};
+    } catch {
+      throw new UnauthorizedException({
+        code: 'GOOGLE_TOKEN_INVALID',
+        message: 'Jeton Google invalide',
+      });
+    }
+    const email = payload.email?.trim().toLowerCase();
+    const googleId = payload.sub;
+    if (!email || !googleId || payload.email_verified === false) {
+      throw new UnauthorizedException({
+        code: 'GOOGLE_EMAIL_REQUIRED',
+        message: 'Compte Google sans email vérifié',
+      });
+    }
+
+    let user = await this.prisma.user.findFirst({
+      where: {
+        OR: [{ googleId }, { email }],
+      },
+      include: { roles: true },
+    });
+    if (!user) {
+      throw new UnauthorizedException({
+        code: 'ADMIN_NOT_PROVISIONED',
+        message:
+          'Aucun compte admin pour cet email. Demandez à un administrateur de vous provisionner.',
+      });
+    }
+    this.assertIsPlatformAdmin(user);
+
+    if (!user.googleId || user.email !== email) {
+      user = await this.prisma.user.update({
+        where: { id: user.id },
+        data: {
+          googleId,
+          email,
+          name: user.name ?? payload.name ?? null,
+        },
+        include: { roles: true },
+      });
+    }
+
+    const tokens = await this.issueTokens(user);
+    return { ...tokens, user: this.toPublicUser(user) };
+  }
+
+  async hashAdminPassword(password: string): Promise<string> {
+    return hashPassword(password);
+  }
+
   async refresh(input: { refreshToken: string }): Promise<AuthTokens> {
     let payload: JwtRefreshPayload;
     try {
-      payload = await this.jwt.verifyAsync<JwtRefreshPayload>(input.refreshToken);
+      payload = await this.jwt.verifyAsync<JwtRefreshPayload>(
+        input.refreshToken,
+      );
     } catch {
       throw new UnauthorizedException({
         code: 'REFRESH_INVALID',
@@ -146,7 +254,6 @@ export class AuthService {
         message: 'Refresh token does not match user',
       });
     }
-    // Rotate: revoke old, issue new pair
     await this.prisma.refreshToken.update({
       where: { id: stored.id },
       data: { revokedAt: new Date() },
@@ -155,15 +262,40 @@ export class AuthService {
     return { ...tokens, user: this.toPublicUser(stored.user) };
   }
 
-  // ----------------------------------------------------------------
-  // Internals
-  // ----------------------------------------------------------------
+  private isPlatformAdmin(user: UserWithRoles): boolean {
+    return user.roles.some((r) => r.role === GlobalRole.PLATFORM_ADMIN);
+  }
+
+  private assertIsPlatformAdmin(user: UserWithRoles): void {
+    if (!this.isPlatformAdmin(user)) {
+      throw new ForbiddenException({
+        code: 'NOT_PLATFORM_ADMIN',
+        message: 'Accès réservé aux administrateurs plateforme',
+      });
+    }
+  }
+
+  private assertNotPlatformAdmin(user: UserWithRoles): void {
+    if (this.isPlatformAdmin(user)) {
+      throw new ForbiddenException({
+        code: 'ADMIN_USE_EMAIL_LOGIN',
+        message:
+          'Les administrateurs se connectent avec email / Google, pas par OTP.',
+      });
+    }
+  }
 
   private async assertPhoneMatchesPurpose(
     phone: string,
     purpose: OtpPurpose,
   ): Promise<void> {
-    const existing = await this.prisma.user.findFirst({ where: { phone } });
+    const existing = await this.prisma.user.findFirst({
+      where: { phone },
+      include: { roles: true },
+    });
+    if (existing) {
+      this.assertNotPlatformAdmin(existing);
+    }
     if (purpose === 'LOGIN' && !existing) {
       throw new NotFoundException({
         code: 'USER_NOT_FOUND',
@@ -180,9 +312,7 @@ export class AuthService {
     }
   }
 
-  private async requireExistingUser(
-    phone: string,
-  ): Promise<User & { roles: { role: GlobalRole }[] }> {
+  private async requireExistingUser(phone: string): Promise<UserWithRoles> {
     const existing = await this.prisma.user.findFirst({
       where: { phone },
       include: { roles: true },
@@ -198,7 +328,7 @@ export class AuthService {
   }
 
   private async issueTokens(
-    user: User & { roles: { role: GlobalRole }[] },
+    user: UserWithRoles,
   ): Promise<{ accessToken: string; refreshToken: string }> {
     const roles = user.roles.map((r) => r.role);
     const accessPayload: JwtAccessPayload = { sub: user.id, roles };
@@ -224,7 +354,7 @@ export class AuthService {
   }
 
   private async getOrCreateCountryForPhone(phone: string): Promise<Country> {
-    const prefix = phone.startsWith('+') ? phone.slice(0, 4) : null; // e.g. +242
+    const prefix = phone.startsWith('+') ? phone.slice(0, 4) : null;
     if (!prefix) {
       throw new UnauthorizedException({
         code: 'PHONE_FORMAT',
@@ -235,14 +365,13 @@ export class AuthService {
       where: { phonePrefix: prefix },
     });
     if (existing) return existing;
-    // MVP: only Congo is supported; fall back to CG
     return this.prisma.country.findUniqueOrThrow({ where: { code: 'CG' } });
   }
 
   private async getOrCreateUser(
     phone: string,
     countryId: string,
-  ): Promise<User & { roles: { role: GlobalRole }[] }> {
+  ): Promise<UserWithRoles> {
     const existing = await this.prisma.user.findFirst({
       where: { phone, countryId },
       include: { roles: true },
@@ -261,9 +390,7 @@ export class AuthService {
     });
   }
 
-  private toPublicUser(
-    user: User & { roles: { role: GlobalRole }[] },
-  ): PublicUser {
+  private toPublicUser(user: UserWithRoles): PublicUser {
     return {
       id: user.id,
       phone: user.phone,
@@ -274,7 +401,6 @@ export class AuthService {
   }
 
   private generateCode(): string {
-    // 6-digit numeric code
     return Math.floor(100000 + Math.random() * 900000).toString();
   }
 
