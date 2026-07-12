@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
@@ -8,12 +9,21 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { Country, GlobalRole, User } from '@prisma/client';
+import {
+  Country,
+  GlobalRole,
+  OrgMemberRole,
+  OrganizationType,
+  User,
+} from '@prisma/client';
 import { OAuth2Client } from 'google-auth-library';
 import * as crypto from 'node:crypto';
+import { PARADIS_IMMO_ORG_ID } from '../common/constants/seed-ids';
 import { PrismaService } from '../prisma/prisma.service';
 import { MessagingBillingService } from '../messaging/messaging-billing.service';
+import { EmailService } from './email.service';
 import { InfobipOtpService } from './infobip-otp.service';
+import { MagicLinkStore } from './magic-link.store';
 import { OtpStore, type OtpPurpose } from './otp.store';
 import { hashPassword, verifyPassword } from './password.util';
 
@@ -21,7 +31,10 @@ const MAX_OTP_ATTEMPTS = 5;
 const REFRESH_TTL_DAYS = 30;
 const ACCESS_TTL = '15m';
 
-type UserWithRoles = User & { roles: { role: GlobalRole }[] };
+type UserWithRoles = User & {
+  roles: { role: GlobalRole }[];
+  orgMembers?: { role: OrgMemberRole }[];
+};
 
 interface JwtAccessPayload {
   sub: string;
@@ -39,12 +52,13 @@ export interface AuthTokens {
   user: PublicUser;
 }
 
-interface PublicUser {
+export interface PublicUser {
   id: string;
   phone: string | null;
   name: string | null;
   email: string | null;
   roles: string[];
+  orgRoles: string[];
 }
 
 @Injectable()
@@ -57,6 +71,8 @@ export class AuthService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly otpStore: OtpStore,
+    private readonly magicLinks: MagicLinkStore,
+    private readonly email: EmailService,
     private readonly infobip: InfobipOtpService,
     private readonly messaging: MessagingBillingService,
     private readonly jwt: JwtService,
@@ -133,22 +149,90 @@ export class AuthService {
     email: string;
     password: string;
   }): Promise<AuthTokens> {
+    const tokens = await this.loginWeb(input);
+    if (!tokens.user.roles.includes(GlobalRole.PLATFORM_ADMIN)) {
+      throw new ForbiddenException({
+        code: 'NOT_PLATFORM_ADMIN',
+        message: 'Accès réservé aux administrateurs plateforme',
+      });
+    }
+    return tokens;
+  }
+
+  async loginAdminGoogle(input: { idToken: string }): Promise<AuthTokens> {
+    const tokens = await this.loginGoogleWeb(input);
+    if (!tokens.user.roles.includes(GlobalRole.PLATFORM_ADMIN)) {
+      throw new ForbiddenException({
+        code: 'NOT_PLATFORM_ADMIN',
+        message: 'Accès réservé aux administrateurs plateforme',
+      });
+    }
+    return tokens;
+  }
+
+  async registerWeb(input: { email: string }): Promise<{ message: string }> {
+    const email = input.email.trim().toLowerCase();
+    const country = await this.prisma.country.findUniqueOrThrow({
+      where: { code: 'CG' },
+    });
+    const existing = await this.prisma.user.findUnique({ where: { email } });
+    if (!existing) {
+      await this.prisma.user.create({
+        data: { email, countryId: country.id, phone: null },
+      });
+    }
+    const { rawToken } = await this.magicLinks.create(email, 'VERIFY_EMAIL');
+    await this.email.sendMagicLink(email, rawToken, 'VERIFY_EMAIL');
+    return { message: 'Si cet email est valide, un lien a été envoyé' };
+  }
+
+  async resendWebMagic(input: { email: string }): Promise<{ message: string }> {
+    return this.registerWeb(input);
+  }
+
+  async consumeMagic(input: {
+    token: string;
+    password: string;
+  }): Promise<AuthTokens> {
+    if (input.password.length < 8) {
+      throw new BadRequestException({
+        code: 'PASSWORD_TOO_SHORT',
+        message: '8 caractères minimum',
+      });
+    }
+    const { email } = await this.magicLinks.consume(
+      input.token,
+      'VERIFY_EMAIL',
+    );
+    const passwordHash = await hashPassword(input.password);
+    const user = await this.prisma.user.update({
+      where: { email },
+      data: { emailVerifiedAt: new Date(), passwordHash },
+      include: { roles: true, orgMembers: true },
+    });
+    const tokens = await this.issueTokens(user);
+    return { ...tokens, user: this.toPublicUser(user) };
+  }
+
+  async loginWeb(input: {
+    email: string;
+    password: string;
+  }): Promise<AuthTokens> {
     const email = input.email.trim().toLowerCase();
     const user = await this.prisma.user.findUnique({
       where: { email },
-      include: { roles: true },
+      include: { roles: true, orgMembers: true },
     });
-    if (!user?.passwordHash) {
+    if (!user?.passwordHash || !user.emailVerifiedAt) {
       throw new UnauthorizedException({
-        code: 'ADMIN_INVALID_CREDENTIALS',
+        code: 'WEB_INVALID_CREDENTIALS',
         message: 'Email ou mot de passe incorrect',
       });
     }
-    this.assertIsPlatformAdmin(user);
     const ok = await verifyPassword(input.password, user.passwordHash);
     if (!ok) {
       throw new UnauthorizedException({
-        code: 'ADMIN_INVALID_CREDENTIALS',
+        code: 'WEB_INVALID_CREDENTIALS',
         message: 'Email ou mot de passe incorrect',
       });
     }
@@ -156,7 +240,7 @@ export class AuthService {
     return { ...tokens, user: this.toPublicUser(user) };
   }
 
-  async loginAdminGoogle(input: { idToken: string }): Promise<AuthTokens> {
+  async loginGoogleWeb(input: { idToken: string }): Promise<AuthTokens> {
     const clientId = process.env.GOOGLE_CLIENT_ID;
     if (!clientId) {
       throw new ServiceUnavailableException({
@@ -191,35 +275,89 @@ export class AuthService {
       });
     }
 
+    const country = await this.prisma.country.findUniqueOrThrow({
+      where: { code: 'CG' },
+    });
     let user = await this.prisma.user.findFirst({
-      where: {
-        OR: [{ googleId }, { email }],
-      },
-      include: { roles: true },
+      where: { OR: [{ googleId }, { email }] },
+      include: { roles: true, orgMembers: true },
     });
     if (!user) {
-      throw new UnauthorizedException({
-        code: 'ADMIN_NOT_PROVISIONED',
-        message:
-          'Aucun compte admin pour cet email. Demandez à un administrateur de vous provisionner.',
+      user = await this.prisma.user.create({
+        data: {
+          email,
+          googleId,
+          emailVerifiedAt: new Date(),
+          name: payload.name ?? null,
+          countryId: country.id,
+          phone: null,
+        },
+        include: { roles: true, orgMembers: true },
       });
-    }
-    this.assertIsPlatformAdmin(user);
-
-    if (!user.googleId || user.email !== email) {
+    } else {
       user = await this.prisma.user.update({
         where: { id: user.id },
         data: {
           googleId,
           email,
+          emailVerifiedAt: user.emailVerifiedAt ?? new Date(),
           name: user.name ?? payload.name ?? null,
         },
-        include: { roles: true },
+        include: { roles: true, orgMembers: true },
       });
     }
 
     const tokens = await this.issueTokens(user);
     return { ...tokens, user: this.toPublicUser(user) };
+  }
+
+  async setWebRole(
+    userId: string,
+    role: 'OWNER' | 'AGENT',
+  ): Promise<AuthTokens> {
+    const user = await this.prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+      include: { roles: true, orgMembers: true },
+    });
+    if (this.isPlatformAdmin(user)) {
+      const tokens = await this.issueTokens(user);
+      return { ...tokens, user: this.toPublicUser(user) };
+    }
+    const hasBiz = (user.orgMembers ?? []).some(
+      (m) => m.role === OrgMemberRole.OWNER || m.role === OrgMemberRole.AGENT,
+    );
+    if (hasBiz) {
+      throw new ConflictException({
+        code: 'ROLE_ALREADY_SET',
+        message: 'Rôle déjà défini',
+      });
+    }
+    if (role === 'OWNER') {
+      await this.prisma.organization.create({
+        data: {
+          name: user.name ? `${user.name} (propriétaire)` : 'Mon organisation',
+          type: OrganizationType.OWNER,
+          countryId: user.countryId,
+          members: {
+            create: { userId: user.id, role: OrgMemberRole.OWNER },
+          },
+        },
+      });
+    } else {
+      await this.prisma.organizationMember.create({
+        data: {
+          userId: user.id,
+          organizationId: PARADIS_IMMO_ORG_ID,
+          role: OrgMemberRole.AGENT,
+        },
+      });
+    }
+    const refreshed = await this.prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+      include: { roles: true, orgMembers: true },
+    });
+    const tokens = await this.issueTokens(refreshed);
+    return { ...tokens, user: this.toPublicUser(refreshed) };
   }
 
   async hashAdminPassword(password: string): Promise<string> {
@@ -240,7 +378,9 @@ export class AuthService {
     }
     const stored = await this.prisma.refreshToken.findUnique({
       where: { tokenHash: this.hash(input.refreshToken) },
-      include: { user: { include: { roles: true } } },
+      include: {
+        user: { include: { roles: true, orgMembers: true } },
+      },
     });
     if (!stored || stored.revokedAt || stored.expiresAt < new Date()) {
       throw new UnauthorizedException({
@@ -315,7 +455,7 @@ export class AuthService {
   private async requireExistingUser(phone: string): Promise<UserWithRoles> {
     const existing = await this.prisma.user.findFirst({
       where: { phone },
-      include: { roles: true },
+      include: { roles: true, orgMembers: true },
     });
     if (!existing) {
       throw new NotFoundException({
@@ -374,7 +514,7 @@ export class AuthService {
   ): Promise<UserWithRoles> {
     const existing = await this.prisma.user.findFirst({
       where: { phone, countryId },
-      include: { roles: true },
+      include: { roles: true, orgMembers: true },
     });
     if (existing) return existing;
 
@@ -386,17 +526,19 @@ export class AuthService {
           create: { role: GlobalRole.TENANT },
         },
       },
-      include: { roles: true },
+      include: { roles: true, orgMembers: true },
     });
   }
 
   private toPublicUser(user: UserWithRoles): PublicUser {
+    const orgRoles = [...new Set((user.orgMembers ?? []).map((m) => m.role))];
     return {
       id: user.id,
       phone: user.phone,
       name: user.name,
       email: user.email,
       roles: user.roles.map((r) => r.role),
+      orgRoles,
     };
   }
 

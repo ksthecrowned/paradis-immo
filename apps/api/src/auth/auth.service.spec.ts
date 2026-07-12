@@ -8,7 +8,9 @@ import {
   MessagePayerType,
 } from '@prisma/client';
 import { AuthService } from './auth.service';
+import { EmailService } from './email.service';
 import { InfobipOtpService } from './infobip-otp.service';
+import { MagicLinkStore } from './magic-link.store';
 import { OtpStore } from './otp.store';
 import { PrismaService } from '../prisma/prisma.service';
 import { MessagingBillingService } from '../messaging/messaging-billing.service';
@@ -44,6 +46,8 @@ describe('AuthService', () => {
       providers: [
         AuthService,
         OtpStore,
+        MagicLinkStore,
+        EmailService,
         PrismaService,
         InfobipOtpService,
         MessagingBillingService,
