@@ -22,7 +22,7 @@ export interface ListDataTableProps<T> {
   columns: ListColumn<T>[];
   searchPlaceholder?: string;
   pageSize?: number;
-  emptyMessage?: string;
+  emptyMessage?: React.ReactNode;
   actions?: (row: T) => React.ReactNode;
   entityLabel?: string;
   tableId?: string;

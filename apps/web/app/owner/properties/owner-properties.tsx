@@ -10,11 +10,13 @@ import {
 } from '@/components/dashboard';
 import { ApiError } from '@/lib/api';
 import {
+  archiveProperty,
   formatPropertyPrice,
   listMyProperties,
   propertyModeLabel,
   propertyStatusLabel,
   propertyStatusTone,
+  publishProperty,
   type PublicProperty,
 } from '@/lib/owner/properties';
 import { ROUTES } from '@/lib/routes';
@@ -25,6 +27,7 @@ export function OwnerPropertiesPage(): React.JSX.Element {
   const [rows, setRows] = useState<PublicProperty[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [actionId, setActionId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -48,8 +51,71 @@ export function OwnerPropertiesPage(): React.JSX.Element {
     void load();
   }, [load, ready]);
 
+  const handlePublish = useCallback(
+    async (id: string) => {
+      setActionId(id);
+      try {
+        await publishProperty(id);
+        await load();
+        setError(null);
+      } catch (err) {
+        setError(
+          err instanceof ApiError
+            ? err.message
+            : 'Impossible de publier le bien.',
+        );
+      } finally {
+        setActionId(null);
+      }
+    },
+    [load],
+  );
+
+  const handleArchive = useCallback(
+    async (id: string) => {
+      if (!confirm('Archiver ce bien ?')) return;
+      setActionId(id);
+      try {
+        await archiveProperty(id);
+        await load();
+        setError(null);
+      } catch (err) {
+        setError(
+          err instanceof ApiError
+            ? err.message
+            : 'Impossible d’archiver le bien.',
+        );
+      } finally {
+        setActionId(null);
+      }
+    },
+    [load],
+  );
+
   const columns = useMemo<ListColumn<PublicProperty>[]>(
     () => [
+      {
+        key: 'media',
+        label: 'Photo',
+        className: 'w-16',
+        render: (_value, row) => {
+          const url = row.media
+            ?.slice()
+            .sort((a, b) => a.position - b.position)[0]?.url;
+          return url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={url}
+              alt=""
+              className="size-10 rounded-md object-cover"
+            />
+          ) : (
+            <span className="inline-flex size-10 items-center justify-center rounded-md bg-card-hover text-[10px] text-muted">
+              —
+            </span>
+          );
+        },
+      },
       {
         key: 'title',
         label: 'Titre',
@@ -151,16 +217,54 @@ export function OwnerPropertiesPage(): React.JSX.Element {
         columns={columns}
         loading={loading}
         searchPlaceholder="Rechercher un bien…"
-        emptyMessage="Vous n'avez pas encore publié de bien."
+        emptyMessage={
+          <span className="inline-flex flex-col items-center gap-3 py-2">
+            <span>Vous n’avez pas encore de bien.</span>
+            <Link
+              href={ROUTES.owner.propertiesAdd}
+              className="inline-flex items-center rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white hover:bg-accent/90"
+            >
+              Ajouter un bien
+            </Link>
+          </span>
+        }
         entityLabel="biens"
         onRefresh={() => void load()}
         actions={(row) => (
-          <Link
-            href={ROUTES.owner.property(row.id)}
-            className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-card-hover"
-          >
-            Voir
-          </Link>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <Link
+              href={ROUTES.owner.property(row.id)}
+              className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-card-hover"
+            >
+              Voir
+            </Link>
+            <Link
+              href={ROUTES.owner.property(row.id)}
+              className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-card-hover"
+            >
+              Éditer
+            </Link>
+            {row.status === 'DRAFT' || row.status === 'PAUSED' ? (
+              <button
+                type="button"
+                disabled={actionId === row.id}
+                onClick={() => void handlePublish(row.id)}
+                className="rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-white hover:bg-accent/90 disabled:opacity-50"
+              >
+                Publier
+              </button>
+            ) : null}
+            {row.status !== 'ARCHIVED' ? (
+              <button
+                type="button"
+                disabled={actionId === row.id}
+                onClick={() => void handleArchive(row.id)}
+                className="rounded-lg border border-danger/40 px-3 py-1.5 text-xs font-medium text-danger hover:bg-danger/10 disabled:opacity-50"
+              >
+                Archiver
+              </button>
+            ) : null}
+          </div>
         )}
       />
     </div>
