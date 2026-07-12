@@ -110,3 +110,33 @@ export function emptySeekerDraft(): SeekerSetupDraft {
     preferredQuartierIds: [],
   };
 }
+
+/** True when search URL has no filter/query keys (safe to seed from seeker prefs). */
+export function paramsAreBareSearch(
+  params: Record<string, string | string[] | undefined>,
+): boolean {
+  const keys = [
+    'q',
+    'mode',
+    'city',
+    'cityName',
+    'quartier',
+    'quartierName',
+    'minPrice',
+    'maxPrice',
+    'bedrooms',
+    'bathrooms',
+    'categories',
+    'features',
+    'available',
+    'maxAge',
+    'minAge',
+  ] as const;
+
+  return keys.every((key) => {
+    const value = params[key];
+    if (value == null) return true;
+    if (Array.isArray(value)) return value.every((item) => !String(item).trim());
+    return !String(value).trim();
+  });
+}
