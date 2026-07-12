@@ -85,6 +85,9 @@ describe('mapPublicProperty', () => {
     expect(p.listingStatus).toBe('OCCUPIED');
     expect(p.agencyId).toBe(base.organization!.id);
     expect(p.location).toContain('Pointe-Noire');
+    expect(p.priceAmount).toBe(100000);
+    expect(p.cityId).toBe('c1');
+    expect(p.quartierId).toBe('q1');
   });
 
   test('maps UNDER_OFFER and featured', () => {

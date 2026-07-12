@@ -9,8 +9,13 @@ export const POINTE_NOIRE_REGION = {
   longitudeDelta: 0.08,
 } as const;
 
-/** @deprecated Use POINTE_NOIRE_REGION */
-export const BRAZZAVILLE_REGION = POINTE_NOIRE_REGION;
+/** Brazzaville center */
+export const BRAZZAVILLE_REGION = {
+  latitude: -4.2634,
+  longitude: 15.2429,
+  latitudeDelta: 0.12,
+  longitudeDelta: 0.12,
+} as const;
 
 function houseImages(): ImageSourcePropType[] {
   return [
@@ -29,8 +34,13 @@ export const MOCK_PROPERTIES: Property[] = [
     description:
       'Belle villa R+1 située à Loandjili, dans un quartier calme et résidentiel de Pointe-Noire. La maison offre de beaux volumes, une cuisine équipée, un salon lumineux et un jardin arboré avec parking sécurisé.\n\nIdéale pour une famille, elle dispose de quatre chambres spacieuses, d’un débarras et d’un groupe électrogène pour une autonomie électrique. Climatisation dans les pièces principales, chauffe-eau et wifi inclus.',
     price: '70 000 000 FCFA',
+    priceAmount: 70_000_000,
     coverImage: '',
     location: 'Loandjili, Pointe-Noire',
+    cityId: 'c-pn',
+    cityName: 'Pointe-Noire',
+    quartierId: 'q-lo',
+    quartierName: 'Loandjili',
     floor: 'R+1',
     surface: '180 m²',
     bedrooms: 4,
@@ -69,8 +79,13 @@ export const MOCK_PROPERTIES: Property[] = [
     description:
       'Appartement meublé au 2e étage en plein centre-ville de Pointe-Noire, proche des commerces et des services. Séjour confortable, cuisine fonctionnelle et balcon avec vue sur la rue.\n\nParfait pour une location longue durée : wifi, climatisation, chauffe-eau et eau courante. Accès sécurisé à l’immeuble et parking à proximité.',
     price: '100 000 FCFA',
+    priceAmount: 100_000,
     coverImage: '',
     location: 'Centre-ville, Pointe-Noire',
+    cityId: 'c-pn',
+    cityName: 'Pointe-Noire',
+    quartierId: 'q-cv',
+    quartierName: 'Centre-ville',
     floor: '2e étage',
     surface: '95 m²',
     bedrooms: 3,
@@ -106,8 +121,13 @@ export const MOCK_PROPERTIES: Property[] = [
     description:
       'Maison cosy à Tié-Tié, proposée à la journée pour vos séjours à Pointe-Noire. Espace de vie agréable, cuisine équipée, wifi et climatisation pour un confort immédiat.\n\nIdéale pour un week-end en famille ou entre amis : jardin, terrasse ombragée et parking privé. Groupe électrogène disponible en cas de coupure.',
     price: '45 000 FCFA',
+    priceAmount: 45_000,
     coverImage: '',
     location: 'Tié-Tié, Pointe-Noire',
+    cityId: 'c-pn',
+    cityName: 'Pointe-Noire',
+    quartierId: 'q-tt',
+    quartierName: 'Tié-Tié',
     floor: 'RDC',
     surface: '120 m²',
     bedrooms: 3,
@@ -146,8 +166,13 @@ export const MOCK_PROPERTIES: Property[] = [
     description:
       'Terrain constructible de 400 m² à Mongo-Poukou, dans un secteur en développement de Pointe-Noire. Accès facile, environnement calme, idéal pour un projet de villa ou d’investissement.\n\nTitre et bornage à vérifier avec l’agence. Possibilité de visite accompagnée sur rendez-vous.',
     price: '12 000 000 FCFA',
+    priceAmount: 12_000_000,
     coverImage: '',
     location: 'Mongo-Poukou, Pointe-Noire',
+    cityId: 'c-pn',
+    cityName: 'Pointe-Noire',
+    quartierId: 'q-mp',
+    quartierName: 'Mongo-Poukou',
     surface: '400 m²',
     condition: 'Terrain nu',
     lotSize: '400 m²',

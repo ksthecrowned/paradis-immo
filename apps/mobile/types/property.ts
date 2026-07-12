@@ -34,9 +34,15 @@ export type Property = {
   description: string;
   /** Amount label without period suffix, e.g. "100 000 FCFA". */
   price: string;
+  /** Numeric FCFA amount from API (for range filters). */
+  priceAmount: number;
   coverImage: string;
   images?: string[];
   location?: string;
+  cityId?: string;
+  cityName?: string;
+  quartierId?: string;
+  quartierName?: string;
   bedrooms?: number;
   bathrooms?: number;
   surface?: string;
