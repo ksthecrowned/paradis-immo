@@ -26,6 +26,7 @@ export const ROUTES = {
     visits: '/agent/visits',
     leases: '/agent/leases',
     paymentsValidation: '/agent/payments/validation',
+    messaging: '/agent/messaging',
     maintenance: '/agent/maintenance',
     sales: '/agent/sales',
     bookings: '/agent/bookings',
@@ -64,6 +65,7 @@ export const AGENT_NAV: NavItem[] = [
   { href: ROUTES.agent.leases, label: 'Baux' },
   { href: ROUTES.agent.sales, label: 'Demandes vente' },
   { href: ROUTES.agent.paymentsValidation, label: 'Validation paiements' },
+  { href: ROUTES.agent.messaging, label: 'Messaging SMS' },
   { href: ROUTES.agent.maintenance, label: 'Maintenance' },
 ];
 
@@ -88,6 +90,7 @@ const BREADCRUMB_LABELS: Record<string, string> = {
   leases: 'Baux',
   payments: 'Paiements',
   validation: 'Validation paiements',
+  messaging: 'Messaging SMS',
   maintenance: 'Maintenance',
   mandate: 'Mon mandat',
   portfolio: 'Portefeuille',
