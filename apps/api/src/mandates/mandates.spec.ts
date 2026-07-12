@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { EventPublisher } from '../events/event.publisher';
 import { MandatesService } from './mandates.service';
 import { MandateApprovalService } from './mandate-approval.service';
+import { AgencyAccessService } from './agency-access.service';
 
 describe('Mandate delegation + owner approval', () => {
   let mandates: MandatesService;
@@ -31,6 +32,7 @@ describe('Mandate delegation + owner approval', () => {
       providers: [
         MandatesService,
         MandateApprovalService,
+        AgencyAccessService,
         PrismaService,
         { provide: EventPublisher, useValue: eventBus },
       ],
