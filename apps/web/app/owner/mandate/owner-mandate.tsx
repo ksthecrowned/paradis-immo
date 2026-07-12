@@ -12,7 +12,7 @@ import {
   type PublicMandateApproval,
 } from '@/lib/owner/mandates';
 import { listMyProperties } from '@/lib/owner/properties';
-import { listMyOrganizations } from '@/lib/me';
+import { listPublicAgencies } from '@/lib/public/agencies';
 import { useRequireSession } from '@/hooks/use-require-session';
 
 function formatDate(iso: string): string {
@@ -78,14 +78,14 @@ export function OwnerMandatePage(): React.JSX.Element {
     void load();
     void (async () => {
       try {
-        const [props, orgs] = await Promise.all([
+        const [props, agencies] = await Promise.all([
           listMyProperties(),
-          listMyOrganizations(),
+          listPublicAgencies(),
         ]);
         setProperties(props.map((p) => ({ id: p.id, title: p.title })));
-        setOrganizations(orgs.map((o) => ({ id: o.id, name: o.name })));
+        setOrganizations(agencies.map((o) => ({ id: o.id, name: o.name })));
         if (props[0]) setPropertyId(props[0].id);
-        if (orgs[0]) setOrganizationId(orgs[0].id);
+        if (agencies[0]) setOrganizationId(agencies[0].id);
       } catch {
         // optional prefill
       }
