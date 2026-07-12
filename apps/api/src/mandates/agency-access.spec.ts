@@ -180,6 +180,16 @@ describe('AgencyAccessService', () => {
     ).rejects.toBeInstanceOf(ForbiddenException);
   });
 
+  it('listOperablePropertyIds excludes unassigned field agents', async () => {
+    const gerantIds = await access.listOperablePropertyIds(gerantUserId);
+    const assignedIds = await access.listOperablePropertyIds(assignedAgentId);
+    const unassignedIds =
+      await access.listOperablePropertyIds(unassignedAgentId);
+    expect(gerantIds).toContain(propertyId);
+    expect(assignedIds).toContain(propertyId);
+    expect(unassignedIds).not.toContain(propertyId);
+  });
+
   it('forbids a stranger', async () => {
     const stranger = await prisma.user.create({
       data: {

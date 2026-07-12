@@ -1,7 +1,6 @@
 import {
   BadRequestException,
   ConflictException,
-  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -16,6 +15,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { EventPublisher } from '../events/event.publisher';
 import { DOMAIN_EVENTS } from '../events/event.types';
+import { AgencyAccessService } from '../mandates/agency-access.service';
 
 export interface PublicVisitSlotTemplate {
   id: string;
@@ -55,6 +55,7 @@ export class VisitSlotsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly events: EventPublisher,
+    private readonly agencyAccess: AgencyAccessService,
   ) {}
 
   // ------------------------------------------------------------------
@@ -376,17 +377,8 @@ export class VisitSlotsService {
   }
 
   async listManagedBookings(userId: string): Promise<PublicVisitBooking[]> {
-    // Properties the user can manage (owner or org member).
-    const properties = await this.prisma.property.findMany({
-      where: {
-        OR: [
-          { ownerId: userId },
-          { organization: { members: { some: { userId } } } },
-        ],
-      },
-      select: { id: true },
-    });
-    const ids = properties.map((p) => p.id);
+    const ids = await this.agencyAccess.listOperablePropertyIds(userId);
+    if (ids.length === 0) return [];
     const rows = await this.prisma.visitBooking.findMany({
       where: { propertyId: { in: ids } },
       include: { slot: true },
@@ -460,51 +452,7 @@ export class VisitSlotsService {
     userId: string,
     propertyId: string,
   ): Promise<void> {
-    const property = await this.prisma.property.findUnique({
-      where: { id: propertyId },
-      select: { id: true, ownerId: true, organizationId: true },
-    });
-    if (!property) {
-      throw new NotFoundException({
-        code: 'PROPERTY_NOT_FOUND',
-        message: 'Property does not exist',
-      });
-    }
-    if (property.ownerId === userId) return;
-    const membership = await this.prisma.organizationMember.findUnique({
-      where: {
-        userId_organizationId: {
-          userId,
-          organizationId: property.organizationId,
-        },
-      },
-    });
-    if (!membership) {
-      throw new ForbiddenException({
-        code: 'NOT_PROPERTY_OWNER',
-        message:
-          'Only the owner or a member of the managing org can manage visit slots',
-      });
-    }
-
-    // If the property is under an active mandate with a different org, only
-    // an AGENT of the mandated org (not the property's owner org) may manage
-    // visit templates.
-    const activeMandate = await this.prisma.mandate.findFirst({
-      where: { propertyId, status: 'ACTIVE' },
-      select: { organizationId: true },
-    });
-    if (
-      activeMandate &&
-      activeMandate.organizationId !== property.organizationId &&
-      membership.role !== 'AGENT'
-    ) {
-      throw new ForbiddenException({
-        code: 'MANDATE_REQUIRES_AGENT',
-        message:
-          'This property is under a mandate; only an AGENT of the mandated org can manage visit templates',
-      });
-    }
+    await this.agencyAccess.assertCanOperateOnProperty(userId, propertyId);
   }
 
   private templateToPublic(

@@ -1,6 +1,7 @@
 import { Test } from '@nestjs/testing';
 import { PrismaService } from '../prisma/prisma.service';
 import { EventPublisher } from '../events/event.publisher';
+import { AgencyAccessService } from '../mandates/agency-access.service';
 import { VisitSlotsService } from './visit-slots.service';
 
 describe('VisitSlotsService — booking flow', () => {
@@ -19,6 +20,7 @@ describe('VisitSlotsService — booking flow', () => {
     const moduleRef = await Test.createTestingModule({
       providers: [
         VisitSlotsService,
+        AgencyAccessService,
         PrismaService,
         { provide: EventPublisher, useValue: { emit: jest.fn() } },
       ],

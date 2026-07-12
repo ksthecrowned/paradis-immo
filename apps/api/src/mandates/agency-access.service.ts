@@ -89,4 +89,50 @@ export class AgencyAccessService {
       });
     }
   }
+
+  /**
+   * Property IDs the user may operate on: owned, assigned/gérant under
+   * active mandate, or org member on properties without an active mandate.
+   */
+  async listOperablePropertyIds(userId: string): Promise<string[]> {
+    const [owned, mandated, orgUnmanaged] = await Promise.all([
+      this.prisma.property.findMany({
+        where: { ownerId: userId },
+        select: { id: true },
+        take: 500,
+      }),
+      this.prisma.mandate.findMany({
+        where: {
+          status: MandateStatus.ACTIVE,
+          OR: [
+            {
+              organization: {
+                members: {
+                  some: { userId, role: OrgMemberRole.ADMIN },
+                },
+              },
+            },
+            { assignedAgentId: userId },
+          ],
+        },
+        select: { propertyId: true },
+      }),
+      this.prisma.property.findMany({
+        where: {
+          organization: { members: { some: { userId } } },
+          NOT: { mandates: { some: { status: MandateStatus.ACTIVE } } },
+        },
+        select: { id: true },
+        take: 500,
+      }),
+    ]);
+
+    return [
+      ...new Set([
+        ...owned.map((p) => p.id),
+        ...mandated.map((m) => m.propertyId),
+        ...orgUnmanaged.map((p) => p.id),
+      ]),
+    ];
+  }
 }

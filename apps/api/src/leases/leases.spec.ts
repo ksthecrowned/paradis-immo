@@ -4,6 +4,7 @@ import { EventPublisher } from '../events/event.publisher';
 import { LeasesService } from './leases.service';
 import { RentScheduleGenerator } from './rent-schedule.generator.service';
 import { MandateApprovalService } from '../mandates/mandate-approval.service';
+import { AgencyAccessService } from '../mandates/agency-access.service';
 import { generateRentSchedule } from './rent-schedule.generator';
 
 describe('RentScheduleGenerator (unit)', () => {
@@ -63,6 +64,7 @@ describe('LeasesService — schedule generation', () => {
             requireApproval: jest.fn(),
           },
         },
+        AgencyAccessService,
         { provide: EventPublisher, useValue: eventBus },
       ],
     }).compile();

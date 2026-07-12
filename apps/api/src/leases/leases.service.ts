@@ -12,6 +12,7 @@ import { RentScheduleGenerator } from './rent-schedule.generator.service';
 import { ListLeasesDto } from './dto/list-leases.dto';
 import { MandateApprovalService } from '../mandates/mandate-approval.service';
 import type { PublicMandateApproval } from '../mandates/mandate-approval.service';
+import { AgencyAccessService } from '../mandates/agency-access.service';
 
 export interface PublicLease {
   id: string;
@@ -52,6 +53,7 @@ export class LeasesService {
     private readonly events: EventPublisher,
     private readonly scheduleGen: RentScheduleGenerator,
     private readonly approvals: MandateApprovalService,
+    private readonly agencyAccess: AgencyAccessService,
   ) {}
 
   async createLease(
@@ -122,21 +124,7 @@ export class LeasesService {
     userId: string,
     filter: ListLeasesDto,
   ): Promise<PublicLease[]> {
-    const accessible = await this.prisma.property.findMany({
-      where: {
-        OR: [
-          { ownerId: userId },
-          {
-            organization: {
-              members: { some: { userId } },
-            },
-          },
-        ],
-      },
-      select: { id: true },
-      take: 500, // safety net: at most 500 distinct properties
-    });
-    const propertyIds = accessible.map((p) => p.id);
+    const propertyIds = await this.agencyAccess.listOperablePropertyIds(userId);
     if (propertyIds.length === 0) return [];
 
     const rows = await this.prisma.lease.findMany({
@@ -177,7 +165,7 @@ export class LeasesService {
         message: 'Lease does not exist',
       });
     }
-    await this.assertCanManageLease(userId, lease);
+    await this.assertCanManageLease(userId, lease.propertyId);
 
     const mandate = await this.findActiveMandate(lease.propertyId);
     if (!mandate) {
@@ -331,25 +319,8 @@ export class LeasesService {
 
   private async assertCanManageLease(
     userId: string,
-    lease: {
-      property: { ownerId: string; organizationId: string };
-    },
+    propertyId: string,
   ): Promise<void> {
-    if (lease.property.ownerId === userId) return;
-    const membership = await this.prisma.organizationMember.findUnique({
-      where: {
-        userId_organizationId: {
-          userId,
-          organizationId: lease.property.organizationId,
-        },
-      },
-    });
-    if (!membership) {
-      throw new ForbiddenException({
-        code: 'NOT_PROPERTY_OWNER',
-        message:
-          'Only the owner or a member of the managing org can manage this lease',
-      });
-    }
+    await this.agencyAccess.assertCanOperateOnProperty(userId, propertyId);
   }
 }
