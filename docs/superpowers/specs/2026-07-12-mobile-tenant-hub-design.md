@@ -5,7 +5,8 @@
 **Scope:** Mobile UI — replace Activité in the tab bar with a **Locations** tenant hub (pay rent first, prospect pipeline when no lease). Activity becomes a secondary historique screen. UI-first on existing mocks.
 
 **Inspired by:** [TenantApp](https://www.tenantapp.com/) (rent pay / tenant home)  
-**Explicitly not:** [Immofacile / Orisha](https://realestate.orisha.com/nos-solutions/immofacile/) (B2B transaction CRM)
+**Explicitly not:** [Immofacile / Orisha](https://realestate.orisha.com/nos-solutions/immofacile/) (B2B transaction CRM)  
+**Discovery network ref only:** [RE/MAX Québec](https://www.remax-quebec.com/) (find home / broker — not tenant ops)
 
 ## Goal
 
