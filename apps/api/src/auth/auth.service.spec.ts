@@ -1,41 +1,61 @@
-import { ConflictException, UnauthorizedException } from '@nestjs/common';
+import { UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Test } from '@nestjs/testing';
-import { Country, GlobalRole } from '@prisma/client';
+import {
+  GlobalRole,
+  MessageChannel,
+  MessageChargeStatus,
+  MessagePayerType,
+} from '@prisma/client';
 import { AuthService } from './auth.service';
 import { InfobipOtpService } from './infobip-otp.service';
-import { EventPublisher } from '../events/event.publisher';
 import { OtpStore } from './otp.store';
 import { PrismaService } from '../prisma/prisma.service';
+import { MessagingBillingService } from '../messaging/messaging-billing.service';
+import { phonePayerId } from '../messaging/messaging.config';
 
 describe('AuthService', () => {
   let service: AuthService;
   let prisma: PrismaService;
   let otpStore: OtpStore;
-  let country: Country;
   const phone = '+242061234567';
 
+  async function cleanupPhone() {
+    await prisma.messageCharge.deleteMany({ where: { recipientPhone: phone } });
+    const users = await prisma.user.findMany({ where: { phone } });
+    for (const u of users) {
+      await prisma.refreshToken.deleteMany({ where: { userId: u.id } });
+      await prisma.userRole.deleteMany({ where: { userId: u.id } });
+      await prisma.messageCharge.updateMany({
+        where: { userId: u.id },
+        data: { userId: null, settledPaymentId: null },
+      });
+      await prisma.user.delete({ where: { id: u.id } });
+    }
+    await prisma.otpChallenge.deleteMany({ where: { phone } });
+  }
+
   beforeAll(async () => {
+    process.env.USD_TO_XAF = process.env.USD_TO_XAF || '600';
+    process.env.OTP_FREE_PER_MONTH = process.env.OTP_FREE_PER_MONTH || '10';
+    process.env.OTP_UNIT_USD = process.env.OTP_UNIT_USD || '0.006';
+
     const moduleRef = await Test.createTestingModule({
       providers: [
         AuthService,
         OtpStore,
         PrismaService,
         InfobipOtpService,
+        MessagingBillingService,
         {
           provide: JwtService,
           useValue: {
             signAsync: jest.fn(async (payload) => {
-              // Unique token per call so refresh tokens don't collide on tokenHash
               const uniq = `${payload.sub}-${payload.jti ?? 'access'}-${Date.now()}-${Math.random()}`;
               return `token.${Buffer.from(uniq).toString('base64url')}`;
             }),
             verifyAsync: jest.fn(async () => ({})),
           },
-        },
-        {
-          provide: EventPublisher,
-          useValue: { emit: jest.fn() },
         },
       ],
     }).compile();
@@ -45,9 +65,8 @@ describe('AuthService', () => {
     prisma = moduleRef.get(PrismaService);
     await prisma.onModuleInit();
 
-    country =
-      (await prisma.country.findUnique({ where: { code: 'CG' } })) ??
-      (await prisma.country.create({
+    if (!(await prisma.country.findUnique({ where: { code: 'CG' } }))) {
+      await prisma.country.create({
         data: {
           code: 'CG',
           name: 'Congo',
@@ -55,16 +74,14 @@ describe('AuthService', () => {
           phonePrefix: '+242',
           activeProviders: ['AIRTEL'],
         },
-      }));
+      });
+    }
 
-    // Cleanup any leftover user from previous test runs
-    await prisma.user.deleteMany({ where: { phone } }).catch(() => undefined);
+    await cleanupPhone();
   });
 
   afterAll(async () => {
-    await prisma.user.deleteMany({ where: { phone } }).catch(() => undefined);
-    await prisma.otpChallenge.deleteMany({ where: { phone } }).catch(() => undefined);
-    await prisma.onModuleDestroy();
+    await prisma.onModuleDestroy().catch(() => undefined);
   });
 
   it('requestOtp stores a 6-digit code in Postgres with 5min TTL', async () => {
@@ -73,7 +90,24 @@ describe('AuthService', () => {
     expect(code).toMatch(/^\d{6}$/);
   });
 
+  it('requestOtp records a MessageCharge after successful send', async () => {
+    await cleanupPhone();
+    await service.requestOtp({ phone });
+    const charge = await prisma.messageCharge.findFirst({
+      where: {
+        recipientPhone: phone,
+        channel: MessageChannel.WHATSAPP_OTP,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+    expect(charge).not.toBeNull();
+    expect(charge!.payerId).toBe(phonePayerId(phone));
+    expect(charge!.status).toBe(MessageChargeStatus.FREE);
+  });
+
   it('verifyOtp returns tokens for valid code', async () => {
+    await cleanupPhone();
+    await service.requestOtp({ phone });
     const code = await otpStore.peek(phone);
     expect(code).not.toBeNull();
     const result = await service.verifyOtp({ phone, code: code! });
@@ -82,7 +116,6 @@ describe('AuthService', () => {
     expect(result.user.phone).toBe(phone);
     expect(result.user.roles).toContain('TENANT');
 
-    // User was created in DB
     const userInDb = await prisma.user.findFirst({
       where: { phone },
       include: { roles: true },
@@ -91,17 +124,58 @@ describe('AuthService', () => {
     expect(userInDb!.roles.some((r) => r.role === GlobalRole.TENANT)).toBe(true);
   });
 
+  it('verifyOtp attaches phone:{e164} charges to user', async () => {
+    await cleanupPhone();
+
+    await prisma.messageCharge.create({
+      data: {
+        channel: MessageChannel.WHATSAPP_OTP,
+        payerType: MessagePayerType.USER,
+        payerId: phonePayerId(phone),
+        recipientPhone: phone,
+        billingMonth: '2099-01',
+        unitUsd: 0.006,
+        fxRate: 600,
+        amountXaf: 4,
+        status: MessageChargeStatus.OPEN,
+        idempotencyKey: `otp-attach-test:${phone}`,
+      },
+    });
+
+    await otpStore.put(phone, '654321');
+    const result = await service.verifyOtp({ phone, code: '654321' });
+
+    const charge = await prisma.messageCharge.findFirst({
+      where: { idempotencyKey: `otp-attach-test:${phone}` },
+    });
+    expect(charge).not.toBeNull();
+    expect(charge!.payerId).toBe(result.user.id);
+    expect(charge!.userId).toBe(result.user.id);
+  });
+
   it('verifyOtp rejects an incorrect code', async () => {
-    await otpStore.put(phone, '000000');
-    await expect(service.verifyOtp({ phone, code: '111111' })).rejects.toThrow(
-      UnauthorizedException,
-    );
+    const badPhone = '+242061234568';
+    await prisma.otpChallenge.deleteMany({ where: { phone: badPhone } });
+    await otpStore.put(badPhone, '000000');
+    let err: unknown;
+    try {
+      await service.verifyOtp({ phone: badPhone, code: '111111' });
+    } catch (e) {
+      err = e;
+    }
+    expect(err).toBeInstanceOf(UnauthorizedException);
+    await prisma.otpChallenge.deleteMany({ where: { phone: badPhone } });
   });
 
   it('verifyOtp rejects when no OTP requested', async () => {
-    await otpStore.del('+242069999999');
-    await expect(
-      service.verifyOtp({ phone: '+242069999999', code: '123456' }),
-    ).rejects.toThrow(UnauthorizedException);
+    const unknown = '+242069999999';
+    await otpStore.del(unknown);
+    let err: unknown;
+    try {
+      await service.verifyOtp({ phone: unknown, code: '123456' });
+    } catch (e) {
+      err = e;
+    }
+    expect(err).toBeInstanceOf(UnauthorizedException);
   });
 });

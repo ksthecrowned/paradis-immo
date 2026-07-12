@@ -8,6 +8,7 @@ import { JwtService } from '@nestjs/jwt';
 import { Country, GlobalRole, User } from '@prisma/client';
 import * as crypto from 'node:crypto';
 import { PrismaService } from '../prisma/prisma.service';
+import { MessagingBillingService } from '../messaging/messaging-billing.service';
 import { InfobipOtpService } from './infobip-otp.service';
 import { OtpStore } from './otp.store';
 
@@ -35,6 +36,7 @@ interface PublicUser {
   id: string;
   phone: string;
   name: string | null;
+  email: string | null;
   roles: string[];
 }
 
@@ -46,6 +48,7 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly otpStore: OtpStore,
     private readonly infobip: InfobipOtpService,
+    private readonly messaging: MessagingBillingService,
     private readonly jwt: JwtService,
   ) {}
 
@@ -61,6 +64,7 @@ export class AuthService {
     const code = this.generateCode();
     await this.otpStore.put(input.phone, code);
     await this.infobip.sendOtp({ to: input.phone, code });
+    await this.messaging.recordOtp(input.phone);
   }
 
   async verifyOtp(input: { phone: string; code: string }): Promise<AuthTokens> {
@@ -90,6 +94,7 @@ export class AuthService {
 
     const country = await this.getOrCreateCountryForPhone(input.phone);
     const user = await this.getOrCreateUser(input.phone, country.id);
+    await this.messaging.attachPhoneChargesToUser(input.phone, user.id);
 
     const tokens = await this.issueTokens(user);
     return { ...tokens, user: this.toPublicUser(user) };
@@ -203,6 +208,7 @@ export class AuthService {
       id: user.id,
       phone: user.phone,
       name: user.name,
+      email: user.email,
       roles: user.roles.map((r) => r.role),
     };
   }
