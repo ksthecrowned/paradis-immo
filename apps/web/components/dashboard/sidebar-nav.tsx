@@ -23,12 +23,6 @@ const ROLE_NAV: Record<DashboardRole, NavItem[]> = {
   admin: ADMIN_NAV,
 };
 
-const NAV_BADGES: Partial<Record<string, string>> = {
-  '/admin/dashboard': '03',
-  '/agent/payments/validation': '03',
-  '/owner/dashboard': '01',
-};
-
 export interface SidebarNavProps {
   role: DashboardRole;
   collapsed?: boolean;
@@ -57,7 +51,6 @@ export function SidebarNav({
         {items.map((item) => {
           const active = isNavActive(pathname, item);
           const icon = NAV_ROUTE_ICONS[item.href] ?? DASH_ICONS.dashboard;
-          const badge = NAV_BADGES[item.href];
           return (
             <li key={item.href}>
               <Link
@@ -83,14 +76,7 @@ export function SidebarNav({
                   }
                 />
                 {!collapsed ? (
-                  <>
-                    <span className="min-w-0 flex-1 truncate">{item.label}</span>
-                    {badge ? (
-                      <span className="inline-flex min-w-5 items-center justify-center rounded-md bg-accent px-1.5 py-0.5 text-[10px] font-semibold text-white">
-                        {badge}
-                      </span>
-                    ) : null}
-                  </>
+                  <span className="min-w-0 flex-1 truncate">{item.label}</span>
                 ) : null}
               </Link>
             </li>
