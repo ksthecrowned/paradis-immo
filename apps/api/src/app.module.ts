@@ -13,6 +13,7 @@ import { LocationsModule } from './locations/locations.module';
 import { MaintenanceModule } from './maintenance/maintenance.module';
 import { MandatesModule } from './mandates/mandates.module';
 import { MediaModule } from './media/media.module';
+import { MessagingModule } from './messaging/messaging.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { PaymentsModule } from './payments/payments.module';
 import { SalesModule } from './sales/sales.module';
@@ -42,6 +43,7 @@ import { VisitSlotsModule } from './visit-slots/visit-slots.module';
     MaintenanceModule,
     MandatesModule,
     MediaModule,
+    MessagingModule,
     NotificationsModule,
     PaymentsModule,
     SalesModule,
