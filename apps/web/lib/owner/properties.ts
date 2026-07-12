@@ -6,6 +6,13 @@ export type PriceUnit = 'NIGHT' | 'WEEK' | 'MONTH' | 'TOTAL';
 export type PropertyStatus = 'DRAFT' | 'ACTIVE' | 'PAUSED' | 'ARCHIVED';
 export type VisitType = 'FREE' | 'PAID';
 
+export type ListingStatus =
+  | 'AVAILABLE'
+  | 'SOLD'
+  | 'UNDER_OFFER'
+  | 'OCCUPIED'
+  | 'AVAILABLE_SOON';
+
 export interface PublicProperty {
   id: string;
   title: string;
@@ -26,6 +33,11 @@ export interface PublicProperty {
   visitType: VisitType | null;
   visitPrice: number | null;
   visitDuration: number | null;
+  listingStatus?: ListingStatus;
+  availableFrom?: string | null;
+  isFeatured?: boolean;
+  floor?: string | null;
+  media?: Array<{ id: string; url: string; type: string; position: number }>;
   quartier: {
     id: string;
     name: string;
@@ -36,6 +48,7 @@ export interface PublicProperty {
     };
   };
   ownerOrg: { id: string; name: string; type: string };
+  organization?: { id: string; name: string; type: string };
   ownerId: string;
   createdAt: string;
   updatedAt: string;
@@ -101,6 +114,18 @@ export async function archiveProperty(id: string): Promise<PublicProperty> {
   });
 }
 
+export async function publishProperty(id: string): Promise<PublicProperty> {
+  return apiFetch<PublicProperty>(`/properties/${id}/publish`, {
+    method: 'POST',
+  });
+}
+
+export async function pauseProperty(id: string): Promise<PublicProperty> {
+  return apiFetch<PublicProperty>(`/properties/${id}/pause`, {
+    method: 'POST',
+  });
+}
+
 export function defaultPriceUnit(mode: PropertyMode): PriceUnit {
   if (mode === 'RENT_LONG') return 'MONTH';
   if (mode === 'RENT_SHORT') return 'NIGHT';
@@ -114,6 +139,57 @@ export function propertyModeLabel(mode: string): string {
     SALE: 'Vente',
   };
   return map[mode] ?? mode;
+}
+
+/** Mobile card badge (mode) — shorter labels matching the app. */
+export function propertyCardModeLabel(mode: string): string {
+  const map: Record<string, string> = {
+    RENT_LONG: 'Location',
+    RENT_SHORT: 'Location journalière',
+    SALE: 'Vente',
+  };
+  return map[mode] ?? mode;
+}
+
+/** Card badge: listing status when blocked / soon, else mode label. */
+export function propertyCardBadgeLabel(property: PublicProperty): string {
+  switch (property.listingStatus) {
+    case 'UNDER_OFFER':
+      return 'Sous offre';
+    case 'OCCUPIED':
+      return 'Occupé';
+    case 'SOLD':
+      return 'Vendu';
+    case 'AVAILABLE_SOON':
+      return 'Bientôt disponible';
+    default:
+      return propertyCardModeLabel(property.mode);
+  }
+}
+
+export function formatCardPriceLabel(property: PublicProperty): string {
+  const amount =
+    property.currency === 'XAF' || property.currency === 'FCFA'
+      ? `${property.price.toLocaleString('fr-FR').replace(/\u202f/g, ' ')} FCFA`
+      : new Intl.NumberFormat('fr-FR', {
+          style: 'currency',
+          currency: property.currency,
+          maximumFractionDigits: 0,
+        }).format(property.price);
+  if (property.mode === 'RENT_LONG') return `${amount} /mois`;
+  if (property.mode === 'RENT_SHORT') return `${amount} /jour`;
+  return amount;
+}
+
+export function propertyLocationLabel(property: PublicProperty): string {
+  return `${property.quartier.name}, ${property.quartier.arrondissement.city.name}`;
+}
+
+export function propertyCoverUrl(property: PublicProperty): string | null {
+  const media = [...(property.media ?? [])].sort(
+    (a, b) => a.position - b.position,
+  );
+  return media[0]?.url ?? null;
 }
 
 export function propertyTypeLabel(type: string): string {
