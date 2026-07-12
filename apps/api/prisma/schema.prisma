@@ -204,6 +204,18 @@ enum NotificationChannel {
   SMS
 }
 
+enum SeekerIntent {
+  RENT
+  BUY
+  BOTH
+}
+
+enum SeekerExperience {
+  FIRST_TIME
+  RETURNING
+  PRO
+}
+
 enum NotificationStatus {
   PENDING
   SENT
@@ -245,30 +257,36 @@ model Country {
 }
 
 model User {
-  id                  String               @id @default(cuid())
-  phone               String
-  email               String?
-  name                String?
-  avatarUrl           String?
-  fcmToken            String?
-  notificationChannel NotificationChannel  @default(PUSH)
-  countryId           String
-  country             Country              @relation(fields: [countryId], references: [id])
-  createdAt           DateTime             @default(now())
-  updatedAt           DateTime             @updatedAt
-  orgMembers          OrganizationMember[]
-  roles               UserRole[]
-  refreshTokens       RefreshToken[]
-  favorites           Favorite[]
-  visitBookings       VisitBooking[]
-  bookings            Booking[]
-  leases              Lease[]              @relation("LeaseTenant")
-  saleInquiries       SaleInquiry[]
-  payments            Payment[]
-  tickets             MaintenanceTicket[]  @relation("TicketReporter")
-  assignedTickets     MaintenanceTicket[]  @relation("TicketAssignee")
-  notifications       Notification[]
-  messageCharges      MessageCharge[]      @relation("MessageChargeUser")
+  id                     String               @id @default(cuid())
+  phone                  String
+  email                  String?
+  name                   String?
+  avatarUrl              String?
+  fcmToken               String?
+  notificationChannel    NotificationChannel  @default(PUSH)
+  seekerIntent           SeekerIntent?
+  seekerExperience       SeekerExperience?
+  budgetMinXaf           Int?
+  budgetMaxXaf           Int?
+  preferredQuartierIds   String[]             @default([])
+  seekerSetupCompletedAt DateTime?
+  countryId              String
+  country                Country              @relation(fields: [countryId], references: [id])
+  createdAt              DateTime             @default(now())
+  updatedAt              DateTime             @updatedAt
+  orgMembers             OrganizationMember[]
+  roles                  UserRole[]
+  refreshTokens          RefreshToken[]
+  favorites              Favorite[]
+  visitBookings          VisitBooking[]
+  bookings               Booking[]
+  leases                 Lease[]              @relation("LeaseTenant")
+  saleInquiries          SaleInquiry[]
+  payments               Payment[]
+  tickets                MaintenanceTicket[]  @relation("TicketReporter")
+  assignedTickets        MaintenanceTicket[]  @relation("TicketAssignee")
+  notifications          Notification[]
+  messageCharges         MessageCharge[]      @relation("MessageChargeUser")
 
   @@unique([phone, countryId])
 }
