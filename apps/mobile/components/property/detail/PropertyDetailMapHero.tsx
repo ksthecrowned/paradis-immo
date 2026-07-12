@@ -58,7 +58,7 @@ export function PropertyDetailMapHero({
         <LinearGradient
           colors={[
             'rgba(247, 247, 253, 0.25)',
-            'rgba(247, 247, 253, 0.55)',
+            'rgba(247, 247, 253, 0.25)',
             colors.bg,
           ]}
           locations={[0, 0.45, 1]}
@@ -183,7 +183,7 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: radii.full,
-    backgroundColor: 'rgba(108, 114, 127, 0.35)',
+    backgroundColor: 'rgba(108, 114, 127, 0.55)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -269,18 +269,18 @@ const styles = StyleSheet.create({
   },
   statusBadge: {
     backgroundColor: colors.primary,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
     borderRadius: radii.full,
   },
   statusBadgeText: {
     fontSize: 12,
     fontWeight: '700',
-    color: colors.surface,
+    color: colors.onPrimary,
   },
   indispoBadge: {
     backgroundColor: '#FEE2E2',
-    paddingHorizontal: 12,
+    paddingHorizontal: 16,
     paddingVertical: 7,
     borderRadius: radii.full,
   },

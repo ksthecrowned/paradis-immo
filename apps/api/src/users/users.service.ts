@@ -22,7 +22,7 @@ export interface PublicUser {
   countryId: string;
   roles: string[];
   createdAt: string;
-  seekerIntent: 'RENT' | 'BUY' | 'BOTH' | null;
+  seekerIntent: 'RENT' | 'BUY' | 'VISIT' | 'ALL_OPTIONS' | null;
   seekerExperience: 'FIRST_TIME' | 'RETURNING' | 'PRO' | null;
   budgetMinXaf: number | null;
   budgetMaxXaf: number | null;
@@ -45,7 +45,7 @@ type UpdateMePatch = {
   avatarUrl?: string;
   fcmToken?: string;
   notificationChannel?: 'PUSH' | 'SMS';
-  seekerIntent?: 'RENT' | 'BUY' | 'BOTH';
+  seekerIntent?: 'RENT' | 'BUY' | 'VISIT' | 'ALL_OPTIONS';
   seekerExperience?: 'FIRST_TIME' | 'RETURNING' | 'PRO';
   budgetMinXaf?: number;
   budgetMaxXaf?: number;

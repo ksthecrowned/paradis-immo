@@ -1,4 +1,4 @@
-CREATE TYPE "SeekerIntent" AS ENUM ('RENT', 'BUY', 'BOTH');
+CREATE TYPE "SeekerIntent" AS ENUM ('RENT', 'BUY', 'VISIT', 'ALL_OPTIONS');
 CREATE TYPE "SeekerExperience" AS ENUM ('FIRST_TIME', 'RETURNING', 'PRO');
 
 ALTER TABLE "User"

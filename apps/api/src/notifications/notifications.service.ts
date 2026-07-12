@@ -115,6 +115,12 @@ export class NotificationsService {
       const body = this.renderPushBody(input.payload);
       const data = this.renderPushData(input.type, input.payload);
       result = await this.fcm.sendPush(user.fcmToken, title, body, data);
+      if (!result.ok && result.reason === 'INVALID_TOKEN') {
+        await this.prisma.user.update({
+          where: { id: input.userId },
+          data: { fcmToken: null },
+        });
+      }
     }
 
     return result.ok

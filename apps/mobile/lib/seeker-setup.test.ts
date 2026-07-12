@@ -31,9 +31,20 @@ describe('seekerPrefsToSearchFilters', () => {
     expect(f.mode).toBe('SALE');
   });
 
-  test('BOTH defaults to RENT_LONG', () => {
+  test('VISIT defaults to RENT_LONG', () => {
     const f = seekerPrefsToSearchFilters({
-      seekerIntent: 'BOTH',
+      seekerIntent: 'VISIT',
+      seekerExperience: null,
+      budgetMinXaf: null,
+      budgetMaxXaf: null,
+      preferredQuartierIds: [],
+    });
+    expect(f.mode).toBe('RENT_LONG');
+  });
+
+  test('ALL_OPTIONS defaults to RENT_LONG', () => {
+    const f = seekerPrefsToSearchFilters({
+      seekerIntent: 'ALL_OPTIONS',
       seekerExperience: null,
       budgetMinXaf: null,
       budgetMaxXaf: null,

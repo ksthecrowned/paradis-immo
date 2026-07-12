@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "OtpChallenge" ADD COLUMN "purpose" TEXT NOT NULL DEFAULT 'REGISTER';

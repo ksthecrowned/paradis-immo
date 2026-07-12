@@ -27,12 +27,12 @@ describe('Payments flow (e2e)', () => {
     // Login as tenant
     await request(app.getHttpServer())
       .post('/api/v1/auth/otp/request')
-      .send({ phone: tenantPhone })
+      .send({ phone: tenantPhone, purpose: 'REGISTER' })
       .expect(202);
     const code = await otpStore.peek(tenantPhone);
     const login = await request(app.getHttpServer())
       .post('/api/v1/auth/otp/verify')
-      .send({ phone: tenantPhone, code: code! })
+      .send({ phone: tenantPhone, code: code!, purpose: 'REGISTER' })
       .expect(200);
     tenantToken = login.body.accessToken;
   });

@@ -28,33 +28,13 @@ export default function OTPVerifyScreen(): React.JSX.Element {
   const params = useLocalSearchParams<{ phone?: string; flow?: string }>();
   const phone = String(params.phone ?? '');
   const flow = params.flow === 'login' ? 'login' : 'register';
+  const purpose = flow === 'login' ? 'LOGIN' : 'REGISTER';
 
   const inputRef = useRef<TextInput>(null);
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [resendIn, setResendIn] = useState(RESEND_SECONDS);
   const [sending, setSending] = useState(false);
-
-  useEffect(() => {
-    if (!phone) return;
-    void (async () => {
-      // Register may not have requested yet; login already did — safe to re-request once.
-      if (flow === 'register') {
-        try {
-          setSending(true);
-          await requestOtp(phone);
-        } catch (err) {
-          showFeedback({
-            type: 'error',
-            title: 'Paradis Immo',
-            message: getErrorMessage(err, 'Impossible d’envoyer le code'),
-          });
-        } finally {
-          setSending(false);
-        }
-      }
-    })();
-  }, [phone, flow, showFeedback]);
 
   useEffect(() => {
     if (resendIn <= 0) return;
@@ -74,10 +54,10 @@ export default function OTPVerifyScreen(): React.JSX.Element {
     if (!phone || loading) return;
     setLoading(true);
     try {
-      const tokens = await verifyOtp(phone, otp);
+      const tokens = await verifyOtp(phone, otp, purpose);
       const needsProfile = !tokens.user.name?.trim();
       if (flow === 'register') {
-        router.replace('/(auth)/setup/intent');
+        router.replace('/(auth)/setup');
       } else if (needsProfile) {
         router.replace('/(auth)/personnal-infos');
       } else {
@@ -100,7 +80,7 @@ export default function OTPVerifyScreen(): React.JSX.Element {
     if (resendIn > 0 || !phone || sending) return;
     setSending(true);
     try {
-      await requestOtp(phone);
+      await requestOtp(phone, purpose);
       setResendIn(RESEND_SECONDS);
       setCode('');
       showFeedback({

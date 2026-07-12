@@ -85,14 +85,14 @@ describe('AuthService', () => {
   });
 
   it('requestOtp stores a 6-digit code in Postgres with 5min TTL', async () => {
-    await service.requestOtp({ phone });
+    await service.requestOtp({ phone, purpose: 'REGISTER' });
     const code = await otpStore.peek(phone);
     expect(code).toMatch(/^\d{6}$/);
   });
 
   it('requestOtp records a MessageCharge after successful send', async () => {
     await cleanupPhone();
-    await service.requestOtp({ phone });
+    await service.requestOtp({ phone, purpose: 'REGISTER' });
     const charge = await prisma.messageCharge.findFirst({
       where: {
         recipientPhone: phone,
@@ -107,10 +107,14 @@ describe('AuthService', () => {
 
   it('verifyOtp returns tokens for valid code', async () => {
     await cleanupPhone();
-    await service.requestOtp({ phone });
+    await service.requestOtp({ phone, purpose: 'REGISTER' });
     const code = await otpStore.peek(phone);
     expect(code).not.toBeNull();
-    const result = await service.verifyOtp({ phone, code: code! });
+    const result = await service.verifyOtp({
+      phone,
+      code: code!,
+      purpose: 'REGISTER',
+    });
     expect(result.accessToken).toMatch(/^token\./);
     expect(result.refreshToken).toBeDefined();
     expect(result.user.phone).toBe(phone);
@@ -122,6 +126,47 @@ describe('AuthService', () => {
     });
     expect(userInDb).not.toBeNull();
     expect(userInDb!.roles.some((r) => r.role === GlobalRole.TENANT)).toBe(true);
+  });
+
+  it('requestOtp LOGIN rejects unknown phone', async () => {
+    await cleanupPhone();
+    await expect(
+      service.requestOtp({ phone, purpose: 'LOGIN' }),
+    ).rejects.toMatchObject({
+      response: { code: 'USER_NOT_FOUND' },
+    });
+  });
+
+  it('requestOtp REGISTER rejects existing phone', async () => {
+    await cleanupPhone();
+    await service.requestOtp({ phone, purpose: 'REGISTER' });
+    const code = await otpStore.peek(phone);
+    await service.verifyOtp({ phone, code: code!, purpose: 'REGISTER' });
+    await expect(
+      service.requestOtp({ phone, purpose: 'REGISTER' }),
+    ).rejects.toMatchObject({
+      response: { code: 'USER_ALREADY_EXISTS' },
+    });
+  });
+
+  it('verifyOtp LOGIN works for existing user', async () => {
+    await cleanupPhone();
+    await service.requestOtp({ phone, purpose: 'REGISTER' });
+    const registerCode = await otpStore.peek(phone);
+    await service.verifyOtp({
+      phone,
+      code: registerCode!,
+      purpose: 'REGISTER',
+    });
+
+    await service.requestOtp({ phone, purpose: 'LOGIN' });
+    const loginCode = await otpStore.peek(phone);
+    const result = await service.verifyOtp({
+      phone,
+      code: loginCode!,
+      purpose: 'LOGIN',
+    });
+    expect(result.user.phone).toBe(phone);
   });
 
   it('verifyOtp attaches phone:{e164} charges to user', async () => {
@@ -142,8 +187,12 @@ describe('AuthService', () => {
       },
     });
 
-    await otpStore.put(phone, '654321');
-    const result = await service.verifyOtp({ phone, code: '654321' });
+    await otpStore.put(phone, '654321', 'REGISTER');
+    const result = await service.verifyOtp({
+      phone,
+      code: '654321',
+      purpose: 'REGISTER',
+    });
 
     const charge = await prisma.messageCharge.findFirst({
       where: { idempotencyKey: `otp-attach-test:${phone}` },
@@ -156,10 +205,14 @@ describe('AuthService', () => {
   it('verifyOtp rejects an incorrect code', async () => {
     const badPhone = '+242061234568';
     await prisma.otpChallenge.deleteMany({ where: { phone: badPhone } });
-    await otpStore.put(badPhone, '000000');
+    await otpStore.put(badPhone, '000000', 'REGISTER');
     let err: unknown;
     try {
-      await service.verifyOtp({ phone: badPhone, code: '111111' });
+      await service.verifyOtp({
+        phone: badPhone,
+        code: '111111',
+        purpose: 'REGISTER',
+      });
     } catch (e) {
       err = e;
     }
@@ -172,7 +225,11 @@ describe('AuthService', () => {
     await otpStore.del(unknown);
     let err: unknown;
     try {
-      await service.verifyOtp({ phone: unknown, code: '123456' });
+      await service.verifyOtp({
+        phone: unknown,
+        code: '123456',
+        purpose: 'REGISTER',
+      });
     } catch (e) {
       err = e;
     }

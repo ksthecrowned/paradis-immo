@@ -5,3 +5,5 @@ openapi-export.log
 # Temporary file used by scripts/generate-types.mjs while shelling
 # out to openapi-typescript. Cleaned up automatically.
 openapi.cg.tmp.json
+
+paradis-immo-dab55d656f0c.json

@@ -135,7 +135,7 @@ const styles = StyleSheet.create({
     color: colors.muted,
   },
   inputRowDisabled: {
-    backgroundColor: colors.primaryMuted,
+    backgroundColor: colors.primary + "10",
   },
   errorText: {
     fontSize: 13,

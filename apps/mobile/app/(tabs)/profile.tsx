@@ -43,6 +43,7 @@ export default function ProfileScreen(): React.JSX.Element {
   const [error, setError] = useState<string | null>(null);
   const [isDark, setIsDark] = useState(isDarkBoot);
   const [themeBusy, setThemeBusy] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
 
   const loadUser = useCallback(async (opts?: { soft?: boolean }) => {
     if (!opts?.soft) setLoading(true);
@@ -88,6 +89,7 @@ export default function ProfileScreen(): React.JSX.Element {
   );
 
   const handleLogout = useCallback((): void => {
+    if (loggingOut) return;
     showFeedback({
       type: 'warning',
       title: 'Déconnexion',
@@ -98,14 +100,25 @@ export default function ProfileScreen(): React.JSX.Element {
           text: 'Se déconnecter',
           style: 'destructive',
           onPress: () => {
-            void logout().then(() => {
-              router.replace('/');
-            });
+            setLoggingOut(true);
+            void logout()
+              .then(() => {
+                // `/welcome` — not `/` — because `(tabs)/index` also maps to `/`.
+                router.replace('/welcome');
+              })
+              .catch(() => {
+                setLoggingOut(false);
+                showFeedback({
+                  type: 'error',
+                  title: 'Déconnexion',
+                  message: 'Impossible de se déconnecter. Réessayez.',
+                });
+              });
           },
         },
       ],
     });
-  }, [showFeedback]);
+  }, [loggingOut, showFeedback]);
 
   const toggleTheme = useCallback(async (): Promise<void> => {
     if (themeBusy) return;
@@ -157,18 +170,6 @@ export default function ProfileScreen(): React.JSX.Element {
   const accountItems = useMemo<MenuItem[]>(
     () => [
       {
-        id: 'edit',
-        label: 'Informations personnelles',
-        icon: 'person-outline',
-        onPress: () => router.push('/profile/edit'),
-      },
-      {
-        id: 'notifications',
-        label: 'Notifications',
-        icon: 'notifications-outline',
-        onPress: () => router.push('/notifications'),
-      },
-      {
         id: 'theme',
         label: isDark ? 'Passer au thème clair' : 'Passer au thème sombre',
         icon: isDark ? 'sunny-outline' : 'moon-outline',
@@ -209,10 +210,11 @@ export default function ProfileScreen(): React.JSX.Element {
         ? [
             {
               id: 'logout',
-              label: 'Déconnexion',
+              label: loggingOut ? 'Déconnexion…' : 'Déconnexion',
               icon: 'log-out-outline',
               iconColor: colors.danger,
               labelColor: colors.danger,
+              disabled: loggingOut,
               onPress: handleLogout,
             },
           ]
@@ -224,7 +226,7 @@ export default function ProfileScreen(): React.JSX.Element {
               onPress: () => router.push('/(auth)/login'),
             },
           ],
-    [user, handleLogout],
+    [user, handleLogout, loggingOut],
   );
 
   return (
@@ -235,6 +237,7 @@ export default function ProfileScreen(): React.JSX.Element {
         trailing={
           <Pressable
             style={styles.headerAction}
+            disabled={loggingOut}
             onPress={() =>
               user
                 ? router.push('/profile/edit')
@@ -261,10 +264,12 @@ export default function ProfileScreen(): React.JSX.Element {
           { paddingBottom: insets.bottom },
         ]}
         showsVerticalScrollIndicator={false}
+        pointerEvents={loggingOut ? 'none' : 'auto'}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
             onRefresh={() => {
+              if (loggingOut) return;
               setRefreshing(true);
               void loadUser({ soft: true });
             }}
@@ -273,6 +278,12 @@ export default function ProfileScreen(): React.JSX.Element {
           />
         }
       >
+        {loggingOut ? (
+          <View style={styles.loggingOutBanner} accessibilityLiveRegion="polite">
+            <ActivityIndicator color={colors.primary} />
+            <Text style={styles.loggingOutText}>Déconnexion en cours…</Text>
+          </View>
+        ) : null}
         {loading ? (
           <View style={styles.headerLoading}>
             <ActivityIndicator color={colors.primary} />
@@ -358,6 +369,20 @@ const styles = StyleSheet.create({
     minHeight: 88,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  loggingOutBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    padding: 12,
+    borderRadius: radii.lg,
+    backgroundColor: colors.primaryMuted,
+  },
+  loggingOutText: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.ink,
   },
   profileCard: {
     flexDirection: 'row',

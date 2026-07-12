@@ -122,6 +122,7 @@ export default function PersonnalInfosScreen(): React.JSX.Element {
           value={name}
           onChangeText={setName}
           placeholder="Ex. Jean Mbemba"
+          placeholderTextColor={colors.muted + "20"}
           autoCapitalize="words"
           autoComplete="name"
           textContentType="name"
@@ -145,7 +146,7 @@ export default function PersonnalInfosScreen(): React.JSX.Element {
             accessibilityLabel="Terminer"
           >
             {loading ? (
-              <ActivityIndicator color={colors.surface} />
+              <ActivityIndicator color={colors.onPrimary} />
             ) : (
               <Text style={styles.ctaText}>Terminer</Text>
             )}
@@ -223,7 +224,7 @@ const styles = StyleSheet.create({
   ctaText: {
     fontSize: 16,
     fontWeight: '700',
-    color: colors.surface,
+    color: colors.onPrimary,
   },
   skipLink: {
     textAlign: 'center',

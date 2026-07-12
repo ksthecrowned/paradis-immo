@@ -8,6 +8,7 @@ export type MenuItem = {
   icon: keyof typeof Ionicons.glyphMap;
   iconColor?: string;
   labelColor?: string;
+  disabled?: boolean;
   onPress: () => void;
 };
 
@@ -31,13 +32,21 @@ export function MenuSection({
             <Pressable
               style={({ pressed }) => [
                 styles.row,
-                pressed && styles.rowPressed,
+                item.disabled && styles.rowDisabled,
+                pressed && !item.disabled && styles.rowPressed,
               ]}
               onPress={item.onPress}
+              disabled={item.disabled}
               accessibilityRole="button"
+              accessibilityState={{ disabled: Boolean(item.disabled) }}
               accessibilityLabel={item.label}
             >
-              <View style={styles.iconWrap}>
+              <View
+                style={[
+                  styles.iconWrap,
+                  item.id === "logout" && { backgroundColor: colors.danger + "20" }
+                ]}
+              >
                 <Ionicons
                   name={item.icon}
                   size={20}
@@ -98,6 +107,9 @@ const styles = StyleSheet.create({
   },
   rowPressed: {
     backgroundColor: colors.primaryMuted,
+  },
+  rowDisabled: {
+    opacity: 0.55,
   },
   iconWrap: {
     width: 36,

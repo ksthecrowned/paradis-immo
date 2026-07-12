@@ -74,7 +74,7 @@ export function PropertyDetailFooter({
         accessibilityRole="button"
         accessibilityLabel="Actions supplémentaires"
       >
-        <Ionicons name="ellipsis-horizontal" size={22} color={colors.primary} />
+        <Ionicons name="ellipsis-horizontal" size={22} color={colors.onPrimary} />
       </Pressable>
     </Animated.View>
   );
@@ -111,7 +111,7 @@ const styles = StyleSheet.create({
   ctaPrimaryText: {
     fontSize: 16,
     fontWeight: '700',
-    color: colors.surface,
+    color: colors.onPrimary,
   },
   unavailableBanner: {
     flex: 1,

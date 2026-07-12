@@ -17,6 +17,11 @@ build/
 .env.*
 !.env.example
 
+# Firebase Admin service accounts
+**/secrets/
+**/firebase-service-account*.json
+**/paradis-immo-*.json
+
 # Logs
 logs
 *.log

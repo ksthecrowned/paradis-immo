@@ -74,7 +74,7 @@ Copy (FR):
 
 | Step | Title | Options |
 |------|--------|---------|
-| Intent | Quel est votre objectif ? | Louer · Acheter · Les deux |
+| Intent | Quel est votre objectif ? | Louer · Acheter · Juste visiter · Toutes les options |
 | Experience | Où en êtes-vous dans votre recherche ? | Première fois · Déjà cherché · Je m’y connais |
 | Budget | Quel budget visez-vous ? | Intent-dependent XAF ranges (rent vs sale) |
 | Quartiers | Quels quartiers vous intéressent ? | Subtitle: jusqu’à 3; default city Brazzaville |
@@ -85,7 +85,7 @@ Light/dark via existing `colors.*` only.
 
 | Field | Type | Notes |
 |--------|------|--------|
-| `seekerIntent` | `SeekerIntent?` enum `RENT` \| `BUY` \| `BOTH` | |
+| `seekerIntent` | `SeekerIntent?` enum `RENT` \| `BUY` \| `VISIT` \| `ALL_OPTIONS` | |
 | `seekerExperience` | `SeekerExperience?` enum `FIRST_TIME` \| `RETURNING` \| `PRO` | |
 | `budgetMinXaf` | `Int?` | Lower bound of selected tranche |
 | `budgetMaxXaf` | `Int?` | Upper bound; `null` means « et plus » when min set |
@@ -112,7 +112,7 @@ Mobile: sync stored auth user from `me` after successful PATCH (same pattern as 
 After prefs are on the user:
 
 - On home / search bootstrap, map:
-  - `seekerIntent` → default `SearchFilters.mode` (`RENT`→`RENT_LONG`, `BUY`→`SALE`, `BOTH`→`RENT_LONG`)
+  - `seekerIntent` → default `SearchFilters.mode` (`RENT`/`VISIT`/`ALL_OPTIONS`→`RENT_LONG`, `BUY`→`SALE`)
   - budget → `minPrice` / `maxPrice`
   - if `preferredQuartierIds` is non-empty → seed filters from the **first** id (resolve name via locations cache); remaining ids kept on the user for later use
 - No ranking changes beyond filter defaults

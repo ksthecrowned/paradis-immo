@@ -46,11 +46,14 @@ function unwrapTokens(body: TokenEnvelope): BackendAuthTokens | null {
   };
 }
 
-export async function backendRequestOtp(phone: string): Promise<void> {
+export async function backendRequestOtp(
+  phone: string,
+  purpose: 'LOGIN' | 'REGISTER' = 'LOGIN',
+): Promise<void> {
   const res = await fetch(`${API_URL}/auth/otp/request`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-    body: JSON.stringify({ phone }),
+    body: JSON.stringify({ phone, purpose }),
   });
   if (!res.ok) {
     const body = (await res.json().catch(() => null)) as { message?: string } | null;
@@ -61,11 +64,12 @@ export async function backendRequestOtp(phone: string): Promise<void> {
 export async function backendVerifyOtp(
   phone: string,
   code: string,
+  purpose: 'LOGIN' | 'REGISTER' = 'LOGIN',
 ): Promise<BackendAuthTokens> {
   const res = await fetch(`${API_URL}/auth/otp/verify`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-    body: JSON.stringify({ phone, code }),
+    body: JSON.stringify({ phone, code, purpose }),
   });
   const body = (await res.json().catch(() => null)) as TokenEnvelope | { message?: string } | null;
   if (!res.ok) {

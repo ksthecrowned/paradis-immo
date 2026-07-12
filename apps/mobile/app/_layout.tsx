@@ -2,6 +2,7 @@ import 'react-native-gesture-handler';
 import { colors, getBootColorScheme } from '@/constants/theme';
 import { FeedbackProvider } from '@/context/FeedbackContext';
 import { LocationProvider } from '@/context/LocationContext';
+import { NotificationBootstrap } from '@/components/NotificationBootstrap';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
@@ -20,8 +21,9 @@ export default function RootLayout(): React.JSX.Element {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-        <LocationProvider>
+        <LocationProvider requestOnMount={false}>
           <FeedbackProvider>
+            <NotificationBootstrap />
             <StatusBar style={statusBarStyle} />
             <Stack
               screenOptions={{
@@ -31,6 +33,7 @@ export default function RootLayout(): React.JSX.Element {
               }}
             >
               <Stack.Screen name="index" />
+              <Stack.Screen name="welcome" />
               <Stack.Screen name="onboarding/index" />
               <Stack.Screen name="(auth)/login" />
               <Stack.Screen
@@ -130,17 +133,9 @@ export default function RootLayout(): React.JSX.Element {
                 }}
               />
               <Stack.Screen
-                name="portfolio/[propertyId]/index"
+                name="portfolio/[propertyId]"
                 options={{
                   headerShown: false,
-                  animation: 'slide_from_right',
-                }}
-              />
-              <Stack.Screen
-                name="portfolio/[propertyId]/rent"
-                options={{
-                  headerShown: false,
-                  animation: 'slide_from_right',
                 }}
               />
               <Stack.Screen

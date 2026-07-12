@@ -51,9 +51,13 @@ describe('UsersService', () => {
       .deleteMany({ where: { recipientPhone: phone } })
       .catch(() => undefined);
     await prisma.user.deleteMany({ where: { phone } }).catch(() => undefined);
-    await auth.requestOtp({ phone });
+    await auth.requestOtp({ phone, purpose: 'REGISTER' });
     const code = await otpStore.peek(phone);
-    const result = await auth.verifyOtp({ phone, code: code! });
+    const result = await auth.verifyOtp({
+      phone,
+      code: code!,
+      purpose: 'REGISTER',
+    });
     userId = result.user.id;
   });
 
@@ -136,6 +140,16 @@ describe('UsersService', () => {
     expect(updated.budgetMaxXaf).toBe(250_000);
     expect(updated.preferredQuartierIds).toEqual([q!.id]);
     expect(updated.seekerSetupCompletedAt).toBeTruthy();
+  });
+
+  it('updateMe accepts VISIT and ALL_OPTIONS seekerIntent', async () => {
+    const visit = await users.updateMe(userId, { seekerIntent: 'VISIT' });
+    expect(visit.seekerIntent).toBe('VISIT');
+
+    const all = await users.updateMe(userId, {
+      seekerIntent: 'ALL_OPTIONS',
+    });
+    expect(all.seekerIntent).toBe('ALL_OPTIONS');
   });
 
   it('updateMe rejects more than 3 preferredQuartierIds', async () => {

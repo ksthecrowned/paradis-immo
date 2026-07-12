@@ -1,4 +1,4 @@
-import { IsString, Length, Matches } from 'class-validator';
+import { IsIn, IsString, Length, Matches } from 'class-validator';
 
 export class VerifyOtpDto {
   @IsString()
@@ -10,4 +10,8 @@ export class VerifyOtpDto {
   @IsString()
   @Length(6, 6)
   code!: string;
+
+  @IsString()
+  @IsIn(['LOGIN', 'REGISTER'])
+  purpose!: 'LOGIN' | 'REGISTER';
 }

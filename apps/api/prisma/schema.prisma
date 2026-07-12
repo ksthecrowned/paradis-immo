@@ -207,7 +207,8 @@ enum NotificationChannel {
 enum SeekerIntent {
   RENT
   BUY
-  BOTH
+  VISIT
+  ALL_OPTIONS
 }
 
 enum SeekerExperience {
@@ -747,6 +748,8 @@ model Notification {
 model OtpChallenge {
   phone              String   @id
   code               String
+  /// LOGIN = existing user only; REGISTER = create if missing
+  purpose            String   @default("REGISTER")
   attempts           Int      @default(0)
   expiresAt          DateTime
   requestCount       Int      @default(1)

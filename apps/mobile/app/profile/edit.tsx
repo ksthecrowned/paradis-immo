@@ -5,7 +5,6 @@ import {
 } from '@/components/auth/PhoneCountryCallingCode';
 import { PhoneNumberField } from '@/components/auth/PhoneNumberField';
 import { ScreenHeader } from '@/components/ui/ScreenHeader';
-import { SegmentTabs } from '@/components/ui/SegmentTabs';
 import { colors, radii, spacing } from '@/constants/theme';
 import { useFeedback } from '@/context/FeedbackContext';
 import { ensureAuthenticated } from '@/lib/auth-guard';
@@ -26,6 +25,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { CountryCode } from 'react-native-country-picker-modal';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const CHANNEL_TABS: Array<{
@@ -67,7 +67,7 @@ export default function ProfileEditScreen(): React.JSX.Element {
           const parsed = parseE164Phone(me.phone);
           if (parsed) {
             setPhoneCountry({
-              countryCode: parsed.countryCode,
+              countryCode: parsed.countryCode as CountryCode,
               callingCode: parsed.callingCode,
             });
             setPhoneNational(parsed.national);
@@ -149,6 +149,7 @@ export default function ProfileEditScreen(): React.JSX.Element {
           label="Nom complet"
           value={name}
           onChangeText={setName}
+          placeholderTextColor={colors.muted + "20"}
           placeholder="Ex. Jean Mbemba"
           autoCapitalize="words"
           autoComplete="name"
@@ -162,6 +163,7 @@ export default function ProfileEditScreen(): React.JSX.Element {
           onChangeText={setEmail}
           placeholder="vous@exemple.com"
           keyboardType="email-address"
+          placeholderTextColor={colors.muted + "20"}
           autoCapitalize="none"
           autoCorrect={false}
           autoComplete="email"
@@ -177,22 +179,6 @@ export default function ProfileEditScreen(): React.JSX.Element {
           editable={false}
           hint="Lié à votre connexion OTP"
         />
-
-        <View style={styles.alertsBlock}>
-          <Text style={styles.alertsLabel}>Alertes</Text>
-          <SegmentTabs
-            tabs={CHANNEL_TABS}
-            value={notificationChannel}
-            onChange={(key) =>
-              setNotificationChannel(key as NotificationChannelPreference)
-            }
-          />
-          <Text style={styles.hint}>
-            {notificationChannel === 'SMS'
-              ? 'Les SMS sont facturés à l’agence.'
-              : 'Notifications push sur votre téléphone.'}
-          </Text>
-        </View>
 
         <Pressable
           style={[styles.submit, !canSave && styles.submitDisabled]}

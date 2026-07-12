@@ -45,16 +45,31 @@ export default function LoginScreen(): React.JSX.Element {
 
     setLoading(true);
     try {
-      await requestOtp(e164);
+      await requestOtp(e164, 'LOGIN');
       router.push({
         pathname: '/(auth)/otp-verify',
         params: { phone: e164, flow: 'login' },
       });
     } catch (err) {
+      const message = getErrorMessage(err, 'Impossible d’envoyer le code');
+      const isUnknown =
+        /aucun compte|créez un compte/i.test(message) ||
+        /USER_NOT_FOUND/i.test(String(err));
       showFeedback({
         type: 'error',
-        title: 'Paradis Immo',
-        message: getErrorMessage(err, 'Impossible d’envoyer le code'),
+        title: isUnknown ? 'Compte introuvable' : 'Paradis Immo',
+        message,
+        ...(isUnknown
+          ? {
+              buttons: [
+                { text: 'OK', style: 'cancel' },
+                {
+                  text: 'Créer un compte',
+                  onPress: () => router.push('/(auth)/register'),
+                },
+              ],
+            }
+          : {}),
       });
     } finally {
       setLoading(false);

@@ -7,6 +7,8 @@ const USER_KEY = 'paradisImmo.user';
 
 /** Deduplicate concurrent refresh calls (token rotation is single-use). */
 let refreshInFlight: Promise<string | null> | null = null;
+/** Bumped on logout/clear so an in-flight refresh cannot rewrite tokens. */
+let sessionEpoch = 0;
 
 export type AuthUser = {
   id: string;
@@ -14,7 +16,7 @@ export type AuthUser = {
   name: string | null;
   email?: string | null;
   roles: string[];
-  seekerIntent?: 'RENT' | 'BUY' | 'BOTH' | null;
+  seekerIntent?: 'RENT' | 'BUY' | 'VISIT' | 'ALL_OPTIONS' | null;
   seekerExperience?: 'FIRST_TIME' | 'RETURNING' | 'PRO' | null;
   budgetMinXaf?: number | null;
   budgetMaxXaf?: number | null;
@@ -106,6 +108,8 @@ export async function isAuthenticated(): Promise<boolean> {
 }
 
 export async function clearSession(): Promise<void> {
+  sessionEpoch += 1;
+  refreshInFlight = null;
   await AsyncStorage.multiRemove([ACCESS_KEY, REFRESH_KEY, USER_KEY]);
 }
 
@@ -113,31 +117,62 @@ export async function logout(): Promise<void> {
   await clearSession();
 }
 
-export async function requestOtp(phone: string): Promise<void> {
+export type OtpPurpose = 'LOGIN' | 'REGISTER';
+
+function nestErrorMessage(
+  body: { message?: string | string[] | { message?: string } } | null,
+  fallback: string,
+): string {
+  if (!body || typeof body !== 'object') return fallback;
+  const raw = body.message;
+  if (typeof raw === 'string' && raw.trim()) return raw;
+  if (Array.isArray(raw) && typeof raw[0] === 'string') return raw[0];
+  if (raw && typeof raw === 'object' && typeof raw.message === 'string') {
+    return raw.message;
+  }
+  return fallback;
+}
+
+export async function requestOtp(
+  phone: string,
+  purpose: OtpPurpose,
+): Promise<void> {
   const res = await fetch(`${getApiUrl()}/auth/otp/request`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-    body: JSON.stringify({ phone }),
+    body: JSON.stringify({ phone, purpose }),
   });
   if (!res.ok) {
-    const body = (await res.json().catch(() => null)) as { message?: string } | null;
-    throw new Error(body?.message ?? 'Impossible d\'envoyer le code');
+    const body = (await res.json().catch(() => null)) as {
+      message?: string | string[] | { message?: string };
+    } | null;
+    throw new Error(
+      nestErrorMessage(body, 'Impossible d\'envoyer le code'),
+    );
   }
 }
 
-export async function verifyOtp(phone: string, code: string): Promise<AuthTokens> {
+export async function verifyOtp(
+  phone: string,
+  code: string,
+  purpose: OtpPurpose,
+): Promise<AuthTokens> {
   const res = await fetch(`${getApiUrl()}/auth/otp/verify`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-    body: JSON.stringify({ phone, code }),
+    body: JSON.stringify({ phone, code, purpose }),
   });
-  const body = (await res.json().catch(() => null)) as TokenEnvelope | { message?: string } | null;
+  const body = (await res.json().catch(() => null)) as
+    | TokenEnvelope
+    | { message?: string | string[] | { message?: string } }
+    | null;
   if (!res.ok) {
-    const message =
-      body && typeof body === 'object' && 'message' in body && typeof body.message === 'string'
-        ? body.message
-        : 'Code invalide';
-    throw new Error(message);
+    throw new Error(
+      nestErrorMessage(
+        body as { message?: string | string[] | { message?: string } } | null,
+        'Code invalide',
+      ),
+    );
   }
   const tokens = unwrapTokens(body as TokenEnvelope);
   if (!tokens) throw new Error('Réponse auth invalide');
@@ -148,6 +183,7 @@ export async function verifyOtp(phone: string, code: string): Promise<AuthTokens
 export async function refreshSession(): Promise<string | null> {
   if (refreshInFlight) return refreshInFlight;
 
+  const epoch = sessionEpoch;
   refreshInFlight = (async (): Promise<string | null> => {
     const refreshToken = await getRefreshToken();
     if (!refreshToken) return null;
@@ -167,12 +203,15 @@ export async function refreshSession(): Promise<string | null> {
         return null;
       }
 
+      if (epoch !== sessionEpoch) return null;
+
       const stored = await getStoredUser();
       const tokens = unwrapTokens(body, stored);
       if (!tokens) {
         await clearSession();
         return null;
       }
+      if (epoch !== sessionEpoch) return null;
       await saveTokens(tokens);
       return tokens.accessToken;
     } catch {

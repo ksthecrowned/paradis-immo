@@ -33,12 +33,12 @@ describe('Visits flow (e2e)', () => {
 
     await request(app.getHttpServer())
       .post('/api/v1/auth/otp/request')
-      .send({ phone: visitorPhone })
+      .send({ phone: visitorPhone, purpose: 'REGISTER' })
       .expect(202);
     const code = await otpStore.peek(visitorPhone);
     const login = await request(app.getHttpServer())
       .post('/api/v1/auth/otp/verify')
-      .send({ phone: visitorPhone, code: code! })
+      .send({ phone: visitorPhone, code: code!, purpose: 'REGISTER' })
       .expect(200);
     visitorToken = login.body.accessToken;
     const ownerId = login.body.user.id;

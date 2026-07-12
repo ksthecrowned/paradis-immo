@@ -7,9 +7,8 @@ export async function persistSeekerSetupAndSync(
   await updateMeAndSync({
     ...(draft.intent ? { seekerIntent: draft.intent } : {}),
     ...(draft.experience ? { seekerExperience: draft.experience } : {}),
-    ...(draft.budgetMinXaf != null ? { budgetMinXaf: draft.budgetMinXaf } : {}),
-    ...(draft.budgetMaxXaf != null ? { budgetMaxXaf: draft.budgetMaxXaf } : {}),
-    preferredQuartierIds: draft.preferredQuartierIds,
+    // Budget / quartiers are no longer collected in the wizard.
+    preferredQuartierIds: [],
     completeSeekerSetup: true,
   });
 }

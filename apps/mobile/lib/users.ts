@@ -105,8 +105,19 @@ export async function syncStoredUserFromApi(): Promise<AuthUser | null> {
   if (!accessToken || !refreshToken) return null;
 
   const me = await fetchMe();
+  // Logout may have cleared storage while /users/me was in flight.
+  const [accessAfter, refreshAfter] = await Promise.all([
+    getAccessToken(),
+    getRefreshToken(),
+  ]);
+  if (!accessAfter || !refreshAfter) return null;
+
   const user = toAuthUser(me, stored?.roles);
-  await saveTokens({ accessToken, refreshToken, user });
+  await saveTokens({
+    accessToken: accessAfter,
+    refreshToken: refreshAfter,
+    user,
+  });
   return user;
 }
 

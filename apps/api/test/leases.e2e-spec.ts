@@ -34,12 +34,12 @@ describe('Leases flow (e2e)', () => {
     // Login as owner
     await request(app.getHttpServer())
       .post('/api/v1/auth/otp/request')
-      .send({ phone: ownerPhone })
+      .send({ phone: ownerPhone, purpose: 'REGISTER' })
       .expect(202);
     const code = await otpStore.peek(ownerPhone);
     const login = await request(app.getHttpServer())
       .post('/api/v1/auth/otp/verify')
-      .send({ phone: ownerPhone, code: code! })
+      .send({ phone: ownerPhone, code: code!, purpose: 'REGISTER' })
       .expect(200);
     ownerToken = login.body.accessToken;
     const ownerId = login.body.user.id;

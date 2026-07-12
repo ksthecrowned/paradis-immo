@@ -107,7 +107,7 @@ ALTER TABLE "User"
 
 - [ ] **Step 3: Apply migration locally**
 
-Run: `cd apps/api && bunx prisma migrate deploy && bunx prisma generate`  
+Run: `cd apps/api && bunx prisma migrate deploy && bunx prisma generate`
 Expected: migrate applied, client regenerated
 
 - [ ] **Step 4: Commit**
@@ -184,7 +184,7 @@ Append to `users.service.spec.ts`:
 
 - [ ] **Step 2: Run tests — expect FAIL**
 
-Run: `cd apps/api && bun run test -- users.service.spec.ts`  
+Run: `cd apps/api && bun run test -- users.service.spec.ts`
 Expected: FAIL (fields / methods missing)
 
 - [ ] **Step 3: Extend DTO**
@@ -267,7 +267,7 @@ import {
 
 - [ ] **Step 5: Run tests — expect PASS**
 
-Run: `cd apps/api && bun run test -- users.service.spec.ts`  
+Run: `cd apps/api && bun run test -- users.service.spec.ts`
 Expected: PASS
 
 - [ ] **Step 6: Commit**
@@ -373,7 +373,7 @@ describe('seekerPrefsToSearchFilters', () => {
 
 - [ ] **Step 2: Run — expect FAIL**
 
-Run: `cd apps/mobile && bun test lib/seeker-setup.test.ts`  
+Run: `cd apps/mobile && bun test lib/seeker-setup.test.ts`
 Expected: FAIL (module missing)
 
 - [ ] **Step 3: Implement `lib/seeker-setup.ts`**
@@ -528,7 +528,7 @@ export async function listQuartiersForCity(
 
 - [ ] **Step 6: Run tests — PASS**
 
-Run: `cd apps/mobile && bun test lib/seeker-setup.test.ts`  
+Run: `cd apps/mobile && bun test lib/seeker-setup.test.ts`
 Expected: PASS
 
 - [ ] **Step 7: Commit**
@@ -682,7 +682,7 @@ Options (grid 2 cols if 3 cards — third full width or 2+1):
 - Acheter / `BUY` / `key-outline`
 - Les deux / `BOTH` / `options-outline`
 
-Skip → clear intent + `router.push('./experience')`  
+Skip → clear intent + `router.push('./experience')`
 Continue → requires `draft.intent` → `./experience`
 
 - [ ] **Step 3: `experience.tsx`**
@@ -719,7 +719,7 @@ await updateMeAndSync({
 router.replace('/(auth)/personnal-infos');
 ```
 
-On error: `showFeedback` error; stay on screen; Continue/Skip retryable.  
+On error: `showFeedback` error; stay on screen; Continue/Skip retryable.
 Skip on this step = `setQuartiers([])` then same `finish`.
 
 - [ ] **Step 6: Wire OTP + root layout**

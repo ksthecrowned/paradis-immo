@@ -1,6 +1,8 @@
 import {
+  ConflictException,
   Injectable,
   Logger,
+  NotFoundException,
   ServiceUnavailableException,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -10,7 +12,7 @@ import * as crypto from 'node:crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { MessagingBillingService } from '../messaging/messaging-billing.service';
 import { InfobipOtpService } from './infobip-otp.service';
-import { OtpStore } from './otp.store';
+import { OtpStore, type OtpPurpose } from './otp.store';
 
 const MAX_OTP_ATTEMPTS = 5;
 const REFRESH_TTL_DAYS = 30;
@@ -52,7 +54,12 @@ export class AuthService {
     private readonly jwt: JwtService,
   ) {}
 
-  async requestOtp(input: { phone: string }): Promise<void> {
+  async requestOtp(input: {
+    phone: string;
+    purpose: OtpPurpose;
+  }): Promise<void> {
+    await this.assertPhoneMatchesPurpose(input.phone, input.purpose);
+
     const MAX_REQUESTS_PER_HOUR = 5;
     const count = await this.otpStore.incrementRequestCount(input.phone);
     if (count > MAX_REQUESTS_PER_HOUR) {
@@ -62,17 +69,27 @@ export class AuthService {
       });
     }
     const code = this.generateCode();
-    await this.otpStore.put(input.phone, code);
+    await this.otpStore.put(input.phone, code, input.purpose);
     await this.infobip.sendOtp({ to: input.phone, code });
     await this.messaging.recordOtp(input.phone);
   }
 
-  async verifyOtp(input: { phone: string; code: string }): Promise<AuthTokens> {
+  async verifyOtp(input: {
+    phone: string;
+    code: string;
+    purpose: OtpPurpose;
+  }): Promise<AuthTokens> {
     const record = await this.otpStore.getWithAttempts(input.phone);
     if (!record) {
       throw new UnauthorizedException({
         code: 'OTP_NOT_FOUND',
         message: 'No OTP requested for this phone',
+      });
+    }
+    if (record.purpose !== input.purpose) {
+      throw new UnauthorizedException({
+        code: 'OTP_PURPOSE_MISMATCH',
+        message: 'OTP was requested for a different flow',
       });
     }
     if (record.attempts >= MAX_OTP_ATTEMPTS) {
@@ -93,7 +110,10 @@ export class AuthService {
     await this.otpStore.del(input.phone);
 
     const country = await this.getOrCreateCountryForPhone(input.phone);
-    const user = await this.getOrCreateUser(input.phone, country.id);
+    const user =
+      input.purpose === 'LOGIN'
+        ? await this.requireExistingUser(input.phone)
+        : await this.getOrCreateUser(input.phone, country.id);
     await this.messaging.attachPhoneChargesToUser(input.phone, user.id);
 
     const tokens = await this.issueTokens(user);
@@ -139,6 +159,44 @@ export class AuthService {
   // Internals
   // ----------------------------------------------------------------
 
+  private async assertPhoneMatchesPurpose(
+    phone: string,
+    purpose: OtpPurpose,
+  ): Promise<void> {
+    const existing = await this.prisma.user.findFirst({ where: { phone } });
+    if (purpose === 'LOGIN' && !existing) {
+      throw new NotFoundException({
+        code: 'USER_NOT_FOUND',
+        message:
+          'Aucun compte associé à ce numéro. Créez un compte d’abord.',
+      });
+    }
+    if (purpose === 'REGISTER' && existing) {
+      throw new ConflictException({
+        code: 'USER_ALREADY_EXISTS',
+        message:
+          'Un compte existe déjà pour ce numéro. Connectez-vous.',
+      });
+    }
+  }
+
+  private async requireExistingUser(
+    phone: string,
+  ): Promise<User & { roles: { role: GlobalRole }[] }> {
+    const existing = await this.prisma.user.findFirst({
+      where: { phone },
+      include: { roles: true },
+    });
+    if (!existing) {
+      throw new NotFoundException({
+        code: 'USER_NOT_FOUND',
+        message:
+          'Aucun compte associé à ce numéro. Créez un compte d’abord.',
+      });
+    }
+    return existing;
+  }
+
   private async issueTokens(
     user: User & { roles: { role: GlobalRole }[] },
   ): Promise<{ accessToken: string; refreshToken: string }> {
@@ -155,7 +213,9 @@ export class AuthService {
     });
 
     const tokenHash = this.hash(refreshToken);
-    const expiresAt = new Date(Date.now() + REFRESH_TTL_DAYS * 24 * 60 * 60 * 1000);
+    const expiresAt = new Date(
+      Date.now() + REFRESH_TTL_DAYS * 24 * 60 * 60 * 1000,
+    );
     await this.prisma.refreshToken.create({
       data: { userId: user.id, tokenHash, expiresAt },
     });

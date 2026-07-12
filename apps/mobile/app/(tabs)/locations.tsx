@@ -276,6 +276,6 @@ const styles = StyleSheet.create({
   emptyCtaText: {
     fontSize: 15,
     fontWeight: '700',
-    color: colors.surface,
+    color: colors.onPrimary,
   },
 });

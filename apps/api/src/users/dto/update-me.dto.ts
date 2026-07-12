@@ -40,8 +40,8 @@ export class UpdateMeDto {
   notificationChannel?: 'PUSH' | 'SMS';
 
   @IsOptional()
-  @IsIn(['RENT', 'BUY', 'BOTH'])
-  seekerIntent?: 'RENT' | 'BUY' | 'BOTH';
+  @IsIn(['RENT', 'BUY', 'VISIT', 'ALL_OPTIONS'])
+  seekerIntent?: 'RENT' | 'BUY' | 'VISIT' | 'ALL_OPTIONS';
 
   @IsOptional()
   @IsIn(['FIRST_TIME', 'RETURNING', 'PRO'])

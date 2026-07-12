@@ -4,7 +4,7 @@ import {
 } from '@/lib/search-filters';
 import type { PropertyMode } from '@/types/property';
 
-export type SeekerIntent = 'RENT' | 'BUY' | 'BOTH';
+export type SeekerIntent = 'RENT' | 'BUY' | 'VISIT' | 'ALL_OPTIONS';
 export type SeekerExperience = 'FIRST_TIME' | 'RETURNING' | 'PRO';
 
 export type SeekerPrefsLike = {
@@ -62,6 +62,7 @@ export function budgetBandsForIntent(
 
 export function intentToMode(intent: SeekerIntent | null): PropertyMode {
   if (intent === 'BUY') return 'SALE';
+  // RENT, VISIT, ALL_OPTIONS → long-term rent catalog default
   return 'RENT_LONG';
 }
 

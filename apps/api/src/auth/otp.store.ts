@@ -3,9 +3,12 @@ import { PrismaService } from '../prisma/prisma.service';
 
 const OTP_TTL_SECONDS = 5 * 60;
 
+export type OtpPurpose = 'LOGIN' | 'REGISTER';
+
 interface OtpRecord {
   code: string;
   attempts: number;
+  purpose: OtpPurpose;
 }
 
 @Injectable()
@@ -14,13 +17,14 @@ export class OtpStore {
 
   constructor(private readonly prisma: PrismaService) {}
 
-  async put(phone: string, code: string): Promise<void> {
+  async put(phone: string, code: string, purpose: OtpPurpose): Promise<void> {
     const expiresAt = new Date(Date.now() + OTP_TTL_SECONDS * 1000);
     await this.prisma.otpChallenge.upsert({
       where: { phone },
       create: {
         phone,
         code,
+        purpose,
         attempts: 0,
         expiresAt,
         requestCount: 1,
@@ -28,6 +32,7 @@ export class OtpStore {
       },
       update: {
         code,
+        purpose,
         attempts: 0,
         expiresAt,
       },
@@ -43,7 +48,9 @@ export class OtpStore {
   async getWithAttempts(phone: string): Promise<OtpRecord | null> {
     const row = await this.prisma.otpChallenge.findUnique({ where: { phone } });
     if (!row || row.expiresAt < new Date()) return null;
-    return { code: row.code, attempts: row.attempts };
+    const purpose =
+      row.purpose === 'LOGIN' ? 'LOGIN' : ('REGISTER' as OtpPurpose);
+    return { code: row.code, attempts: row.attempts, purpose };
   }
 
   async incrementAttempts(phone: string): Promise<OtpRecord | null> {
@@ -53,7 +60,9 @@ export class OtpStore {
       where: { phone },
       data: { attempts: { increment: 1 } },
     });
-    return { code: updated.code, attempts: updated.attempts };
+    const purpose =
+      updated.purpose === 'LOGIN' ? 'LOGIN' : ('REGISTER' as OtpPurpose);
+    return { code: updated.code, attempts: updated.attempts, purpose };
   }
 
   async del(phone: string): Promise<void> {
@@ -77,6 +86,7 @@ export class OtpStore {
         create: {
           phone,
           code: '',
+          purpose: 'REGISTER',
           attempts: 0,
           expiresAt: now,
           requestCount: count,

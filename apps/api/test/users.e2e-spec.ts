@@ -25,12 +25,12 @@ describe('Users endpoints (e2e)', () => {
     // Provision a user via OTP and grab their real access token
     await request(app.getHttpServer())
       .post('/api/v1/auth/otp/request')
-      .send({ phone })
+      .send({ phone, purpose: 'REGISTER' })
       .expect(202);
     const code = await otpStore.peek(phone);
     const verify = await request(app.getHttpServer())
       .post('/api/v1/auth/otp/verify')
-      .send({ phone, code })
+      .send({ phone, code, purpose: 'REGISTER' })
       .expect(200);
     accessToken = verify.body.accessToken;
   });
