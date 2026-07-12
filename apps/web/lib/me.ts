@@ -33,8 +33,15 @@ export function resolveEligibleDashboardRoles(
 ): ActiveRole[] {
   const roles: ActiveRole[] = [];
   if (globalRoles.includes('PLATFORM_ADMIN')) roles.push('admin');
-  if (organizations.some((o) => o.memberRole === 'AGENT')) roles.push('agent');
-  roles.push('owner');
+
+  // One business role per account: agency staff (AGENT/ADMIN) xor OWNER.
+  const hasAgent = organizations.some(
+    (o) => o.memberRole === 'AGENT' || o.memberRole === 'ADMIN',
+  );
+  const hasOwner = organizations.some((o) => o.memberRole === 'OWNER');
+  if (hasAgent) roles.push('agent');
+  else if (hasOwner) roles.push('owner');
+
   return [...new Set(roles)];
 }
 
@@ -42,6 +49,14 @@ export function agentOrganizationIds(
   organizations: PublicOrganization[],
 ): string[] {
   return organizations
-    .filter((o) => o.memberRole === 'AGENT')
+    .filter(
+      (o) => o.memberRole === 'AGENT' || o.memberRole === 'ADMIN',
+    )
     .map((o) => o.id);
+}
+
+export function isAgencyGerant(
+  organizations: PublicOrganization[],
+): boolean {
+  return organizations.some((o) => o.memberRole === 'ADMIN');
 }

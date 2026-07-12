@@ -88,7 +88,9 @@ export class OrganizationsService {
       where: { id, AND: [publicOrgWhere] },
       include: {
         members: {
-          where: { role: OrgMemberRole.AGENT },
+          where: {
+            role: { in: [OrgMemberRole.AGENT, OrgMemberRole.ADMIN] },
+          },
           include: {
             user: { select: { id: true, name: true, phone: true } },
           },

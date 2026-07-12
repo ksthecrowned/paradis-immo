@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
-import { isWebAccountActive } from '@/lib/web-account';
+import { isWebAccountActive, resolveDashboardPath } from '@/lib/web-account';
 
 const PROTECTED_PREFIXES = ['/owner', '/agent', '/admin'];
 const AUTH_OPEN_PREFIXES = [
@@ -48,13 +48,27 @@ export const proxy = auth((req) => {
     );
   }
 
+  const roles = user?.roles ?? [];
+  const orgRoles = user?.orgRoles ?? [];
+  const home = resolveDashboardPath(user ?? {});
+
   if (pathname.startsWith('/admin')) {
-    const roles = user?.roles ?? [];
     if (!roles.includes('PLATFORM_ADMIN')) {
-      return NextResponse.redirect(
-        new URL('/owner/dashboard', req.nextUrl.origin),
-      );
+      return NextResponse.redirect(new URL(home, req.nextUrl.origin));
     }
+    return NextResponse.next();
+  }
+
+  // One business role per account: owners stay on /owner, agency staff on /agent.
+  if (pathname.startsWith('/owner') && !orgRoles.includes('OWNER')) {
+    return NextResponse.redirect(new URL(home, req.nextUrl.origin));
+  }
+  if (
+    pathname.startsWith('/agent') &&
+    !orgRoles.includes('AGENT') &&
+    !orgRoles.includes('ADMIN')
+  ) {
+    return NextResponse.redirect(new URL(home, req.nextUrl.origin));
   }
 
   return NextResponse.next();
