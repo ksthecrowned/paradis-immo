@@ -5,6 +5,8 @@ import { colors, radii, spacing } from '@/constants/theme';
 import { useCatalogProperty } from '@/hooks/use-catalog-property';
 import { getAgency, getAgent } from '@/lib/agencies';
 import { ensureAuthenticated } from '@/lib/auth-guard';
+import { getMockPaymentSession } from '@/lib/mock-conversion';
+import { getPropertyById } from '@/lib/mock-properties';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
@@ -18,6 +20,13 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+function paramValue(
+  value: string | string[] | undefined,
+): string {
+  if (Array.isArray(value)) return value[0] ?? '';
+  return value ?? '';
+}
+
 export default function PaymentScreen(): React.JSX.Element {
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{
@@ -25,15 +34,34 @@ export default function PaymentScreen(): React.JSX.Element {
     propertyId?: string;
     visitBookingId?: string;
     amount?: string;
+    messagingDebtXaf?: string;
+    rentScheduleId?: string;
+    title?: string;
   }>();
-  const paymentId = String(params.id ?? '');
-  const propertyId = String(params.propertyId ?? '');
-  const visitBookingId = params.visitBookingId
-    ? String(params.visitBookingId)
-    : undefined;
-  const amount = Number(params.amount ?? 0);
 
-  const { property, loading } = useCatalogProperty(propertyId);
+  const paymentId = paramValue(params.id);
+  const mockSession = paymentId
+    ? getMockPaymentSession(paymentId)
+    : undefined;
+
+  const propertyId =
+    paramValue(params.propertyId) || mockSession?.propertyId || '';
+  const visitBookingId = paramValue(params.visitBookingId) || undefined;
+  const rentScheduleId = paramValue(params.rentScheduleId) || undefined;
+  const titleParam = paramValue(params.title);
+  const amount = Number(paramValue(params.amount) || 0);
+  const messagingDebtXaf = Math.max(
+    0,
+    Number(paramValue(params.messagingDebtXaf) || 0),
+  );
+  const baseAmount = Math.max(0, amount - messagingDebtXaf);
+
+  const { property: catalogProperty, loading } =
+    useCatalogProperty(propertyId);
+  const property =
+    catalogProperty ??
+    (propertyId ? getPropertyById(propertyId) ?? null : null);
+
   const agency = useMemo(
     () => (property ? getAgency(property.agencyId) : undefined),
     [property],
@@ -43,31 +71,57 @@ export default function PaymentScreen(): React.JSX.Element {
     [property],
   );
 
+  const formatXaf = (value: number): string =>
+    `${value.toLocaleString('fr-FR').replace(/\u202f/g, ' ')} FCFA`;
+
   const amountLabel = useMemo(() => {
-    if (!amount) return '—';
-    return `${amount.toLocaleString('fr-FR').replace(/\u202f/g, ' ')} FCFA`;
-  }, [amount]);
+    if (amount > 0) return formatXaf(amount);
+    if (mockSession?.amountLabel) return mockSession.amountLabel;
+    return '—';
+  }, [amount, mockSession?.amountLabel]);
+
+  const payTitle =
+    titleParam ||
+    mockSession?.title ||
+    (property ? `Paiement · ${property.title}` : 'Paiement');
 
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
   const [ready, setReady] = useState(false);
 
+  const returnHref = useMemo(() => {
+    const qs = new URLSearchParams();
+    if (propertyId) qs.set('propertyId', propertyId);
+    if (amount > 0) qs.set('amount', String(amount));
+    if (messagingDebtXaf > 0) {
+      qs.set('messagingDebtXaf', String(messagingDebtXaf));
+    }
+    if (visitBookingId) qs.set('visitBookingId', visitBookingId);
+    if (rentScheduleId) qs.set('rentScheduleId', rentScheduleId);
+    if (titleParam) qs.set('title', titleParam);
+    const q = qs.toString();
+    return `/payment/${paymentId}${q ? `?${q}` : ''}`;
+  }, [
+    paymentId,
+    propertyId,
+    amount,
+    messagingDebtXaf,
+    visitBookingId,
+    rentScheduleId,
+    titleParam,
+  ]);
+
   useFocusEffect(
     useCallback(() => {
       let active = true;
       void (async () => {
-        const ok = await ensureAuthenticated(
-          router,
-          `/payment/${paymentId}?propertyId=${propertyId}&amount=${amount}${
-            visitBookingId ? `&visitBookingId=${visitBookingId}` : ''
-          }`,
-        );
+        const ok = await ensureAuthenticated(router, returnHref);
         if (active) setReady(ok);
       })();
       return () => {
         active = false;
       };
-    }, [paymentId, propertyId, amount, visitBookingId]),
+    }, [returnHref]),
   );
 
   const handlePay = (): void => {
@@ -76,7 +130,7 @@ export default function PaymentScreen(): React.JSX.Element {
     setSubmitting(false);
   };
 
-  if (!ready || loading) {
+  if (!ready || (loading && !property && !!propertyId)) {
     return (
       <View style={[styles.screen, styles.centered]}>
         <ActivityIndicator color={colors.primary} />
@@ -84,10 +138,17 @@ export default function PaymentScreen(): React.JSX.Element {
     );
   }
 
-  if (!propertyId || !property || !paymentId) {
+  if (!paymentId || !propertyId || !property) {
     return (
       <View style={[styles.screen, styles.centered, { padding: spacing.lg }]}>
         <Text style={styles.missing}>Paiement introuvable</Text>
+        <Text style={styles.missingHint}>
+          {!paymentId
+            ? 'Référence manquante.'
+            : !propertyId
+              ? 'Bien manquant pour ce paiement.'
+              : 'Impossible de charger le bien associé.'}
+        </Text>
         <Pressable style={styles.backLink} onPress={() => router.back()}>
           <Text style={styles.backLinkText}>Retour</Text>
         </Pressable>
@@ -100,7 +161,7 @@ export default function PaymentScreen(): React.JSX.Element {
       <SuccessScreen
         title="Paiement enregistré"
         message="Paiement en espèces en attente de validation par l’agence. Vous serez notifié une fois confirmé."
-        primaryLabel="Retour aux locations"
+        primaryLabel="Retour à mes biens"
         onPrimary={() => router.replace('/(tabs)/locations')}
         secondaryLabel="Retour au bien"
         onSecondary={() => router.replace(`/property/${property.id}`)}
@@ -128,8 +189,27 @@ export default function PaymentScreen(): React.JSX.Element {
         <PropertySummaryCard property={property} />
 
         <View style={styles.amountCard}>
-          <Text style={styles.amountLabel}>Visite · {property.title}</Text>
-          <Text style={styles.amountValue}>{amountLabel}</Text>
+          <Text style={styles.amountLabel}>{payTitle}</Text>
+          {messagingDebtXaf > 0 ? (
+            <View style={styles.amountBreakdown}>
+              <View style={styles.amountRow}>
+                <Text style={styles.amountRowLabel}>Montant</Text>
+                <Text style={styles.amountRowValue}>{formatXaf(baseAmount)}</Text>
+              </View>
+              <View style={styles.amountRow}>
+                <Text style={styles.amountRowLabel}>Frais OTP</Text>
+                <Text style={styles.amountRowValue}>
+                  {formatXaf(messagingDebtXaf)}
+                </Text>
+              </View>
+              <View style={[styles.amountRow, styles.amountRowTotal]}>
+                <Text style={styles.amountTotalLabel}>Total</Text>
+                <Text style={styles.amountValue}>{amountLabel}</Text>
+              </View>
+            </View>
+          ) : (
+            <Text style={styles.amountValue}>{amountLabel}</Text>
+          )}
         </View>
 
         <Text style={styles.section}>Mode de paiement</Text>
@@ -196,6 +276,13 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
   centered: { alignItems: 'center', justifyContent: 'center', gap: 12 },
   missing: { fontSize: 17, fontWeight: '700', color: colors.ink },
+  missingHint: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: colors.muted,
+    textAlign: 'center',
+    maxWidth: 280,
+  },
   backLink: {
     paddingHorizontal: 18,
     paddingVertical: 12,
@@ -226,6 +313,22 @@ const styles = StyleSheet.create({
   },
   amountLabel: { fontSize: 13, fontWeight: '600', color: colors.muted },
   amountValue: { fontSize: 22, fontWeight: '800', color: colors.primary },
+  amountBreakdown: { gap: 8, marginTop: 8 },
+  amountRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  amountRowTotal: {
+    marginTop: 4,
+    paddingTop: 10,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+  },
+  amountRowLabel: { fontSize: 13, fontWeight: '600', color: colors.muted },
+  amountRowValue: { fontSize: 14, fontWeight: '700', color: colors.ink },
+  amountTotalLabel: { fontSize: 14, fontWeight: '800', color: colors.ink },
   section: { fontSize: 15, fontWeight: '800', color: colors.ink },
   methods: { flexDirection: 'row', gap: 8 },
   method: {

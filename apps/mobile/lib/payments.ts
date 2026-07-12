@@ -15,6 +15,7 @@ export interface PublicPayment {
   idempotencyKey: string;
   validatedBy: string | null;
   validatedAt: string | null;
+  messagingDebtXaf: number;
   allocations: Array<{
     id: string;
     type: string;

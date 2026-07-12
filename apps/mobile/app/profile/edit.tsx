@@ -1,12 +1,19 @@
 import { CircleIconButton } from '@/components/ui/CircleIconButton';
+import { SegmentTabs } from '@/components/ui/SegmentTabs';
 import { colors, radii, spacing } from '@/constants/theme';
 import { useFeedback } from '@/context/FeedbackContext';
 import { ensureAuthenticated } from '@/lib/auth-guard';
-import { getStoredUser, updateStoredUser } from '@/lib/auth';
+import { getErrorMessage } from '@/lib/feedback';
+import {
+  fetchMe,
+  updateMeAndSync,
+  type NotificationChannelPreference,
+} from '@/lib/users';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import {
+  ActivityIndicator,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -16,13 +23,24 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+const CHANNEL_TABS: Array<{
+  key: NotificationChannelPreference;
+  label: string;
+}> = [
+  { key: 'PUSH', label: 'Push' },
+  { key: 'SMS', label: 'SMS' },
+];
+
 export default function ProfileEditScreen(): React.JSX.Element {
   const insets = useSafeAreaInsets();
   const { showFeedback } = useFeedback();
   const [ready, setReady] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
+  const [notificationChannel, setNotificationChannel] =
+    useState<NotificationChannelPreference>('PUSH');
   const [saving, setSaving] = useState(false);
 
   useFocusEffect(
@@ -32,17 +50,33 @@ export default function ProfileEditScreen(): React.JSX.Element {
         const ok = await ensureAuthenticated(router, '/profile/edit');
         if (!active) return;
         setReady(ok);
-        if (ok) {
-          const user = await getStoredUser();
-          setName(user?.name ?? '');
-          setEmail(user?.email ?? '');
-          setPhone(user?.phone ?? '');
+        if (!ok) return;
+        setLoading(true);
+        try {
+          const me = await fetchMe();
+          if (!active) return;
+          setName(me.name ?? '');
+          setEmail(me.email ?? '');
+          setPhone(me.phone ?? '');
+          setNotificationChannel(
+            me.notificationChannel === 'SMS' ? 'SMS' : 'PUSH',
+          );
+        } catch (err) {
+          if (!active) return;
+          showFeedback({
+            type: 'error',
+            title: 'Profil',
+            message: getErrorMessage(err, 'Impossible de charger le profil'),
+          });
+          router.back();
+        } finally {
+          if (active) setLoading(false);
         }
       })();
       return () => {
         active = false;
       };
-    }, []),
+    }, [showFeedback]),
   );
 
   const canSave = name.trim().length >= 2 && !saving;
@@ -51,9 +85,11 @@ export default function ProfileEditScreen(): React.JSX.Element {
     if (!canSave) return;
     setSaving(true);
     try {
-      await updateStoredUser({
+      const emailTrim = email.trim();
+      await updateMeAndSync({
         name: name.trim(),
-        email: email.trim() || null,
+        ...(emailTrim ? { email: emailTrim } : {}),
+        notificationChannel,
       });
       showFeedback({
         type: 'success',
@@ -61,13 +97,23 @@ export default function ProfileEditScreen(): React.JSX.Element {
         message: 'Vos informations ont été enregistrées.',
       });
       router.back();
+    } catch (err) {
+      showFeedback({
+        type: 'error',
+        title: 'Profil',
+        message: getErrorMessage(err, 'Impossible d’enregistrer'),
+      });
     } finally {
       setSaving(false);
     }
   };
 
-  if (!ready) {
-    return <View style={styles.screen} />;
+  if (!ready || loading) {
+    return (
+      <View style={[styles.screen, styles.centered]}>
+        <ActivityIndicator color={colors.primary} />
+      </View>
+    );
   }
 
   return (
@@ -108,6 +154,7 @@ export default function ProfileEditScreen(): React.JSX.Element {
           placeholderTextColor={colors.muted}
           keyboardType="email-address"
           autoCapitalize="none"
+          autoCorrect={false}
         />
 
         <Text style={styles.label}>Téléphone</Text>
@@ -118,13 +165,31 @@ export default function ProfileEditScreen(): React.JSX.Element {
         />
         <Text style={styles.hint}>Lié à votre connexion OTP</Text>
 
+        <Text style={styles.label}>Alertes</Text>
+        <SegmentTabs
+          tabs={CHANNEL_TABS}
+          value={notificationChannel}
+          onChange={(key) =>
+            setNotificationChannel(key as NotificationChannelPreference)
+          }
+        />
+        <Text style={styles.hint}>
+          {notificationChannel === 'SMS'
+            ? 'Les SMS sont facturés à l’agence.'
+            : 'Notifications push sur votre téléphone.'}
+        </Text>
+
         <Pressable
           style={[styles.submit, !canSave && styles.submitDisabled]}
           onPress={() => void handleSave()}
           disabled={!canSave}
           accessibilityRole="button"
         >
-          <Text style={styles.submitText}>Enregistrer</Text>
+          {saving ? (
+            <ActivityIndicator color={colors.onPrimary} />
+          ) : (
+            <Text style={styles.submitText}>Enregistrer</Text>
+          )}
         </Pressable>
       </ScrollView>
     </View>
@@ -133,6 +198,7 @@ export default function ProfileEditScreen(): React.JSX.Element {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
+  centered: { alignItems: 'center', justifyContent: 'center' },
   topBar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -189,6 +255,6 @@ const styles = StyleSheet.create({
   submitText: {
     fontSize: 15,
     fontWeight: '700',
-    color: colors.surface,
+    color: colors.onPrimary,
   },
 });
