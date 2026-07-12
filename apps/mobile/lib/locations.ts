@@ -43,3 +43,13 @@ export async function listQuartiers(
     { anonymous: true },
   );
 }
+
+export async function listQuartiersForCity(
+  cityId: string,
+): Promise<PublicQuartier[]> {
+  const arrondissements = await listArrondissements(cityId);
+  const chunks = await Promise.all(
+    arrondissements.map((a) => listQuartiers(a.id)),
+  );
+  return chunks.flat().sort((a, b) => a.name.localeCompare(b.name, 'fr'));
+}

@@ -5,12 +5,21 @@ const ACCESS_KEY = 'paradisImmo.accessToken';
 const REFRESH_KEY = 'paradisImmo.refreshToken';
 const USER_KEY = 'paradisImmo.user';
 
+/** Deduplicate concurrent refresh calls (token rotation is single-use). */
+let refreshInFlight: Promise<string | null> | null = null;
+
 export type AuthUser = {
   id: string;
   phone: string;
   name: string | null;
   email?: string | null;
   roles: string[];
+  seekerIntent?: 'RENT' | 'BUY' | 'BOTH' | null;
+  seekerExperience?: 'FIRST_TIME' | 'RETURNING' | 'PRO' | null;
+  budgetMinXaf?: number | null;
+  budgetMaxXaf?: number | null;
+  preferredQuartierIds?: string[];
+  seekerSetupCompletedAt?: string | null;
 };
 
 export type AuthTokens = {
@@ -30,10 +39,13 @@ type TokenEnvelope = {
   };
 };
 
-function unwrapTokens(body: TokenEnvelope): AuthTokens | null {
+function unwrapTokens(
+  body: TokenEnvelope,
+  fallbackUser?: AuthUser | null,
+): AuthTokens | null {
   const accessToken = body.accessToken ?? body.data?.accessToken;
   const refreshToken = body.refreshToken ?? body.data?.refreshToken;
-  const user = body.user ?? body.data?.user;
+  const user = body.user ?? body.data?.user ?? fallbackUser ?? undefined;
   if (!accessToken || !refreshToken || !user?.id) return null;
   return {
     accessToken,
@@ -42,8 +54,8 @@ function unwrapTokens(body: TokenEnvelope): AuthTokens | null {
       id: user.id,
       phone: user.phone,
       name: user.name ?? null,
-      email: user.email ?? null,
-      roles: user.roles ?? [],
+      email: user.email ?? fallbackUser?.email ?? null,
+      roles: user.roles ?? fallbackUser?.roles ?? [],
     },
   };
 }
@@ -134,23 +146,42 @@ export async function verifyOtp(phone: string, code: string): Promise<AuthTokens
 }
 
 export async function refreshSession(): Promise<string | null> {
-  const refreshToken = await getRefreshToken();
-  if (!refreshToken) return null;
-  const res = await fetch(`${getApiUrl()}/auth/refresh`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-    body: JSON.stringify({ refreshToken }),
+  if (refreshInFlight) return refreshInFlight;
+
+  refreshInFlight = (async (): Promise<string | null> => {
+    const refreshToken = await getRefreshToken();
+    if (!refreshToken) return null;
+
+    try {
+      const res = await fetch(`${getApiUrl()}/auth/refresh`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        body: JSON.stringify({ refreshToken }),
+      });
+      const body = (await res.json().catch(() => null)) as TokenEnvelope | null;
+      if (!res.ok || !body) {
+        await clearSession();
+        return null;
+      }
+
+      const stored = await getStoredUser();
+      const tokens = unwrapTokens(body, stored);
+      if (!tokens) {
+        await clearSession();
+        return null;
+      }
+      await saveTokens(tokens);
+      return tokens.accessToken;
+    } catch {
+      // Network error — keep session; caller may retry later
+      return null;
+    }
+  })().finally(() => {
+    refreshInFlight = null;
   });
-  const body = (await res.json().catch(() => null)) as TokenEnvelope | null;
-  if (!res.ok || !body) {
-    await clearSession();
-    return null;
-  }
-  const tokens = unwrapTokens(body);
-  if (!tokens) {
-    await clearSession();
-    return null;
-  }
-  await saveTokens(tokens);
-  return tokens.accessToken;
+
+  return refreshInFlight;
 }
