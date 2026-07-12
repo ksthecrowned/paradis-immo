@@ -14,7 +14,7 @@ import { PrismaService } from '../prisma/prisma.service';
 
 export interface PublicUser {
   id: string;
-  phone: string;
+  phone: string | null;
   email: string | null;
   name: string | null;
   avatarUrl: string | null;

@@ -37,7 +37,7 @@ const SOCIAL = [
 
 export function LandingFooter(): React.JSX.Element {
   return (
-    <footer className="bg-white">
+    <footer className="bg-[var(--lp-surface)]">
       <div className="landing-container flex flex-col gap-12 py-16 md:flex-row md:items-start md:justify-between md:gap-16">
         <LandingLogo />
         <div className="grid flex-1 grid-cols-2 gap-x-10 gap-y-10 sm:grid-cols-3">

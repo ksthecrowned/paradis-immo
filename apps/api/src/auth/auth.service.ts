@@ -172,9 +172,7 @@ export class AuthService {
 
   async registerWeb(input: { email: string }): Promise<{ message: string }> {
     const email = input.email.trim().toLowerCase();
-    const country = await this.prisma.country.findUniqueOrThrow({
-      where: { code: 'CG' },
-    });
+    const country = await this.ensureDefaultCountry();
     const existing = await this.prisma.user.findUnique({ where: { email } });
     if (!existing) {
       await this.prisma.user.create({
@@ -275,9 +273,7 @@ export class AuthService {
       });
     }
 
-    const country = await this.prisma.country.findUniqueOrThrow({
-      where: { code: 'CG' },
-    });
+    const country = await this.ensureDefaultCountry();
     let user = await this.prisma.user.findFirst({
       where: { OR: [{ googleId }, { email }] },
       include: { roles: true, orgMembers: true },
@@ -493,6 +489,21 @@ export class AuthService {
     return { accessToken, refreshToken };
   }
 
+  /** Congo (CG) is the MVP default market — upsert so auth works before seed. */
+  private async ensureDefaultCountry(): Promise<Country> {
+    return this.prisma.country.upsert({
+      where: { code: 'CG' },
+      update: {},
+      create: {
+        code: 'CG',
+        name: 'Congo',
+        currency: 'XAF',
+        phonePrefix: '+242',
+        activeProviders: ['AIRTEL'],
+      },
+    });
+  }
+
   private async getOrCreateCountryForPhone(phone: string): Promise<Country> {
     const prefix = phone.startsWith('+') ? phone.slice(0, 4) : null;
     if (!prefix) {
@@ -505,7 +516,7 @@ export class AuthService {
       where: { phonePrefix: prefix },
     });
     if (existing) return existing;
-    return this.prisma.country.findUniqueOrThrow({ where: { code: 'CG' } });
+    return this.ensureDefaultCountry();
   }
 
   private async getOrCreateUser(

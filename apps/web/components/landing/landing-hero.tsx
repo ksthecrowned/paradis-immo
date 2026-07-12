@@ -13,7 +13,7 @@ export function LandingHero(): React.JSX.Element {
   return (
     <section
       id="hero"
-      className="relative overflow-hidden bg-gradient-to-b from-[var(--lp-bg-hero)] to-white"
+      className="relative overflow-hidden bg-gradient-to-b from-[var(--lp-bg-hero)] to-[var(--lp-bg)]"
     >
       <div className="landing-container relative grid items-start gap-10 pb-16 pt-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] lg:gap-8 lg:pb-20 lg:pt-8">
         {/* Left column */}
@@ -28,7 +28,7 @@ export function LandingHero(): React.JSX.Element {
 
           {/* Search widget */}
           <div className="mt-8 w-full max-w-[540px]">
-            <div className="inline-flex overflow-hidden rounded-t-[var(--lp-radius-md)] bg-white shadow-[var(--lp-shadow-search)]">
+            <div className="inline-flex overflow-hidden rounded-t-[var(--lp-radius-md)] bg-[var(--lp-surface)] shadow-[var(--lp-shadow-search)]">
               {TABS.map((tab, index) => (
                 <button
                   key={tab}
@@ -45,7 +45,7 @@ export function LandingHero(): React.JSX.Element {
               ))}
             </div>
             <div
-              className="flex flex-col gap-4 rounded-b-[var(--lp-radius-md)] rounded-tr-[var(--lp-radius-md)] bg-white p-4 shadow-[var(--lp-shadow-search)] sm:flex-row sm:items-center sm:gap-0 sm:px-5 sm:py-4"
+              className="flex flex-col gap-4 rounded-b-[var(--lp-radius-md)] rounded-tr-[var(--lp-radius-md)] bg-[var(--lp-surface)] p-4 shadow-[var(--lp-shadow-search)] sm:flex-row sm:items-center sm:gap-0 sm:px-5 sm:py-4"
             >
               <div className="min-w-0 flex-1 sm:pe-5">
                 <p className="landing-input-label">Location</p>
@@ -126,7 +126,7 @@ export function LandingHero(): React.JSX.Element {
           </div>
 
           {/* Testimonial card */}
-          <div className="absolute start-0 top-8 z-10 w-[min(100%,292px)] -translate-x-1 rounded-[var(--lp-radius-lg)] bg-white p-5 shadow-[var(--lp-shadow-float)] sm:start-[-12px] sm:w-[300px]">
+          <div className="absolute start-0 top-8 z-10 w-[min(100%,292px)] -translate-x-1 rounded-[var(--lp-radius-lg)] bg-[var(--lp-surface)] p-5 shadow-[var(--lp-shadow-float)] sm:start-[-12px] sm:w-[300px]">
             <div className="flex gap-3">
               <Image
                 src="/landing/testimonial-avatar.png"
@@ -156,7 +156,7 @@ export function LandingHero(): React.JSX.Element {
               </div>
             </div>
             <div className="mt-4 flex gap-3">
-              <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-[var(--lp-ink)] text-white">
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-[var(--lp-ink)] text-[var(--lp-bg)]">
                 <DashIcon icon="solar:quote-up-bold" className="size-4" />
               </span>
               <p className="text-[15px] leading-relaxed text-[var(--lp-ink)]">
@@ -177,7 +177,7 @@ export function LandingHero(): React.JSX.Element {
           </div>
 
           {/* Trustpilot badge */}
-          <div className="absolute bottom-0 end-0 z-10 rounded-tl-[var(--lp-radius-lg)] bg-[var(--lp-navy)] px-5 py-4 text-white sm:px-6 sm:py-5">
+          <div className="absolute bottom-0 end-0 z-10 rounded-tl-[var(--lp-radius-lg)] bg-[var(--lp-navy)] px-5 py-4 text-[var(--lp-on-primary)] sm:px-6 sm:py-5">
             <div className="flex items-center gap-2">
               <p className="text-[15px] font-bold">Excellent</p>
               <DashIcon
@@ -195,7 +195,7 @@ export function LandingHero(): React.JSX.Element {
                 />
               ))}
             </div>
-            <p className="mt-2 text-sm font-medium text-white/90">
+            <p className="mt-2 text-sm font-medium text-[var(--lp-on-primary)]/90">
               From 3,264 reviews
             </p>
           </div>

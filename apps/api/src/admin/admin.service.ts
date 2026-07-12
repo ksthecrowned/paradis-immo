@@ -13,7 +13,7 @@ export interface AdminStats {
 
 export interface AdminUserRow {
   id: string;
-  phone: string;
+  phone: string | null;
   name: string | null;
   countryId: string;
   roles: string[];

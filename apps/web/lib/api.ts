@@ -27,6 +27,32 @@ export type ApiFetchOptions = Omit<RequestInit, 'body'> & {
   anonymous?: boolean;
 };
 
+/** Avoid hammering GET /api/auth/session on every parallel apiFetch. */
+const TOKEN_CACHE_TTL_MS = 30_000;
+let cachedAccessToken: string | null | undefined;
+let cachedAccessTokenAt = 0;
+let inflightSession: Promise<string | null> | null = null;
+
+function readTokenCache(): string | null | undefined {
+  if (cachedAccessToken === undefined) return undefined;
+  if (Date.now() - cachedAccessTokenAt > TOKEN_CACHE_TTL_MS) {
+    cachedAccessToken = undefined;
+    return undefined;
+  }
+  return cachedAccessToken;
+}
+
+function writeTokenCache(token: string | null): void {
+  cachedAccessToken = token;
+  cachedAccessTokenAt = Date.now();
+}
+
+export function invalidateAccessTokenCache(): void {
+  cachedAccessToken = undefined;
+  cachedAccessTokenAt = 0;
+  inflightSession = null;
+}
+
 async function resolveAccessToken(): Promise<string | null> {
   if (typeof window === 'undefined') {
     const { auth } = await import('@/auth');
@@ -35,25 +61,42 @@ async function resolveAccessToken(): Promise<string | null> {
     return session?.accessToken ?? null;
   }
 
-  const { getSession } = await import('next-auth/react');
-  const session = await getSession();
-  if (session?.error === 'RefreshAccessTokenError') return null;
-  return session?.accessToken ?? null;
+  const cached = readTokenCache();
+  if (cached !== undefined) return cached;
+
+  if (!inflightSession) {
+    inflightSession = (async () => {
+      const { getSession } = await import('next-auth/react');
+      const session = await getSession();
+      if (session?.error === 'RefreshAccessTokenError') {
+        writeTokenCache(null);
+        return null;
+      }
+      const token = session?.accessToken ?? null;
+      writeTokenCache(token);
+      return token;
+    })().finally(() => {
+      inflightSession = null;
+    });
+  }
+  return inflightSession;
 }
 
 async function forceSessionRefresh(): Promise<string | null> {
   if (typeof window === 'undefined') {
     return resolveAccessToken();
   }
-  // Hitting the session endpoint re-runs the JWT callback (refresh if expired).
-  const { getSession } = await import('next-auth/react');
+  invalidateAccessTokenCache();
+  const { getSession, signOut } = await import('next-auth/react');
   const session = await getSession();
   if (session?.error === 'RefreshAccessTokenError') {
-    const { signOut } = await import('next-auth/react');
     await signOut({ callbackUrl: '/login' });
+    writeTokenCache(null);
     return null;
   }
-  return session?.accessToken ?? null;
+  const token = session?.accessToken ?? null;
+  writeTokenCache(token);
+  return token;
 }
 
 function unwrapData<T>(parsed: unknown): T {
@@ -207,5 +250,5 @@ export async function apiFetchPaginated<T>(
 }
 
 export function __resetApiForTests(): void {
-  /* no-op */
+  invalidateAccessTokenCache();
 }

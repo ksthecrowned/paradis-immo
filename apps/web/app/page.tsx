@@ -1,13 +1,14 @@
-import './landing.css';
 import {
   LandingAdvantages,
   LandingBenefits,
   LandingCta,
+  LandingDownload,
   LandingFooter,
   LandingHero,
   LandingNav,
   LandingProperties,
 } from '@/components/landing';
+import './landing.css';
 
 export default function HomePage(): React.JSX.Element {
   return (
@@ -18,6 +19,7 @@ export default function HomePage(): React.JSX.Element {
         <LandingBenefits />
         <LandingProperties />
         <LandingAdvantages />
+        <LandingDownload />
         <LandingCta />
       </main>
       <LandingFooter />

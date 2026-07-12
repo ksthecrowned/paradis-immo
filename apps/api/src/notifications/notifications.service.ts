@@ -93,6 +93,9 @@ export class NotificationsService {
       if (!input.organizationId) {
         return this.markFailed(row.id, 'MISSING_ORGANIZATION');
       }
+      if (!user.phone) {
+        return this.markFailed(row.id, 'NO_PHONE');
+      }
       const text = this.renderSmsMessage(input.type, input.payload);
       result = await this.sms.send({ to: user.phone, text });
       if (result.ok) {
@@ -105,6 +108,9 @@ export class NotificationsService {
         });
       }
     } else if (channel === NotificationChannel.WHATSAPP) {
+      if (!user.phone) {
+        return this.markFailed(row.id, 'NO_PHONE');
+      }
       const message = this.renderWhatsAppMessage(input.type, input.payload);
       result = await this.infobip.sendWhatsApp(user.phone, message);
     } else {

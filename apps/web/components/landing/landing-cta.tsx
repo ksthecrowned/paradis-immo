@@ -17,14 +17,14 @@ export function LandingCta(): React.JSX.Element {
         spam.
       </p>
       <form
-        className="mt-8 flex w-full max-w-xl flex-col gap-3 rounded-[var(--lp-radius-md)] bg-white p-2 shadow-[var(--lp-shadow-card)] sm:flex-row sm:items-center"
+        className="mt-8 flex w-full max-w-xl flex-col gap-3 rounded-[var(--lp-radius-md)] bg-[var(--lp-surface)] p-2 shadow-[var(--lp-shadow-card)] sm:flex-row sm:items-center"
         action="/login"
       >
         <input
           type="email"
           name="email"
           placeholder="Enter your email address"
-          className="flex-1 rounded-[var(--lp-radius-sm)] bg-white px-4 py-3 text-[15px] text-[var(--lp-ink)] outline-none placeholder:text-[var(--lp-muted)]"
+          className="flex-1 rounded-[var(--lp-radius-sm)] bg-[var(--lp-surface)] px-4 py-3 text-[15px] text-[var(--lp-ink)] outline-none placeholder:text-[var(--lp-muted)]"
         />
         <Link
           href="/login"

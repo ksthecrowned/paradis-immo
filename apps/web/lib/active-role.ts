@@ -1,14 +1,9 @@
 /**
- * Active role for users with multiple roles.
+ * Active dashboard surface for the signed-in user.
  *
- * A single Paradis Immo user can hold several roles (e.g. a property
- * owner who is also an agent, or an admin who also has a personal
- * tenant account). The Topbar exposes a role switcher; the active
- * role is persisted in `localStorage` and read on every render so
- * the sidebar nav and header can adapt without a page reload.
- *
- * The mapping is intentionally narrow: only roles that correspond to
- * a dashboard surface are valid (`owner`, `agent`, `admin`).
+ * Product rule: one business role per account — either Owner or Agent
+ * (never both). Platform admin is separate. The topbar switcher only
+ * appears if multiple dashboard surfaces apply (rare).
  */
 
 import type { DashboardRole } from '@/components/dashboard/sidebar-nav';
@@ -36,8 +31,6 @@ function readStore(): Storage | null {
  *
  * - If a previously stored value is still in the user's role set, use it.
  * - Otherwise pick the highest-priority role the user has.
- * - The `availableRoles` list drives both the switcher and the resolver
- *   so the active role can never escape the user's actual permissions.
  */
 export function resolveActiveRole(availableRoles: string[]): ActiveRole {
   const eligible = availableRoles.filter(isActiveRole);
@@ -63,9 +56,6 @@ export function clearActiveRole(): void {
   store.removeItem(STORAGE_KEY);
 }
 
-/**
- * Human label for the role switcher — French UI, English role key.
- */
 export const ACTIVE_ROLE_LABELS: Record<ActiveRole, string> = {
   owner: 'Propriétaire',
   agent: 'Agent',

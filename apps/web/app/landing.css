@@ -1,5 +1,7 @@
-/* Estatery design tokens — Figma community kit */
+/* Landing tokens — aligned with mobile `apps/mobile/constants/theme.ts` */
+
 .landing {
+  /* lightColors */
   --lp-primary: #7065f0;
   --lp-primary-hover: #5a50d6;
   --lp-primary-soft: #e8e6f9;
@@ -11,20 +13,51 @@
   --lp-surface: #ffffff;
   --lp-bg: #f7f7fd;
   --lp-bg-hero: #f0effb;
+  --lp-search: #ffffff;
+  --lp-on-primary: #ffffff;
+  --lp-danger: #dc2626;
+  --lp-success: #16a34a;
+  --lp-warning: #f5a623;
   --lp-radius-sm: 8px;
   --lp-radius-md: 12px;
   --lp-radius-lg: 16px;
   --lp-radius-xl: 20px;
   --lp-radius-full: 9999px;
-  --lp-shadow-card: 0 4px 20px rgba(16, 10, 85, 0.06);
-  --lp-shadow-float: 0 12px 40px rgba(16, 10, 85, 0.12);
-  --lp-shadow-search: 0 8px 30px rgba(16, 10, 85, 0.08);
+  --lp-shadow-card: 0 4px 20px rgba(0, 9, 41, 0.06);
+  --lp-shadow-float: 0 12px 40px rgba(0, 9, 41, 0.12);
+  --lp-shadow-search: 0 8px 30px rgba(0, 9, 41, 0.08);
   --lp-container: 1200px;
   --lp-pad-x: 40px;
 
   color: var(--lp-ink);
-  background: var(--lp-surface);
+  background: var(--lp-bg);
   font-feature-settings: 'ss01' on;
+  color-scheme: light;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+html[data-bs-theme='dark'] .landing {
+  /* darkColors (Darkone / mobile) */
+  --lp-primary: #7065f0;
+  --lp-primary-hover: #5a50d6;
+  --lp-primary-soft: rgba(112, 101, 240, 0.22);
+  --lp-primary-muted: rgba(112, 101, 240, 0.15);
+  --lp-navy: #1d2329;
+  --lp-ink: #f1f1f1;
+  --lp-muted: #afb9cf;
+  --lp-border: #272f37;
+  --lp-surface: #242b33;
+  --lp-bg: #171c21;
+  --lp-bg-hero: #1d2329;
+  --lp-search: #232a31;
+  --lp-on-primary: #ffffff;
+  --lp-danger: #ef4444;
+  --lp-success: #22c997;
+  --lp-warning: #f5a623;
+  --lp-shadow-card: 0 4px 16px rgba(0, 0, 0, 0.35);
+  --lp-shadow-float: 0 12px 40px rgba(0, 0, 0, 0.45);
+  --lp-shadow-search: 0 8px 30px rgba(0, 0, 0, 0.4);
+  color-scheme: dark;
 }
 
 .landing * {
@@ -53,12 +86,15 @@
   font-weight: 600;
   line-height: 1.2;
   padding: 12px 24px;
-  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease,
+    border-color 0.15s ease;
 }
 
 .landing-btn-primary {
   background: var(--lp-primary);
-  color: #fff;
+  color: var(--lp-on-primary);
   border: 1px solid var(--lp-primary);
 }
 
@@ -79,12 +115,93 @@
 
 .landing-btn-navy {
   background: var(--lp-navy);
-  color: #fff;
+  color: var(--lp-on-primary);
   border: 1px solid var(--lp-navy);
 }
 
 .landing-btn-navy:hover {
-  background: #1a1266;
+  filter: brightness(1.12);
+}
+
+.landing-btn-outline {
+  background: transparent;
+  color: var(--lp-ink);
+  border: 1px solid var(--lp-ink);
+  border-radius: var(--lp-radius-full);
+  padding-inline: 22px;
+}
+
+.landing-btn-outline:hover {
+  background: var(--lp-primary-muted);
+  border-color: var(--lp-primary);
+  color: var(--lp-primary);
+}
+
+.landing-header {
+  background: transparent;
+  border-bottom: 1px solid transparent;
+}
+
+.landing-header-scrolled {
+  background: color-mix(in srgb, var(--lp-bg) 88%, transparent);
+  border-bottom-color: var(--lp-border);
+  box-shadow: var(--lp-shadow-card);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+.landing-nav-link {
+  position: relative;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--lp-ink);
+  transition: color 0.15s ease;
+}
+
+.landing-nav-link:hover {
+  color: var(--lp-primary);
+}
+
+.landing-nav-left {
+  position: relative;
+  padding-bottom: 10px;
+}
+
+.landing-nav-left::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 1px;
+  background: color-mix(in srgb, var(--lp-ink) 22%, transparent);
+}
+
+.landing-logo-mark span {
+  font-size: 24px;
+  letter-spacing: -0.03em;
+}
+
+.landing-btn-icon {
+  display: inline-flex;
+  width: 40px;
+  height: 40px;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--lp-radius-full);
+  border: 1px solid var(--lp-border);
+  background: transparent;
+  color: var(--lp-muted);
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.landing-btn-icon:hover {
+  background: var(--lp-primary-muted);
+  color: var(--lp-ink);
+  border-color: var(--lp-primary);
 }
 
 .landing-card {

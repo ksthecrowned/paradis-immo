@@ -30,10 +30,10 @@ const BENEFITS = [
 
 export function LandingBenefits(): React.JSX.Element {
   return (
-    <section id="benefits" className="bg-white py-16 md:py-24">
+    <section id="benefits" className="bg-[var(--lp-surface)] py-16 md:py-24">
       <div className="landing-container flex flex-col gap-12 md:flex-row md:items-start md:justify-between md:gap-16">
         <div className="relative w-full max-w-[360px] overflow-hidden rounded-[var(--lp-radius-lg)] border border-[var(--lp-border)] bg-[var(--lp-primary-muted)] p-7 pb-44">
-          <h2 className="text-[32px] font-bold leading-tight text-[var(--lp-navy)] md:text-[36px]">
+          <h2 className="text-[32px] font-bold leading-tight text-[var(--lp-ink)] md:text-[36px]">
             The new way to find your new home
           </h2>
           <p className="mt-4 text-[15px] leading-relaxed text-[var(--lp-muted)]">

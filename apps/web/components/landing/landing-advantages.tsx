@@ -35,12 +35,12 @@ export function LandingAdvantages(): React.JSX.Element {
     <section id="advantages" className="bg-[var(--lp-navy)] py-16 md:py-24">
       <div className="landing-container">
         <div className="flex flex-col justify-between gap-6 md:flex-row md:items-start">
-          <h2 className="max-w-lg text-[32px] font-bold leading-tight text-white md:text-[48px]">
+          <h2 className="max-w-lg text-[32px] font-bold leading-tight text-[var(--lp-on-primary)] md:text-[48px]">
             We make it easy for{' '}
             <span className="text-[var(--lp-primary)]">tenants</span> and{' '}
             <span className="text-[var(--lp-primary)]">landlords.</span>
           </h2>
-          <p className="max-w-md text-[15px] leading-relaxed text-[#B0A9D6] md:pt-2">
+          <p className="max-w-md text-[15px] leading-relaxed text-[var(--lp-muted)] md:pt-2">
             Whether it&apos;s selling your current home, getting financing, or
             buying a new home, we make it easy and efficient. The best part?
             you&apos;ll save a bunch of money and time with our services.
@@ -51,18 +51,20 @@ export function LandingAdvantages(): React.JSX.Element {
           {CARDS.map((card) => {
             const styles =
               card.tone === 'primary'
-                ? 'bg-[var(--lp-primary)] text-white'
+                ? 'bg-[var(--lp-primary)] text-[var(--lp-on-primary)]'
                 : card.tone === 'muted'
-                  ? 'bg-[rgba(112,101,240,0.4)] text-white'
-                  : 'bg-white text-[var(--lp-ink)]';
+                  ? 'bg-[color-mix(in_srgb,var(--lp-primary)_42%,transparent)] text-[var(--lp-on-primary)]'
+                  : 'bg-[var(--lp-surface)] text-[var(--lp-ink)]';
             const iconStyles =
               card.tone === 'light'
                 ? 'bg-[var(--lp-primary-soft)] text-[var(--lp-primary)]'
                 : card.tone === 'muted'
-                  ? 'bg-[var(--lp-navy)] text-white'
-                  : 'bg-white/15 text-white';
+                  ? 'bg-[var(--lp-navy)] text-[var(--lp-on-primary)]'
+                  : 'bg-[var(--lp-on-primary)]/15 text-[var(--lp-on-primary)]';
             const descStyles =
-              card.tone === 'light' ? 'text-[var(--lp-muted)]' : 'text-white/80';
+              card.tone === 'light'
+                ? 'text-[var(--lp-muted)]'
+                : 'text-[var(--lp-on-primary)]/80';
 
             return (
               <article
@@ -85,18 +87,24 @@ export function LandingAdvantages(): React.JSX.Element {
           })}
         </div>
 
-        <div className="my-14 h-px bg-white/15" />
+        <div className="my-14 h-px bg-[var(--lp-on-primary)]/15" />
 
         <div className="grid gap-8 text-center sm:grid-cols-3 sm:gap-4">
           {STATS.map((stat, index) => (
             <div
               key={stat.label}
-              className={index > 0 ? 'sm:border-s sm:border-white/20' : undefined}
+              className={
+                index > 0
+                  ? 'sm:border-s sm:border-[var(--lp-on-primary)]/20'
+                  : undefined
+              }
             >
-              <p className="text-4xl font-bold text-white md:text-5xl">
+              <p className="text-4xl font-bold text-[var(--lp-on-primary)] md:text-5xl">
                 {stat.value}
               </p>
-              <p className="mt-2 text-[15px] text-[#B0A9D6]">{stat.label}</p>
+              <p className="mt-2 text-[15px] text-[var(--lp-muted)]">
+                {stat.label}
+              </p>
             </div>
           ))}
         </div>

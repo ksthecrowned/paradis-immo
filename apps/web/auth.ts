@@ -1,6 +1,5 @@
 import NextAuth from 'next-auth';
 import Credentials from 'next-auth/providers/credentials';
-import Google from 'next-auth/providers/google';
 import type { JWT } from 'next-auth/jwt';
 import {
   ACCESS_TOKEN_TTL_MS,
@@ -9,6 +8,7 @@ import {
   backendWebLogin,
   type BackendAuthTokens,
 } from '@/lib/backend-auth';
+import { GoogleOAuthWithoutDiscovery } from '@/lib/google-oauth-provider';
 
 function sessionFromBackendUser(tokens: BackendAuthTokens): JWT {
   return {
@@ -77,7 +77,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     }),
     ...(googleConfigured
       ? [
-          Google({
+          GoogleOAuthWithoutDiscovery({
             clientId: process.env.AUTH_GOOGLE_ID!,
             clientSecret: process.env.AUTH_GOOGLE_SECRET!,
           }),
@@ -155,7 +155,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         name: token.name ?? null,
         roles: token.roles ?? [],
         orgRoles: token.orgRoles ?? [],
-      };
+      } as typeof session.user;
       session.accessToken = token.accessToken;
       if (token.error) {
         session.error = token.error;

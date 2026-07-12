@@ -38,9 +38,15 @@ function LoginForm(): React.JSX.Element {
   }, [status, session, router]);
 
   useEffect(() => {
-    if (searchParams.get('error')) {
-      setError('Connexion refusée. Réessayez ou créez un compte.');
+    const code = searchParams.get('error');
+    if (!code) return;
+    if (code === 'Configuration') {
+      setError(
+        'Connexion Google indisponible (configuration ou réseau). Utilisez email / mot de passe, ou redémarrez le serveur web.',
+      );
+      return;
     }
+    setError('Connexion refusée. Réessayez ou créez un compte.');
   }, [searchParams]);
 
   async function onSubmit(e: FormEvent): Promise<void> {

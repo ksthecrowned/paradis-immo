@@ -65,7 +65,7 @@ export class ReceiptService {
     const buffer = await renderReceiptPdf({
       number,
       issuedAt: payment.validatedAt ?? payment.createdAt,
-      tenantName: payment.user.name ?? payment.user.phone,
+      tenantName: payment.user.name ?? payment.user.phone ?? '—',
       amount: payment.amount.toString(),
       currency: payment.currency,
       method: payment.method,

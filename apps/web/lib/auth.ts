@@ -26,6 +26,8 @@ export async function loginWithPassword(
 }
 
 export async function logout(callbackUrl = '/login'): Promise<void> {
+  const { invalidateAccessTokenCache } = await import('@/lib/api');
+  invalidateAccessTokenCache();
   await signOut({ callbackUrl });
 }
 

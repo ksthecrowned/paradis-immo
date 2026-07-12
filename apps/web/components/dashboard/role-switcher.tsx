@@ -25,22 +25,33 @@ export function RoleSwitcher(): React.JSX.Element | null {
   const pathname = usePathname() ?? '';
   const [eligible, setEligible] = useState<ActiveRole[]>([]);
 
+  const userId = session?.user?.id;
+  const rolesKey = (session?.user?.roles ?? []).join(',');
+
   useEffect(() => {
-    if (status !== 'authenticated' || !session?.user) {
+    if (status !== 'authenticated' || !userId) {
       setEligible([]);
       return;
     }
+    let cancelled = false;
     void (async () => {
       try {
         const orgs = await listMyOrganizations();
+        if (cancelled) return;
         setEligible(
-          resolveEligibleDashboardRoles(session.user.roles ?? [], orgs),
+          resolveEligibleDashboardRoles(rolesKey ? rolesKey.split(',') : [], orgs),
         );
       } catch {
-        setEligible(resolveEligibleDashboardRoles(session.user.roles ?? [], []));
+        if (cancelled) return;
+        setEligible(
+          resolveEligibleDashboardRoles(rolesKey ? rolesKey.split(',') : [], []),
+        );
       }
     })();
-  }, [session, status]);
+    return () => {
+      cancelled = true;
+    };
+  }, [status, userId, rolesKey]);
 
   const currentRole = (pathname.split('/')[1] ?? 'owner') as ActiveRole;
 
