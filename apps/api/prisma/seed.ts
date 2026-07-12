@@ -4,6 +4,7 @@ import {
   GlobalRole,
   ListingStatus,
   MediaType,
+  MandateStatus,
   OrgMemberRole,
   OrganizationType,
   PaymentMethod,
@@ -45,6 +46,13 @@ export const TEST_ACCOUNTS = {
     password: ADMIN_SEED_PASSWORD,
     name: 'Admin Test',
     path: '/admin/dashboard',
+  },
+  manager: {
+    phone: '+242060000008',
+    email: 'manager@paradisimmo.cg',
+    password: 'Manager123!',
+    name: 'Gérant Paradis',
+    path: '/agent/dashboard',
   },
   agent: {
     phone: '+242060000002',
@@ -419,6 +427,15 @@ async function seedTestUsers(
       password: 'Agent123!',
       globalRoles: [GlobalRole.TENANT],
       org: { organizationId: PARADIS_IMMO_ID, role: OrgMemberRole.AGENT },
+    },
+    {
+      id: SEED_IDS.userManager,
+      phone: TEST_ACCOUNTS.manager.phone,
+      name: TEST_ACCOUNTS.manager.name,
+      email: TEST_ACCOUNTS.manager.email,
+      password: TEST_ACCOUNTS.manager.password,
+      globalRoles: [GlobalRole.TENANT],
+      org: { organizationId: PARADIS_IMMO_ID, role: OrgMemberRole.ADMIN },
     },
     {
       id: SEED_IDS.userAgentParadis2,
@@ -1083,6 +1100,42 @@ async function seedTestUsers(
     },
   });
 
+  // Active mandates: rent-long assigned to field agent; sale unassigned (gérant-only).
+  await prisma.mandate.upsert({
+    where: { id: SEED_IDS.mandateRentLong },
+    update: {
+      status: MandateStatus.ACTIVE,
+      organizationId: PARADIS_IMMO_ID,
+      propertyId: DEMO_PROPERTY_ID,
+      assignedAgentId: TEST_USER_IDS.agent,
+      endDate: null,
+    },
+    create: {
+      id: SEED_IDS.mandateRentLong,
+      propertyId: DEMO_PROPERTY_ID,
+      organizationId: PARADIS_IMMO_ID,
+      assignedAgentId: TEST_USER_IDS.agent,
+      status: MandateStatus.ACTIVE,
+    },
+  });
+  await prisma.mandate.upsert({
+    where: { id: SEED_IDS.mandateSale },
+    update: {
+      status: MandateStatus.ACTIVE,
+      organizationId: PARADIS_IMMO_ID,
+      propertyId: DEMO_PROPERTY_SALE_ID,
+      assignedAgentId: null,
+      endDate: null,
+    },
+    create: {
+      id: SEED_IDS.mandateSale,
+      propertyId: DEMO_PROPERTY_SALE_ID,
+      organizationId: PARADIS_IMMO_ID,
+      assignedAgentId: null,
+      status: MandateStatus.ACTIVE,
+    },
+  });
+
   console.log('✓ Test accounts:');
   console.log(
     `    admin    admin@paradisimmo.cg / Admin123!  → /login → /admin/dashboard`,
@@ -1091,10 +1144,20 @@ async function seedTestUsers(
     `    owner    owner@paradisimmo.cg / Owner123!  → /login → /owner/dashboard`,
   );
   console.log(
-    `    agent    agent@paradisimmo.cg / Agent123!  → /login → /agent/dashboard`,
+    `    manager  manager@paradisimmo.cg / Manager123!  → /login → /agent/dashboard (gérant)`,
+  );
+  console.log(
+    `    agent    agent@paradisimmo.cg / Agent123!  → /login → /agent/dashboard (field)`,
   );
   console.log(
     `    tenant   ${TEST_ACCOUNTS.tenant.phone}  → mobile OTP only`,
+  );
+  console.log('✓ Mandates (Paradis Immo):');
+  console.log(
+    `    ${SEED_IDS.mandateRentLong}  rent-long → assigned to agent`,
+  );
+  console.log(
+    `    ${SEED_IDS.mandateSale}  sale → unassigned (gérant only)`,
   );
   console.log('✓ Demo properties (Pointe-Noire + R2 photos):');
   console.log(

@@ -10,6 +10,7 @@ export const SEED_IDS = {
 
   userAdmin: '264c573a-c000-446e-b990-70f1ccb0a1fd',
   userAgent: '2a036ccd-fb37-4baf-ac47-ce70b42af47f',
+  userManager: '9f3e2a1b-4c5d-4e6f-8a9b-0c1d2e3f4a5b',
   userAgentParadis2: 'f96f3e4f-df26-44b4-b19b-29b6069531b2',
   userAgentCote: '07164a84-b60b-4855-8f76-7dfb834297a4',
   userAgentHabitat: '61181f29-f925-4aab-92b7-139dbeab1035',
@@ -22,6 +23,9 @@ export const SEED_IDS = {
   propLand: 'a50c3b1b-9cb9-4035-8326-552c1c5de0c3',
   propUnderOffer: '3eccfbe0-7700-4061-b856-067bc4417bea',
   propRentSoon: '24e9fe73-8bf0-4a8e-baf2-1b0d5b6565fb',
+
+  mandateRentLong: 'b1c2d3e4-f5a6-4789-bcde-f01234567890',
+  mandateSale: 'b1c2d3e4-f5a6-4789-bcde-f01234567891',
 
   saleInquiry: '477405ea-a863-4ec9-a81c-89aa0b635db8',
   paymentCash: 'fd7e35c5-f02e-4910-bb17-74a7b7aba6c8',
