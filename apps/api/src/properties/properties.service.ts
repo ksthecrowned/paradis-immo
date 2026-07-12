@@ -376,6 +376,63 @@ export class PropertiesService {
     return this.toPublic(updated);
   }
 
+  async publish(userId: string, id: string): Promise<PublicProperty> {
+    const existing = await this.prisma.property.findUnique({ where: { id } });
+    if (!existing) {
+      throw new NotFoundException({
+        code: 'PROPERTY_NOT_FOUND',
+        message: 'Property does not exist',
+      });
+    }
+    await this.assertCanWrite(
+      userId,
+      existing.ownerId,
+      existing.organizationId,
+    );
+    if (
+      existing.status !== PropertyStatus.DRAFT &&
+      existing.status !== PropertyStatus.PAUSED
+    ) {
+      throw new BadRequestException({
+        code: 'INVALID_STATUS_TRANSITION',
+        message: 'Only DRAFT or PAUSED properties can be published',
+      });
+    }
+    const updated = await this.prisma.property.update({
+      where: { id },
+      data: { status: PropertyStatus.ACTIVE },
+      include: this.publicInclude(),
+    });
+    return this.toPublic(updated);
+  }
+
+  async pause(userId: string, id: string): Promise<PublicProperty> {
+    const existing = await this.prisma.property.findUnique({ where: { id } });
+    if (!existing) {
+      throw new NotFoundException({
+        code: 'PROPERTY_NOT_FOUND',
+        message: 'Property does not exist',
+      });
+    }
+    await this.assertCanWrite(
+      userId,
+      existing.ownerId,
+      existing.organizationId,
+    );
+    if (existing.status !== PropertyStatus.ACTIVE) {
+      throw new BadRequestException({
+        code: 'INVALID_STATUS_TRANSITION',
+        message: 'Only ACTIVE properties can be paused',
+      });
+    }
+    const updated = await this.prisma.property.update({
+      where: { id },
+      data: { status: PropertyStatus.PAUSED },
+      include: this.publicInclude(),
+    });
+    return this.toPublic(updated);
+  }
+
   // ------------------------------------------------------------------
   // Internals
   // ------------------------------------------------------------------

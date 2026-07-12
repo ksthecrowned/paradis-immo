@@ -233,6 +233,76 @@ describe('Properties (e2e)', () => {
     expect(fresh?.status).toBe('ARCHIVED');
   });
 
+  it('POST /properties/:id/publish moves DRAFT to ACTIVE', async () => {
+    await prisma.property.update({
+      where: { id: createdPropertyId },
+      data: { status: 'DRAFT' },
+    });
+    const res = await request(app.getHttpServer())
+      .post(`/api/v1/properties/${createdPropertyId}/publish`)
+      .set('x-test-user', ownerUserId)
+      .expect(200);
+    expect(res.body.status).toBe('ACTIVE');
+  });
+
+  it('POST /properties/:id/pause moves ACTIVE to PAUSED', async () => {
+    await prisma.property.update({
+      where: { id: createdPropertyId },
+      data: { status: 'ACTIVE' },
+    });
+    const res = await request(app.getHttpServer())
+      .post(`/api/v1/properties/${createdPropertyId}/pause`)
+      .set('x-test-user', ownerUserId)
+      .expect(200);
+    expect(res.body.status).toBe('PAUSED');
+  });
+
+  it('POST /properties/:id/publish from PAUSED returns ACTIVE', async () => {
+    await prisma.property.update({
+      where: { id: createdPropertyId },
+      data: { status: 'PAUSED' },
+    });
+    const res = await request(app.getHttpServer())
+      .post(`/api/v1/properties/${createdPropertyId}/publish`)
+      .set('x-test-user', ownerUserId)
+      .expect(200);
+    expect(res.body.status).toBe('ACTIVE');
+  });
+
+  it('POST /properties/:id/publish from ARCHIVED returns 400 INVALID_STATUS_TRANSITION', async () => {
+    await prisma.property.update({
+      where: { id: createdPropertyId },
+      data: { status: 'ARCHIVED' },
+    });
+    const res = await request(app.getHttpServer())
+      .post(`/api/v1/properties/${createdPropertyId}/publish`)
+      .set('x-test-user', ownerUserId)
+      .expect(400);
+    expect(res.body.code).toBe('INVALID_STATUS_TRANSITION');
+  });
+
+  it('POST /properties/:id/pause from DRAFT returns 400', async () => {
+    await prisma.property.update({
+      where: { id: createdPropertyId },
+      data: { status: 'DRAFT' },
+    });
+    await request(app.getHttpServer())
+      .post(`/api/v1/properties/${createdPropertyId}/pause`)
+      .set('x-test-user', ownerUserId)
+      .expect(400);
+  });
+
+  it('POST /properties/:id/publish rejects non-owner (403)', async () => {
+    await prisma.property.update({
+      where: { id: createdPropertyId },
+      data: { status: 'DRAFT' },
+    });
+    await request(app.getHttpServer())
+      .post(`/api/v1/properties/${createdPropertyId}/publish`)
+      .set('x-test-user', outsiderUserId)
+      .expect(403);
+  });
+
   // ------------------------------------------------------------------
   // RBAC
   // ------------------------------------------------------------------

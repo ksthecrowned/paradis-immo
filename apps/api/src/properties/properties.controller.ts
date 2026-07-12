@@ -89,4 +89,23 @@ export class PropertiesController {
   archive(@CurrentUser() current: AuthenticatedUser, @Param('id') id: string) {
     return this.properties.archive(current.userId, id);
   }
+
+  @Post(':id/publish')
+  @UseGuards(AppAuthGuard)
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Publish a DRAFT or PAUSED property (→ ACTIVE)' })
+  publish(
+    @CurrentUser() current: AuthenticatedUser,
+    @Param('id') id: string,
+  ) {
+    return this.properties.publish(current.userId, id);
+  }
+
+  @Post(':id/pause')
+  @UseGuards(AppAuthGuard)
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Pause an ACTIVE property' })
+  pause(@CurrentUser() current: AuthenticatedUser, @Param('id') id: string) {
+    return this.properties.pause(current.userId, id);
+  }
 }
