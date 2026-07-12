@@ -114,4 +114,44 @@ describe('UsersService', () => {
     const orgs = await users.listMyOrganizations(userId);
     expect(orgs).toEqual([]);
   });
+
+  it('updateMe patches seeker prefs and completeSeekerSetup', async () => {
+    const q = await prisma.quartier.findFirst({
+      where: { name: 'Poto-Poto-Centre' },
+    });
+    expect(q).toBeTruthy();
+
+    const updated = await users.updateMe(userId, {
+      seekerIntent: 'RENT',
+      seekerExperience: 'FIRST_TIME',
+      budgetMinXaf: 100_000,
+      budgetMaxXaf: 250_000,
+      preferredQuartierIds: [q!.id],
+      completeSeekerSetup: true,
+    });
+
+    expect(updated.seekerIntent).toBe('RENT');
+    expect(updated.seekerExperience).toBe('FIRST_TIME');
+    expect(updated.budgetMinXaf).toBe(100_000);
+    expect(updated.budgetMaxXaf).toBe(250_000);
+    expect(updated.preferredQuartierIds).toEqual([q!.id]);
+    expect(updated.seekerSetupCompletedAt).toBeTruthy();
+  });
+
+  it('updateMe rejects more than 3 preferredQuartierIds', async () => {
+    await expect(
+      users.updateMe(userId, {
+        preferredQuartierIds: ['a', 'b', 'c', 'd'],
+      }),
+    ).rejects.toThrow();
+  });
+
+  it('updateMe rejects budgetMin > budgetMax', async () => {
+    await expect(
+      users.updateMe(userId, {
+        budgetMinXaf: 500_000,
+        budgetMaxXaf: 100_000,
+      }),
+    ).rejects.toThrow();
+  });
 });

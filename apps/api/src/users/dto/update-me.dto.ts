@@ -1,10 +1,15 @@
 import {
+  ArrayMaxSize,
+  IsArray,
+  IsBoolean,
   IsEmail,
   IsIn,
+  IsInt,
   IsOptional,
   IsString,
   IsUrl,
   MaxLength,
+  Min,
   ValidateIf,
 } from 'class-validator';
 
@@ -33,4 +38,33 @@ export class UpdateMeDto {
   @IsOptional()
   @IsIn(['PUSH', 'SMS'])
   notificationChannel?: 'PUSH' | 'SMS';
+
+  @IsOptional()
+  @IsIn(['RENT', 'BUY', 'BOTH'])
+  seekerIntent?: 'RENT' | 'BUY' | 'BOTH';
+
+  @IsOptional()
+  @IsIn(['FIRST_TIME', 'RETURNING', 'PRO'])
+  seekerExperience?: 'FIRST_TIME' | 'RETURNING' | 'PRO';
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  budgetMinXaf?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  budgetMaxXaf?: number;
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(3)
+  @IsString({ each: true })
+  preferredQuartierIds?: string[];
+
+  /** When true, server sets seekerSetupCompletedAt = now(). */
+  @IsOptional()
+  @IsBoolean()
+  completeSeekerSetup?: boolean;
 }
