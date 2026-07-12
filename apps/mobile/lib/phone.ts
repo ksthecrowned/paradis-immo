@@ -64,3 +64,23 @@ export function reformatForCountry(
   if (!national) return '';
   return formatNationalInput(national, countryCode);
 }
+
+export type ParsedE164Phone = {
+  countryCode: CountryCode;
+  callingCode: string;
+  national: string;
+};
+
+/** Split an E.164 (or international) number into country + national display parts. */
+export function parseE164Phone(
+  e164: string | null | undefined,
+): ParsedE164Phone | null {
+  if (!e164?.trim()) return null;
+  const parsed = parsePhoneNumberFromString(e164.trim());
+  if (!parsed?.country) return null;
+  return {
+    countryCode: parsed.country,
+    callingCode: parsed.countryCallingCode,
+    national: parsed.formatNational(),
+  };
+}

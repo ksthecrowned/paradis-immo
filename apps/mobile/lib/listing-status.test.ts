@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import {
   isGrayscaleCard,
   listingStatusLabel,
+  listingStatusCardLabel,
   passesAvailableOnlyFilter,
   sortMarketableFirst,
 } from './listing-status';
@@ -36,15 +37,21 @@ test('RENT_SHORT always passes availableOnly', () => {
   ).toBe(true);
 });
 
-test('AVAILABLE_SOON label uses countdown', () => {
-  const in12 = new Date();
-  in12.setDate(in12.getDate() + 12);
+test('AVAILABLE_SOON detail label uses calendar date', () => {
   expect(
     listingStatusLabel({
       listingStatus: 'AVAILABLE_SOON',
-      availableFrom: in12.toISOString(),
+      availableFrom: '2026-09-11T00:00:00.000Z',
     }),
-  ).toBe('Bientôt · J-12');
+  ).toBe('Disponible le 11 septembre');
+});
+
+test('AVAILABLE_SOON card label stays short', () => {
+  expect(
+    listingStatusCardLabel({
+      listingStatus: 'AVAILABLE_SOON',
+    }),
+  ).toBe('Bientôt disponible');
 });
 
 test('sortMarketableFirst puts SOLD after AVAILABLE', () => {

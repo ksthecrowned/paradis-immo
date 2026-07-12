@@ -220,7 +220,7 @@ export const MOCK_AGENCY_REVIEWS: AgencyReview[] = [
     agencyId: 'ag-cote-sauvage',
     authorName: 'Hervé L.',
     propertyTitle: 'Maison Tié-Tié',
-    body: 'Bon accueil pour une location à la journée. Je recommande.',
+    body: 'Bon accueil pour une location journalière. Je recommande.',
     rating: 5,
     createdLabel: 'Il y a 3 semaines',
   },

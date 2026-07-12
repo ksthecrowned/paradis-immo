@@ -1,4 +1,5 @@
 import { CircleIconButton } from '@/components/ui/CircleIconButton';
+import { MonthCalendar } from '@/components/ui/MonthCalendar';
 import { PropertySummaryCard } from '@/components/property/PropertySummaryCard';
 import { SuccessScreen } from '@/components/ui/SuccessScreen';
 import { colors, radii, spacing } from '@/constants/theme';
@@ -6,6 +7,7 @@ import { useFeedback } from '@/context/FeedbackContext';
 import { useCatalogProperty } from '@/hooks/use-catalog-property';
 import { getAgency, getAgent } from '@/lib/agencies';
 import { ensureAuthenticated } from '@/lib/auth-guard';
+import { formatDayLongFr, todayKey } from '@/lib/calendar';
 import { getErrorMessage } from '@/lib/feedback';
 import { initiatePayment } from '@/lib/payments';
 import { bookVisit, listVisitSlots } from '@/lib/visits';
@@ -55,6 +57,10 @@ export default function VisitScreen(): React.JSX.Element {
 
   const slots = useMemo(() => slotsByDay(dayKey), [slotsByDay, dayKey]);
   const selected = slots.find((s) => s.id === slotId);
+  const enabledDates = useMemo(
+    () => new Set(days.map((d) => d.key)),
+    [days],
+  );
 
   useFocusEffect(
     useCallback(() => {
@@ -80,7 +86,7 @@ export default function VisitScreen(): React.JSX.Element {
       try {
         const from = new Date();
         const to = new Date();
-        to.setDate(to.getDate() + 21);
+        to.setDate(to.getDate() + 90);
         const raw = await listVisitSlots(property.id, from, to);
         if (cancelled) return;
         const grouped = groupVisitSlotsByDay(raw, property);
@@ -128,15 +134,16 @@ export default function VisitScreen(): React.JSX.Element {
           method: 'CASH',
           idempotencyKey: `visit-${booking.id}-${Date.now()}`,
         });
-        router.push({
-          pathname: '/payment/[id]',
-          params: {
-            id: payment.id,
-            propertyId: property.id,
-            visitBookingId: booking.id,
-            amount: String(amount),
-          },
+        const total = Number(payment.amount);
+        const debt = payment.messagingDebtXaf ?? 0;
+        const qs = new URLSearchParams({
+          propertyId: property.id,
+          amount: String(total),
+          visitBookingId: booking.id,
+          title: `Visite · ${property.title}`,
         });
+        if (debt > 0) qs.set('messagingDebtXaf', String(debt));
+        router.push(`/payment/${payment.id}?${qs.toString()}`);
         return;
       }
       setDone(true);
@@ -207,41 +214,33 @@ export default function VisitScreen(): React.JSX.Element {
           {agency?.shortName ?? property.agencyName ?? 'Agence'}
         </Text>
 
-        <Text style={styles.section}>Jour</Text>
+        <Text style={styles.section}>Date</Text>
         {slotsLoading ? (
           <ActivityIndicator color={colors.primary} />
         ) : days.length === 0 ? (
           <Text style={styles.empty}>Aucun créneau disponible.</Text>
         ) : (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.dayRow}
-          >
-            {days.map((day) => {
-              const active = day.key === dayKey;
-              return (
-                <Pressable
-                  key={day.key}
-                  style={[styles.dayChip, active && styles.dayChipActive]}
-                  onPress={() => {
-                    setDayKey(day.key);
-                    setSlotId(null);
-                  }}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: active }}
-                >
-                  <Text style={[styles.dayText, active && styles.dayTextActive]}>
-                    {day.label}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </ScrollView>
+          <>
+            <MonthCalendar
+              mode="single"
+              selected={dayKey || undefined}
+              enabledDates={enabledDates}
+              minDate={todayKey()}
+              onSelectDate={(iso) => {
+                setDayKey(iso);
+                setSlotId(null);
+              }}
+            />
+            {dayKey ? (
+              <Text style={styles.selectedHint}>{formatDayLongFr(dayKey)}</Text>
+            ) : null}
+          </>
         )}
 
         <Text style={styles.section}>Créneaux</Text>
-        {slotsLoading ? null : slots.length === 0 ? (
+        {slotsLoading ? null : !dayKey ? (
+          <Text style={styles.empty}>Choisissez une date sur le calendrier.</Text>
+        ) : slots.length === 0 ? (
           <Text style={styles.empty}>Aucun créneau pour ce jour.</Text>
         ) : (
           slots.map((slot) => {
@@ -255,10 +254,14 @@ export default function VisitScreen(): React.JSX.Element {
                 accessibilityState={{ selected: active }}
               >
                 <View style={styles.slotLeft}>
-                  <Text style={[styles.slotTime, active && styles.slotTimeActive]}>
+                  <Text
+                    style={[styles.slotTime, active && styles.slotTimeActive]}
+                  >
                     {slot.startLabel} – {slot.endLabel}
                   </Text>
-                  <Text style={[styles.slotMeta, active && styles.slotMetaActive]}>
+                  <Text
+                    style={[styles.slotMeta, active && styles.slotMetaActive]}
+                  >
                     {slot.paid ? slot.priceLabel : 'Gratuit'}
                   </Text>
                 </View>
@@ -332,23 +335,12 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: colors.ink,
   },
-  dayRow: { gap: 8 },
-  dayChip: {
-    minHeight: 44,
-    paddingHorizontal: 16,
-    borderRadius: radii.full,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
+  selectedHint: {
+    marginTop: -8,
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.primary,
   },
-  dayChipActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  dayText: { fontSize: 13, fontWeight: '700', color: colors.ink },
-  dayTextActive: { color: colors.surface },
   empty: { fontSize: 14, color: colors.muted },
   slot: {
     flexDirection: 'row',

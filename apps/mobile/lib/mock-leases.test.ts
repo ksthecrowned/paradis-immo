@@ -25,11 +25,11 @@ describe('mock leases', () => {
   test('listActiveLeases returns only ACTIVE', () => {
     const active = listActiveLeases();
     expect(active.every((l) => l.status === 'ACTIVE')).toBe(true);
-    expect(active.some((l) => l.id === 'lease-1')).toBe(true);
+    expect(active.map((l) => l.id).sort()).toEqual(['lease-1', 'lease-3']);
     expect(active.some((l) => l.id === 'lease-2')).toBe(false);
   });
 
-  test('getPrimaryActiveLease returns lease-1 in seed data', () => {
+  test('getPrimaryActiveLease prefers most recent start', () => {
     expect(getPrimaryActiveLease()?.id).toBe('lease-1');
   });
 

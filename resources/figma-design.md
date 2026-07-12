@@ -8,7 +8,5 @@
  *
  * https://www.behance.net/gallery/232679187/Rezo-Real-Estate-Mobile-App-Design-UI-UX?tracking_source=search_projects|real+estate+app&l=1
  *
- * Similar Solution: https://realestate.orisha.com/nos-solutions/immofacile/
- *
  * Landing page : https://www.figma.com/design/xNxzDWlLB6KE8n0qXUZgih/-FREE--Estatery---Real-Estate-SaaS-Web-and-Mobile-UI-Kit--Community-?node-id=0-1&t=qZZwLKEkcI41Yb4X-0
  */

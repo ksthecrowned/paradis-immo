@@ -1,8 +1,13 @@
 import { colors, radii, spacing } from '@/constants/theme';
-import { isGrayscaleCard } from '@/lib/listing-status';
+import {
+  isGrayscaleCard,
+  listingStatusCardLabel,
+} from '@/lib/listing-status';
 import type { Property } from '@/types/property';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, Octicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { PropertyCardBadges } from './PropertyCardBadges';
 
 type Amenity = {
   icon: keyof typeof Ionicons.glyphMap;
@@ -28,6 +33,9 @@ export function PropertyCardBody({
 }: Props): React.JSX.Element {
   const grayscale = isGrayscaleCard(property);
   const muted = grayscale ? '#6B7280' : undefined;
+  const hasCompactMeta =
+    compact &&
+    (property.isFeatured || listingStatusCardLabel(property) != null);
 
   return (
     <View style={[styles.body, compact && styles.bodyCompact]}>
@@ -58,35 +66,21 @@ export function PropertyCardBody({
           compact && styles.titleCompact,
           muted ? { color: muted } : null,
         ]}
-        numberOfLines={compact ? 2 : 1}
+        numberOfLines={1}
       >
         {property.title}
       </Text>
 
-      {compact ? <Text style={styles.priceCompact}>{priceLabel}</Text> : null}
+      {compact ? <PropertyCardBadges.CompactMeta property={property} /> : null}
 
-      <View style={[styles.footer, compact && styles.footerCompact]}>
-        <View style={styles.amenities}>
-          {amenities.slice(0, compact ? 2 : amenities.length).map((item) => (
-            <View
-              key={item.label}
-              style={[styles.chip, compact && styles.chipCompact]}
-            >
-              <Ionicons
-                name={item.icon}
-                size={compact ? 11 : 12}
-                color={colors.muted}
-              />
-              <Text
-                style={[styles.chipText, compact && styles.chipTextCompact]}
-              >
-                {item.label}
-              </Text>
-            </View>
-          ))}
-        </View>
-
-        {compact ? (
+      {compact ? (
+        <View style={styles.priceRowCompact}>
+          <Text
+            style={[styles.priceCompact, muted ? { color: muted } : null]}
+            numberOfLines={1}
+          >
+            {priceLabel}
+          </Text>
           <Pressable
             style={styles.favoriteBtnCompact}
             onPress={(e) => {
@@ -107,8 +101,47 @@ export function PropertyCardBody({
               }
             />
           </Pressable>
-        ) : null}
-      </View>
+        </View>
+      ) : null}
+
+      {!compact || !hasCompactMeta ? (
+        <View style={[styles.footer, compact && styles.footerCompact]}>
+          <View style={styles.amenities}>
+            {amenities.slice(0, compact ? 2 : amenities.length).map((item) => (
+              <View
+                key={item.label}
+                style={[styles.chip, compact && styles.chipCompact]}
+              >
+                <Ionicons
+                  name={item.icon}
+                  size={compact ? 11 : 12}
+                  color={colors.muted}
+                />
+                <Text
+                  style={[styles.chipText, compact && styles.chipTextCompact]}
+                >
+                  {item.label}
+                </Text>
+              </View>
+            ))}
+          </View>
+          {!compact ? (
+            <Pressable
+              onPress={() => router.push(`/property/${property.id}`)}
+              style={[
+                styles.ctaBtn,
+                grayscale && { backgroundColor: '#6B7280', opacity: 0.5 },
+              ]}
+            >
+              <Octicons
+                name="arrow-up-right"
+                size={24}
+                color={colors.onPrimary}
+              />
+            </Pressable>
+          ) : null}
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -174,6 +207,13 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 18,
   },
+  priceRowCompact: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+    marginTop: 2,
+  },
   footer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -182,7 +222,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   footerCompact: {
-    marginTop: 2,
+    marginTop: 0,
   },
   amenities: {
     flex: 1,
@@ -212,6 +252,16 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.muted,
   },
+  ctaBtn: {
+    marginTop: -20,
+    height: 50,
+    width: 50,
+    padding: 12,
+    borderRadius: radii.full,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   chipTextCompact: {
     fontSize: 10,
   },
@@ -224,5 +274,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 1,
     borderColor: colors.border,
+    flexShrink: 0,
   },
 });

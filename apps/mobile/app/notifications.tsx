@@ -1,7 +1,6 @@
-import { CircleIconButton } from '@/components/ui/CircleIconButton';
-import { colors, radii, spacing } from '@/constants/theme';
+import { ScreenHeader } from '@/components/ui/ScreenHeader';
+import { colors, getBootColorScheme, radii, spacing } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import {
   FlatList,
@@ -11,6 +10,8 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+const isDark = getBootColorScheme() === 'dark';
 
 type NotificationKind = 'visit' | 'payment' | 'favorite' | 'info';
 
@@ -85,35 +86,29 @@ export default function NotificationsScreen(): React.JSX.Element {
   };
 
   return (
-    <View style={[styles.screen, { paddingTop: insets.top + spacing.sm }]}>
-      <View style={styles.topBar}>
-        <CircleIconButton
-          onPress={() => router.back()}
-          accessibilityLabel="Retour"
-        >
-          <Ionicons name="chevron-back" size={24} color={colors.ink} />
-        </CircleIconButton>
-        <View style={styles.topTitles}>
-          <Text style={styles.title}>Notifications</Text>
-          <Text style={styles.subtitle}>
-            {unreadCount > 0
-              ? `${unreadCount} non lue${unreadCount > 1 ? 's' : ''}`
-              : 'Tout est à jour'}
-          </Text>
-        </View>
-        {unreadCount > 0 ? (
-          <Pressable
-            onPress={markAllRead}
-            hitSlop={8}
-            accessibilityRole="button"
-            accessibilityLabel="Tout marquer comme lu"
-          >
-            <Text style={styles.markAll}>Tout lu</Text>
-          </Pressable>
-        ) : (
-          <View style={styles.markAllSpacer} />
-        )}
-      </View>
+    <View style={styles.screen}>
+      <ScreenHeader
+        title="Notifications"
+        subtitle={
+          unreadCount > 0
+            ? `${unreadCount} non lue${unreadCount > 1 ? 's' : ''}`
+            : 'Tout est à jour'
+        }
+        icon="notifications-outline"
+        trailing={
+          unreadCount > 0 ? (
+            <Pressable
+              onPress={markAllRead}
+              hitSlop={8}
+              style={styles.markAllBtn}
+              accessibilityRole="button"
+              accessibilityLabel="Tout marquer comme lu"
+            >
+              <Text style={styles.markAll}>Tout lu</Text>
+            </Pressable>
+          ) : undefined
+        }
+      />
 
       <FlatList
         data={items}
@@ -177,34 +172,15 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.bg,
   },
-  topBar: {
-    flexDirection: 'row',
+  markAllBtn: {
+    paddingHorizontal: 10,
     alignItems: 'center',
-    gap: 12,
-    paddingHorizontal: spacing.md,
-    marginBottom: spacing.md,
-  },
-  topTitles: {
-    flex: 1,
-    gap: 2,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: colors.ink,
-  },
-  subtitle: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: colors.muted,
+    justifyContent: 'center',
   },
   markAll: {
     fontSize: 13,
     fontWeight: '700',
     color: colors.primary,
-  },
-  markAllSpacer: {
-    width: 54,
   },
   listContent: {
     paddingHorizontal: spacing.md,
@@ -225,14 +201,16 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   cardUnread: {
-    borderColor: colors.primarySoft,
-    backgroundColor: colors.primaryMuted,
+    borderColor: isDark ? 'rgba(112, 101, 240, 0.45)' : colors.primarySoft,
+    backgroundColor: isDark ? 'rgba(112, 101, 240, 0.12)' : colors.primaryMuted,
   },
   iconWrap: {
     width: 40,
     height: 40,
     borderRadius: radii.md,
-    backgroundColor: colors.surface,
+    backgroundColor: isDark ? colors.bg : colors.primaryMuted,
+    borderWidth: isDark ? 1 : 0,
+    borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -280,7 +258,9 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: radii.full,
-    backgroundColor: colors.primaryMuted,
+    backgroundColor: isDark ? colors.surface : colors.primaryMuted,
+    borderWidth: isDark ? 1 : 0,
+    borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 8,

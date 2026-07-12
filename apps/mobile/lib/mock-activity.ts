@@ -14,6 +14,8 @@ export type ActivityItem = {
   segment: ActivitySegment;
   propertyId: string;
   leaseId?: string;
+  stayId?: string;
+  purchaseId?: string;
   title: string;
   location: string;
   statusLabel: string;
@@ -54,6 +56,7 @@ const ITEMS: ActivityItem[] = [
   base('3', {
     id: 'act-b1',
     segment: 'bookings',
+    stayId: 'stay-1',
     statusLabel: 'Confirmée',
     tone: 'success',
     meta: '12 – 14 juil. · 90 000 FCFA',
@@ -61,16 +64,26 @@ const ITEMS: ActivityItem[] = [
   base('2', {
     id: 'act-b2',
     segment: 'bookings',
-    statusLabel: 'Annulée',
-    tone: 'danger',
-    meta: '1 – 31 août',
+    stayId: 'stay-2',
+    statusLabel: 'En attente',
+    tone: 'warning',
+    meta: '1 – 3 août · 200 000 FCFA',
   }),
   base('1', {
     id: 'act-s1',
     segment: 'sales',
+    purchaseId: 'buy-1',
     statusLabel: 'Envoyée',
     tone: 'neutral',
     meta: 'Demande d’achat · Hier',
+  }),
+  base('4', {
+    id: 'act-s2',
+    segment: 'sales',
+    purchaseId: 'buy-2',
+    statusLabel: 'Acquis',
+    tone: 'success',
+    meta: 'Terrain · 12 000 000 FCFA',
   }),
   base('3', {
     id: 'act-p1',

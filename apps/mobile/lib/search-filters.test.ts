@@ -67,40 +67,6 @@ const sample: Property[] = [
   },
 ];
 
-describe('agencyIds filter', () => {
-  test('empty agencyIds keeps all', () => {
-    expect(
-      filterProperties(sample, { ...DEFAULT_SEARCH_FILTERS, agencyIds: [] }),
-    ).toHaveLength(4);
-  });
-
-  test('filters to selected agencies', () => {
-    const out = filterProperties(sample, {
-      ...DEFAULT_SEARCH_FILTERS,
-      agencyIds: ['ag1'],
-    });
-    expect(out.map((p) => p.id).sort()).toEqual(['a', 'c', 'd']);
-  });
-
-  test('countActiveFilters counts agency selection as 1', () => {
-    expect(
-      countActiveFilters({
-        ...DEFAULT_SEARCH_FILTERS,
-        agencyIds: ['ag1', 'ag2'],
-      }),
-    ).toBe(1);
-  });
-
-  test('round-trips agencies param', () => {
-    const params = filtersToParams({
-      ...DEFAULT_SEARCH_FILTERS,
-      agencyIds: ['ag1', 'ag2'],
-    });
-    expect(params.agencies).toBe('ag1,ag2');
-    expect(paramsToFilters(params).agencyIds).toEqual(['ag1', 'ag2']);
-  });
-});
-
 describe('availableOnly filter', () => {
   test('keeps all when false', () => {
     expect(

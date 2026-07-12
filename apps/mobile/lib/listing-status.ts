@@ -51,6 +51,17 @@ export function daysUntilAvailable(
   return Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
 }
 
+/** e.g. "Disponible le 11 septembre" */
+export function formatAvailableFromLabel(iso: string): string | null {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return null;
+  const dayMonth = date.toLocaleDateString('fr-FR', {
+    day: 'numeric',
+    month: 'long',
+  });
+  return `Disponible le ${dayMonth}`;
+}
+
 export function listingStatusLabel(
   p: Pick<Property, 'listingStatus' | 'availableFrom'>,
 ): string | null {
@@ -64,10 +75,31 @@ export function listingStatusLabel(
     case 'SOLD':
       return 'Vendu';
     case 'AVAILABLE_SOON': {
-      const days = daysUntilAvailable(p.availableFrom);
-      if (days == null) return 'Bientôt disponible';
-      return `Bientôt · J-${days}`;
+      if (p.availableFrom) {
+        return formatAvailableFromLabel(p.availableFrom) ?? 'Bientôt disponible';
+      }
+      return 'Bientôt disponible';
     }
+    default:
+      return null;
+  }
+}
+
+/** Compact badge for list cards — no calendar date. */
+export function listingStatusCardLabel(
+  p: Pick<Property, 'listingStatus'>,
+): string | null {
+  switch (p.listingStatus) {
+    case 'AVAILABLE':
+      return null;
+    case 'UNDER_OFFER':
+      return 'Sous offre';
+    case 'OCCUPIED':
+      return 'Occupé';
+    case 'SOLD':
+      return 'Vendu';
+    case 'AVAILABLE_SOON':
+      return 'Bientôt disponible';
     default:
       return null;
   }

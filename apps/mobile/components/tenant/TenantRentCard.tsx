@@ -1,10 +1,11 @@
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { colors, radii, spacing } from '@/constants/theme';
+import { formatDueLabel } from '@/lib/format-date-fr';
 import {
-  rentLineStatusLabel,
-  rentLineStatusTone,
-  type MockRentScheduleEntry,
-} from '@/lib/mock-leases';
+  rentScheduleStatusLabel,
+  rentScheduleStatusTone,
+  type RentLineView,
+} from '@/lib/leases';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 function formatFcfa(amount: number): string {
@@ -12,7 +13,7 @@ function formatFcfa(amount: number): string {
 }
 
 type Props = {
-  line: MockRentScheduleEntry;
+  line: RentLineView;
   canPay: boolean;
   onPay: () => void;
 };
@@ -28,12 +29,12 @@ export function TenantRentCard({
       <View style={styles.row}>
         <Text style={styles.label}>{line.label}</Text>
         <StatusBadge
-          label={rentLineStatusLabel(line.status)}
-          tone={rentLineStatusTone(line.status)}
+          label={rentScheduleStatusLabel(line.status)}
+          tone={rentScheduleStatusTone(line.status)}
         />
       </View>
       <Text style={styles.amount}>{formatFcfa(line.amount)}</Text>
-      <Text style={styles.due}>Échéance · {line.dueDate}</Text>
+      <Text style={styles.due}>Échéance · {formatDueLabel(line.dueDate)}</Text>
       {canPay ? (
         <Pressable
           style={({ pressed }) => [styles.payBtn, pressed && styles.payPressed]}

@@ -3,21 +3,21 @@ import { colors, radii, spacing } from '@/constants/theme';
 import { useFeedback } from '@/context/FeedbackContext';
 import { ensureAuthenticated } from '@/lib/auth-guard';
 import {
-  addMaintenanceTicket,
-  canCreateMaintenance,
-  getMockLease,
-  type MaintenanceUrgency,
+    addMaintenanceTicket,
+    canCreateMaintenance,
+    getMockLease,
+    type MaintenanceUrgency,
 } from '@/lib/mock-leases';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import {
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -118,7 +118,7 @@ export default function NewMaintenanceScreen(): React.JSX.Element {
           value={title}
           onChangeText={setTitle}
           placeholder="Ex. Fuite d’eau"
-          placeholderTextColor={colors.muted}
+          placeholderTextColor={colors.muted + "20"}
         />
 
         <Text style={styles.label}>Description</Text>
@@ -127,7 +127,7 @@ export default function NewMaintenanceScreen(): React.JSX.Element {
           value={description}
           onChangeText={setDescription}
           placeholder="Décrivez le problème…"
-          placeholderTextColor={colors.muted}
+          placeholderTextColor={colors.muted + "20"}
           multiline
           textAlignVertical="top"
         />

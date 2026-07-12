@@ -1,6 +1,6 @@
-import { colors } from '@/constants/theme';
+import { colors, getBootColorScheme, spacing } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   Pressable,
   StyleSheet,
@@ -15,13 +15,16 @@ import CountryPicker, {
   type CountryCode,
 } from 'react-native-country-picker-modal';
 
-const pickerTheme = {
-  primaryColor: colors.primary,
-  primaryColorVariant: colors.primaryHover,
-  backgroundColor: colors.surface,
-  onBackgroundTextColor: colors.ink,
-  filterPlaceholderTextColor: colors.muted,
-};
+/** Francophone / Congo basin + common diaspora — shown first in the modal. */
+const PREFERRED_COUNTRIES: CountryCode[] = [
+  'CG',
+  'CD',
+  'GA',
+  'CM',
+  'CF',
+  'TD',
+  'FR',
+];
 
 export type PhoneCountrySelection = {
   countryCode: CountryCode;
@@ -40,7 +43,25 @@ type Props = {
   showChevron?: boolean;
   /** Bordure d’erreur (alignée sur le champ téléphone associé) */
   hasError?: boolean;
+  /** When false, country picker cannot be opened. */
+  editable?: boolean;
 };
+
+function buildPickerTheme() {
+  const isDark = getBootColorScheme() === 'dark';
+  return {
+    primaryColor: colors.primary,
+    primaryColorVariant: isDark ? colors.primarySoft : colors.primaryMuted,
+    backgroundColor: colors.bg,
+    onBackgroundTextColor: colors.ink,
+    filterPlaceholderTextColor: colors.muted,
+    activeOpacity: 0.65,
+    fontSize: 16,
+    flagSize: 22,
+    flagSizeButton: 20,
+    itemHeight: 52,
+  };
+}
 
 export function PhoneCountryCallingCode({
   value,
@@ -48,8 +69,17 @@ export function PhoneCountryCallingCode({
   style,
   showChevron = true,
   hasError,
+  editable = true,
 }: Props): React.JSX.Element {
   const [visible, setVisible] = useState(false);
+  const pickerTheme = useMemo(() => buildPickerTheme(), []);
+
+  const preferredCountries = useMemo(() => {
+    const rest = PREFERRED_COUNTRIES.filter(
+      (code) => code !== value.countryCode,
+    );
+    return [value.countryCode, ...rest];
+  }, [value.countryCode]);
 
   const onSelect = (country: Country): void => {
     const code = country.callingCode[0] ?? '';
@@ -60,57 +90,95 @@ export function PhoneCountryCallingCode({
   return (
     <>
       <Pressable
-        onPress={() => setVisible(true)}
-        style={[styles.box, hasError && styles.boxError, style]}
+        onPress={() => {
+          if (editable) setVisible(true);
+        }}
+        disabled={!editable}
+        style={({ pressed }) => [
+          styles.box,
+          hasError && styles.boxError,
+          pressed && editable && styles.boxPressed,
+          style,
+        ]}
+        hitSlop={4}
         accessibilityRole="button"
-        accessibilityLabel="Choisir l'indicatif pays"
+        accessibilityLabel={`Indicatif +${value.callingCode}`}
+        accessibilityHint={
+          editable ? 'Ouvre la liste des pays' : undefined
+        }
+        accessibilityState={{ disabled: !editable }}
       >
         <View style={styles.triggerRow}>
-          <View style={styles.flagSlot}>
-            <Flag
-              countryCode={value.countryCode}
-              flagSize={20}
-              withEmoji
-              withFlagButton
+          <Flag
+            countryCode={value.countryCode}
+            flagSize={20}
+            withEmoji
+            withFlagButton
+          />
+          <Text
+            style={[styles.dial, !editable && styles.dialDisabled]}
+            numberOfLines={1}
+          >
+            +{value.callingCode}
+          </Text>
+          {showChevron && editable ? (
+            <Ionicons
+              name="chevron-down"
+              size={14}
+              color={colors.muted}
+              style={styles.chevron}
             />
-          </View>
-          <Text style={styles.dial}>+{value.callingCode}</Text>
-          {showChevron ? (
-            <Ionicons name="chevron-down" size={14} color={colors.muted} />
           ) : null}
         </View>
       </Pressable>
 
-      <CountryPicker
-        theme={pickerTheme}
-        countryCode={value.countryCode}
-        preferredCountries={[value.countryCode]}
-        visible={visible}
-        filterProps={{ placeholder: 'Rechercher un pays' }}
-        withFilter
-        withAlphaFilter
-        withCallingCode
-        withEmoji
-        withFlag
-        translation="fra"
-        onSelect={onSelect}
-        onClose={() => setVisible(false)}
-        renderFlagButton={() => null}
-        modalProps={{
-          statusBarTranslucent: false,
-        }}
-      />
+      {editable ? (
+        <CountryPicker
+          theme={pickerTheme}
+          countryCode={value.countryCode}
+          preferredCountries={preferredCountries}
+          visible={visible}
+          filterProps={{
+            placeholder: 'Rechercher un pays',
+            placeholderTextColor: colors.muted,
+            autoFocus: true,
+            selectionColor: colors.primary,
+            autoCorrect: false,
+            clearButtonMode: 'while-editing',
+          }}
+          withFilter
+          withCallingCode
+          withEmoji
+          withFlag
+          withCloseButton
+          translation="fra"
+          onSelect={onSelect}
+          onClose={() => setVisible(false)}
+          renderFlagButton={() => null}
+          modalProps={{
+            animationType: 'slide',
+            statusBarTranslucent: false,
+          }}
+        />
+      ) : null}
     </>
   );
 }
 
 const styles = StyleSheet.create({
   box: {
-    paddingRight: 10,
-    height: 20,
-    borderRightWidth: 1,
+    minHeight: 44,
+    paddingRight: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRightWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
     justifyContent: 'center',
+  },
+  boxPressed: {
+    opacity: 0.7,
+  },
+  boxError: {
+    borderColor: colors.danger,
   },
   triggerRow: {
     flexDirection: 'row',
@@ -118,16 +186,17 @@ const styles = StyleSheet.create({
     gap: 6,
     direction: 'ltr',
   },
-  flagSlot: {
-    marginRight: -10,
-    marginTop: -4,
-  },
   dial: {
     fontSize: 15,
     fontWeight: '700',
     color: colors.ink,
+    letterSpacing: 0.2,
+    fontVariant: ['tabular-nums'],
   },
-  boxError: {
-    borderColor: colors.danger,
+  dialDisabled: {
+    color: colors.muted,
+  },
+  chevron: {
+    marginLeft: -2,
   },
 });

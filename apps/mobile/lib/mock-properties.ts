@@ -119,7 +119,7 @@ export const MOCK_PROPERTIES: Property[] = [
     id: '3',
     title: 'Maison Tié-Tié',
     description:
-      'Maison cosy à Tié-Tié, proposée à la journée pour vos séjours à Pointe-Noire. Espace de vie agréable, cuisine équipée, wifi et climatisation pour un confort immédiat.\n\nIdéale pour un week-end en famille ou entre amis : jardin, terrasse ombragée et parking privé. Groupe électrogène disponible en cas de coupure.',
+      'Maison cosy à Tié-Tié, proposée en location journalière pour vos séjours à Pointe-Noire. Espace de vie agréable, cuisine équipée, wifi et climatisation pour un confort immédiat.\n\nIdéale pour un week-end en famille ou entre amis : jardin, terrasse ombragée et parking privé. Groupe électrogène disponible en cas de coupure.',
     price: '45 000 FCFA',
     priceAmount: 45_000,
     coverImage: '',

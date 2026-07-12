@@ -1,21 +1,21 @@
-import { CircleIconButton } from '@/components/ui/CircleIconButton';
 import { PropertySummaryCard } from '@/components/property/PropertySummaryCard';
+import { CircleIconButton } from '@/components/ui/CircleIconButton';
 import { SuccessScreen } from '@/components/ui/SuccessScreen';
 import { colors, radii, spacing } from '@/constants/theme';
+import { useCatalogProperty } from '@/hooks/use-catalog-property';
 import { getStoredUser } from '@/lib/auth';
 import { ensureAuthenticated } from '@/lib/auth-guard';
-import { useCatalogProperty } from '@/hooks/use-catalog-property';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useState } from 'react';
 import {
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
+    ActivityIndicator,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -119,7 +119,7 @@ export default function SaleInquiryScreen(): React.JSX.Element {
           value={message}
           onChangeText={setMessage}
           placeholder="Présentez votre projet, vos questions…"
-          placeholderTextColor={colors.muted}
+          placeholderTextColor={colors.muted + "20"}
           style={[styles.input, styles.textarea]}
           multiline
           textAlignVertical="top"
@@ -133,7 +133,7 @@ export default function SaleInquiryScreen(): React.JSX.Element {
           value={budget}
           onChangeText={setBudget}
           placeholder="Ex. 60 000 000 FCFA"
-          placeholderTextColor={colors.muted}
+          placeholderTextColor={colors.muted + "20"}
           style={styles.input}
           keyboardType="default"
         />
@@ -143,7 +143,7 @@ export default function SaleInquiryScreen(): React.JSX.Element {
           value={phone}
           onChangeText={setPhone}
           placeholder="+242 …"
-          placeholderTextColor={colors.muted}
+          placeholderTextColor={colors.muted + "20"}
           style={styles.input}
           keyboardType="phone-pad"
         />

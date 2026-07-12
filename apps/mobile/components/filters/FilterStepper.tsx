@@ -53,7 +53,7 @@ export function FilterStepper({
           <Ionicons
             name="remove"
             size={18}
-            color={atMin ? colors.muted : colors.ink}
+            color={atMin ? colors.muted : colors.onPrimary}
           />
         </Pressable>
         <Text style={styles.value}>{value == null ? 'Tous' : String(value)}</Text>
@@ -67,7 +67,7 @@ export function FilterStepper({
           <Ionicons
             name="add"
             size={18}
-            color={atMax ? colors.muted : colors.surface}
+            color={atMax ? colors.muted : colors.onPrimary}
           />
         </Pressable>
       </View>
@@ -106,8 +106,8 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   btn: {
-    width: 32,
-    height: 32,
+    width: 40,
+    height: 40,
     borderRadius: radii.full,
     alignItems: 'center',
     justifyContent: 'center',

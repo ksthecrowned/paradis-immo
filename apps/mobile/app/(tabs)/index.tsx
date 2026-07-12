@@ -1,16 +1,20 @@
+import { HomeAgencyCard } from '@/components/agency/HomeAgencyCard';
 import PropertyCard, { PropertyCardSkeleton } from '@/components/property/card';
-import { AgencyChip } from '@/components/agency/AgencyChip';
 import { colors, radii, spacing } from '@/constants/theme';
 import { useFeedback } from '@/context/FeedbackContext';
 import { useUserLocation } from '@/context/LocationContext';
 import { fetchAgencies, type Agency } from '@/lib/agencies';
-import { PROPERTY_CATEGORIES } from '@/lib/categories';
 import { fetchCatalogProperties } from '@/lib/catalog';
+import { PROPERTY_CATEGORIES } from '@/lib/categories';
+import {
+  MARKETPLACE_CITIES,
+  propertyMatchesCity,
+} from '@/lib/cities';
 import { getErrorMessage } from '@/lib/feedback';
-import type { Property } from '@/types/property';
+import { passesAvailableOnlyFilter, type Property } from '@/types/property';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -73,6 +77,17 @@ export default function HomeScreen(): React.JSX.Element {
     }, [loadCatalog]),
   );
 
+  const cityStats = useMemo(() => {
+    return MARKETPLACE_CITIES.map((city) => {
+      const availableCount = properties.filter(
+        (p) =>
+          passesAvailableOnlyFilter(p) &&
+          propertyMatchesCity(p.location, city.name),
+      ).length;
+      return { ...city, availableCount };
+    });
+  }, [properties]);
+
   const handleLocationPress = (): void => {
     if (denied) {
       showFeedback({
@@ -100,6 +115,13 @@ export default function HomeScreen(): React.JSX.Element {
   ): void => {
     if (key === 'all') return;
     router.push(`/category/${key}`);
+  };
+
+  const openCityMap = (cityName: string): void => {
+    router.push({
+      pathname: '/(tabs)/discover',
+      params: { city: cityName },
+    });
   };
 
   return (
@@ -151,6 +173,7 @@ export default function HomeScreen(): React.JSX.Element {
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
           <PropertyCard
+            horizontalSpacing={true}
             property={item}
             onPress={() => router.push(`/property/${item.id}`)}
           />
@@ -159,7 +182,7 @@ export default function HomeScreen(): React.JSX.Element {
         contentContainerStyle={[
           styles.content,
           {
-            paddingBottom: insets.bottom + spacing.lg,
+            paddingBottom: insets.bottom,
           },
           properties.length === 0 && styles.contentEmpty,
         ]}
@@ -249,7 +272,7 @@ export default function HomeScreen(): React.JSX.Element {
                       <Ionicons
                         name={item.icon}
                         size={16}
-                        color={active ? colors.surface : colors.ink}
+                        color={active ? colors.onPrimary : colors.ink}
                       />
                     ) : null}
                     <Text
@@ -264,20 +287,64 @@ export default function HomeScreen(): React.JSX.Element {
                 );
               })}
             </ScrollView>
-
-            <View style={styles.agenciesBlock}>
-              <Text style={styles.sectionLabel}>Agences</Text>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.agenciesRow}
-              >
-                {agencies.map((agency) => (
-                  <AgencyChip key={agency.id} agencyId={agency.id} />
-                ))}
-              </ScrollView>
-            </View>
           </View>
+        }
+        ListFooterComponent={
+          catalogLoading ? null : (
+            <View style={styles.footerBlock}>
+              <View style={styles.footerSection}>
+                <Text style={styles.sectionLabel}>Agences</Text>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.agenciesRow}
+                >
+                  {agencies.map((agency) => (
+                    <HomeAgencyCard key={agency.id} agency={agency} />
+                  ))}
+                </ScrollView>
+              </View>
+
+              <View style={styles.footerSection}>
+                <Text style={styles.sectionLabel}>Villes</Text>
+                <View style={styles.citiesColumn}>
+                  {cityStats.map((city) => (
+                    <Pressable
+                      key={city.id}
+                      style={({ pressed }) => [
+                        styles.cityCard,
+                        pressed && styles.cityCardPressed,
+                      ]}
+                      onPress={() => openCityMap(city.name)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Carte ${city.name}`}
+                    >
+                      <View style={styles.cityIcon}>
+                        <Ionicons
+                          name="map-outline"
+                          size={20}
+                          color={colors.primary}
+                        />
+                      </View>
+                      <View style={styles.cityBody}>
+                        <Text style={styles.cityName}>{city.name}</Text>
+                        <Text style={styles.cityCount}>
+                          {city.availableCount} bien
+                          {city.availableCount > 1 ? 's' : ''} disponible
+                          {city.availableCount > 1 ? 's' : ''}
+                        </Text>
+                      </View>
+                      <Ionicons
+                        name="chevron-forward"
+                        size={18}
+                        color={colors.muted}
+                      />
+                    </Pressable>
+                  ))}
+                </View>
+              </View>
+            </View>
+          )
         }
       />
     </View>
@@ -292,7 +359,7 @@ const styles = StyleSheet.create({
   stickyHeader: {
     paddingHorizontal: spacing.md,
     paddingBottom: spacing.sm,
-    backgroundColor: colors.bg,
+    backgroundColor: colors.navy,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.border,
     zIndex: 2,
@@ -301,12 +368,22 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: 0,
   },
   headerBlock: {
     gap: spacing.md,
-    marginBottom: spacing.md,
+    paddingVertical: spacing.md,
+  },
+  footerBlock: {
+    gap: spacing.lg,
+    marginTop: spacing.xl,
     paddingTop: spacing.md,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+    paddingHorizontal: spacing.md,
+  },
+  footerSection: {
+    gap: 10,
   },
   separator: {
     height: spacing.md,
@@ -345,7 +422,7 @@ const styles = StyleSheet.create({
     height: 54,
     borderWidth: 1,
     borderColor: colors.border,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.search,
     borderRadius: radii.full,
     alignItems: 'center',
     justifyContent: 'center',
@@ -363,6 +440,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
+    paddingHorizontal: spacing.md,
   },
   searchField: {
     flex: 1,
@@ -371,7 +449,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.sm,
     paddingHorizontal: spacing.md,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.search,
     borderRadius: radii.full,
     borderWidth: 1,
     borderColor: colors.border,
@@ -384,7 +462,7 @@ const styles = StyleSheet.create({
     width: 54,
     height: 54,
     borderRadius: radii.full,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.search,
     borderWidth: 1,
     borderColor: colors.border,
     alignItems: 'center',
@@ -400,21 +478,64 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    paddingRight: spacing.sm,
-  },
-  agenciesBlock: {
-    gap: 8,
+    paddingHorizontal: spacing.md,
   },
   sectionLabel: {
-    fontSize: 15,
+    fontSize: 17,
     fontWeight: '800',
     color: colors.ink,
   },
+  sectionHint: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: colors.muted,
+    marginTop: -4,
+  },
   agenciesRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+    alignItems: 'stretch',
+    gap: 12,
     paddingRight: spacing.sm,
+    paddingBottom: 4,
+  },
+  citiesColumn: {
+    gap: 10,
+  },
+  cityCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: spacing.md,
+    borderRadius: radii.xl,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  cityCardPressed: {
+    opacity: 0.94,
+  },
+  cityIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: radii.lg,
+    backgroundColor: colors.primaryMuted,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cityBody: {
+    flex: 1,
+    gap: 2,
+    minWidth: 0,
+  },
+  cityName: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: colors.ink,
+  },
+  cityCount: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: colors.muted,
   },
   chip: {
     flexDirection: 'row',
@@ -438,7 +559,7 @@ const styles = StyleSheet.create({
     color: colors.ink,
   },
   chipTextActive: {
-    color: colors.surface,
+    color: colors.onPrimary,
   },
   contentEmpty: {
     flexGrow: 1,
@@ -452,6 +573,7 @@ const styles = StyleSheet.create({
   skeletonList: {
     gap: spacing.md,
     paddingTop: spacing.sm,
+    paddingHorizontal: spacing.md,
   },
   emptyCatalogTitle: {
     fontSize: 17,
@@ -474,6 +596,6 @@ const styles = StyleSheet.create({
   retryBtnText: {
     fontSize: 14,
     fontWeight: '700',
-    color: colors.surface,
+    color: colors.onPrimary,
   },
 });

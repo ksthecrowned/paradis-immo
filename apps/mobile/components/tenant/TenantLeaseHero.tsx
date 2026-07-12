@@ -3,29 +3,28 @@ import { colors, radii, spacing } from '@/constants/theme';
 import {
   leaseStatusLabel,
   leaseStatusTone,
-  type MockLease,
-} from '@/lib/mock-leases';
+} from '@/lib/leases';
 import type { Property } from '@/types/property';
 import { Ionicons } from '@expo/vector-icons';
 import { StyleSheet, Text, View } from 'react-native';
 
 type Props = {
   property: Property;
-  lease: MockLease;
+  leaseStatus: string;
   agencyName?: string;
 };
 
 export function TenantLeaseHero({
   property,
-  lease,
+  leaseStatus,
   agencyName,
 }: Props): React.JSX.Element {
   return (
     <View style={styles.card}>
       <View style={styles.top}>
         <StatusBadge
-          label={leaseStatusLabel(lease.status)}
-          tone={leaseStatusTone(lease.status)}
+          label={leaseStatusLabel(leaseStatus)}
+          tone={leaseStatusTone(leaseStatus)}
         />
         {agencyName ? (
           <Text style={styles.agency} numberOfLines={1}>

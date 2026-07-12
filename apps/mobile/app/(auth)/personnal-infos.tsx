@@ -1,3 +1,4 @@
+import { AuthTextInput } from '@/components/auth/AuthTextInput';
 import { CircleIconButton } from '@/components/ui/CircleIconButton';
 import { colors, radii, spacing } from '@/constants/theme';
 import { useFeedback } from '@/context/FeedbackContext';
@@ -20,7 +21,6 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -29,6 +29,7 @@ type MeResponse = {
   id: string;
   phone: string;
   name: string | null;
+  email?: string | null;
   roles?: string[];
 };
 
@@ -61,6 +62,7 @@ export default function PersonnalInfosScreen(): React.JSX.Element {
             id: me.id,
             phone: me.phone,
             name: me.name,
+            email: me.email ?? null,
             roles: me.roles ?? stored?.roles ?? [],
           },
         });
@@ -115,20 +117,16 @@ export default function PersonnalInfosScreen(): React.JSX.Element {
           </Text>
         </View>
 
-        <View style={styles.field}>
-          <Text style={styles.label}>Nom complet</Text>
-          <TextInput
-            style={styles.input}
-            value={name}
-            onChangeText={setName}
-            placeholder="Ex. Jean Mbemba"
-            placeholderTextColor={colors.muted}
-            autoCapitalize="words"
-            autoComplete="name"
-            textContentType="name"
-            accessibilityLabel="Nom complet"
-          />
-        </View>
+        <AuthTextInput
+          label="Nom complet"
+          value={name}
+          onChangeText={setName}
+          placeholder="Ex. Jean Mbemba"
+          autoCapitalize="words"
+          autoComplete="name"
+          textContentType="name"
+          accessibilityLabel="Nom complet"
+        />
 
         <Text style={styles.disclaimer}>
           Vous pourrez modifier ces informations plus tard dans votre profil.
@@ -196,26 +194,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 22,
     color: colors.muted,
-  },
-  field: {
-    gap: spacing.sm,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: colors.muted,
-  },
-  input: {
-    minHeight: 60,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 14,
-    fontSize: 16,
-    fontWeight: '500',
-    color: colors.ink,
-    backgroundColor: colors.surface,
-    borderRadius: radii.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
   },
   disclaimer: {
     marginTop: spacing.md,

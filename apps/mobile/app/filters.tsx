@@ -3,7 +3,6 @@ import { FilterSection } from '@/components/filters/FilterSection';
 import { FilterStepper } from '@/components/filters/FilterStepper';
 import { CircleIconButton } from '@/components/ui/CircleIconButton';
 import { colors, radii, spacing } from '@/constants/theme';
-import { fetchAgencies, type Agency } from '@/lib/agencies';
 import { priceBoundsForMode } from '@/lib/filter-price-bounds';
 import {
   listArrondissements,
@@ -13,6 +12,7 @@ import {
   type PublicQuartier,
 } from '@/lib/locations';
 import { PROPERTY_FEATURE_CATALOG } from '@/lib/property-features';
+import { PROPERTY_CATEGORIES } from '@/lib/categories';
 import {
   DEFAULT_SEARCH_FILTERS,
   filtersToParams,
@@ -22,7 +22,7 @@ import {
 import type { PropertyCategory, PropertyFeatureId } from '@/types/property';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -33,17 +33,9 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const MODES: Array<{ key: SearchFilters['mode']; label: string }> = [
-  { key: 'ALL', label: 'Tous' },
-  { key: 'SALE', label: 'À vendre' },
-  { key: 'RENT_LONG', label: 'À louer' },
-  { key: 'RENT_SHORT', label: 'À la journée' },
-];
-
-const CATEGORIES: Array<{ key: PropertyCategory; label: string }> = [
-  { key: 'house', label: 'Maison' },
-  { key: 'apartment', label: 'Appartement' },
-  { key: 'land', label: 'Terrain' },
-  { key: 'commercial', label: 'Commerce' },
+  { key: 'RENT_LONG', label: 'Location' },
+  { key: 'SALE', label: 'Vente' },
+  { key: 'RENT_SHORT', label: 'Location journalière' },
 ];
 
 const AGE_OPTIONS: Array<{
@@ -61,6 +53,8 @@ const AGE_OPTIONS: Array<{
 const FEATURE_OPTIONS = (
   Object.keys(PROPERTY_FEATURE_CATALOG) as PropertyFeatureId[]
 ).map((id) => PROPERTY_FEATURE_CATALOG[id]);
+
+const QUARTIER_PREVIEW_COUNT = 6;
 
 function clampPrice(
   mode: SearchFilters['mode'],
@@ -108,7 +102,6 @@ export default function FiltersScreen(): React.JSX.Element {
   const [features, setFeatures] = useState<PropertyFeatureId[]>(
     initial.features,
   );
-  const [agencyIds, setAgencyIds] = useState<string[]>(initial.agencyIds);
   const [availableOnly, setAvailableOnly] = useState(initial.availableOnly);
   const [maxAgeYears, setMaxAgeYears] = useState<number | null>(
     initial.maxAgeYears,
@@ -120,9 +113,19 @@ export default function FiltersScreen(): React.JSX.Element {
 
   const [cities, setCities] = useState<PublicCity[]>([]);
   const [quartiers, setQuartiers] = useState<PublicQuartier[]>([]);
-  const [agencies, setAgencies] = useState<Agency[]>([]);
+  const [quartiersExpanded, setQuartiersExpanded] = useState(false);
+  const prevModeRef = useRef(mode);
 
   const bounds = priceBoundsForMode(mode);
+
+  const visibleQuartiers = useMemo(() => {
+    if (quartiersExpanded || quartiers.length <= QUARTIER_PREVIEW_COUNT) {
+      return quartiers;
+    }
+    return quartiers.slice(0, QUARTIER_PREVIEW_COUNT);
+  }, [quartiers, quartiersExpanded]);
+
+  const canToggleQuartiers = quartiers.length > QUARTIER_PREVIEW_COUNT;
 
   useEffect(() => {
     let cancelled = false;
@@ -139,25 +142,13 @@ export default function FiltersScreen(): React.JSX.Element {
   }, []);
 
   useEffect(() => {
-    let cancelled = false;
-    void fetchAgencies()
-      .then((rows) => {
-        if (!cancelled) setAgencies(rows);
-      })
-      .catch(() => {
-        if (!cancelled) setAgencies([]);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  useEffect(() => {
     if (!cityId) {
       setQuartiers([]);
+      setQuartiersExpanded(false);
       return;
     }
     let cancelled = false;
+    setQuartiersExpanded(false);
     void (async () => {
       try {
         const arrs = await listArrondissements(cityId);
@@ -177,17 +168,12 @@ export default function FiltersScreen(): React.JSX.Element {
   }, [cityId]);
 
   useEffect(() => {
-    if (!priceTouched) {
-      const b = priceBoundsForMode(mode);
-      setMinPrice(b.min);
-      setMaxPrice(b.max);
-      return;
-    }
-    const next = clampPrice(mode, minPrice, maxPrice);
-    setMinPrice(next.min);
-    setMaxPrice(next.max);
-    // Reclamp only when mode changes
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (prevModeRef.current === mode) return;
+    prevModeRef.current = mode;
+    const b = priceBoundsForMode(mode);
+    setMinPrice(b.min);
+    setMaxPrice(b.max);
+    setPriceTouched(false);
   }, [mode]);
 
   const selectCity = (city: PublicCity): void => {
@@ -230,14 +216,6 @@ export default function FiltersScreen(): React.JSX.Element {
     );
   };
 
-  const toggleAgency = (id: string): void => {
-    setAgencyIds((current) =>
-      current.includes(id)
-        ? current.filter((item) => item !== id)
-        : [...current, id],
-    );
-  };
-
   const selectAge = (option: (typeof AGE_OPTIONS)[number]): void => {
     const active =
       maxAgeYears === option.maxAgeYears &&
@@ -253,22 +231,11 @@ export default function FiltersScreen(): React.JSX.Element {
 
   const advancedCount = useMemo(() => {
     let count = 0;
-    if (minBathrooms != null) count += 1;
-    if (categories.length > 0) count += 1;
-    if (agencyIds.length > 0) count += 1;
     count += features.length;
     if (availableOnly) count += 1;
     if (maxAgeYears != null || minAgeYears != null) count += 1;
     return count;
-  }, [
-    minBathrooms,
-    categories.length,
-    agencyIds.length,
-    features.length,
-    availableOnly,
-    maxAgeYears,
-    minAgeYears,
-  ]);
+  }, [features.length, availableOnly, maxAgeYears, minAgeYears]);
 
   const handleReset = (): void => {
     setMode(DEFAULT_SEARCH_FILTERS.mode);
@@ -276,7 +243,7 @@ export default function FiltersScreen(): React.JSX.Element {
     setCityName(null);
     setQuartierId(null);
     setQuartierName(null);
-    const b = priceBoundsForMode('ALL');
+    const b = priceBoundsForMode(DEFAULT_SEARCH_FILTERS.mode);
     setMinPrice(b.min);
     setMaxPrice(b.max);
     setPriceTouched(false);
@@ -284,11 +251,11 @@ export default function FiltersScreen(): React.JSX.Element {
     setMinBathrooms(null);
     setCategories([]);
     setFeatures([]);
-    setAgencyIds([]);
     setAvailableOnly(false);
     setMaxAgeYears(null);
     setMinAgeYears(null);
     setAdvancedOpen(false);
+    setQuartiersExpanded(false);
   };
 
   const handleApply = (): void => {
@@ -305,7 +272,6 @@ export default function FiltersScreen(): React.JSX.Element {
       minBathrooms,
       categories,
       features,
-      agencyIds,
       availableOnly,
       maxAgeYears,
       minAgeYears,
@@ -340,35 +306,105 @@ export default function FiltersScreen(): React.JSX.Element {
         style={styles.scroll}
         contentContainerStyle={[
           styles.content,
-          { paddingBottom: insets.bottom + 100 },
+          { paddingBottom: insets.bottom + 85 },
         ]}
         showsVerticalScrollIndicator={false}
       >
         <FilterSection title="Type d’annonce">
-          <View style={styles.chipRow}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            nestedScrollEnabled
+            contentContainerStyle={[
+              styles.chipScroll,
+              {
+                backgroundColor: colors.surface,
+                borderRadius: radii.full,
+                borderWidth: 1,
+                borderColor: colors.border,
+                paddingVertical: 5,
+                paddingHorizontal: 8,
+              }
+            ]}
+          >
             {MODES.map((item) => {
               const active = mode === item.key;
               return (
                 <Pressable
                   key={item.key}
-                  style={[styles.chip, active && styles.chipActive]}
+                  style={[
+                    {
+                      paddingHorizontal: 24,
+                      paddingVertical: 16,
+                      borderRadius: radii.full,
+                    },
+                    active && styles.chipActive,
+                    {
+                      borderColor: "transparent",
+                    }
+                  ]}
                   onPress={() => setMode(item.key)}
                   accessibilityRole="button"
                   accessibilityState={{ selected: active }}
                 >
                   <Text
-                    style={[styles.chipText, active && styles.chipTextActive]}
+                    style={[
+                      styles.chipText,
+                      active && styles.chipTextActive
+                    ]}
                   >
                     {item.label}
                   </Text>
                 </Pressable>
               );
             })}
-          </View>
+          </ScrollView>
+        </FilterSection>
+
+        <FilterSection title="Type de bien">
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            nestedScrollEnabled
+            contentContainerStyle={styles.categoryScroll}
+          >
+            {PROPERTY_CATEGORIES.map((item) => {
+              const active = categories.includes(item.key);
+              return (
+                <Pressable
+                  key={item.key}
+                  style={[styles.categoryChip, active && styles.chipActive]}
+                  onPress={() => toggleCategory(item.key)}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: active }}
+                  accessibilityLabel={item.label}
+                >
+                  <Ionicons
+                    name={item.icon}
+                    size={16}
+                    color={active ? colors.onPrimary : colors.ink}
+                  />
+                  <Text
+                    style={[
+                      styles.chipText,
+                      active && styles.chipTextActive,
+                    ]}
+                  >
+                    {item.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
         </FilterSection>
 
         <FilterSection title="Ville">
-          <View style={styles.chipRow}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            nestedScrollEnabled
+            contentContainerStyle={styles.chipScroll}
+          >
             {cities.map((city) => {
               const active = cityId === city.id;
               return (
@@ -387,39 +423,59 @@ export default function FiltersScreen(): React.JSX.Element {
                 </Pressable>
               );
             })}
-          </View>
+          </ScrollView>
         </FilterSection>
 
-        <FilterSection title="Quartier">
-          {!cityId ? (
-            <Text style={styles.hint}>Choisissez une ville</Text>
-          ) : quartiers.length === 0 ? (
-            <Text style={styles.hint}>Aucun quartier trouvé</Text>
-          ) : (
-            <View style={styles.chipRow}>
-              {quartiers.map((q) => {
-                const active = quartierId === q.id;
-                return (
-                  <Pressable
-                    key={q.id}
-                    style={[styles.chip, active && styles.chipActive]}
-                    onPress={() => selectQuartier(q)}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: active }}
-                  >
-                    <Text
-                      style={[styles.chipText, active && styles.chipTextActive]}
+        {cityId && quartiers.length > 0 ? (
+          <FilterSection title="Quartier">
+            <View style={styles.quartierBlock}>
+              <View style={styles.chipRow}>
+                {visibleQuartiers.map((q) => {
+                  const active = quartierId === q.id;
+                  return (
+                    <Pressable
+                      key={q.id}
+                      style={[styles.chip, active && styles.chipActive]}
+                      onPress={() => selectQuartier(q)}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: active }}
                     >
-                      {q.name}
-                    </Text>
-                  </Pressable>
-                );
-              })}
+                      <Text
+                        style={[
+                          styles.chipText,
+                          active && styles.chipTextActive,
+                        ]}
+                      >
+                        {q.name}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+              {canToggleQuartiers ? (
+                <Pressable
+                  style={styles.showMoreBtn}
+                  onPress={() => setQuartiersExpanded((open) => !open)}
+                  accessibilityRole="button"
+                  accessibilityState={{ expanded: quartiersExpanded }}
+                >
+                  <Text style={styles.showMoreText}>
+                    {quartiersExpanded
+                      ? 'Afficher moins'
+                      : `Afficher plus (${quartiers.length - QUARTIER_PREVIEW_COUNT})`}
+                  </Text>
+                  <Ionicons
+                    name={quartiersExpanded ? 'chevron-up' : 'chevron-down'}
+                    size={16}
+                    color={colors.primary}
+                  />
+                </Pressable>
+              ) : null}
             </View>
-          )}
-        </FilterSection>
+          </FilterSection>
+        ) : null}
 
-        <FilterSection title="Prix">
+        <FilterSection title="Budget">
           <FilterPriceRange
             minBound={bounds.min}
             maxBound={bounds.max}
@@ -434,12 +490,22 @@ export default function FiltersScreen(): React.JSX.Element {
           />
         </FilterSection>
 
-        <FilterSection title="Chambres">
+        <FilterSection title="Plus de détails">
           <FilterStepper
-            label="Chambres"
+            label="Nbre de chambres"
             icon="bed-outline"
             value={minBedrooms}
+            min={0}
+            max={10}
             onChange={setMinBedrooms}
+          />
+          <FilterStepper
+            label="Nbre de salles de bain"
+            icon="water-outline"
+            value={minBathrooms}
+            min={0}
+            max={10}
+            onChange={setMinBathrooms}
           />
         </FilterSection>
 
@@ -466,74 +532,6 @@ export default function FiltersScreen(): React.JSX.Element {
 
         {advancedOpen ? (
           <>
-            <FilterSection title="Salles de bain">
-              <FilterStepper
-                label="Salles de bain"
-                icon="water-outline"
-                value={minBathrooms}
-                onChange={setMinBathrooms}
-              />
-            </FilterSection>
-
-            <FilterSection title="Type de bien">
-              <View style={styles.chipRow}>
-                {CATEGORIES.map((item) => {
-                  const active = categories.includes(item.key);
-                  return (
-                    <Pressable
-                      key={item.key}
-                      style={[styles.chip, active && styles.chipActive]}
-                      onPress={() => toggleCategory(item.key)}
-                      accessibilityRole="button"
-                      accessibilityState={{ selected: active }}
-                    >
-                      <Text
-                        style={[
-                          styles.chipText,
-                          active && styles.chipTextActive,
-                        ]}
-                      >
-                        {item.label}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-            </FilterSection>
-
-            <FilterSection title="Agence" subtitle="Une ou plusieurs agences">
-              <View style={styles.chipRow}>
-                {agencies.map((agency) => {
-                  const active = agencyIds.includes(agency.id);
-                  return (
-                    <Pressable
-                      key={agency.id}
-                      style={[styles.chip, active && styles.chipActive]}
-                      onPress={() => toggleAgency(agency.id)}
-                      accessibilityRole="button"
-                      accessibilityState={{ selected: active }}
-                      accessibilityLabel={agency.name}
-                    >
-                      <View
-                        style={[
-                          styles.agencyDot,
-                          { backgroundColor: agency.logoColor },
-                        ]}
-                      />
-                      <Text
-                        style={[
-                          styles.chipText,
-                          active && styles.chipTextActive,
-                        ]}
-                      >
-                        {agency.shortName}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-            </FilterSection>
-
             <FilterSection
               title="Équipements"
               subtitle="Sélectionnez un ou plusieurs critères"
@@ -552,7 +550,7 @@ export default function FiltersScreen(): React.JSX.Element {
                       <Ionicons
                         name={item.icon}
                         size={15}
-                        color={active ? colors.surface : colors.ink}
+                        color={active ? colors.onPrimary : colors.ink}
                       />
                       <Text
                         style={[
@@ -677,12 +675,51 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 8,
   },
+  chipScroll: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 2,
+  },
+  categoryScroll: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 2,
+  },
+  categoryChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    minHeight: 46,
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+    borderRadius: radii.full,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  quartierBlock: {
+    gap: 10,
+  },
+  showMoreBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    alignSelf: 'flex-start',
+    paddingVertical: 2,
+  },
+  showMoreText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.primary,
+  },
   chip: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
     minHeight: 42,
-    paddingHorizontal: 14,
+    paddingHorizontal: 20,
     paddingVertical: 8,
     borderRadius: radii.full,
     backgroundColor: colors.surface,
@@ -693,18 +730,13 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     borderColor: colors.primary,
   },
-  agencyDot: {
-    width: 10,
-    height: 10,
-    borderRadius: radii.full,
-  },
   chipText: {
     fontSize: 13,
     fontWeight: '600',
     color: colors.ink,
   },
   chipTextActive: {
-    color: colors.surface,
+    color: colors.onPrimary,
   },
   hint: {
     fontSize: 13,
@@ -763,6 +795,6 @@ const styles = StyleSheet.create({
   applyBtnText: {
     fontSize: 16,
     fontWeight: '700',
-    color: colors.surface,
+    color: colors.onPrimary,
   },
 });

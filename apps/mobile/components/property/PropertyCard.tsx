@@ -12,6 +12,8 @@ import { PropertyCardBody } from './PropertyCardBody';
 import { PropertyCardImage } from './PropertyCardImage';
 
 export interface PropertyCardProps {
+  /** Whether to add horizontal padding to the card. */
+  horizontalSpacing?: boolean;
   property: Property;
   /** `compact` = image + content side by side (map sheet). */
   variant?: 'default' | 'compact';
@@ -23,6 +25,7 @@ export interface PropertyCardProps {
 }
 
 export default function PropertyCard({
+  horizontalSpacing = false,
   property,
   variant = 'default',
   initialFavorited,
@@ -81,7 +84,7 @@ export default function PropertyCard({
     : require('@/assets/images/house2.jpg');
 
   return (
-    <View style={styles.wrap}>
+    <View style={[styles.wrap, { paddingHorizontal: horizontalSpacing ? spacing.md : 0 }]}>
       <Pressable
         style={({ pressed }) => [
           styles.card,
@@ -107,7 +110,7 @@ export default function PropertyCard({
         />
       </Pressable>
       {!compact ? (
-        <PropertyCardBadges.FeaturedRibbon property={property} />
+        <PropertyCardBadges.FeaturedRibbon property={property} horizontalSpacing={horizontalSpacing} />
       ) : null}
     </View>
   );

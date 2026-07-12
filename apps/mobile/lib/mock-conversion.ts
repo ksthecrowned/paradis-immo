@@ -101,12 +101,14 @@ export function quoteShortStay(
   propertyId: string,
   startIso: string,
   endIso: string,
-): { nights: number; totalLabel: string } {
+): { nights: number; totalAmount: number; totalLabel: string } {
   const nights = nightsBetween(startIso, endIso);
   const nightly = NIGHTLY_BY_PROPERTY[propertyId] ?? 40_000;
+  const totalAmount = nights * nightly;
   return {
     nights,
-    totalLabel: formatFcfa(nights * nightly),
+    totalAmount,
+    totalLabel: formatFcfa(totalAmount),
   };
 }
 

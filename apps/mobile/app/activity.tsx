@@ -89,6 +89,14 @@ export default function ActivityScreen(): React.JSX.Element {
       router.push(`/leases/${item.leaseId}`);
       return;
     }
+    if (item.stayId) {
+      router.push(`/stays/${item.stayId}`);
+      return;
+    }
+    if (item.purchaseId) {
+      router.push(`/purchases/${item.purchaseId}`);
+      return;
+    }
     router.push(`/property/${item.propertyId}`);
   };
 

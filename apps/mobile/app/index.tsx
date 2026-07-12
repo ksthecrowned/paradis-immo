@@ -1,7 +1,8 @@
 import { colors, radii, spacing } from '@/constants/theme';
-import { useRequireAuth } from '@/hooks/use-require-auth';
+import { isAuthenticated } from '@/lib/auth';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Redirect, router } from 'expo-router';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -15,7 +16,21 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function IndexScreen(): React.JSX.Element {
   const insets = useSafeAreaInsets();
-  const { ready, authed } = useRequireAuth();
+  // Token presence only — do not block boot on /users/me (API can hang).
+  const [ready, setReady] = useState(false);
+  const [authed, setAuthed] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    void isAuthenticated().then((ok) => {
+      if (!active) return;
+      setAuthed(ok);
+      setReady(true);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   if (!ready) {
     return (
@@ -146,7 +161,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 40,
     fontWeight: '900',
-    color: colors.surface,
+    color: colors.onPrimary,
     lineHeight: 42,
     letterSpacing: -0.6,
   },
@@ -180,7 +195,7 @@ const styles = StyleSheet.create({
   ctaText: {
     fontSize: 16,
     fontWeight: '700',
-    color: colors.surface,
+    color: colors.onPrimary,
   },
   dots: {
     flexDirection: 'row',

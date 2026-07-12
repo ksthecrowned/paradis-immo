@@ -1,7 +1,7 @@
 import { colors, radii, spacing } from '@/constants/theme';
 import {
   isGrayscaleCard,
-  listingStatusLabel,
+  listingStatusCardLabel,
 } from '@/lib/listing-status';
 import { propertyStatusLabel, type Property } from '@/types/property';
 import { Ionicons } from '@expo/vector-icons';
@@ -9,28 +9,23 @@ import { StyleSheet, Text, View } from 'react-native';
 
 type OverlayProps = {
   property: Property;
-  compact: boolean;
 };
 
-function Overlay({ property, compact }: OverlayProps): React.JSX.Element {
+/** Status pill over the photo — default (tall) cards only. */
+function Overlay({ property }: OverlayProps): React.JSX.Element {
   const grayscale = isGrayscaleCard(property);
   const label =
-    listingStatusLabel(property) ?? propertyStatusLabel(property);
+    listingStatusCardLabel(property) ?? propertyStatusLabel(property);
 
   return (
     <View
       style={[
         styles.badge,
-        compact && styles.badgeCompact,
-        grayscale && { backgroundColor: '#6B7280' },
+        grayscale && { backgroundColor: '#6B7280', opacity: 0.75 },
       ]}
     >
       <Text
-        style={[
-          styles.badgeText,
-          compact && styles.badgeTextCompact,
-          grayscale && { color: '#FEFEFE' },
-        ]}
+        style={[styles.badgeText, grayscale && { color: '#FEFEFE' }]}
         numberOfLines={1}
       >
         {label}
@@ -41,14 +36,18 @@ function Overlay({ property, compact }: OverlayProps): React.JSX.Element {
 
 type FeaturedProps = {
   property: Property;
+  horizontalSpacing: boolean;
 };
 
-function FeaturedRibbon({ property }: FeaturedProps): React.JSX.Element | null {
+function FeaturedRibbon({
+  property,
+  horizontalSpacing,
+}: FeaturedProps): React.JSX.Element | null {
   if (!property.isFeatured) return null;
   const grayscale = isGrayscaleCard(property);
 
   return (
-    <View style={styles.featuredWrap}>
+    <View style={[styles.featuredWrap, { left: horizontalSpacing ? 7 : 0 }]}>
       <View
         style={[
           styles.featuredBadge,
@@ -58,13 +57,10 @@ function FeaturedRibbon({ property }: FeaturedProps): React.JSX.Element | null {
         <Ionicons
           name="sparkles-outline"
           size={14}
-          color={grayscale ? '#FEFEFE' : colors.surface}
+          color={grayscale ? '#FEFEFE' : colors.onPrimary}
         />
         <Text
-          style={[
-            styles.featuredText,
-            grayscale && { color: '#FEFEFE' },
-          ]}
+          style={[styles.featuredText, grayscale && { color: '#FEFEFE' }]}
         >
           Coup de cœur
         </Text>
@@ -79,9 +75,82 @@ function FeaturedRibbon({ property }: FeaturedProps): React.JSX.Element | null {
   );
 }
 
+type CompactMetaProps = {
+  property: Property;
+};
+
+/**
+ * Compact cards: status + featured live in the text column so the
+ * 96×96 thumb stays readable.
+ */
+function CompactMeta({
+  property,
+}: CompactMetaProps): React.JSX.Element | null {
+  const grayscale = isGrayscaleCard(property);
+  const status = listingStatusCardLabel(property);
+  const featured = property.isFeatured;
+
+  if (!status && !featured) return null;
+
+  return (
+    <View style={styles.compactMeta}>
+      {featured ? (
+        <View
+          style={[
+            styles.compactChip,
+            styles.compactFeatured,
+            grayscale && styles.compactChipMuted,
+          ]}
+          accessibilityLabel="Coup de cœur"
+        >
+          <Ionicons
+            name="sparkles"
+            size={10}
+            color={grayscale ? '#FEFEFE' : colors.primary}
+          />
+          {/* Label only when there is room (no status competing). */}
+          {!status ? (
+            <Text
+              style={[
+                styles.compactChipText,
+                styles.compactFeaturedText,
+                grayscale && { color: '#FEFEFE' },
+              ]}
+              numberOfLines={1}
+            >
+              Coup de cœur
+            </Text>
+          ) : null}
+        </View>
+      ) : null}
+      {status ? (
+        <View
+          style={[
+            styles.compactChip,
+            styles.compactStatus,
+            grayscale && styles.compactChipMuted,
+          ]}
+        >
+          <Text
+            style={[
+              styles.compactChipText,
+              styles.compactStatusText,
+              grayscale && { color: '#FEFEFE' },
+            ]}
+            numberOfLines={1}
+          >
+            {status}
+          </Text>
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
 export const PropertyCardBadges = {
   Overlay,
   FeaturedRibbon,
+  CompactMeta,
 };
 
 const styles = StyleSheet.create({
@@ -94,23 +163,14 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
     borderRadius: radii.full,
   },
-  badgeCompact: {
-    top: 8,
-    left: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
   badgeText: {
     fontSize: 14,
     fontWeight: '700',
-    color: colors.surface,
-  },
-  badgeTextCompact: {
-    fontSize: 10,
+    color: colors.onPrimary,
   },
   featuredWrap: {
     position: 'absolute',
-    top: 200,
+    top: 185,
     left: -10,
   },
   featuredBadge: {
@@ -126,7 +186,7 @@ const styles = StyleSheet.create({
   featuredText: {
     fontSize: 14,
     fontWeight: '700',
-    color: colors.surface,
+    color: colors.onPrimary,
   },
   featuredTriangle: {
     width: 0,
@@ -136,5 +196,39 @@ const styles = StyleSheet.create({
     borderLeftWidth: 10,
     borderTopColor: '#4338CA',
     borderLeftColor: 'transparent',
+  },
+  compactMeta: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 4,
+  },
+  compactChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: radii.full,
+    maxWidth: '100%',
+  },
+  compactFeatured: {
+    backgroundColor: colors.primaryMuted,
+  },
+  compactStatus: {
+    backgroundColor: colors.primary,
+  },
+  compactChipMuted: {
+    backgroundColor: '#6B7280',
+  },
+  compactChipText: {
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  compactFeaturedText: {
+    color: colors.primary,
+  },
+  compactStatusText: {
+    color: colors.onPrimary,
   },
 });

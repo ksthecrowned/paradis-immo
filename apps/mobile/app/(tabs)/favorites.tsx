@@ -125,6 +125,7 @@ export default function FavoritesScreen(): React.JSX.Element {
           renderItem={({ item }) => (
             <PropertyCard
               property={item}
+              variant="compact"
               initialFavorited
               onPress={() => router.push(`/property/${item.id}`)}
               onFavoriteChange={(favorited) =>

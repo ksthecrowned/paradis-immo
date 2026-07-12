@@ -9,7 +9,7 @@ export default function TabsLayout(): React.JSX.Element {
     <Tabs
       screenOptions={{
         headerShown: true,
-        headerStyle: { backgroundColor: colors.surface },
+        headerStyle: { backgroundColor: colors.navy },
         headerShadowVisible: false,
         headerTitleStyle: { fontWeight: '700', color: colors.ink },
         headerTintColor: colors.ink,
@@ -17,7 +17,7 @@ export default function TabsLayout(): React.JSX.Element {
         tabBarInactiveTintColor: colors.muted,
         tabBarLabelStyle: { fontSize: 12, fontWeight: '600' },
         tabBarStyle: {
-          backgroundColor: colors.surface,
+          backgroundColor: colors.navy,
           borderTopColor: colors.border,
           height: 74,
           paddingBottom: insets.bottom,
@@ -73,12 +73,12 @@ export default function TabsLayout(): React.JSX.Element {
       <Tabs.Screen
         name="locations"
         options={{
-          title: 'Locations',
-          headerTitle: 'Locations',
+          title: 'Mes biens',
+          headerTitle: 'Mes biens',
           headerShown: false,
           tabBarIcon: ({ color, size, focused }) => (
             <Ionicons
-              name={focused ? 'key' : 'key-outline'}
+              name={focused ? 'business' : 'business-outline'}
               color={color}
               size={size}
             />

@@ -6,15 +6,14 @@ export type PriceBounds = {
   step: number;
 };
 
-const BOUNDS: Record<'ALL' | PropertyMode, PriceBounds> = {
+const BOUNDS: Record<PropertyMode, PriceBounds> = {
   SALE: { min: 0, max: 200_000_000, step: 1_000_000 },
-  RENT_LONG: { min: 0, max: 2_000_000, step: 25_000 },
+  RENT_LONG: { min: 0, max: 2_000_000, step: 5_000 },
   RENT_SHORT: { min: 0, max: 200_000, step: 5_000 },
-  ALL: { min: 0, max: 200_000_000, step: 1_000_000 },
 };
 
 export function priceBoundsForMode(
-  mode: 'ALL' | PropertyMode,
+  mode: PropertyMode,
 ): PriceBounds {
   return BOUNDS[mode];
 }

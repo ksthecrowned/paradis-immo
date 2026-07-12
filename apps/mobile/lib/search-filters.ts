@@ -8,7 +8,7 @@ import {
 
 export type SearchFilters = {
   q: string;
-  mode: PropertyMode | 'ALL';
+  mode: PropertyMode | 'RENT_LONG';
   cityId: string | null;
   cityName: string | null;
   quartierId: string | null;
@@ -19,7 +19,6 @@ export type SearchFilters = {
   minBathrooms: number | null;
   categories: PropertyCategory[];
   features: PropertyFeatureId[];
-  agencyIds: string[];
   availableOnly: boolean;
   maxAgeYears: number | null;
   minAgeYears: number | null;
@@ -27,7 +26,7 @@ export type SearchFilters = {
 
 export const DEFAULT_SEARCH_FILTERS: SearchFilters = {
   q: '',
-  mode: 'ALL',
+  mode: 'RENT_LONG',
   cityId: null,
   cityName: null,
   quartierId: null,
@@ -38,7 +37,6 @@ export const DEFAULT_SEARCH_FILTERS: SearchFilters = {
   minBathrooms: null,
   categories: [],
   features: [],
-  agencyIds: [],
   availableOnly: false,
   maxAgeYears: null,
   minAgeYears: null,
@@ -46,7 +44,7 @@ export const DEFAULT_SEARCH_FILTERS: SearchFilters = {
 
 export function countActiveFilters(filters: SearchFilters): number {
   let count = 0;
-  if (filters.mode !== 'ALL') count += 1;
+  if (filters.mode !== 'RENT_LONG') count += 1;
   if (filters.cityId) count += 1;
   if (filters.quartierId) count += 1;
   if (filters.minPrice != null || filters.maxPrice != null) count += 1;
@@ -54,7 +52,6 @@ export function countActiveFilters(filters: SearchFilters): number {
   if (filters.minBathrooms != null) count += 1;
   if (filters.categories.length > 0) count += 1;
   count += filters.features.length;
-  if (filters.agencyIds.length > 0) count += 1;
   if (filters.availableOnly) count += 1;
   if (filters.maxAgeYears != null || filters.minAgeYears != null) count += 1;
   return count;
@@ -68,7 +65,7 @@ export function filterProperties(
   const yearNow = new Date().getFullYear();
 
   return properties.filter((property) => {
-    if (filters.mode !== 'ALL' && property.mode !== filters.mode) {
+    if (filters.mode !== 'RENT_LONG' && property.mode !== filters.mode) {
       return false;
     }
 
@@ -117,13 +114,6 @@ export function filterProperties(
       }
     }
 
-    if (
-      filters.agencyIds.length > 0 &&
-      !filters.agencyIds.includes(property.agencyId)
-    ) {
-      return false;
-    }
-
     if (filters.availableOnly && !passesAvailableOnlyFilter(property)) {
       return false;
     }
@@ -157,7 +147,7 @@ export function filterProperties(
 export function filtersToParams(filters: SearchFilters): Record<string, string> {
   const params: Record<string, string> = {};
   if (filters.q.trim()) params.q = filters.q.trim();
-  if (filters.mode !== 'ALL') params.mode = filters.mode;
+  if (filters.mode !== 'RENT_LONG') params.mode = filters.mode;
   if (filters.cityId) params.city = filters.cityId;
   if (filters.cityName) params.cityName = filters.cityName;
   if (filters.quartierId) params.quartier = filters.quartierId;
@@ -175,9 +165,6 @@ export function filtersToParams(filters: SearchFilters): Record<string, string> 
   }
   if (filters.features.length > 0) {
     params.features = filters.features.join(',');
-  }
-  if (filters.agencyIds.length > 0) {
-    params.agencies = filters.agencyIds.join(',');
   }
   if (filters.availableOnly) params.available = '1';
   if (filters.maxAgeYears != null) params.maxAge = String(filters.maxAgeYears);
@@ -205,7 +192,7 @@ export function paramsToFilters(
   const mode: SearchFilters['mode'] =
     modeRaw === 'SALE' || modeRaw === 'RENT_LONG' || modeRaw === 'RENT_SHORT'
       ? modeRaw
-      : 'ALL';
+      : 'RENT_LONG';
 
   const parsePositiveInt = (value: string): number | null => {
     const n = Number.parseInt(value, 10);
@@ -222,11 +209,6 @@ export function paramsToFilters(
     .split(',')
     .map((item) => item.trim())
     .filter(Boolean) as PropertyFeatureId[];
-
-  const agencyIds = raw('agencies')
-    .split(',')
-    .map((item) => item.trim())
-    .filter(Boolean);
 
   const categories = raw('categories')
     .split(',')
@@ -251,7 +233,6 @@ export function paramsToFilters(
     minBathrooms: parsePositiveInt(raw('bathrooms')),
     categories,
     features,
-    agencyIds,
     availableOnly: raw('available') === '1',
     maxAgeYears: parsePositiveInt(raw('maxAge')),
     minAgeYears: parsePositiveInt(raw('minAge')),

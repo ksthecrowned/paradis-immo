@@ -1,15 +1,21 @@
-import { CircleIconButton } from '@/components/ui/CircleIconButton';
+import { AuthTextInput } from '@/components/auth/AuthTextInput';
+import {
+  DEFAULT_PHONE_COUNTRY,
+  type PhoneCountrySelection,
+} from '@/components/auth/PhoneCountryCallingCode';
+import { PhoneNumberField } from '@/components/auth/PhoneNumberField';
+import { ScreenHeader } from '@/components/ui/ScreenHeader';
 import { SegmentTabs } from '@/components/ui/SegmentTabs';
 import { colors, radii, spacing } from '@/constants/theme';
 import { useFeedback } from '@/context/FeedbackContext';
 import { ensureAuthenticated } from '@/lib/auth-guard';
 import { getErrorMessage } from '@/lib/feedback';
+import { parseE164Phone } from '@/lib/phone';
 import {
   fetchMe,
   updateMeAndSync,
   type NotificationChannelPreference,
 } from '@/lib/users';
-import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import {
@@ -18,7 +24,6 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -38,7 +43,9 @@ export default function ProfileEditScreen(): React.JSX.Element {
   const [loading, setLoading] = useState(true);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
+  const [phoneNational, setPhoneNational] = useState('');
+  const [phoneCountry, setPhoneCountry] =
+    useState<PhoneCountrySelection>(DEFAULT_PHONE_COUNTRY);
   const [notificationChannel, setNotificationChannel] =
     useState<NotificationChannelPreference>('PUSH');
   const [saving, setSaving] = useState(false);
@@ -57,7 +64,17 @@ export default function ProfileEditScreen(): React.JSX.Element {
           if (!active) return;
           setName(me.name ?? '');
           setEmail(me.email ?? '');
-          setPhone(me.phone ?? '');
+          const parsed = parseE164Phone(me.phone);
+          if (parsed) {
+            setPhoneCountry({
+              countryCode: parsed.countryCode,
+              callingCode: parsed.callingCode,
+            });
+            setPhoneNational(parsed.national);
+          } else {
+            setPhoneNational(me.phone ?? '');
+            setPhoneCountry(DEFAULT_PHONE_COUNTRY);
+          }
           setNotificationChannel(
             me.notificationChannel === 'SMS' ? 'SMS' : 'PUSH',
           );
@@ -118,16 +135,7 @@ export default function ProfileEditScreen(): React.JSX.Element {
 
   return (
     <View style={styles.screen}>
-      <View style={[styles.topBar, { paddingTop: insets.top + spacing.sm }]}>
-        <CircleIconButton
-          onPress={() => router.back()}
-          accessibilityLabel="Retour"
-        >
-          <Ionicons name="chevron-back" size={24} color={colors.ink} />
-        </CircleIconButton>
-        <Text style={styles.topTitle}>Modifier le profil</Text>
-        <View style={styles.spacer} />
-      </View>
+      <ScreenHeader title="Modifier le profil" icon="person-outline" />
 
       <ScrollView
         contentContainerStyle={[
@@ -135,55 +143,63 @@ export default function ProfileEditScreen(): React.JSX.Element {
           { paddingBottom: insets.bottom + spacing.lg },
         ]}
         keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
       >
-        <Text style={styles.label}>Nom</Text>
-        <TextInput
-          style={styles.input}
+        <AuthTextInput
+          label="Nom complet"
           value={name}
           onChangeText={setName}
-          placeholder="Votre nom"
-          placeholderTextColor={colors.muted}
+          placeholder="Ex. Jean Mbemba"
+          autoCapitalize="words"
+          autoComplete="name"
+          textContentType="name"
+          accessibilityLabel="Nom complet"
         />
 
-        <Text style={styles.label}>E-mail (optionnel)</Text>
-        <TextInput
-          style={styles.input}
+        <AuthTextInput
+          label="E-mail (optionnel)"
           value={email}
           onChangeText={setEmail}
           placeholder="vous@exemple.com"
-          placeholderTextColor={colors.muted}
           keyboardType="email-address"
           autoCapitalize="none"
           autoCorrect={false}
+          autoComplete="email"
+          textContentType="emailAddress"
+          accessibilityLabel="E-mail"
         />
 
-        <Text style={styles.label}>Téléphone</Text>
-        <TextInput
-          style={[styles.input, styles.inputDisabled]}
-          value={phone}
+        <PhoneNumberField
+          country={phoneCountry}
+          onCountryChange={setPhoneCountry}
+          value={phoneNational}
+          onChange={setPhoneNational}
           editable={false}
+          hint="Lié à votre connexion OTP"
         />
-        <Text style={styles.hint}>Lié à votre connexion OTP</Text>
 
-        <Text style={styles.label}>Alertes</Text>
-        <SegmentTabs
-          tabs={CHANNEL_TABS}
-          value={notificationChannel}
-          onChange={(key) =>
-            setNotificationChannel(key as NotificationChannelPreference)
-          }
-        />
-        <Text style={styles.hint}>
-          {notificationChannel === 'SMS'
-            ? 'Les SMS sont facturés à l’agence.'
-            : 'Notifications push sur votre téléphone.'}
-        </Text>
+        <View style={styles.alertsBlock}>
+          <Text style={styles.alertsLabel}>Alertes</Text>
+          <SegmentTabs
+            tabs={CHANNEL_TABS}
+            value={notificationChannel}
+            onChange={(key) =>
+              setNotificationChannel(key as NotificationChannelPreference)
+            }
+          />
+          <Text style={styles.hint}>
+            {notificationChannel === 'SMS'
+              ? 'Les SMS sont facturés à l’agence.'
+              : 'Notifications push sur votre téléphone.'}
+          </Text>
+        </View>
 
         <Pressable
           style={[styles.submit, !canSave && styles.submitDisabled]}
           onPress={() => void handleSave()}
           disabled={!canSave}
           accessibilityRole="button"
+          accessibilityLabel="Enregistrer"
         >
           {saving ? (
             <ActivityIndicator color={colors.onPrimary} />
@@ -199,53 +215,26 @@ export default function ProfileEditScreen(): React.JSX.Element {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
   centered: { alignItems: 'center', justifyContent: 'center' },
-  topBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.md,
-    paddingBottom: spacing.sm,
-    gap: 12,
-  },
-  topTitle: {
-    flex: 1,
-    fontSize: 18,
-    fontWeight: '800',
-    color: colors.ink,
-  },
-  spacer: { width: 44 },
   content: {
     paddingHorizontal: spacing.md,
-    gap: 10,
+    gap: spacing.md,
   },
-  label: {
-    marginTop: 8,
-    fontSize: 13,
-    fontWeight: '700',
-    color: colors.ink,
+  alertsBlock: {
+    gap: spacing.sm,
   },
-  input: {
-    minHeight: 48,
-    borderRadius: radii.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-    paddingHorizontal: 14,
-    fontSize: 15,
+  alertsLabel: {
+    fontSize: 14,
     fontWeight: '500',
-    color: colors.ink,
-  },
-  inputDisabled: {
-    backgroundColor: colors.primaryMuted,
     color: colors.muted,
   },
   hint: {
-    fontSize: 12,
-    fontWeight: '500',
+    fontSize: 13,
+    lineHeight: 18,
     color: colors.muted,
   },
   submit: {
-    marginTop: 16,
-    minHeight: 52,
+    marginTop: spacing.sm,
+    minHeight: 56,
     borderRadius: radii.full,
     backgroundColor: colors.primary,
     alignItems: 'center',
@@ -253,7 +242,7 @@ const styles = StyleSheet.create({
   },
   submitDisabled: { opacity: 0.5 },
   submitText: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '700',
     color: colors.onPrimary,
   },

@@ -88,7 +88,7 @@ export default function RegisterScreen(): React.JSX.Element {
 
         <Text style={styles.disclaimer}>
           Vous recevrez un{' '}
-          <Text style={styles.disclaimerEmphasis}>SMS</Text> de vérification.
+          <Text style={styles.disclaimerEmphasis}>Message WhatsApp</Text> avec un code de vérification à 6 chiffres.
           Des frais de message peuvent s’appliquer.
         </Text>
 
@@ -187,7 +187,7 @@ const styles = StyleSheet.create({
   ctaText: {
     fontSize: 16,
     fontWeight: '700',
-    color: colors.surface,
+    color: colors.onPrimary,
   },
   loginLink: {
     textAlign: 'center',

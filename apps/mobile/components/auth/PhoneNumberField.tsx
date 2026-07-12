@@ -20,6 +20,10 @@ export type PhoneNumberFieldProps = {
   onChange: (next: string) => void;
   /** Show error border when user tried to submit an invalid number */
   showError?: boolean;
+  /** When false, country + number are display-only. */
+  editable?: boolean;
+  hint?: string;
+  label?: string;
 };
 
 export function PhoneNumberField({
@@ -28,42 +32,55 @@ export function PhoneNumberField({
   value,
   onChange,
   showError = false,
+  editable = true,
+  hint,
+  label = 'Numéro de téléphone',
 }: PhoneNumberFieldProps): React.JSX.Element {
   const countryCode = country.countryCode as CountryCode;
-  const invalid = showError && !isValidNationalNumber(value, countryCode);
+  const invalid =
+    editable && showError && !isValidNationalNumber(value, countryCode);
 
   return (
     <View style={styles.field}>
-      <Text style={styles.label}>Numéro de téléphone</Text>
-      <View style={[styles.inputRow, invalid && styles.inputRowError]}>
+      <Text style={styles.label}>{label}</Text>
+      <View
+        style={[
+          styles.inputRow,
+          !editable && styles.inputRowDisabled,
+          invalid && styles.inputRowError,
+        ]}
+      >
         <PhoneCountryCallingCode
           value={country}
           onChange={(next) => {
             onCountryChange(next);
             onChange(reformatForCountry(value, next.countryCode as CountryCode));
           }}
-          style={styles.countryPicker}
           hasError={invalid}
+          editable={editable}
         />
 
         <TextInput
-          style={styles.input}
+          style={[styles.input, !editable && styles.inputDisabled]}
           value={value}
           onChangeText={(text) =>
             onChange(formatNationalInput(text, countryCode))
           }
           placeholder={getNationalPlaceholder(countryCode)}
-          placeholderTextColor={colors.primarySoft}
+          placeholderTextColor={colors.muted + "20"}
           keyboardType="phone-pad"
           textContentType="telephoneNumber"
           autoComplete="tel"
-          accessibilityLabel="Numéro de téléphone"
+          editable={editable}
+          accessibilityLabel={label}
         />
       </View>
       {invalid ? (
         <Text style={styles.errorText}>
           Numéro invalide pour ce pays
         </Text>
+      ) : hint ? (
+        <Text style={styles.hint}>{hint}</Text>
       ) : null}
     </View>
   );
@@ -106,9 +123,6 @@ const styles = StyleSheet.create({
   inputRowError: {
     borderColor: colors.danger,
   },
-  countryPicker: {
-    borderLeftWidth: 0,
-  },
   input: {
     flex: 1,
     fontSize: 16,
@@ -117,8 +131,19 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     paddingRight: spacing.sm,
   },
+  inputDisabled: {
+    color: colors.muted,
+  },
+  inputRowDisabled: {
+    backgroundColor: colors.primaryMuted,
+  },
   errorText: {
     fontSize: 13,
     color: colors.danger,
+  },
+  hint: {
+    fontSize: 13,
+    lineHeight: 18,
+    color: colors.muted,
   },
 });

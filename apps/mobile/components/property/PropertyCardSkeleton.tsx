@@ -60,8 +60,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.border,
   },
   imageCompact: {
-    width: 96,
-    height: 96,
+    width: 120,
+    height: 120,
     borderRadius: radii.lg,
     backgroundColor: colors.border,
     flexShrink: 0,

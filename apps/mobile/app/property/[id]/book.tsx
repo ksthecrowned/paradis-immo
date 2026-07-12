@@ -1,10 +1,15 @@
 import { CircleIconButton } from '@/components/ui/CircleIconButton';
+import { MonthCalendar } from '@/components/ui/MonthCalendar';
 import { PropertySummaryCard } from '@/components/property/PropertySummaryCard';
 import { colors, radii, spacing } from '@/constants/theme';
 import { ensureAuthenticated } from '@/lib/auth-guard';
 import {
+  addDays,
+  formatDayLongFr,
+  todayKey,
+} from '@/lib/calendar';
+import {
   createMockPaymentSession,
-  nightsBetween,
   quoteShortStay,
 } from '@/lib/mock-conversion';
 import { useCatalogProperty } from '@/hooks/use-catalog-property';
@@ -21,32 +26,22 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-const START_OPTIONS = ['2026-07-12', '2026-07-13', '2026-07-14', '2026-07-15'];
-const END_OPTIONS = ['2026-07-13', '2026-07-14', '2026-07-15', '2026-07-16', '2026-07-17'];
-
-function labelDate(iso: string): string {
-  const d = new Date(`${iso}T12:00:00`);
-  return d.toLocaleDateString('fr-FR', {
-    weekday: 'short',
-    day: 'numeric',
-    month: 'short',
-  });
-}
-
 export default function BookScreen(): React.JSX.Element {
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
   const propertyId = String(id ?? '');
   const { property, loading } = useCatalogProperty(propertyId);
 
-  const [startIso, setStartIso] = useState(START_OPTIONS[0]!);
-  const [endIso, setEndIso] = useState(END_OPTIONS[1]!);
+  const today = todayKey();
+  const [startIso, setStartIso] = useState(() => today);
+  const [endIso, setEndIso] = useState(() => addDays(today, 2));
   const [submitting, setSubmitting] = useState(false);
   const [ready, setReady] = useState(false);
 
+  const quoteId = property?.id ?? propertyId;
   const quote = useMemo(
-    () => quoteShortStay(propertyId, startIso, endIso),
-    [propertyId, startIso, endIso],
+    () => quoteShortStay(quoteId, startIso, endIso),
+    [quoteId, startIso, endIso],
   );
   const canConfirm = quote.nights > 0;
 
@@ -66,6 +61,21 @@ export default function BookScreen(): React.JSX.Element {
     }, [propertyId]),
   );
 
+  const onSelectDate = (iso: string): void => {
+    // First tap / reset → start; second tap after start → end
+    if (!startIso || (startIso && endIso)) {
+      setStartIso(iso);
+      setEndIso('');
+      return;
+    }
+    if (iso <= startIso) {
+      setStartIso(iso);
+      setEndIso('');
+      return;
+    }
+    setEndIso(iso);
+  };
+
   const handleConfirm = (): void => {
     if (!property || !canConfirm) return;
     setSubmitting(true);
@@ -76,16 +86,22 @@ export default function BookScreen(): React.JSX.Element {
         amountLabel: quote.totalLabel,
         title: `Séjour · ${property.title}`,
       });
-      router.push(`/payment/${session.id}`);
+      router.push(
+        `/payment/${session.id}?propertyId=${encodeURIComponent(property.id)}&amount=${quote.totalAmount}&title=${encodeURIComponent(`Séjour · ${property.title}`)}`,
+      );
     } finally {
       setSubmitting(false);
     }
   };
 
-  if (!property) {
+  if (loading || !property) {
     return (
       <View style={[styles.screen, styles.centered]}>
-        <Text style={styles.missing}>Bien introuvable</Text>
+        {loading ? (
+          <ActivityIndicator color={colors.primary} />
+        ) : (
+          <Text style={styles.missing}>Bien introuvable</Text>
+        )}
       </View>
     );
   }
@@ -113,55 +129,38 @@ export default function BookScreen(): React.JSX.Element {
           styles.content,
           { paddingBottom: insets.bottom + 100 },
         ]}
+        showsVerticalScrollIndicator={false}
       >
         <PropertySummaryCard property={property} />
 
-        <Text style={styles.section}>Arrivée</Text>
-        <View style={styles.chipWrap}>
-          {START_OPTIONS.map((iso) => {
-            const active = iso === startIso;
-            return (
-              <Pressable
-                key={iso}
-                style={[styles.chip, active && styles.chipActive]}
-                onPress={() => {
-                  setStartIso(iso);
-                  if (nightsBetween(iso, endIso) <= 0) {
-                    const next = END_OPTIONS.find((e) => nightsBetween(iso, e) > 0);
-                    if (next) setEndIso(next);
-                  }
-                }}
-              >
-                <Text style={[styles.chipText, active && styles.chipTextActive]}>
-                  {labelDate(iso)}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
+        <Text style={styles.section}>Dates du séjour</Text>
+        <Text style={styles.hint}>
+          Touchez l’arrivée, puis le départ
+        </Text>
 
-        <Text style={styles.section}>Départ</Text>
-        <View style={styles.chipWrap}>
-          {END_OPTIONS.map((iso) => {
-            const active = iso === endIso;
-            const disabled = nightsBetween(startIso, iso) <= 0;
-            return (
-              <Pressable
-                key={iso}
-                style={[
-                  styles.chip,
-                  active && styles.chipActive,
-                  disabled && styles.chipDisabled,
-                ]}
-                disabled={disabled}
-                onPress={() => setEndIso(iso)}
-              >
-                <Text style={[styles.chipText, active && styles.chipTextActive]}>
-                  {labelDate(iso)}
-                </Text>
-              </Pressable>
-            );
-          })}
+        <MonthCalendar
+          mode="range"
+          rangeStart={startIso || undefined}
+          rangeEnd={endIso || undefined}
+          minDate={today}
+          maxDate={addDays(today, 180)}
+          onSelectDate={onSelectDate}
+        />
+
+        <View style={styles.dateRow}>
+          <View style={styles.dateCard}>
+            <Text style={styles.dateLabel}>Arrivée</Text>
+            <Text style={styles.dateValue}>
+              {startIso ? formatDayLongFr(startIso) : '—'}
+            </Text>
+          </View>
+          <Ionicons name="arrow-forward" size={18} color={colors.muted} />
+          <View style={styles.dateCard}>
+            <Text style={styles.dateLabel}>Départ</Text>
+            <Text style={styles.dateValue}>
+              {endIso ? formatDayLongFr(endIso) : '—'}
+            </Text>
+          </View>
         </View>
 
         <View style={styles.recap}>
@@ -169,7 +168,7 @@ export default function BookScreen(): React.JSX.Element {
           <Text style={styles.recapLine}>
             {quote.nights > 0
               ? `${quote.nights} nuit${quote.nights > 1 ? 's' : ''}`
-              : 'Choisissez des dates valides'}
+              : 'Choisissez une arrivée et un départ'}
           </Text>
           {quote.nights > 0 ? (
             <Text style={styles.recapTotal}>{quote.totalLabel}</Text>
@@ -225,24 +224,28 @@ const styles = StyleSheet.create({
   spacer: { width: 54 },
   content: { paddingHorizontal: spacing.md, gap: spacing.md },
   section: { fontSize: 15, fontWeight: '800', color: colors.ink },
-  chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip: {
-    minHeight: 44,
-    paddingHorizontal: 14,
-    borderRadius: radii.full,
+  hint: {
+    marginTop: -8,
+    fontSize: 13,
+    fontWeight: '500',
+    color: colors.muted,
+  },
+  dateRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  dateCard: {
+    flex: 1,
+    gap: 2,
+    padding: 12,
+    borderRadius: radii.lg,
+    backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
-    backgroundColor: colors.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
-  chipActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  chipDisabled: { opacity: 0.35 },
-  chipText: { fontSize: 13, fontWeight: '700', color: colors.ink },
-  chipTextActive: { color: colors.surface },
+  dateLabel: { fontSize: 12, fontWeight: '600', color: colors.muted },
+  dateValue: { fontSize: 14, fontWeight: '700', color: colors.ink },
   recap: {
     gap: 4,
     padding: 16,

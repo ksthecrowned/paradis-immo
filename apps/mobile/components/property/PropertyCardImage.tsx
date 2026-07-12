@@ -40,7 +40,9 @@ export function PropertyCardImage({
         resizeMode="cover"
       />
 
-      <PropertyCardBadges.Overlay property={property} compact={compact} />
+      {!compact ? (
+        <PropertyCardBadges.Overlay property={property} />
+      ) : null}
 
       {!compact ? (
         <Pressable
@@ -75,8 +77,8 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   imageWrapCompact: {
-    width: 96,
-    height: 96,
+    width: 120,
+    height: 120,
     flexShrink: 0,
   },
   image: {
@@ -84,8 +86,8 @@ const styles = StyleSheet.create({
     height: 210,
   },
   imageCompact: {
-    width: 96,
-    height: 96,
+    width: 120,
+    height: 120,
   },
   favoriteBtn: {
     position: 'absolute',
@@ -94,10 +96,15 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: radii.full,
-    backgroundColor: 'rgba(255,255,255,0.75)',
+    backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
     borderColor: colors.border,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.28,
+    shadowRadius: 4,
+    elevation: 3,
   },
 });

@@ -1,25 +1,25 @@
-import 'dotenv/config';
 import { PrismaPg } from '@prisma/adapter-pg';
 import {
   AffiliationStatus,
   GlobalRole,
+  ListingStatus,
+  MediaType,
   OrgMemberRole,
   OrganizationType,
   PaymentMethod,
   PaymentStatus,
+  PriceUnit,
   Prisma,
   PrismaClient,
   PropertyMode,
   PropertyStatus,
   PropertyType,
-  PriceUnit,
-  MediaType,
-  ListingStatus,
   SaleInquiryStatus,
   VisitSlotSource,
   VisitSlotStatus,
   VisitType,
 } from '@prisma/client';
+import 'dotenv/config';
 import { SEED_IDS } from './seed-ids';
 
 const connectionString = process.env.DATABASE_URL;
@@ -32,10 +32,26 @@ const prisma = new PrismaClient({
 
 /** Fixed phones for local OTP login — code printed in API logs when Infobip is off. */
 export const TEST_ACCOUNTS = {
-  admin: { phone: '+242060000001', name: 'Admin Test', path: '/admin/dashboard' },
-  agent: { phone: '+242060000002', name: 'Agent Test', path: '/agent/dashboard' },
-  owner: { phone: '+242060000003', name: 'Propriétaire Test', path: '/owner/dashboard' },
-  tenant: { phone: '+242060000004', name: 'Locataire Test', path: '/owner/dashboard' },
+  admin: {
+    phone: '+242060000001',
+    name: 'Admin Test',
+    path: '/admin/dashboard',
+  },
+  agent: {
+    phone: '+242060000002',
+    name: 'Agent Test',
+    path: '/agent/dashboard',
+  },
+  owner: {
+    phone: '+242060000003',
+    name: 'Propriétaire Test',
+    path: '/owner/dashboard',
+  },
+  tenant: {
+    phone: '+242060000004',
+    name: 'Locataire Test',
+    path: '/owner/dashboard',
+  },
 } as const;
 
 const TEST_USER_IDS = {
@@ -73,7 +89,7 @@ async function upsertPropertyMedia(
   houseNumbers: Array<1 | 2 | 3 | 4 | 5 | 6>,
 ): Promise<void> {
   for (let i = 0; i < houseNumbers.length; i += 1) {
-    const n = houseNumbers[i]!;
+    const n = houseNumbers[i];
     const id = mediaIds[i];
     if (!id) {
       throw new Error(`Missing media UUID for ${propertyId} index ${i}`);
@@ -97,7 +113,10 @@ async function upsertPropertyMedia(
   }
 }
 
-async function syncGlobalRoles(userId: string, roles: GlobalRole[]): Promise<void> {
+async function syncGlobalRoles(
+  userId: string,
+  roles: GlobalRole[],
+): Promise<void> {
   await prisma.userRole.deleteMany({ where: { userId } });
   if (roles.length > 0) {
     await prisma.userRole.createMany({
@@ -233,10 +252,7 @@ async function purgeLegacySeedArtifacts(): Promise<void> {
   });
   await prisma.payment.deleteMany({
     where: {
-      OR: [
-        { id: { in: legacyPaymentIds } },
-        { userId: { in: legacyUserIds } },
-      ],
+      OR: [{ id: { in: legacyPaymentIds } }, { userId: { in: legacyUserIds } }],
     },
   });
   await prisma.saleInquiry.deleteMany({
@@ -445,7 +461,11 @@ async function seedTestUsers(
 
     await syncGlobalRoles(account.id, account.globalRoles);
     if (account.org) {
-      await upsertOrgMember(account.id, account.org.organizationId, account.org.role);
+      await upsertOrgMember(
+        account.id,
+        account.org.organizationId,
+        account.org.role,
+      );
     }
   }
 
@@ -636,7 +656,7 @@ async function seedTestUsers(
     update: {
       title: 'Maison Tié-Tié',
       description:
-        'Maison cosy à Tié-Tié, proposée à la journée pour vos séjours à Pointe-Noire. Espace de vie agréable, cuisine équipée, wifi et climatisation.',
+        'Maison cosy à Tié-Tié, proposée en location journalière pour vos séjours à Pointe-Noire. Espace de vie agréable, cuisine équipée, wifi et climatisation.',
       status: PropertyStatus.ACTIVE,
       quartierId: quartiers.tieTie,
       address: 'Tié-Tié, Pointe-Noire',
@@ -676,7 +696,7 @@ async function seedTestUsers(
       organizationId: PARADIS_IMMO_ID,
       title: 'Maison Tié-Tié',
       description:
-        'Maison cosy à Tié-Tié, proposée à la journée pour vos séjours à Pointe-Noire.',
+        'Maison cosy à Tié-Tié, proposée en location journalière pour vos séjours à Pointe-Noire.',
       type: PropertyType.HOUSE,
       mode: PropertyMode.RENT_SHORT,
       status: PropertyStatus.ACTIVE,
@@ -873,13 +893,7 @@ async function seedTestUsers(
       floor: '3e étage',
       yearBuilt: 2010,
       condition: 'Rénové',
-      features: [
-        'cuisine',
-        'climatisation',
-        'wifi',
-        'meuble',
-        'eau_courante',
-      ],
+      features: ['cuisine', 'climatisation', 'wifi', 'meuble', 'eau_courante'],
       mapViews: ['neighborhood'],
     },
     create: {
@@ -911,20 +925,22 @@ async function seedTestUsers(
       floor: '3e étage',
       yearBuilt: 2010,
       condition: 'Rénové',
-      features: [
-        'cuisine',
-        'climatisation',
-        'wifi',
-        'meuble',
-        'eau_courante',
-      ],
+      features: ['cuisine', 'climatisation', 'wifi', 'meuble', 'eau_courante'],
       mapViews: ['neighborhood'],
     },
   });
 
   await upsertPropertyMedia(DEMO_PROPERTY_ID, SEED_IDS.mediaRent, [2, 3, 4]);
-  await upsertPropertyMedia(DEMO_PROPERTY_SALE_ID, SEED_IDS.mediaSale, [1, 5, 6]);
-  await upsertPropertyMedia(DEMO_PROPERTY_SHORT_ID, SEED_IDS.mediaShort, [3, 1, 2]);
+  await upsertPropertyMedia(
+    DEMO_PROPERTY_SALE_ID,
+    SEED_IDS.mediaSale,
+    [1, 5, 6],
+  );
+  await upsertPropertyMedia(
+    DEMO_PROPERTY_SHORT_ID,
+    SEED_IDS.mediaShort,
+    [3, 1, 2],
+  );
   await upsertPropertyMedia(DEMO_PROPERTY_LAND_ID, SEED_IDS.mediaLand, [4, 6]);
   await upsertPropertyMedia(
     DEMO_PROPERTY_UNDER_OFFER_ID,
@@ -985,7 +1001,11 @@ async function seedTestUsers(
 
   // Paid-visit slots on Villa (sale)
   let saleSlotIndex = 0;
-  for (let day = 1; day <= 7 && saleSlotIndex < SEED_IDS.visitSlotsSale.length; day += 1) {
+  for (
+    let day = 1;
+    day <= 7 && saleSlotIndex < SEED_IDS.visitSlotsSale.length;
+    day += 1
+  ) {
     const date = new Date(slotBase);
     date.setDate(date.getDate() + day);
     if (date.getDay() === 0 || date.getDay() === 6) continue;
@@ -1037,12 +1057,22 @@ async function seedTestUsers(
     console.log(`    ${role.padEnd(8)} ${info.phone}  → ${info.path}`);
   }
   console.log('✓ Demo properties (Pointe-Noire + R2 photos):');
-  console.log(`    ${DEMO_PROPERTY_ID}  RENT_LONG/OCCUPIED  Appartement Centre-ville`);
-  console.log(`    ${DEMO_PROPERTY_SALE_ID}  SALE/AVAILABLE  Villa Whispering Pines`);
-  console.log(`    ${DEMO_PROPERTY_SHORT_ID}  RENT_SHORT/FEATURED  Maison Tié-Tié`);
+  console.log(
+    `    ${DEMO_PROPERTY_ID}  RENT_LONG/OCCUPIED  Appartement Centre-ville`,
+  );
+  console.log(
+    `    ${DEMO_PROPERTY_SALE_ID}  SALE/AVAILABLE  Villa Whispering Pines`,
+  );
+  console.log(
+    `    ${DEMO_PROPERTY_SHORT_ID}  RENT_SHORT/FEATURED  Maison Tié-Tié`,
+  );
   console.log(`    ${DEMO_PROPERTY_LAND_ID}  SALE/SOLD  Terrain Mongo-Poukou`);
-  console.log(`    ${DEMO_PROPERTY_UNDER_OFFER_ID}  SALE/UNDER_OFFER  Duplex Mpaka`);
-  console.log(`    ${DEMO_PROPERTY_RENT_SOON_ID}  RENT_LONG/AVAILABLE_SOON  Studio Lumumba`);
+  console.log(
+    `    ${DEMO_PROPERTY_UNDER_OFFER_ID}  SALE/UNDER_OFFER  Duplex Mpaka`,
+  );
+  console.log(
+    `    ${DEMO_PROPERTY_RENT_SOON_ID}  RENT_LONG/AVAILABLE_SOON  Studio Lumumba`,
+  );
   console.log(`    ${DEMO_SALE_INQUIRY_ID}  sale inquiry (NEW)`);
 }
 
@@ -1087,7 +1117,10 @@ async function main() {
     });
     await prisma.quartier.upsert({
       where: {
-        name_arrondissementId: { name: `${a.name}-Centre`, arrondissementId: arr.id },
+        name_arrondissementId: {
+          name: `${a.name}-Centre`,
+          arrondissementId: arr.id,
+        },
       },
       update: {},
       create: { name: `${a.name}-Centre`, arrondissementId: arr.id },
@@ -1118,7 +1151,10 @@ async function main() {
     });
     await prisma.quartier.upsert({
       where: {
-        name_arrondissementId: { name: `${a.name}-Centre`, arrondissementId: arr.id },
+        name_arrondissementId: {
+          name: `${a.name}-Centre`,
+          arrondissementId: arr.id,
+        },
       },
       update: {},
       create: { name: `${a.name}-Centre`, arrondissementId: arr.id },

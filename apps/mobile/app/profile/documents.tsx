@@ -1,4 +1,4 @@
-import { CircleIconButton } from '@/components/ui/CircleIconButton';
+import { ScreenHeader } from '@/components/ui/ScreenHeader';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import type { StatusTone } from '@/components/ui/StatusBadge';
 import { colors, radii, spacing } from '@/constants/theme';
@@ -61,22 +61,14 @@ export default function ProfileDocumentsScreen(): React.JSX.Element {
 
   return (
     <View style={styles.screen}>
-      <View style={[styles.topBar, { paddingTop: insets.top + spacing.sm }]}>
-        <CircleIconButton
-          onPress={() => router.back()}
-          accessibilityLabel="Retour"
-        >
-          <Ionicons name="chevron-back" size={24} color={colors.ink} />
-        </CircleIconButton>
-        <Text style={styles.topTitle}>Mes documents</Text>
-        <View style={styles.spacer} />
-      </View>
+      <ScreenHeader title="Mes documents" icon="document-text-outline" />
 
       <ScrollView
         contentContainerStyle={[
           styles.content,
           { paddingBottom: insets.bottom + spacing.lg },
         ]}
+        showsVerticalScrollIndicator={false}
       >
         <View style={styles.card}>
           {docs.map((doc, index) => (
@@ -129,20 +121,6 @@ export default function ProfileDocumentsScreen(): React.JSX.Element {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
-  topBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.md,
-    paddingBottom: spacing.sm,
-    gap: 12,
-  },
-  topTitle: {
-    flex: 1,
-    fontSize: 18,
-    fontWeight: '800',
-    color: colors.ink,
-  },
-  spacer: { width: 44 },
   content: {
     paddingHorizontal: spacing.md,
     gap: spacing.md,

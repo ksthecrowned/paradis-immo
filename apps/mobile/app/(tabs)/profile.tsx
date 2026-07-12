@@ -1,16 +1,30 @@
-import { colors, radii, spacing } from '@/constants/theme';
+import { MenuSection, type MenuItem } from '@/components/ui/MenuSection';
+import { ScreenHeader } from '@/components/ui/ScreenHeader';
+import { UserAvatar } from '@/components/ui/UserAvatar';
+import {
+  colors,
+  getBootColorScheme,
+  radii,
+  spacing,
+} from '@/constants/theme';
 import { useFeedback } from '@/context/FeedbackContext';
 import {
   getStoredUser,
   logout,
   type AuthUser,
 } from '@/lib/auth';
+import { ensureAuthenticated } from '@/lib/auth-guard';
+import { getErrorMessage } from '@/lib/feedback';
+import { applyThemePreference } from '@/lib/theme-preference';
+import { getUserPreferences } from '@/lib/user-preferences';
+import { syncStoredUserFromApi } from '@/lib/users';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -18,50 +32,62 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-type MenuItem = {
-  key: string;
-  label: string;
-  icon: keyof typeof Ionicons.glyphMap;
-  onPress: () => void;
-  danger?: boolean;
-};
-
-function initials(user: AuthUser | null): string {
-  const name = user?.name?.trim();
-  if (name) {
-    const parts = name.split(/\s+/).filter(Boolean);
-    return parts
-      .slice(0, 2)
-      .map((part) => part[0]?.toUpperCase() ?? '')
-      .join('');
-  }
-  if (user?.phone) return user.phone.slice(-2);
-  return 'PI';
-}
+const isDarkBoot = getBootColorScheme() === 'dark';
 
 export default function ProfileScreen(): React.JSX.Element {
   const insets = useSafeAreaInsets();
   const { showFeedback } = useFeedback();
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [isDark, setIsDark] = useState(isDarkBoot);
+  const [themeBusy, setThemeBusy] = useState(false);
 
-  const loadUser = useCallback(async () => {
-    setLoading(true);
+  const loadUser = useCallback(async (opts?: { soft?: boolean }) => {
+    if (!opts?.soft) setLoading(true);
+    setError(null);
     try {
+      const [me, prefs] = await Promise.all([
+        syncStoredUserFromApi(),
+        getUserPreferences(),
+      ]);
+      setUser(me ?? (await getStoredUser()));
+      setIsDark(
+        prefs.theme === 'dark' ||
+          (prefs.theme === 'system' && getBootColorScheme() === 'dark'),
+      );
+    } catch (err) {
       const stored = await getStoredUser();
       setUser(stored);
+      setError(
+        getErrorMessage(err, 'Impossible de synchroniser le profil'),
+      );
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }, []);
 
   useFocusEffect(
     useCallback(() => {
-      void loadUser();
+      let active = true;
+      void (async () => {
+        const ok = await ensureAuthenticated(router, '/(tabs)/profile');
+        if (!active) return;
+        if (ok) await loadUser();
+        else {
+          setUser(null);
+          setLoading(false);
+        }
+      })();
+      return () => {
+        active = false;
+      };
     }, [loadUser]),
   );
 
-  const handleLogout = (): void => {
+  const handleLogout = useCallback((): void => {
     showFeedback({
       type: 'warning',
       title: 'Déconnexion',
@@ -79,141 +105,227 @@ export default function ProfileScreen(): React.JSX.Element {
         },
       ],
     });
-  };
+  }, [showFeedback]);
 
-  const menu: MenuItem[] = [
-    {
-      key: 'leases',
-      label: 'Mes locations',
-      icon: 'key-outline',
-      onPress: () => router.push('/(tabs)/locations'),
-    },
-    {
-      key: 'documents',
-      label: 'Mes documents',
-      icon: 'document-text-outline',
-      onPress: () => router.push('/profile/documents'),
-    },
-    {
-      key: 'favorites',
-      label: 'Mes favoris',
-      icon: 'heart-outline',
-      onPress: () => router.push('/(tabs)/favorites'),
-    },
-    {
-      key: 'activity',
-      label: 'Mon historique',
-      icon: 'time-outline',
-      onPress: () => router.push('/activity'),
-    },
-    {
-      key: 'notifications',
-      label: 'Notifications',
-      icon: 'notifications-outline',
-      onPress: () => router.push('/notifications'),
-    },
-    {
-      key: 'settings',
-      label: 'Réglages',
-      icon: 'settings-outline',
-      onPress: () => router.push('/profile/settings'),
-    },
-    {
-      key: 'help',
-      label: 'Aide & support',
-      icon: 'help-circle-outline',
-      onPress: () =>
-        showFeedback({
-          type: 'info',
-          title: 'Support',
-          message: 'Contactez-nous bientôt via WhatsApp ou e-mail.',
-        }),
-    },
-  ];
+  const toggleTheme = useCallback(async (): Promise<void> => {
+    if (themeBusy) return;
+    setThemeBusy(true);
+    try {
+      await applyThemePreference(isDark ? 'light' : 'dark');
+    } catch {
+      setThemeBusy(false);
+      showFeedback({
+        type: 'error',
+        title: 'Thème',
+        message: 'Impossible de changer le thème.',
+      });
+    }
+  }, [isDark, showFeedback, themeBusy]);
+
+  const displayName = user?.name?.trim() || 'Invité Paradis Immo';
+
+  const activityItems = useMemo<MenuItem[]>(
+    () => [
+      {
+        id: 'leases',
+        label: 'Mes biens',
+        icon: 'business-outline',
+        onPress: () => router.push('/(tabs)/locations'),
+      },
+      {
+        id: 'favorites',
+        label: 'Mes favoris',
+        icon: 'heart-outline',
+        onPress: () => router.push('/(tabs)/favorites'),
+      },
+      {
+        id: 'activity',
+        label: 'Mon historique',
+        icon: 'time-outline',
+        onPress: () => router.push('/activity'),
+      },
+      {
+        id: 'documents',
+        label: 'Mes documents',
+        icon: 'document-text-outline',
+        onPress: () => router.push('/profile/documents'),
+      },
+    ],
+    [],
+  );
+
+  const accountItems = useMemo<MenuItem[]>(
+    () => [
+      {
+        id: 'edit',
+        label: 'Informations personnelles',
+        icon: 'person-outline',
+        onPress: () => router.push('/profile/edit'),
+      },
+      {
+        id: 'notifications',
+        label: 'Notifications',
+        icon: 'notifications-outline',
+        onPress: () => router.push('/notifications'),
+      },
+      {
+        id: 'theme',
+        label: isDark ? 'Passer au thème clair' : 'Passer au thème sombre',
+        icon: isDark ? 'sunny-outline' : 'moon-outline',
+        onPress: () => {
+          void toggleTheme();
+        },
+      },
+      {
+        id: 'settings',
+        label: 'Réglages',
+        icon: 'settings-outline',
+        onPress: () => router.push('/profile/settings'),
+      },
+    ],
+    [isDark, toggleTheme],
+  );
+
+  const helpItems = useMemo<MenuItem[]>(
+    () => [
+      {
+        id: 'help',
+        label: 'Aide & support',
+        icon: 'help-circle-outline',
+        onPress: () =>
+          showFeedback({
+            type: 'info',
+            title: 'Support',
+            message: 'Contactez-nous bientôt via WhatsApp ou e-mail.',
+          }),
+      },
+    ],
+    [showFeedback],
+  );
+
+  const sessionItems = useMemo<MenuItem[]>(
+    () =>
+      user
+        ? [
+            {
+              id: 'logout',
+              label: 'Déconnexion',
+              icon: 'log-out-outline',
+              iconColor: colors.danger,
+              labelColor: colors.danger,
+              onPress: handleLogout,
+            },
+          ]
+        : [
+            {
+              id: 'login',
+              label: 'Se connecter',
+              icon: 'log-in-outline',
+              onPress: () => router.push('/(auth)/login'),
+            },
+          ],
+    [user, handleLogout],
+  );
 
   return (
     <View style={styles.screen}>
+      <ScreenHeader
+        title="Profil"
+        showBack={false}
+        trailing={
+          <Pressable
+            style={styles.headerAction}
+            onPress={() =>
+              user
+                ? router.push('/profile/edit')
+                : router.push('/(auth)/login')
+            }
+            accessibilityRole="button"
+            accessibilityLabel={
+              user ? 'Modifier le profil' : 'Se connecter'
+            }
+          >
+            <Ionicons
+              name={user ? 'create-outline' : 'log-in-outline'}
+              size={22}
+              color={colors.ink}
+            />
+          </Pressable>
+        }
+      />
+
       <ScrollView
+        style={styles.scroll}
         contentContainerStyle={[
           styles.content,
-          {
-            paddingTop: insets.top + spacing.md,
-            paddingBottom: insets.bottom + spacing.lg,
-          },
+          { paddingBottom: insets.bottom },
         ]}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => {
+              setRefreshing(true);
+              void loadUser({ soft: true });
+            }}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
+          />
+        }
       >
-        <Text style={styles.title}>Mon profil</Text>
-
-        <View style={styles.card}>
-          {loading ? (
+        {loading ? (
+          <View style={styles.headerLoading}>
             <ActivityIndicator color={colors.primary} />
-          ) : (
-            <>
-              <View style={styles.avatar}>
-                <Text style={styles.avatarText}>{initials(user)}</Text>
-              </View>
-              <View style={styles.identity}>
-                <Text style={styles.name} numberOfLines={1}>
-                  {user?.name?.trim() || 'Invité Paradis Immo'}
-                </Text>
-                <Text style={styles.phone} numberOfLines={1}>
-                  {user?.phone || 'Connectez-vous pour synchroniser'}
-                </Text>
-              </View>
-              {user ? (
-                <Pressable
-                  style={styles.editBtn}
-                  onPress={() => router.push('/profile/edit')}
-                  accessibilityRole="button"
-                  accessibilityLabel="Modifier"
-                >
-                  <Text style={styles.editBtnText}>Modifier</Text>
-                </Pressable>
-              ) : (
-                <Pressable
-                  style={styles.loginBtn}
-                  onPress={() => router.push('/(auth)/login')}
-                  accessibilityRole="button"
-                >
-                  <Text style={styles.loginBtnText}>Connexion</Text>
-                </Pressable>
-              )}
-            </>
-          )}
-        </View>
-
-        <View style={styles.menu}>
-          {menu.map((item) => (
-            <Pressable
-              key={item.key}
-              style={styles.menuRow}
-              onPress={item.onPress}
-              accessibilityRole="button"
-              accessibilityLabel={item.label}
-            >
-              <View style={styles.menuIcon}>
-                <Ionicons name={item.icon} size={18} color={colors.primary} />
-              </View>
-              <Text style={styles.menuLabel}>{item.label}</Text>
-              <Ionicons name="chevron-forward" size={18} color={colors.muted} />
-            </Pressable>
-          ))}
-        </View>
-
-        {user ? (
+          </View>
+        ) : (
           <Pressable
-            style={styles.logoutBtn}
-            onPress={handleLogout}
+            style={styles.profileCard}
+            onPress={() =>
+              user
+                ? router.push('/profile/edit')
+                : router.push('/(auth)/login')
+            }
             accessibilityRole="button"
-            accessibilityLabel="Se déconnecter"
+            accessibilityLabel="Profil"
           >
-            <Ionicons name="log-out-outline" size={18} color={colors.danger} />
-            <Text style={styles.logoutText}>Se déconnecter</Text>
+            <UserAvatar
+              name={user?.name}
+              phone={user?.phone}
+              email={user?.email}
+              size={68}
+            />
+            <View style={styles.profileInfo}>
+              <Text style={styles.name} numberOfLines={1}>
+                {displayName}
+              </Text>
+              <Text style={styles.subtitle} numberOfLines={1}>
+                {user?.phone || 'Connectez-vous pour synchroniser'}
+              </Text>
+              {user?.email ? (
+                <Text style={styles.email} numberOfLines={1}>
+                  {user.email}
+                </Text>
+              ) : null}
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={colors.muted} />
+          </Pressable>
+        )}
+
+        {error ? (
+          <Pressable style={styles.syncWarn} onPress={() => void loadUser()}>
+            <Ionicons
+              name="cloud-offline-outline"
+              size={16}
+              color="#B45309"
+            />
+            <Text style={styles.syncWarnText}>{error} · Réessayer</Text>
           </Pressable>
         ) : null}
 
-        <Text style={styles.version}>Paradis Immo · Congo</Text>
+        <MenuSection title="Activité" items={activityItems} />
+        <MenuSection title="Compte" items={accountItems} />
+        <MenuSection title="Aide" items={helpItems} />
+        <MenuSection title="Session" items={sessionItems} />
       </ScrollView>
     </View>
   );
@@ -224,128 +336,72 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.bg,
   },
+  headerAction: {
+    width: 50,
+    height: 50,
+    borderRadius: radii.full,
+    backgroundColor: colors.primaryMuted,
+    borderWidth: 1,
+    borderColor: colors.primaryMuted,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  scroll: {
+    flex: 1,
+  },
   content: {
     paddingHorizontal: spacing.md,
-    gap: spacing.md,
+    paddingTop: spacing.xs,
+    gap: spacing.lg,
   },
-  title: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: colors.ink,
-    letterSpacing: -0.4,
+  headerLoading: {
+    minHeight: 88,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  card: {
+  profileCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 14,
-    padding: 16,
+    gap: spacing.md,
+    padding: spacing.md,
     borderRadius: radii.xl,
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
-    minHeight: 88,
   },
-  avatar: {
-    width: 56,
-    height: 56,
-    borderRadius: radii.full,
-    backgroundColor: colors.primaryMuted,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarText: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: colors.primary,
-  },
-  identity: {
+  profileInfo: {
     flex: 1,
-    gap: 2,
+    gap: 3,
     minWidth: 0,
   },
   name: {
-    fontSize: 17,
+    fontSize: 20,
     fontWeight: '800',
     color: colors.ink,
+    letterSpacing: -0.3,
   },
-  phone: {
+  subtitle: {
     fontSize: 13,
     fontWeight: '500',
     color: colors.muted,
   },
-  loginBtn: {
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: radii.full,
-    backgroundColor: colors.primary,
-  },
-  loginBtnText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: colors.surface,
-  },
-  editBtn: {
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: radii.full,
-    backgroundColor: colors.primaryMuted,
-  },
-  editBtnText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: colors.primary,
-  },
-  menu: {
-    borderRadius: radii.xl,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    overflow: 'hidden',
-  },
-  menuRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  menuIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: radii.md,
-    backgroundColor: colors.primaryMuted,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  menuLabel: {
-    flex: 1,
-    fontSize: 15,
-    fontWeight: '600',
-    color: colors.ink,
-  },
-  logoutBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    minHeight: 52,
-    borderRadius: radii.full,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: '#FECACA',
-  },
-  logoutText: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: colors.danger,
-  },
-  version: {
-    textAlign: 'center',
+  email: {
     fontSize: 12,
     fontWeight: '500',
     color: colors.muted,
-    marginTop: spacing.sm,
+  },
+  syncWarn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    padding: 12,
+    borderRadius: radii.lg,
+    backgroundColor: colors.warningSoft,
+  },
+  syncWarnText: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#B45309',
   },
 });

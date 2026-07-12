@@ -6,7 +6,7 @@
     "orientation": "portrait",
     "scheme": "paradis-immo",
     "icon": "./assets/logo-paradis-immo.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
@@ -24,7 +24,9 @@
       },
       "adaptiveIcon": {
         "backgroundColor": "#F7F7FD",
-        "foregroundImage": "./assets/logo-paradis-immo.png"
+        "foregroundImage": "./assets/logo-paradis-immo.png",
+        "width": 250,
+        "height": 250
       },
       "predictiveBackGestureEnabled": false,
       "permissions": [

@@ -27,6 +27,7 @@ export function saleInquiryStatusLabel(status: string): string {
   const map: Record<string, string> = {
     NEW: 'Nouvelle',
     CONTACTED: 'Contacté',
+    VISIT_SCHEDULED: 'Visite planifiée',
     CLOSED: 'Clôturée',
   };
   return map[status] ?? status;

@@ -7,13 +7,16 @@ import {
   useUserLocation,
 } from '@/context/LocationContext';
 import { fetchCatalogProperties } from '@/lib/catalog';
+import { getCityByName, propertyMatchesCity } from '@/lib/cities';
 import { POINTE_NOIRE_REGION } from '@/lib/mock-properties';
-import type { Property } from '@/types/property';
-import { Ionicons } from '@expo/vector-icons';
-import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
+  passesAvailableOnlyFilter,
+  type Property,
+} from '@/types/property';
+import { Ionicons } from '@expo/vector-icons';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
   Pressable,
   StyleSheet,
   Text,
@@ -25,6 +28,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 export default function DiscoverScreen(): React.JSX.Element {
   const insets = useSafeAreaInsets();
   const { coords } = useUserLocation();
+  const { city: cityParam } = useLocalSearchParams<{ city?: string | string[] }>();
+  const cityFilter =
+    typeof cityParam === 'string'
+      ? cityParam
+      : Array.isArray(cityParam)
+        ? cityParam[0]
+        : undefined;
   const mapRef = useRef<MapView>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [sheetHeight, setSheetHeight] = useState(180);
@@ -51,9 +61,15 @@ export default function DiscoverScreen(): React.JSX.Element {
     }, []),
   );
 
+  const visibleProperties = useMemo(() => {
+    const available = properties.filter(passesAvailableOnlyFilter);
+    if (!cityFilter) return available;
+    return available.filter((p) => propertyMatchesCity(p.location, cityFilter));
+  }, [properties, cityFilter]);
+
   const selected = useMemo(
-    () => properties.find((p) => p.id === selectedId) ?? null,
-    [properties, selectedId],
+    () => visibleProperties.find((p) => p.id === selectedId) ?? null,
+    [visibleProperties, selectedId],
   );
 
   const userRegion = useMemo((): Region => {
@@ -66,36 +82,76 @@ export default function DiscoverScreen(): React.JSX.Element {
     };
   }, [coords]);
 
-  const focusProperty = useCallback(
-    (property: Property) => {
-      setSelectedId(property.id);
+  const cityRegion = useMemo((): Region | null => {
+    if (!cityFilter) return null;
+    return getCityByName(cityFilter)?.region ?? null;
+  }, [cityFilter]);
+
+  useEffect(() => {
+    if (loading) return;
+    if (cityRegion) {
+      mapRef.current?.animateToRegion(cityRegion, 400);
+      return;
+    }
+    if (visibleProperties.length > 0) {
+      const first = visibleProperties[0]!;
       mapRef.current?.animateToRegion(
         {
-          latitude: property.lat,
-          longitude: property.lng,
-          latitudeDelta: 0.025,
-          longitudeDelta: 0.025,
+          latitude: first.lat,
+          longitude: first.lng,
+          latitudeDelta: 0.08,
+          longitudeDelta: 0.08,
         },
         350,
       );
-    },
-    [],
-  );
+    }
+  }, [loading, cityRegion, cityFilter, visibleProperties]);
+
+  useEffect(() => {
+    setSelectedId(null);
+  }, [cityFilter]);
+
+  const focusProperty = useCallback((property: Property) => {
+    setSelectedId(property.id);
+    mapRef.current?.animateToRegion(
+      {
+        latitude: property.lat,
+        longitude: property.lng,
+        latitudeDelta: 0.025,
+        longitudeDelta: 0.025,
+      },
+      350,
+    );
+  }, []);
 
   const clearSelection = useCallback(() => {
     setSelectedId(null);
   }, []);
 
+  const clearCityFilter = useCallback(() => {
+    router.replace('/(tabs)/discover');
+  }, []);
+
   const recenter = useCallback(() => {
+    if (cityRegion) {
+      mapRef.current?.animateToRegion(cityRegion, 350);
+      return;
+    }
     mapRef.current?.animateToRegion(userRegion, 350);
-  }, [userRegion]);
+  }, [cityRegion, userRegion]);
+
+  const chipLabel = loading
+    ? 'Chargement…'
+    : cityFilter
+      ? `${visibleProperties.length} bien${visibleProperties.length > 1 ? 's' : ''} · ${cityFilter}`
+      : `${visibleProperties.length} biens disponibles`;
 
   return (
     <View style={styles.root}>
       <MapView
         ref={mapRef}
         style={StyleSheet.absoluteFill}
-        initialRegion={coords ? userRegion : POINTE_NOIRE_REGION}
+        initialRegion={cityRegion ?? (coords ? userRegion : POINTE_NOIRE_REGION)}
         userInterfaceStyle={APP_MAP_USER_INTERFACE_STYLE}
         showsUserLocation
         showsMyLocationButton={false}
@@ -106,7 +162,7 @@ export default function DiscoverScreen(): React.JSX.Element {
           left: 0,
         }}
       >
-        {properties.map((property) => {
+        {visibleProperties.map((property) => {
           const active = property.id === selectedId;
           return (
             <Marker
@@ -122,7 +178,7 @@ export default function DiscoverScreen(): React.JSX.Element {
                 <Ionicons
                   name="home"
                   size={16}
-                  color={active ? colors.surface : colors.primary}
+                  color={active ? colors.onPrimary : colors.primary}
                 />
               </View>
             </Marker>
@@ -134,13 +190,22 @@ export default function DiscoverScreen(): React.JSX.Element {
         style={[styles.topBar, { paddingTop: insets.top + spacing.sm }]}
         pointerEvents="box-none"
       >
-        <View style={styles.topChip}>
-          <Ionicons name="map" size={16} color={colors.primary} />
-          <Text style={styles.topChipText}>
-            {loading
-              ? 'Chargement…'
-              : `${properties.length} biens à Pointe-Noire`}
-          </Text>
+        <View style={styles.topChipRow}>
+          <View style={styles.topChip}>
+            <Ionicons name="map" size={16} color={colors.primary} />
+            <Text style={styles.topChipText}>{chipLabel}</Text>
+          </View>
+          {cityFilter ? (
+            <Pressable
+              style={styles.clearChip}
+              onPress={clearCityFilter}
+              accessibilityRole="button"
+              accessibilityLabel="Retirer le filtre ville"
+            >
+              <Ionicons name="close" size={16} color={colors.ink} />
+              <Text style={styles.clearChipText}>Tout</Text>
+            </Pressable>
+          ) : null}
         </View>
       </View>
 
@@ -180,6 +245,20 @@ export default function DiscoverScreen(): React.JSX.Element {
           </View>
         </BottomSheet>
       )}
+
+      {!loading && cityFilter && visibleProperties.length === 0 ? (
+        <View
+          style={[
+            styles.emptyBanner,
+            { bottom: insets.bottom + spacing.lg },
+          ]}
+        >
+          <Text style={styles.emptyTitle}>Aucun bien disponible</Text>
+          <Text style={styles.emptySubtitle}>
+            Pas d’annonce disponible pour {cityFilter} pour le moment.
+          </Text>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -197,6 +276,12 @@ const styles = StyleSheet.create({
     zIndex: 10,
     paddingHorizontal: spacing.md,
   },
+  topChipRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flexWrap: 'wrap',
+  },
   topChip: {
     alignSelf: 'flex-start',
     flexDirection: 'row',
@@ -205,16 +290,32 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: radii.full,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.navy,
     borderWidth: 1,
     borderColor: colors.border,
-    shadowColor: '#111827',
+    shadowColor: '#000000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
-    elevation: 3,
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    elevation: 4,
   },
   topChipText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.ink,
+  },
+  clearChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: radii.full,
+    backgroundColor: colors.primaryMuted,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  clearChipText: {
     fontSize: 13,
     fontWeight: '700',
     color: colors.ink,
@@ -230,8 +331,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
+    shadowOpacity: 0.35,
+    shadowRadius: 4,
     elevation: 4,
   },
   pinActive: {
@@ -252,15 +353,15 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.navy,
     borderWidth: 1,
     borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.12,
-    shadowRadius: 6,
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
     elevation: 4,
   },
   selectedBlock: {
@@ -272,23 +373,26 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 4,
   },
-  selectedLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.muted,
-  },
-  emptySheet: {
-    paddingVertical: spacing.md,
-    gap: 6,
+  emptyBanner: {
+    position: 'absolute',
+    left: spacing.md,
+    right: spacing.md,
+    padding: spacing.md,
+    borderRadius: radii.xl,
+    backgroundColor: colors.navy,
+    borderWidth: 1,
+    borderColor: colors.border,
+    gap: 4,
+    zIndex: 20,
   },
   emptyTitle: {
-    fontSize: 17,
-    fontWeight: '700',
+    fontSize: 16,
+    fontWeight: '800',
     color: colors.ink,
   },
   emptySubtitle: {
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: 13,
+    lineHeight: 18,
     color: colors.muted,
   },
 });

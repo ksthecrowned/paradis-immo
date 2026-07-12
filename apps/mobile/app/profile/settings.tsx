@@ -1,7 +1,8 @@
-import { CircleIconButton } from '@/components/ui/CircleIconButton';
+import { ScreenHeader } from '@/components/ui/ScreenHeader';
 import { colors, radii, spacing } from '@/constants/theme';
 import { useFeedback } from '@/context/FeedbackContext';
 import { ensureAuthenticated } from '@/lib/auth-guard';
+import { applyThemePreference } from '@/lib/theme-preference';
 import {
   getUserPreferences,
   setUserPreferences,
@@ -12,6 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import {
+  ActivityIndicator,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -32,6 +34,7 @@ export default function ProfileSettingsScreen(): React.JSX.Element {
   const { showFeedback } = useFeedback();
   const [ready, setReady] = useState(false);
   const [prefs, setPrefs] = useState<UserPreferences | null>(null);
+  const [applyingTheme, setApplyingTheme] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -51,6 +54,22 @@ export default function ProfileSettingsScreen(): React.JSX.Element {
   );
 
   const update = async (patch: Partial<UserPreferences>): Promise<void> => {
+    if (patch.theme != null) {
+      setApplyingTheme(true);
+      setPrefs((prev) => (prev ? { ...prev, theme: patch.theme! } : prev));
+      try {
+        await applyThemePreference(patch.theme);
+      } catch {
+        setApplyingTheme(false);
+        showFeedback({
+          type: 'error',
+          title: 'Thème',
+          message: 'Impossible d’appliquer le thème. Réessayez.',
+        });
+      }
+      return;
+    }
+
     const next = await setUserPreferences(patch);
     setPrefs(next);
     showFeedback({
@@ -66,22 +85,14 @@ export default function ProfileSettingsScreen(): React.JSX.Element {
 
   return (
     <View style={styles.screen}>
-      <View style={[styles.topBar, { paddingTop: insets.top + spacing.sm }]}>
-        <CircleIconButton
-          onPress={() => router.back()}
-          accessibilityLabel="Retour"
-        >
-          <Ionicons name="chevron-back" size={24} color={colors.ink} />
-        </CircleIconButton>
-        <Text style={styles.topTitle}>Réglages</Text>
-        <View style={styles.spacer} />
-      </View>
+      <ScreenHeader title="Réglages" icon="settings-outline" />
 
       <ScrollView
         contentContainerStyle={[
           styles.content,
           { paddingBottom: insets.bottom + spacing.lg },
         ]}
+        showsVerticalScrollIndicator={false}
       >
         <Text style={styles.sectionTitle}>Langue</Text>
         <View style={styles.card}>
@@ -106,11 +117,14 @@ export default function ProfileSettingsScreen(): React.JSX.Element {
                 key={theme.key}
                 style={styles.row}
                 onPress={() => void update({ theme: theme.key })}
+                disabled={applyingTheme}
                 accessibilityRole="button"
                 accessibilityState={{ selected: active }}
               >
                 <Text style={styles.rowLabel}>{theme.label}</Text>
-                {active ? (
+                {applyingTheme && active ? (
+                  <ActivityIndicator size="small" color={colors.primary} />
+                ) : active ? (
                   <Ionicons
                     name="checkmark-circle"
                     size={22}
@@ -132,7 +146,7 @@ export default function ProfileSettingsScreen(): React.JSX.Element {
               value={prefs.pushEnabled}
               onValueChange={(value) => void update({ pushEnabled: value })}
               trackColor={{ false: colors.border, true: colors.primary }}
-              thumbColor={colors.surface}
+              thumbColor={colors.onPrimary}
             />
           </View>
         </View>
@@ -143,20 +157,6 @@ export default function ProfileSettingsScreen(): React.JSX.Element {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
-  topBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.md,
-    paddingBottom: spacing.sm,
-    gap: 12,
-  },
-  topTitle: {
-    flex: 1,
-    fontSize: 18,
-    fontWeight: '800',
-    color: colors.ink,
-  },
-  spacer: { width: 44 },
   content: {
     paddingHorizontal: spacing.md,
     gap: 10,

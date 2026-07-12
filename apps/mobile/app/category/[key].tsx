@@ -1,19 +1,18 @@
 import PropertyCard from '@/components/property/card';
-import { CircleIconButton } from '@/components/ui/CircleIconButton';
+import { ScreenHeader } from '@/components/ui/ScreenHeader';
 import { colors, radii, spacing } from '@/constants/theme';
+import { fetchCatalogProperties } from '@/lib/catalog';
 import {
   filterByCategory,
   getCategoryMeta,
   type CategoryKey,
 } from '@/lib/categories';
-import { fetchCatalogProperties } from '@/lib/catalog';
 import { getErrorMessage } from '@/lib/feedback';
 import type { Property } from '@/types/property';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
   FlatList,
   Pressable,
   StyleSheet,
@@ -75,21 +74,11 @@ export default function CategoryScreen(): React.JSX.Element {
 
   return (
     <View style={styles.screen}>
-      <View style={[styles.topBar, { paddingTop: insets.top + spacing.sm }]}>
-        <CircleIconButton
-          onPress={() => router.back()}
-          accessibilityLabel="Retour"
-        >
-          <Ionicons name="chevron-back" size={24} color={colors.ink} />
-        </CircleIconButton>
-        <View style={styles.topTitles}>
-          <Text style={styles.title}>{category.plural}</Text>
-          <Text style={styles.subtitle}>{category.description}</Text>
-        </View>
-        <View style={styles.categoryIcon}>
-          <Ionicons name={category.icon} size={20} color={colors.primary} />
-        </View>
-      </View>
+      <ScreenHeader
+        title={category.plural}
+        subtitle={category.description}
+        icon={category.icon}
+      />
 
       <FlatList
         data={properties}
@@ -125,6 +114,7 @@ export default function CategoryScreen(): React.JSX.Element {
         }
         renderItem={({ item }) => (
           <PropertyCard
+            horizontalSpacing={true}
             property={item}
             onPress={() => router.push(`/property/${item.id}`)}
           />
@@ -148,41 +138,11 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     paddingHorizontal: spacing.lg,
   },
-  topBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingHorizontal: spacing.md,
-    marginBottom: spacing.md,
-  },
-  topTitles: {
-    flex: 1,
-    gap: 2,
-    minWidth: 0,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: colors.ink,
-  },
-  subtitle: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: colors.muted,
-  },
-  categoryIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: radii.full,
-    backgroundColor: colors.primaryMuted,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   list: {
     flex: 1,
   },
   listContent: {
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: 0,
   },
   listEmpty: {
     flexGrow: 1,
@@ -195,6 +155,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.muted,
     marginBottom: spacing.sm,
+    paddingHorizontal: spacing.md,
   },
   empty: {
     flex: 1,
@@ -228,7 +189,7 @@ const styles = StyleSheet.create({
   emptyCtaText: {
     fontSize: 14,
     fontWeight: '700',
-    color: colors.surface,
+    color: colors.onPrimary,
   },
   missingTitle: {
     fontSize: 18,
@@ -242,8 +203,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
   },
   missingBtnText: {
-    color: colors.surface,
+    color: colors.onPrimary,
     fontWeight: '700',
   },
 });
-
