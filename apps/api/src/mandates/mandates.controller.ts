@@ -16,6 +16,7 @@ import type { AuthenticatedUser } from '../common/decorators/current-user.decora
 import { MandatesService } from './mandates.service';
 import { MandateApprovalService } from './mandate-approval.service';
 import { DecideApprovalDto } from './dto/decide-approval.dto';
+import { AssignMandateDto } from './dto/assign-mandate.dto';
 
 class CreateMandateDto {
   @IsString() propertyId!: string;
@@ -42,6 +43,14 @@ export class MandatesController {
     return this.mandates.createMandate(current.userId, dto);
   }
 
+  @Get('managed')
+  @ApiOperation({
+    summary: 'List mandates for the caller agencies (assignment-aware)',
+  })
+  managed(@CurrentUser() current: AuthenticatedUser) {
+    return this.mandates.listManagedMandates(current.userId);
+  }
+
   @Get('pending-approvals')
   @ApiOperation({ summary: 'List pending owner approvals' })
   pending(@CurrentUser() current: AuthenticatedUser) {
@@ -56,5 +65,21 @@ export class MandatesController {
     @Body() dto: DecideApprovalDto,
   ) {
     return this.approvals.decideApproval(current.userId, id, dto);
+  }
+
+  @Patch(':id/assign')
+  @ApiOperation({
+    summary: 'Assign (or clear) a field agent on a mandate — gérant only',
+  })
+  assign(
+    @CurrentUser() current: AuthenticatedUser,
+    @Param('id') id: string,
+    @Body() dto: AssignMandateDto,
+  ) {
+    return this.mandates.assignAgent(
+      current.userId,
+      id,
+      dto.agentUserId === undefined ? null : dto.agentUserId,
+    );
   }
 }

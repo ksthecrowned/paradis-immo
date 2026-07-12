@@ -1,10 +1,12 @@
 import {
+  BadRequestException,
   ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Mandate, MandateStatus } from '@prisma/client';
+import { Mandate, MandateStatus, OrgMemberRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { AgencyAccessService } from './agency-access.service';
 import { PublicMandate } from './mandate-approval.service';
 
 export interface CreateMandateInput {
@@ -15,7 +17,10 @@ export interface CreateMandateInput {
 
 @Injectable()
 export class MandatesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly agencyAccess: AgencyAccessService,
+  ) {}
 
   /**
    * Owner delegates the management of a property to an agency org. Only
@@ -79,6 +84,103 @@ export class MandatesService {
     return rows.map((m) => this.toPublic(m));
   }
 
+  /**
+   * Mandates for agencies the user belongs to.
+   * Gérant (ADMIN): all org mandates. Field AGENT: only assigned to self.
+   */
+  async listManagedMandates(userId: string): Promise<PublicMandate[]> {
+    const memberships = await this.prisma.organizationMember.findMany({
+      where: { userId },
+      select: { organizationId: true, role: true },
+    });
+    if (memberships.length === 0) return [];
+
+    const gerantOrgIds = memberships
+      .filter((m) => m.role === OrgMemberRole.ADMIN)
+      .map((m) => m.organizationId);
+    const agentOrgIds = memberships
+      .filter((m) => m.role === OrgMemberRole.AGENT)
+      .map((m) => m.organizationId);
+
+    if (gerantOrgIds.length === 0 && agentOrgIds.length === 0) return [];
+
+    const rows = await this.prisma.mandate.findMany({
+      where: {
+        status: MandateStatus.ACTIVE,
+        OR: [
+          ...(gerantOrgIds.length
+            ? [{ organizationId: { in: gerantOrgIds } }]
+            : []),
+          ...(agentOrgIds.length
+            ? [
+                {
+                  organizationId: { in: agentOrgIds },
+                  assignedAgentId: userId,
+                },
+              ]
+            : []),
+        ],
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+    return rows.map((m) => this.toPublic(m));
+  }
+
+  async assignAgent(
+    userId: string,
+    mandateId: string,
+    agentUserId: string | null,
+  ): Promise<PublicMandate> {
+    const mandate = await this.prisma.mandate.findUnique({
+      where: { id: mandateId },
+    });
+    if (!mandate) {
+      throw new NotFoundException({
+        code: 'MANDATE_NOT_FOUND',
+        message: 'Mandate does not exist',
+      });
+    }
+    if (mandate.status !== MandateStatus.ACTIVE) {
+      throw new BadRequestException({
+        code: 'MANDATE_NOT_ACTIVE',
+        message: 'Only active mandates can be assigned',
+      });
+    }
+
+    await this.agencyAccess.assertIsAgencyGerant(
+      userId,
+      mandate.organizationId,
+    );
+
+    if (agentUserId !== null) {
+      const member = await this.prisma.organizationMember.findUnique({
+        where: {
+          userId_organizationId: {
+            userId: agentUserId,
+            organizationId: mandate.organizationId,
+          },
+        },
+      });
+      if (
+        !member ||
+        (member.role !== OrgMemberRole.AGENT &&
+          member.role !== OrgMemberRole.ADMIN)
+      ) {
+        throw new BadRequestException({
+          code: 'INVALID_ASSIGNEE',
+          message:
+            'Assignee must be an AGENT or ADMIN (gérant) of the mandate agency',
+        });
+      }
+    }
+
+    const updated = await this.prisma.mandate.update({
+      where: { id: mandateId },
+      data: { assignedAgentId: agentUserId },
+    });
+    return this.toPublic(updated);
+  }
+
   async revokeMandate(
     userId: string,
     mandateId: string,
@@ -111,6 +213,7 @@ export class MandatesService {
       id: m.id,
       propertyId: m.propertyId,
       organizationId: m.organizationId,
+      assignedAgentId: m.assignedAgentId,
       status: m.status,
       startDate: m.startDate.toISOString(),
       endDate: m.endDate?.toISOString() ?? null,

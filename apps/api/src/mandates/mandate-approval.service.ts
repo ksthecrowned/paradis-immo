@@ -18,6 +18,7 @@ export interface PublicMandate {
   id: string;
   propertyId: string;
   organizationId: string;
+  assignedAgentId: string | null;
   status: string;
   startDate: string;
   endDate: string | null;
