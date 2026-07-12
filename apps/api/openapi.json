@@ -1032,6 +1032,154 @@
         ]
       }
     },
+    "/api/v1/mandates": {
+      "post": {
+        "operationId": "MandatesController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateMandateDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Create a mandate (delegation to an org)",
+        "tags": [
+          "Mandates"
+        ]
+      }
+    },
+    "/api/v1/mandates/managed": {
+      "get": {
+        "operationId": "MandatesController_managed",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List mandates for the caller agencies (assignment-aware)",
+        "tags": [
+          "Mandates"
+        ]
+      }
+    },
+    "/api/v1/mandates/pending-approvals": {
+      "get": {
+        "operationId": "MandatesController_pending",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List pending owner approvals",
+        "tags": [
+          "Mandates"
+        ]
+      }
+    },
+    "/api/v1/mandates/approvals/{id}": {
+      "patch": {
+        "operationId": "MandatesController_decide",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DecideApprovalDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Approve or reject a pending approval",
+        "tags": [
+          "Mandates"
+        ]
+      }
+    },
+    "/api/v1/mandates/{id}/assign": {
+      "patch": {
+        "operationId": "MandatesController_assign",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AssignMandateDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Assign (or clear) a field agent on a mandate — gérant only",
+        "tags": [
+          "Mandates"
+        ]
+      }
+    },
     "/api/v1/properties/{id}/availability": {
       "get": {
         "operationId": "BookingsController_listAvailability",
@@ -1391,95 +1539,6 @@
         "summary": "Get the rent schedule for a lease",
         "tags": [
           "Leases"
-        ]
-      }
-    },
-    "/api/v1/mandates": {
-      "post": {
-        "operationId": "MandatesController_create",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateMandateDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": ""
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "Create a mandate (delegation to an org)",
-        "tags": [
-          "Mandates"
-        ]
-      }
-    },
-    "/api/v1/mandates/pending-approvals": {
-      "get": {
-        "operationId": "MandatesController_pending",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "List pending owner approvals",
-        "tags": [
-          "Mandates"
-        ]
-      }
-    },
-    "/api/v1/mandates/approvals/{id}": {
-      "patch": {
-        "operationId": "MandatesController_decide",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/DecideApprovalDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "Approve or reject a pending approval",
-        "tags": [
-          "Mandates"
         ]
       }
     },
@@ -2224,6 +2283,18 @@
         "type": "object",
         "properties": {}
       },
+      "CreateMandateDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "DecideApprovalDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "AssignMandateDto": {
+        "type": "object",
+        "properties": {}
+      },
       "CreateBookingDto": {
         "type": "object",
         "properties": {}
@@ -2233,14 +2304,6 @@
         "properties": {}
       },
       "CreateLeaseDto": {
-        "type": "object",
-        "properties": {}
-      },
-      "CreateMandateDto": {
-        "type": "object",
-        "properties": {}
-      },
-      "DecideApprovalDto": {
         "type": "object",
         "properties": {}
       },
