@@ -14,10 +14,12 @@ import {
   archiveProperty,
   formatPropertyPrice,
   getProperty,
+  pauseProperty,
   propertyModeLabel,
   propertyStatusLabel,
   propertyStatusTone,
   propertyTypeLabel,
+  publishProperty,
   updateProperty,
   type PublicProperty,
 } from '@/lib/owner/properties';
@@ -39,7 +41,7 @@ export function OwnerPropertyDetail({
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [archiving, setArchiving] = useState(false);
+  const [statusBusy, setStatusBusy] = useState(false);
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -106,11 +108,45 @@ export function OwnerPropertyDetail({
     [address, description, price, propertyId, title, visitEnabled],
   );
 
+  const handlePublish = useCallback(async () => {
+    setStatusBusy(true);
+    try {
+      await publishProperty(propertyId);
+      await load();
+      setError(null);
+    } catch (err) {
+      setError(
+        err instanceof ApiError
+          ? err.message
+          : 'Impossible de publier le bien.',
+      );
+    } finally {
+      setStatusBusy(false);
+    }
+  }, [load, propertyId]);
+
+  const handlePause = useCallback(async () => {
+    setStatusBusy(true);
+    try {
+      await pauseProperty(propertyId);
+      await load();
+      setError(null);
+    } catch (err) {
+      setError(
+        err instanceof ApiError
+          ? err.message
+          : 'Impossible de mettre le bien en pause.',
+      );
+    } finally {
+      setStatusBusy(false);
+    }
+  }, [load, propertyId]);
+
   const handleArchive = useCallback(async () => {
     if (!confirm('Archiver ce bien ? Il ne sera plus visible sur le marché.')) {
       return;
     }
-    setArchiving(true);
+    setStatusBusy(true);
     try {
       await archiveProperty(propertyId);
       router.push(ROUTES.owner.properties);
@@ -120,7 +156,7 @@ export function OwnerPropertyDetail({
           ? err.message
           : 'Impossible d’archiver le bien.',
       );
-      setArchiving(false);
+      setStatusBusy(false);
     }
   }, [propertyId, router]);
 
@@ -128,13 +164,16 @@ export function OwnerPropertyDetail({
     return <p className="text-sm text-muted">Chargement…</p>;
   }
 
-  if (error || !property) {
+  if (!property) {
     return (
       <div>
         <DashboardPageHeader title="Détail du bien" />
-        <p className="text-sm text-danger" role="alert">
+        <div
+          role="alert"
+          className="mb-4 rounded-lg border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger"
+        >
           {error ?? 'Bien introuvable.'}
-        </p>
+        </div>
         <Link
           href={ROUTES.owner.properties}
           className="mt-4 inline-block text-sm text-accent hover:underline"
@@ -145,12 +184,46 @@ export function OwnerPropertyDetail({
     );
   }
 
+  const crumbTitle =
+    property.title.length > 40
+      ? `${property.title.slice(0, 40)}…`
+      : property.title;
+
   return (
     <div>
       <DashboardPageHeader
         title={property.title}
+        breadcrumb={[
+          { label: 'Paradis Immo', href: ROUTES.owner.dashboard },
+          { label: 'Mes biens', href: ROUTES.owner.properties },
+          { label: crumbTitle },
+        ]}
         actions={
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <StatusBadge
+              label={propertyStatusLabel(property.status)}
+              tone={propertyStatusTone(property.status)}
+            />
+            {property.status === 'DRAFT' || property.status === 'PAUSED' ? (
+              <button
+                type="button"
+                disabled={statusBusy}
+                onClick={() => void handlePublish()}
+                className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent/90 disabled:opacity-50"
+              >
+                Publier
+              </button>
+            ) : null}
+            {property.status === 'ACTIVE' ? (
+              <button
+                type="button"
+                disabled={statusBusy}
+                onClick={() => void handlePause()}
+                className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-card-hover disabled:opacity-50"
+              >
+                Mettre en pause
+              </button>
+            ) : null}
             {property.status !== 'ARCHIVED' ? (
               <>
                 <button
@@ -162,11 +235,11 @@ export function OwnerPropertyDetail({
                 </button>
                 <button
                   type="button"
-                  disabled={archiving}
+                  disabled={statusBusy}
                   onClick={() => void handleArchive()}
                   className="inline-flex items-center rounded-lg border border-danger/40 px-4 py-2 text-sm font-medium text-danger hover:bg-danger/10 disabled:opacity-50"
                 >
-                  {archiving ? 'Archivage…' : 'Archiver'}
+                  {statusBusy ? '…' : 'Archiver'}
                 </button>
               </>
             ) : null}
@@ -189,9 +262,12 @@ export function OwnerPropertyDetail({
       />
 
       {error ? (
-        <p className="mb-4 text-sm text-danger" role="alert">
+        <div
+          role="alert"
+          className="mb-4 rounded-lg border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger"
+        >
           {error}
-        </p>
+        </div>
       ) : null}
 
       {editing ? (
