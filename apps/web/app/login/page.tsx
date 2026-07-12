@@ -1,15 +1,14 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
-import { useEffect, useState, type FormEvent } from 'react';
+import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { signIn, useSession } from 'next-auth/react';
+import { FormEvent, Suspense, useEffect, useState } from 'react';
 import { DashIcon } from '@/components/dash-icon';
 import { useTheme } from '@/components/theme-provider';
 import { DASH_ICONS, DASH_STAT_ICONS } from '@/lib/dash-icons';
-import { useSession } from 'next-auth/react';
-import { requestOtp, loginWithOtp, getClientSession } from '@/lib/auth';
-import { DEV_TEST_ACCOUNTS } from '@/lib/dev-test-accounts';
-
-const isDev = process.env.NODE_ENV === 'development';
+import { loginWithPassword } from '@/lib/auth';
+import { resolveDashboardPath } from '@/lib/web-account';
 
 const inputClass =
   'block w-full rounded-lg border border-input-border bg-search px-3 py-2.5 text-sm text-foreground placeholder:text-muted focus:border-input-focus-border focus:ring-input-focus-border';
@@ -18,69 +17,50 @@ const btnPrimaryClass =
   'inline-flex w-full items-center justify-center rounded-lg bg-accent px-4 py-2.5 text-sm font-semibold text-white hover:bg-accent/90 disabled:opacity-50';
 
 const btnSecondaryClass =
-  'inline-flex w-full items-center justify-center rounded-lg border border-border bg-card px-4 py-2.5 text-sm font-medium text-foreground hover:bg-sidebar';
+  'inline-flex w-full items-center justify-center gap-2 rounded-lg border border-border bg-card px-4 py-2.5 text-sm font-medium text-foreground hover:bg-sidebar disabled:opacity-50';
 
-function resolvePostLoginPath(phone: string, roles: string[]): string {
-  const devAccount = DEV_TEST_ACCOUNTS.find(
-    (a) => 'phone' in a && a.phone === phone && a.phone !== '—',
-  );
-  if (devAccount?.path && devAccount.path !== '—' && !devAccount.path.includes('login')) {
-    return devAccount.path;
-  }
-  if (roles.includes('PLATFORM_ADMIN')) {
-    return '/admin/dashboard';
-  }
-  return '/owner/dashboard';
-}
+const googleEnabled = process.env.NEXT_PUBLIC_GOOGLE_AUTH_ENABLED === 'true';
 
-export default function LoginPage(): React.JSX.Element {
+function LoginForm(): React.JSX.Element {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { data: session, status } = useSession();
   const { theme, toggleTheme } = useTheme();
-  const [phone, setPhone] = useState('+242');
-  const [code, setCode] = useState('');
-  const [stage, setStage] = useState<'phone' | 'code'>('phone');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (status === 'authenticated' && session?.user) {
-      router.replace(
-        resolvePostLoginPath(session.user.phone, session.user.roles ?? []),
-      );
+      router.replace(resolveDashboardPath(session.user));
     }
   }, [status, session, router]);
 
-  async function onRequestOtp(e: FormEvent<HTMLFormElement>): Promise<void> {
-    e.preventDefault();
-    setBusy(true);
-    setError(null);
-    try {
-      await requestOtp(phone.trim());
-      setStage('code');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Échec de la requête');
-    } finally {
-      setBusy(false);
+  useEffect(() => {
+    if (searchParams.get('error')) {
+      setError('Connexion refusée. Réessayez ou créez un compte.');
     }
-  }
+  }, [searchParams]);
 
-  async function onVerifyOtp(e: FormEvent<HTMLFormElement>): Promise<void> {
+  async function onSubmit(e: FormEvent): Promise<void> {
     e.preventDefault();
     setBusy(true);
     setError(null);
     try {
-      const result = await loginWithOtp(phone.trim(), code.trim());
+      const result = await loginWithPassword(email, password);
       if (!result.ok) {
         setError(result.error);
         return;
       }
-      const session = await getClientSession();
-      const roles = session?.user?.roles ?? [];
-      router.replace(resolvePostLoginPath(phone.trim(), roles));
+      const { getSession } = await import('next-auth/react');
+      const next = await getSession();
       router.refresh();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Code invalide');
+      router.replace(
+        next?.user ? resolveDashboardPath(next.user) : '/onboarding/role',
+      );
+    } catch {
+      setError('Connexion impossible');
     } finally {
       setBusy(false);
     }
@@ -91,9 +71,8 @@ export default function LoginPage(): React.JSX.Element {
       <button
         type="button"
         onClick={toggleTheme}
-        className="absolute end-4 top-4 inline-flex size-11 items-center justify-center rounded-full border border-border bg-card text-muted transition-colors hover:bg-card-hover hover:text-active"
-        aria-label={theme === 'dark' ? 'Passer en mode clair' : 'Passer en mode sombre'}
-        title={theme === 'dark' ? 'Mode clair' : 'Mode sombre'}
+        className="absolute end-4 top-4 inline-flex size-11 items-center justify-center rounded-full border border-border bg-card text-muted"
+        aria-label="Basculer le thème"
       >
         <DashIcon
           icon={theme === 'dark' ? DASH_ICONS.sun : DASH_ICONS.moon}
@@ -103,152 +82,90 @@ export default function LoginPage(): React.JSX.Element {
       </button>
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
-          <div className="mx-auto mb-4 flex size-14 items-center justify-center rounded-2xl bg-accent shadow-[0_4px_14px_rgba(102,88,221,0.35)]">
-            <DashIcon icon={DASH_STAT_ICONS.buildings} width={28} height={28} className="text-white" />
+          <div className="mx-auto mb-4 flex size-14 items-center justify-center rounded-2xl bg-accent">
+            <DashIcon
+              icon={DASH_STAT_ICONS.buildings}
+              width={28}
+              height={28}
+              className="text-white"
+            />
           </div>
           <h1 className="text-2xl font-bold text-foreground">Paradis Immo</h1>
           <p className="mt-2 text-sm text-muted">
-            Connectez-vous avec votre numéro WhatsApp
-          </p>
-          <p className="mt-2 text-xs text-muted">
-            Admin plateforme ?{' '}
-            <a href="/admin/login" className="font-semibold text-accent hover:underline">
-              Connexion email / Google
-            </a>
+            Connexion propriétaire, agent ou admin
           </p>
         </div>
 
-        {stage === 'phone' ? (
-          <form
-            onSubmit={onRequestOtp}
-            className="rounded-xl border border-border bg-card p-6 shadow-lg"
-          >
-            <label
-              htmlFor="phone"
-              className="mb-2 block text-sm font-medium text-foreground"
-            >
-              Numéro de téléphone
-            </label>
+        <form
+          onSubmit={(e) => void onSubmit(e)}
+          className="space-y-4 rounded-xl border border-border bg-card p-6 shadow-lg"
+        >
+          <label className="block space-y-1.5">
+            <span className="text-sm font-medium">Email</span>
             <input
-              id="phone"
-              name="phone"
-              type="tel"
+              type="email"
               required
-              autoComplete="tel"
-              placeholder="+242069000000"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
+              autoComplete="username"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className={inputClass}
+              placeholder="vous@exemple.com"
+            />
+          </label>
+          <label className="block space-y-1.5">
+            <span className="text-sm font-medium">Mot de passe</span>
+            <input
+              type="password"
+              required
+              minLength={8}
+              autoComplete="current-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
               className={inputClass}
             />
-            <p className="mt-2 text-xs text-muted">
-              Nous vous enverrons un code à 6 chiffres (WhatsApp ou logs API en local).
+          </label>
+          {error ? (
+            <p role="alert" className="text-sm text-danger">
+              {error}
             </p>
-            {isDev ? (
-              <div className="mt-4 rounded-lg border border-border bg-search/80 p-3 text-left">
-                <p className="text-xs font-semibold text-heading">Comptes de test (seed)</p>
-                <ul className="mt-2 space-y-1.5 text-xs text-muted">
-                  {DEV_TEST_ACCOUNTS.map((account) => (
-                    <li key={account.role}>
-                      {account.phone === '—' ? (
-                        <a
-                          href="/admin/login"
-                          className="text-start hover:text-foreground"
-                        >
-                          <span className="font-medium text-foreground">
-                            {account.role}
-                          </span>
-                          {' — '}
-                          <span className="font-mono">
-                            {'email' in account ? account.email : 'email'}
-                          </span>
-                          <span className="text-muted"> → /admin/login</span>
-                        </a>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => setPhone(account.phone)}
-                          className="text-start hover:text-foreground"
-                        >
-                          <span className="font-medium text-foreground">
-                            {account.role}
-                          </span>
-                          {' — '}
-                          <span className="font-mono">{account.phone}</span>
-                          {account.path !== '—' ? (
-                            <span className="text-muted"> → {account.path}</span>
-                          ) : null}
-                        </button>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-                <p className="mt-2 text-[11px] text-muted">
-                  Après « Recevoir le code », regarde le terminal API pour le code OTP.
-                </p>
-              </div>
-            ) : null}
-            {error ? (
-              <p
-                role="alert"
-                className="mt-3 rounded-lg bg-danger/10 px-3 py-2 text-sm text-danger"
-              >
-                {error}
-              </p>
-            ) : null}
-            <button type="submit" disabled={busy} className={`mt-5 ${btnPrimaryClass}`}>
-              {busy ? 'Envoi…' : 'Recevoir le code'}
-            </button>
-          </form>
-        ) : (
-          <form
-            onSubmit={onVerifyOtp}
-            className="rounded-xl border border-border bg-card p-6 shadow-lg"
+          ) : null}
+          <button type="submit" disabled={busy} className={btnPrimaryClass}>
+            {busy ? 'Connexion…' : 'Se connecter'}
+          </button>
+        </form>
+
+        {googleEnabled ? (
+          <button
+            type="button"
+            disabled={busy}
+            className={`mt-4 ${btnSecondaryClass}`}
+            onClick={() => void signIn('google', { callbackUrl: '/onboarding/role' })}
           >
-            <label
-              htmlFor="code"
-              className="mb-2 block text-sm font-medium text-foreground"
-            >
-              Code reçu par WhatsApp
-            </label>
-            <input
-              id="code"
-              name="code"
-              type="text"
-              inputMode="numeric"
-              pattern="[0-9]{4,6}"
-              required
-              autoComplete="one-time-code"
-              maxLength={6}
-              placeholder="1234"
-              value={code}
-              onChange={(e) => setCode(e.target.value)}
-              className={inputClass}
-            />
-            {error ? (
-              <p
-                role="alert"
-                className="mt-3 rounded-lg bg-danger/10 px-3 py-2 text-sm text-danger"
-              >
-                {error}
-              </p>
-            ) : null}
-            <button type="submit" disabled={busy} className={`mt-5 ${btnPrimaryClass}`}>
-              {busy ? 'Vérification…' : 'Se connecter'}
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setStage('phone');
-                setCode('');
-                setError(null);
-              }}
-              className={`mt-2 ${btnSecondaryClass}`}
-            >
-              Modifier le numéro
-            </button>
-          </form>
-        )}
+            Continuer avec Google
+          </button>
+        ) : null}
+
+        <p className="mt-6 text-center text-sm text-muted">
+          Pas encore de compte ?{' '}
+          <Link href="/register" className="font-semibold text-accent hover:underline">
+            Créer un compte
+          </Link>
+        </p>
+
+        {process.env.NODE_ENV === 'development' ? (
+          <p className="mt-4 rounded-lg border border-border bg-card p-3 text-xs text-muted">
+            Seed admin : admin@paradisimmo.cg / Admin123!
+          </p>
+        ) : null}
       </div>
     </main>
+  );
+}
+
+export default function LoginPage(): React.JSX.Element {
+  return (
+    <Suspense fallback={<div className="p-8 text-center text-sm text-muted">Chargement…</div>}>
+      <LoginForm />
+    </Suspense>
   );
 }

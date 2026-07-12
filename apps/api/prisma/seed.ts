@@ -415,6 +415,8 @@ async function seedTestUsers(
       id: TEST_USER_IDS.agent,
       phone: TEST_ACCOUNTS.agent.phone,
       name: TEST_ACCOUNTS.agent.name,
+      email: 'agent@paradisimmo.cg',
+      password: 'Agent123!',
       globalRoles: [GlobalRole.TENANT],
       org: { organizationId: PARADIS_IMMO_ID, role: OrgMemberRole.AGENT },
     },
@@ -471,7 +473,9 @@ async function seedTestUsers(
         phone: account.phone,
         countryId: cgId,
         ...(account.email ? { email: account.email } : {}),
-        ...(passwordHash ? { passwordHash } : {}),
+        ...(passwordHash
+          ? { passwordHash, emailVerifiedAt: new Date() }
+          : {}),
       },
       create: {
         id: account.id,
@@ -480,6 +484,7 @@ async function seedTestUsers(
         name: account.name,
         email: account.email,
         passwordHash,
+        emailVerifiedAt: passwordHash ? new Date() : undefined,
       },
     });
 

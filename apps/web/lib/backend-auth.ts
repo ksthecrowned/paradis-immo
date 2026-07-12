@@ -7,10 +7,11 @@ import { API_URL } from '@/lib/config';
 
 export type BackendAuthUser = {
   id: string;
-  phone: string;
+  phone: string | null;
   name?: string | null;
   email?: string | null;
   roles: string[];
+  orgRoles: string[];
 };
 
 export type BackendAuthTokens = {
@@ -30,6 +31,21 @@ type TokenEnvelope = {
   };
 };
 
+function errorMessage(
+  body: unknown,
+  fallback: string,
+): string {
+  if (
+    body &&
+    typeof body === 'object' &&
+    'message' in body &&
+    typeof (body as { message: unknown }).message === 'string'
+  ) {
+    return (body as { message: string }).message;
+  }
+  return fallback;
+}
+
 function unwrapTokens(body: TokenEnvelope): BackendAuthTokens | null {
   const accessToken = body.accessToken ?? body.data?.accessToken;
   const refreshToken = body.refreshToken ?? body.data?.refreshToken;
@@ -40,105 +56,115 @@ function unwrapTokens(body: TokenEnvelope): BackendAuthTokens | null {
     refreshToken,
     user: {
       id: user.id,
-      phone: user.phone,
+      phone: user.phone ?? null,
       name: user.name ?? null,
       email: user.email ?? null,
       roles: user.roles ?? [],
+      orgRoles: user.orgRoles ?? [],
     },
   };
 }
 
-export async function backendAdminLogin(
+export async function backendWebRegister(email: string): Promise<void> {
+  const res = await fetch(`${API_URL}/auth/web/register`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify({ email: email.trim() }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new Error(errorMessage(body, 'Échec de l’inscription'));
+  }
+}
+
+export async function backendWebMagicConsume(
+  token: string,
+  password: string,
+): Promise<BackendAuthTokens> {
+  const res = await fetch(`${API_URL}/auth/web/magic/consume`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify({ token, password }),
+  });
+  const body = (await res.json().catch(() => null)) as TokenEnvelope | null;
+  if (!res.ok) {
+    throw new Error(errorMessage(body, 'Lien invalide ou expiré'));
+  }
+  const tokens = unwrapTokens(body as TokenEnvelope);
+  if (!tokens) throw new Error('Réponse auth invalide');
+  return tokens;
+}
+
+export async function backendWebLogin(
   email: string,
   password: string,
 ): Promise<BackendAuthTokens> {
-  const res = await fetch(`${API_URL}/auth/admin/login`, {
+  const res = await fetch(`${API_URL}/auth/web/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
     body: JSON.stringify({ email: email.trim(), password }),
   });
-  const body = (await res.json().catch(() => null)) as
-    | TokenEnvelope
-    | { message?: string }
-    | null;
+  const body = (await res.json().catch(() => null)) as TokenEnvelope | null;
   if (!res.ok) {
-    const message =
-      body &&
-      typeof body === 'object' &&
-      'message' in body &&
-      typeof body.message === 'string'
-        ? body.message
-        : 'Email ou mot de passe incorrect';
-    throw new Error(message);
+    throw new Error(errorMessage(body, 'Email ou mot de passe incorrect'));
   }
   const tokens = unwrapTokens(body as TokenEnvelope);
   if (!tokens) throw new Error('Réponse auth invalide');
   return tokens;
 }
 
-export async function backendAdminGoogle(
+export async function backendWebGoogle(
   idToken: string,
 ): Promise<BackendAuthTokens> {
-  const res = await fetch(`${API_URL}/auth/admin/google`, {
+  const res = await fetch(`${API_URL}/auth/web/google`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
     body: JSON.stringify({ idToken }),
   });
-  const body = (await res.json().catch(() => null)) as
-    | TokenEnvelope
-    | { message?: string }
-    | null;
+  const body = (await res.json().catch(() => null)) as TokenEnvelope | null;
   if (!res.ok) {
-    const message =
-      body &&
-      typeof body === 'object' &&
-      'message' in body &&
-      typeof body.message === 'string'
-        ? body.message
-        : 'Connexion Google refusée';
-    throw new Error(message);
+    throw new Error(errorMessage(body, 'Connexion Google refusée'));
   }
   const tokens = unwrapTokens(body as TokenEnvelope);
   if (!tokens) throw new Error('Réponse auth invalide');
   return tokens;
 }
 
-export async function backendRequestOtp(
-  phone: string,
-  purpose: 'LOGIN' | 'REGISTER' = 'LOGIN',
-): Promise<void> {
-  const res = await fetch(`${API_URL}/auth/otp/request`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-    body: JSON.stringify({ phone, purpose }),
-  });
-  if (!res.ok) {
-    const body = (await res.json().catch(() => null)) as { message?: string } | null;
-    throw new Error(body?.message ?? 'Échec de l\'envoi du code');
-  }
-}
-
-export async function backendVerifyOtp(
-  phone: string,
-  code: string,
-  purpose: 'LOGIN' | 'REGISTER' = 'LOGIN',
+export async function backendWebSetRole(
+  accessToken: string,
+  role: 'OWNER' | 'AGENT',
 ): Promise<BackendAuthTokens> {
-  const res = await fetch(`${API_URL}/auth/otp/verify`, {
+  const res = await fetch(`${API_URL}/auth/web/role`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-    body: JSON.stringify({ phone, code, purpose }),
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify({ role }),
   });
-  const body = (await res.json().catch(() => null)) as TokenEnvelope | { message?: string } | null;
+  const body = (await res.json().catch(() => null)) as TokenEnvelope | null;
   if (!res.ok) {
-    const message =
-      body && typeof body === 'object' && 'message' in body && typeof body.message === 'string'
-        ? body.message
-        : 'Code invalide';
-    throw new Error(message);
+    throw new Error(errorMessage(body, 'Impossible de définir le rôle'));
   }
   const tokens = unwrapTokens(body as TokenEnvelope);
   if (!tokens) throw new Error('Réponse auth invalide');
   return tokens;
+}
+
+/** @deprecated Prefer backendWebLogin */
+export async function backendAdminLogin(
+  email: string,
+  password: string,
+): Promise<BackendAuthTokens> {
+  return backendWebLogin(email, password);
+}
+
+/** @deprecated Prefer backendWebGoogle */
+export async function backendAdminGoogle(
+  idToken: string,
+): Promise<BackendAuthTokens> {
+  return backendWebGoogle(idToken);
 }
 
 export async function backendRefreshTokens(
