@@ -43,15 +43,33 @@ export class PaymentValidatedProcessor {
     const receipt = await this.receipts.generateForPayment(paymentId);
     const payment = await this.prisma.payment.findUnique({
       where: { id: paymentId },
-      select: { userId: true },
+      select: {
+        userId: true,
+        allocations: {
+          take: 1,
+          select: {
+            rentSchedule: {
+              select: {
+                lease: {
+                  select: {
+                    property: { select: { organizationId: true } },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
     });
     if (!payment) {
       this.logger.warn(`Payment ${paymentId} not found for notification`);
       return { sent: false, reason: 'PAYMENT_NOT_FOUND' };
     }
+    const organizationId =
+      payment.allocations[0]?.rentSchedule?.lease?.property?.organizationId;
     const result = await this.notifications.send({
       userId: payment.userId,
-      channel: 'WHATSAPP',
+      organizationId,
       type: 'PAYMENT_RECEIPT_READY',
       payload: {
         paymentId,

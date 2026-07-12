@@ -1,8 +1,16 @@
 import { Test } from '@nestjs/testing';
-import { Prisma } from '@prisma/client';
+import {
+  MessageChannel,
+  MessageChargeStatus,
+  MessagePayerType,
+  NotificationChannel,
+  Prisma,
+} from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { EventPublisher } from '../events/event.publisher';
 import { R2Service } from '../media/r2.service';
+import { MessagingBillingService } from '../messaging/messaging-billing.service';
+import { InfobipSmsService } from '../messaging/infobip-sms.service';
 import { InfobipService } from './infobip.service';
 import { FcmService } from './fcm.service';
 import { NotificationsService } from './notifications.service';
@@ -22,11 +30,15 @@ describe('Notifications — PAYMENT_VALIDATED processor', () => {
   let leaseId: string;
   let rentScheduleId: string;
   let paymentId: string;
-  const sentWhatsApp: Array<{ phone: string; message: string }> = [];
+  const sentPush: Array<{ token: string; title: string }> = [];
+  const sentSms: Array<{ to: string; text: string }> = [];
   const createdNotificationIds: string[] = [];
   const createdReceiptIds: string[] = [];
 
   beforeAll(async () => {
+    process.env.USD_TO_XAF = process.env.USD_TO_XAF || '600';
+    process.env.SMS_ALERT_UNIT_USD = process.env.SMS_ALERT_UNIT_USD || '0.234';
+
     const uploadSpy = jest.fn(
       (key: string) =>
         Promise.resolve({ url: `https://fake.r2/${key}` }) as Promise<{
@@ -34,26 +46,34 @@ describe('Notifications — PAYMENT_VALIDATED processor', () => {
         }>,
     );
     const infobip: Pick<InfobipService, 'sendWhatsApp'> = {
-      // eslint-disable-next-line @typescript-eslint/require-await
-      sendWhatsApp: jest.fn(async (phone: string, message: string) => {
-        sentWhatsApp.push({ phone, message });
-        return { ok: true };
+      sendWhatsApp: jest.fn(async () => ({ ok: false, reason: 'NOT_USED' })),
+    };
+    const sms: Pick<InfobipSmsService, 'send'> = {
+      send: jest.fn(async (message: { to: string; text: string }) => {
+        sentSms.push(message);
+        return { ok: true, providerMessageId: 'sms-test-1' };
       }),
     };
     const fcm: Pick<FcmService, 'sendPush'> = {
-      // eslint-disable-next-line @typescript-eslint/require-await
-      sendPush: jest.fn(async () => ({ ok: false, reason: 'NOT_USED' })),
+      sendPush: jest.fn(
+        async (token: string, title: string) => {
+          sentPush.push({ token, title });
+          return { ok: true };
+        },
+      ),
     };
 
     const moduleRef = await Test.createTestingModule({
       providers: [
         PaymentValidatedProcessor,
         NotificationsService,
+        MessagingBillingService,
         ReceiptService,
         PrismaService,
         { provide: EventPublisher, useValue: { emit: jest.fn() } },
         { provide: R2Service, useValue: { uploadBuffer: uploadSpy } },
         { provide: InfobipService, useValue: infobip },
+        { provide: InfobipSmsService, useValue: sms },
         { provide: FcmService, useValue: fcm },
       ],
     }).compile();
@@ -71,7 +91,6 @@ describe('Notifications — PAYMENT_VALIDATED processor', () => {
     if (!quartier) throw new Error('Run seed first');
     bzvQuartierId = quartier.id;
 
-    // Belt-and-suspenders cleanup
     const userIds = (
       await prisma.user.findMany({
         where: { phone: { in: ['+242078888881', '+242078888882'] } },
@@ -79,6 +98,16 @@ describe('Notifications — PAYMENT_VALIDATED processor', () => {
       })
     ).map((u) => u.id);
     if (userIds.length > 0) {
+      await prisma.messageCharge
+        .deleteMany({
+          where: {
+            OR: [
+              { userId: { in: userIds } },
+              { payerId: { in: userIds } },
+            ],
+          },
+        })
+        .catch(() => undefined);
       await prisma.notification
         .deleteMany({ where: { userId: { in: userIds } } })
         .catch(() => undefined);
@@ -107,6 +136,8 @@ describe('Notifications — PAYMENT_VALIDATED processor', () => {
         phone: '+242078888882',
         countryId,
         name: 'Marie PAYEUR',
+        fcmToken: 'fcm-tenant-token',
+        notificationChannel: NotificationChannel.PUSH,
         roles: { create: { role: 'TENANT' } },
       },
     });
@@ -202,6 +233,16 @@ describe('Notifications — PAYMENT_VALIDATED processor', () => {
         .deleteMany({ where: { id: { in: createdReceiptIds } } })
         .catch(() => undefined);
     }
+    await prisma.messageCharge
+      .deleteMany({
+        where: {
+          OR: [
+            { userId: { in: [ownerUserId, tenantUserId] } },
+            { organizationId: ownerOrgId },
+          ],
+        },
+      })
+      .catch(() => undefined);
     await prisma.receipt
       .deleteMany({
         where: {
@@ -242,29 +283,32 @@ describe('Notifications — PAYMENT_VALIDATED processor', () => {
   });
 
   beforeEach(() => {
-    sentWhatsApp.length = 0;
+    sentPush.length = 0;
+    sentSms.length = 0;
   });
 
-  it('PAYMENT_VALIDATED handler sends WhatsApp with receipt URL to tenant', async () => {
+  it('notification uses FCM when channel is PUSH', async () => {
+    await prisma.user.update({
+      where: { id: tenantUserId },
+      data: { notificationChannel: NotificationChannel.PUSH },
+    });
+
     const result = await processor.handlePaymentValidated(
       paymentId,
       tenantUserId,
     );
 
     expect(result.sent).toBe(true);
+    expect(sentPush).toHaveLength(1);
+    expect(sentPush[0].token).toBe('fcm-tenant-token');
+    expect(sentSms).toHaveLength(0);
 
-    expect(sentWhatsApp).toHaveLength(1);
-    expect(sentWhatsApp[0].phone).toBe('+242078888882');
-    // The message must mention the receipt URL (which is the R2 fake URL)
-    expect(sentWhatsApp[0].message).toMatch(/https:\/\/fake\.r2\/receipts\//);
-    expect(sentWhatsApp[0].message).toContain('Paradis Immo');
-
-    // A Notification row was persisted with PAYMENT_RECEIPT_READY + receiptUrl
     const rows = await notifications.listForUser(tenantUserId);
     const ours = rows.filter(
       (n) => n.type === 'PAYMENT_RECEIPT_READY' && n.status === 'SENT',
     );
     expect(ours.length).toBeGreaterThanOrEqual(1);
+    expect(ours[0].channel).toBe(NotificationChannel.PUSH);
     createdNotificationIds.push(...ours.map((n) => n.id));
     createdReceiptIds.push(
       ...(
@@ -274,6 +318,46 @@ describe('Notifications — PAYMENT_VALIDATED processor', () => {
         })
       ).map((r) => r.id),
     );
+  });
+
+  it('notification uses SMS path when user.notificationChannel is SMS', async () => {
+    await prisma.user.update({
+      where: { id: tenantUserId },
+      data: { notificationChannel: NotificationChannel.SMS },
+    });
+    await prisma.notification.deleteMany({
+      where: { userId: tenantUserId, type: 'PAYMENT_RECEIPT_READY' },
+    });
+
+    const result = await notifications.send({
+      userId: tenantUserId,
+      organizationId: ownerOrgId,
+      type: 'PAYMENT_RECEIPT_READY',
+      payload: {
+        paymentId,
+        receiptUrl: 'https://fake.r2/receipts/x.pdf',
+        receiptNumber: 'R-1',
+      },
+    });
+
+    expect(result.status).toBe('SENT');
+    expect(result.channel).toBe(NotificationChannel.SMS);
+    expect(sentSms).toHaveLength(1);
+    expect(sentSms[0].to).toBe('+242078888882');
+    expect(sentSms[0].text).toContain('https://fake.r2/receipts/');
+    expect(sentPush).toHaveLength(0);
+
+    const charge = await prisma.messageCharge.findFirst({
+      where: {
+        channel: MessageChannel.SMS_ALERT,
+        payerId: ownerOrgId,
+        userId: tenantUserId,
+      },
+    });
+    expect(charge).not.toBeNull();
+    expect(charge!.status).toBe(MessageChargeStatus.OPEN);
+    expect(charge!.payerType).toBe(MessagePayerType.ORGANIZATION);
+    createdNotificationIds.push(result.id);
   });
 
   it('listForUser returns notifications newest first', async () => {

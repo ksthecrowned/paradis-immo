@@ -2,6 +2,8 @@ import { Test } from '@nestjs/testing';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { EventPublisher } from '../../events/event.publisher';
+import { MessagingBillingService } from '../../messaging/messaging-billing.service';
+import { InfobipSmsService } from '../../messaging/infobip-sms.service';
 import { InfobipService } from '../infobip.service';
 import { FcmService } from '../fcm.service';
 import { NotificationsService } from '../notifications.service';
@@ -21,28 +23,33 @@ describe('RentReminderProcessor', () => {
   let propertyId: string;
   let leaseId: string;
   const createdScheduleIds: string[] = [];
-  const sentWhatsApp: Array<{ phone: string; message: string }> = [];
+  const sentPush: Array<{ token: string; title: string }> = [];
 
   beforeAll(async () => {
+    process.env.USD_TO_XAF = process.env.USD_TO_XAF || '600';
+
     const infobip: Pick<InfobipService, 'sendWhatsApp'> = {
-      // eslint-disable-next-line @typescript-eslint/require-await
-      sendWhatsApp: jest.fn(async (phone: string, message: string) => {
-        sentWhatsApp.push({ phone, message });
-        return { ok: true };
-      }),
+      sendWhatsApp: jest.fn(async () => ({ ok: false, reason: 'NOT_USED' })),
+    };
+    const sms: Pick<InfobipSmsService, 'send'> = {
+      send: jest.fn(async () => ({ ok: false, reason: 'NOT_USED' })),
     };
     const fcm: Pick<FcmService, 'sendPush'> = {
-      // eslint-disable-next-line @typescript-eslint/require-await
-      sendPush: jest.fn(async () => ({ ok: false, reason: 'NOT_USED' })),
+      sendPush: jest.fn(async (token: string, title: string) => {
+        sentPush.push({ token, title });
+        return { ok: true };
+      }),
     };
 
     const moduleRef = await Test.createTestingModule({
       providers: [
         RentReminderProcessor,
         NotificationsService,
+        MessagingBillingService,
         PrismaService,
         { provide: EventPublisher, useValue: { emit: jest.fn() } },
         { provide: InfobipService, useValue: infobip },
+        { provide: InfobipSmsService, useValue: sms },
         { provide: FcmService, useValue: fcm },
       ],
     }).compile();
@@ -98,6 +105,7 @@ describe('RentReminderProcessor', () => {
         phone: '+242079999992',
         countryId,
         name: 'Jean LOYER',
+        fcmToken: 'fcm-rent-tenant',
         roles: { create: { role: 'TENANT' } },
       },
     });
@@ -189,7 +197,7 @@ describe('RentReminderProcessor', () => {
   });
 
   beforeEach(() => {
-    sentWhatsApp.length = 0;
+    sentPush.length = 0;
   });
 
   describe('pickReminderTier (pure)', () => {
@@ -215,7 +223,7 @@ describe('RentReminderProcessor', () => {
   });
 
   it('sends RENT_DUE_SOON for a schedule due in 7 days', async () => {
-    sentWhatsApp.length = 0;
+    sentPush.length = 0;
     // Reference day = 2026-07-01 (the "now" of the daily job). dueDate
     // 2026-06-24 → exactly 7 days before → tier J-7.
     const refNow = new Date('2026-07-01T07:00:00Z');
@@ -234,10 +242,9 @@ describe('RentReminderProcessor', () => {
 
     expect(result.scanned).toBeGreaterThanOrEqual(1);
     expect(result.sent).toBeGreaterThanOrEqual(1);
-    expect(sentWhatsApp).toHaveLength(1);
-    expect(sentWhatsApp[0].phone).toBe('+242079999992');
-    expect(sentWhatsApp[0].message).toContain('échéance');
-    expect(sentWhatsApp[0].message).toContain('150000');
+    expect(sentPush).toHaveLength(1);
+    expect(sentPush[0].token).toBe('fcm-rent-tenant');
+    expect(sentPush[0].title).toContain('RENT_DUE_SOON');
 
     // Notification row exists with RENT_DUE_SOON + correct payload
     const notifications = await prisma.$queryRaw<Array<{ id: string }>>`
@@ -255,7 +262,7 @@ describe('RentReminderProcessor', () => {
   });
 
   it('flags a schedule OVERDUE and sends RENT_OVERDUE for +1 day', async () => {
-    sentWhatsApp.length = 0;
+    sentPush.length = 0;
     // Use a unique lease by creating a fresh tenant + lease for this test
     // so we don't trip on accumulated schedules from previous tests.
     const refNow = new Date('2026-07-02T07:00:00Z');
@@ -264,6 +271,7 @@ describe('RentReminderProcessor', () => {
         phone: `+2420799${Math.floor(Math.random() * 90000 + 10000)}`,
         countryId,
         name: 'LATE Tenant',
+        fcmToken: 'fcm-late-tenant',
         roles: { create: { role: 'TENANT' } },
       },
     });
@@ -300,9 +308,9 @@ describe('RentReminderProcessor', () => {
     });
     expect(after?.status).toBe('OVERDUE');
 
-    expect(sentWhatsApp.length).toBeGreaterThanOrEqual(1);
-    const lastMessage = sentWhatsApp[sentWhatsApp.length - 1].message;
-    expect(lastMessage).toContain('retard');
+    expect(sentPush.length).toBeGreaterThanOrEqual(1);
+    const lastTitle = sentPush[sentPush.length - 1].title;
+    expect(lastTitle).toContain('RENT_OVERDUE');
 
     const overdueNotifs = await prisma.$queryRaw<Array<{ id: string }>>`
       SELECT id FROM "Notification"
@@ -336,7 +344,7 @@ describe('RentReminderProcessor', () => {
   });
 
   it('does not re-send on the same day for a schedule already reminded', async () => {
-    sentWhatsApp.length = 0;
+    sentPush.length = 0;
     const refNow = new Date('2026-07-01T07:00:00Z');
     // J-3 (due 3 days before) so we don't conflict with the J-7 schedule
     // created in the previous test (unique constraint on leaseId+dueDate).
@@ -352,7 +360,7 @@ describe('RentReminderProcessor', () => {
     createdScheduleIds.push(schedule.id);
 
     const first = await processor.runDaily(refNow, { leaseIds: [leaseId] });
-    const sentAfterFirst = sentWhatsApp.length;
+    const sentAfterFirst = sentPush.length;
     const second = await processor.runDaily(refNow, { leaseIds: [leaseId] });
 
     const notifs = await prisma.$queryRaw<Array<{ id: string }>>`
@@ -362,7 +370,7 @@ describe('RentReminderProcessor', () => {
     `;
     expect(notifs.length).toBe(1);
     // The second run must not re-dispatch a message for the same schedule.
-    expect(sentWhatsApp.length).toBe(sentAfterFirst);
+    expect(sentPush.length).toBe(sentAfterFirst);
     expect(second.sent).toBe(first.sent - 1);
   });
 });

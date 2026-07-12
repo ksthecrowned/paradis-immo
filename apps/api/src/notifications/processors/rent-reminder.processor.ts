@@ -91,7 +91,7 @@ export class RentReminderProcessor {
           select: {
             id: true,
             tenantId: true,
-            property: { select: { title: true } },
+            property: { select: { title: true, organizationId: true } },
           },
         },
       },
@@ -122,7 +122,7 @@ export class RentReminderProcessor {
 
       await this.notifications.send({
         userId: s.lease.tenantId,
-        channel: 'WHATSAPP',
+        organizationId: s.lease.property.organizationId,
         type: tier.type,
         payload: {
           rentScheduleId: s.id,
@@ -130,7 +130,7 @@ export class RentReminderProcessor {
           amount: s.amount.toString(),
           currency: s.currency,
           propertyTitle: s.lease.property.title,
-          ...(tier.days > 0 ? { daysOverdue: tier.days } : {}),
+          ...(tier.days > 0 ? { daysOverdue: String(tier.days) } : {}),
         },
       });
       sent++;

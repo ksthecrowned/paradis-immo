@@ -5,7 +5,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { OtpStore } from '../auth/otp.store';
 import { AuthService } from '../auth/auth.service';
 import { InfobipOtpService } from '../auth/infobip-otp.service';
-import { EventPublisher } from '../events/event.publisher';
+import { MessagingBillingService } from '../messaging/messaging-billing.service';
 import { UsersService } from './users.service';
 
 describe('UsersService', () => {
@@ -17,12 +17,15 @@ describe('UsersService', () => {
   const phone = '+242067777777';
 
   beforeAll(async () => {
+    process.env.USD_TO_XAF = process.env.USD_TO_XAF || '600';
+
     const moduleRef = await Test.createTestingModule({
       providers: [
         AuthService,
         OtpStore,
         PrismaService,
         InfobipOtpService,
+        MessagingBillingService,
         UsersService,
         {
           provide: JwtService,
@@ -36,10 +39,6 @@ describe('UsersService', () => {
             verifyAsync: jest.fn(async () => ({})),
           },
         },
-        {
-          provide: EventPublisher,
-          useValue: { emit: jest.fn() },
-        },
       ],
     }).compile();
     users = moduleRef.get(UsersService);
@@ -48,7 +47,9 @@ describe('UsersService', () => {
     auth = moduleRef.get(AuthService);
     await prisma.onModuleInit();
 
-    // Provision user via the auth flow (creates TENANT role)
+    await prisma.messageCharge
+      .deleteMany({ where: { recipientPhone: phone } })
+      .catch(() => undefined);
     await prisma.user.deleteMany({ where: { phone } }).catch(() => undefined);
     await auth.requestOtp({ phone });
     const code = await otpStore.peek(phone);
@@ -58,6 +59,11 @@ describe('UsersService', () => {
 
   afterAll(async () => {
     if (userId) {
+      await prisma.messageCharge
+        .deleteMany({
+          where: { OR: [{ userId }, { payerId: userId }] },
+        })
+        .catch(() => undefined);
       await prisma.refreshToken.deleteMany({ where: { userId } });
       await prisma.userRole.deleteMany({ where: { userId } });
       await prisma.user.deleteMany({ where: { id: userId } });
@@ -70,6 +76,7 @@ describe('UsersService', () => {
     expect(me.id).toBe(userId);
     expect(me.phone).toBe(phone);
     expect(me.roles).toContain('TENANT');
+    expect(me.notificationChannel).toBe('PUSH');
   });
 
   it('getMe throws 404 for unknown user', async () => {
@@ -85,6 +92,22 @@ describe('UsersService', () => {
     });
     expect(updated.name).toBe('Jean Test');
     expect(updated.avatarUrl).toBe('https://cdn.example.com/avatars/jean.png');
+  });
+
+  it('updateMe patches email', async () => {
+    const updated = await users.updateMe(userId, {
+      email: 'jean@example.com',
+    });
+    expect(updated.email).toBe('jean@example.com');
+  });
+
+  it('updateMe patches notificationChannel to SMS', async () => {
+    const updated = await users.updateMe(userId, {
+      notificationChannel: 'SMS',
+    });
+    expect(updated.notificationChannel).toBe('SMS');
+    const again = await users.getMe(userId);
+    expect(again.notificationChannel).toBe('SMS');
   });
 
   it('listMyOrganizations returns [] when user has none', async () => {

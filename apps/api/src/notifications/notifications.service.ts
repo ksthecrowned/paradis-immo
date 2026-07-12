@@ -1,6 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Notification, NotificationChannel, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { InfobipSmsService } from '../messaging/infobip-sms.service';
+import { MessagingBillingService } from '../messaging/messaging-billing.service';
 import { InfobipService } from './infobip.service';
 import { FcmService } from './fcm.service';
 
@@ -17,18 +19,23 @@ export interface PublicNotification {
 
 export interface SendInput {
   userId: string;
-  channel: NotificationChannel;
   type: string;
   payload: Record<string, unknown>;
+  /**
+   * Optional override. When omitted, uses `User.notificationChannel`
+   * (PUSH default, SMS when explicitly preferred).
+   */
+  channel?: NotificationChannel;
+  /** Required when delivering via SMS (org is billed). */
+  organizationId?: string;
 }
 
 /**
  * Orchestrates outbound notifications. Persists a `Notification` row
  * (PENDING → SENT/FAILED) so the UI can show a history of what was sent.
  *
- * Channel dispatch is delegated to the provider-specific service
- * (InfobipService for WhatsApp, FcmService for push). The MVP runs
- * both providers in stub mode unless their env vars are set.
+ * Preference: `User.notificationChannel = SMS` → Infobip SMS + MessageCharge
+ * billed to the managing organization. Otherwise FCM push.
  */
 @Injectable()
 export class NotificationsService {
@@ -37,40 +44,72 @@ export class NotificationsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly infobip: InfobipService,
+    private readonly sms: InfobipSmsService,
+    private readonly messaging: MessagingBillingService,
     private readonly fcm: FcmService,
   ) {}
 
   async send(input: SendInput): Promise<PublicNotification> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: input.userId },
+      select: {
+        phone: true,
+        fcmToken: true,
+        notificationChannel: true,
+      },
+    });
+    if (!user) {
+      const row = await this.prisma.notification.create({
+        data: {
+          userId: input.userId,
+          channel: input.channel ?? NotificationChannel.PUSH,
+          type: input.type,
+          payload: input.payload as Prisma.InputJsonValue,
+          status: 'PENDING',
+        },
+      });
+      return this.markFailed(row.id, 'USER_NOT_FOUND');
+    }
+
+    const channel =
+      input.channel ??
+      (user.notificationChannel === NotificationChannel.SMS
+        ? NotificationChannel.SMS
+        : NotificationChannel.PUSH);
+
     const row = await this.prisma.notification.create({
       data: {
         userId: input.userId,
-        channel: input.channel,
+        channel,
         type: input.type,
         payload: input.payload as Prisma.InputJsonValue,
         status: 'PENDING',
       },
     });
 
-    let result: { ok: boolean; reason?: string };
-    if (input.channel === NotificationChannel.WHATSAPP) {
-      const user = await this.prisma.user.findUnique({
-        where: { id: input.userId },
-        select: { phone: true },
-      });
-      if (!user) {
-        const failed = await this.markFailed(row.id, 'USER_NOT_FOUND');
-        return failed;
+    let result: { ok: boolean; reason?: string; providerMessageId?: string };
+
+    if (channel === NotificationChannel.SMS) {
+      if (!input.organizationId) {
+        return this.markFailed(row.id, 'MISSING_ORGANIZATION');
       }
+      const text = this.renderSmsMessage(input.type, input.payload);
+      result = await this.sms.send({ to: user.phone, text });
+      if (result.ok) {
+        await this.messaging.recordSmsAlert({
+          phone: user.phone,
+          userId: input.userId,
+          organizationId: input.organizationId,
+          providerMessageId: result.providerMessageId,
+          idempotencyKey: `sms-alert:${row.id}`,
+        });
+      }
+    } else if (channel === NotificationChannel.WHATSAPP) {
       const message = this.renderWhatsAppMessage(input.type, input.payload);
       result = await this.infobip.sendWhatsApp(user.phone, message);
     } else {
-      const user = await this.prisma.user.findUnique({
-        where: { id: input.userId },
-        select: { fcmToken: true },
-      });
-      if (!user?.fcmToken) {
-        const failed = await this.markFailed(row.id, 'NO_DEVICE_TOKEN');
-        return failed;
+      if (!user.fcmToken) {
+        return this.markFailed(row.id, 'NO_DEVICE_TOKEN');
       }
       const title = this.renderPushTitle(input.type);
       const body = this.renderPushBody(input.payload);
@@ -78,10 +117,9 @@ export class NotificationsService {
       result = await this.fcm.sendPush(user.fcmToken, title, body, data);
     }
 
-    const updated = result.ok
+    return result.ok
       ? await this.markSent(row.id)
       : await this.markFailed(row.id, result.reason ?? 'PROVIDER_ERROR');
-    return updated;
   }
 
   async listForUser(userId: string): Promise<PublicNotification[]> {
@@ -93,11 +131,13 @@ export class NotificationsService {
     return rows.map((r) => this.toPublic(r));
   }
 
-  /**
-   * Builds a short human-readable WhatsApp message from a notification
-   * type + payload. Templates live here for the MVP — they can be moved
-   * to a templating system later.
-   */
+  private renderSmsMessage(
+    type: string,
+    payload: Record<string, unknown>,
+  ): string {
+    return this.renderWhatsAppMessage(type, payload);
+  }
+
   private renderWhatsAppMessage(
     type: string,
     payload: Record<string, unknown>,
@@ -191,8 +231,6 @@ export class NotificationsService {
     id: string,
     _reason: string,
   ): Promise<PublicNotification> {
-    // We still surface the row but with status PENDING (provider didn't
-    // accept delivery). A retry job can pick it up later.
     const row = await this.prisma.notification.findUnique({ where: { id } });
     if (!row) {
       throw new Error(`Notification ${id} disappeared mid-send`);

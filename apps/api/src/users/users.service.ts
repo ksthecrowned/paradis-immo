@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { GlobalRole, User } from '@prisma/client';
+import { GlobalRole, NotificationChannel, User } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
 export interface PublicUser {
@@ -8,6 +8,7 @@ export interface PublicUser {
   email: string | null;
   name: string | null;
   avatarUrl: string | null;
+  notificationChannel: 'PUSH' | 'SMS';
   countryId: string;
   roles: string[];
   createdAt: string;
@@ -42,23 +43,37 @@ export class UsersService {
 
   async updateMe(
     userId: string,
-    patch: { name?: string; avatarUrl?: string; fcmToken?: string },
+    patch: {
+      name?: string;
+      email?: string;
+      avatarUrl?: string;
+      fcmToken?: string;
+      notificationChannel?: 'PUSH' | 'SMS';
+    },
   ): Promise<PublicUser> {
     const updated = await this.prisma.user.update({
       where: { id: userId },
       data: {
         ...(patch.name !== undefined ? { name: patch.name } : {}),
+        ...(patch.email !== undefined
+          ? { email: patch.email.trim() || null }
+          : {}),
         ...(patch.avatarUrl !== undefined ? { avatarUrl: patch.avatarUrl } : {}),
         ...(patch.fcmToken !== undefined ? { fcmToken: patch.fcmToken } : {}),
+        ...(patch.notificationChannel !== undefined
+          ? {
+              notificationChannel:
+                patch.notificationChannel === 'SMS'
+                  ? NotificationChannel.SMS
+                  : NotificationChannel.PUSH,
+            }
+          : {}),
       },
       include: { roles: true },
     });
     return this.toPublic(updated);
   }
 
-  /**
-   * Returns the user's organizations with their role. Used by dashboards.
-   */
   async listMyOrganizations(userId: string): Promise<PublicOrganization[]> {
     const memberships = await this.prisma.organizationMember.findMany({
       where: { userId },
@@ -73,12 +88,15 @@ export class UsersService {
   }
 
   private toPublic(user: UserWithRoles): PublicUser {
+    const channel =
+      user.notificationChannel === NotificationChannel.SMS ? 'SMS' : 'PUSH';
     return {
       id: user.id,
       phone: user.phone,
       email: user.email,
       name: user.name,
       avatarUrl: user.avatarUrl,
+      notificationChannel: channel,
       countryId: user.countryId,
       roles: user.roles.map((r) => r.role),
       createdAt: user.createdAt.toISOString(),

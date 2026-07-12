@@ -150,4 +150,39 @@ describe('MessagingBillingService', () => {
     );
     expect(balance).toBe(toXaf(0.006, fx));
   });
+
+  it('recordSmsAlert creates OPEN charge for organization', async () => {
+    const org = await prisma.organization.create({
+      data: {
+        name: `Msg Org ${Date.now()}`,
+        type: 'AGENCY',
+        countryId: (
+          await prisma.country.findUniqueOrThrow({ where: { code: 'CG' } })
+        ).id,
+      },
+    });
+    const user = await prisma.user.create({
+      data: {
+        phone: '+242061111099',
+        countryId: org.countryId,
+      },
+    });
+
+    const charge = await service.recordSmsAlert({
+      phone: user.phone,
+      userId: user.id,
+      organizationId: org.id,
+      idempotencyKey: `sms-test:${user.id}`,
+    });
+
+    expect(charge.channel).toBe(MessageChannel.SMS_ALERT);
+    expect(charge.payerType).toBe(MessagePayerType.ORGANIZATION);
+    expect(charge.payerId).toBe(org.id);
+    expect(charge.status).toBe(MessageChargeStatus.OPEN);
+    expect(charge.amountXaf).toBe(toXaf(0.234, fx));
+
+    await prisma.messageCharge.deleteMany({ where: { id: charge.id } });
+    await prisma.user.delete({ where: { id: user.id } });
+    await prisma.organization.delete({ where: { id: org.id } });
+  });
 });
