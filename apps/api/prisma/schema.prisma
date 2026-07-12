@@ -204,6 +204,11 @@ enum NotificationChannel {
   SMS
 }
 
+enum MagicLinkPurpose {
+  VERIFY_EMAIL
+  RESET_PASSWORD
+}
+
 enum SeekerIntent {
   RENT
   BUY
@@ -259,11 +264,12 @@ model Country {
 
 model User {
   id                     String               @id @default(cuid())
-  phone                  String
+  phone                  String?
   email                  String?              @unique
-  /// scrypt hash `salt:hex` — platform admins only (email/password login)
+  emailVerifiedAt        DateTime?
+  /// scrypt hash `salt:hex` — web email/password login
   passwordHash           String?
-  /// Google subject (`sub`) when linked for admin Google sign-in
+  /// Google subject (`sub`) when linked for Google sign-in
   googleId               String?              @unique
   name                   String?
   avatarUrl              String?
@@ -350,6 +356,18 @@ model RefreshToken {
   revokedAt DateTime?
   createdAt DateTime @default(now())
   user      User     @relation(fields: [userId], references: [id])
+}
+
+model EmailMagicLink {
+  id        String           @id @default(cuid())
+  email     String
+  tokenHash String           @unique
+  purpose   MagicLinkPurpose
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime         @default(now())
+
+  @@index([email, purpose])
 }
 
 // =====================================================================
