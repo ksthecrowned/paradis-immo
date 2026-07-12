@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import {
   AllocatableType,
+  MessagePayerType,
   Payment,
   PaymentAllocation,
   PaymentStatus,
@@ -15,6 +16,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { EventPublisher } from '../events/event.publisher';
 import { DOMAIN_EVENTS } from '../events/event.types';
+import { MessagingBillingService } from '../messaging/messaging-billing.service';
 import { CashProvider } from './providers/cash.provider';
 import { MobileMoneyProvider } from './providers/mobile-money.provider';
 
@@ -48,6 +50,7 @@ export interface PublicPayment {
   idempotencyKey: string;
   validatedBy: string | null;
   validatedAt: string | null;
+  messagingDebtXaf: number;
   allocations: PublicAllocation[];
   createdAt: string;
 }
@@ -60,6 +63,13 @@ export interface PublicAllocation {
   rentScheduleId: string | null;
 }
 
+type PaymentMetadata = {
+  messagingDebtXaf?: number;
+  messagingChargeIds?: string[];
+  baseAmountXaf?: number;
+  [key: string]: unknown;
+};
+
 @Injectable()
 export class PaymentsService {
   constructor(
@@ -67,11 +77,13 @@ export class PaymentsService {
     private readonly events: EventPublisher,
     private readonly cashProvider: CashProvider,
     private readonly mobileMoneyProvider: MobileMoneyProvider,
+    private readonly messaging: MessagingBillingService,
   ) {}
 
   /**
    * Create a payment record idempotently. If a payment with the same
    * `idempotencyKey` already exists, return it without creating a new row.
+   * Open user messaging debt is added to the charged amount.
    */
   async initiatePayment(input: InitiatePaymentInput): Promise<PublicPayment> {
     const existing = await this.prisma.payment.findUnique({
@@ -80,11 +92,36 @@ export class PaymentsService {
     });
     if (existing) return this.toPublic(existing);
 
+    const debt = await this.messaging.openBalanceXaf(
+      MessagePayerType.USER,
+      input.userId,
+    );
+    const open =
+      debt > 0
+        ? await this.messaging.listOpenCharges(
+            MessagePayerType.USER,
+            input.userId,
+          )
+        : [];
+    const base = Number(input.amount);
+    const total = base + debt;
+    const metadata: PaymentMetadata = {
+      ...(input.metadata ?? {}),
+      ...(debt > 0
+        ? {
+            messagingDebtXaf: debt,
+            messagingChargeIds: open.map((c) => c.id),
+            baseAmountXaf: base,
+          }
+        : {}),
+    };
+
     const session =
       input.method === 'CASH'
-        ? await this.cashProvider.initiate(input)
+        ? await this.cashProvider.initiate({ ...input, amount: total })
         : await this.mobileMoneyProvider.initiate({
             ...input,
+            amount: total,
             provider: input.provider ?? 'AIRTEL',
             phone: input.phone ?? '',
           });
@@ -92,16 +129,14 @@ export class PaymentsService {
     const created = await this.prisma.payment.create({
       data: {
         userId: input.userId,
-        amount: new Prisma.Decimal(input.amount),
+        amount: new Prisma.Decimal(total),
         currency: input.currency,
         method: input.method,
         ...(input.provider ? { provider: input.provider } : {}),
         status: session.status,
         reference: session.reference,
         idempotencyKey: input.idempotencyKey,
-        ...(input.metadata
-          ? { metadata: input.metadata as Prisma.InputJsonValue }
-          : {}),
+        metadata: metadata as Prisma.InputJsonValue,
       },
       include: { allocations: true },
     });
@@ -196,6 +231,24 @@ export class PaymentsService {
       }
     }
 
+    const meta = (payment.metadata ?? {}) as PaymentMetadata;
+    const messagingDebt = Number(meta.messagingDebtXaf ?? 0);
+    const messagingChargeIds = Array.isArray(meta.messagingChargeIds)
+      ? meta.messagingChargeIds
+      : [];
+
+    const finalAllocations: PaymentAllocationInput[] = [...allocations];
+    if (
+      messagingDebt > 0 &&
+      !finalAllocations.some((a) => a.type === AllocatableType.MESSAGING_DEBT)
+    ) {
+      finalAllocations.push({
+        type: AllocatableType.MESSAGING_DEBT,
+        refId: payment.userId,
+        amount: messagingDebt,
+      });
+    }
+
     const updated = await this.prisma.$transaction(async (tx) => {
       await tx.payment.update({
         where: { id: paymentId },
@@ -205,9 +258,9 @@ export class PaymentsService {
           validatedAt: new Date(),
         },
       });
-      if (allocations.length > 0) {
+      if (finalAllocations.length > 0) {
         await tx.paymentAllocation.createMany({
-          data: allocations.map((a) => ({
+          data: finalAllocations.map((a) => ({
             paymentId,
             type: a.type,
             refId: a.refId,
@@ -216,7 +269,7 @@ export class PaymentsService {
           })),
         });
         // If a rent schedule is fully covered, flip it to PAID.
-        const rentScheduleIds = allocations
+        const rentScheduleIds = finalAllocations
           .filter((a) => a.type === 'RENT_SCHEDULE' && a.rentScheduleId)
           .map((a) => a.rentScheduleId as string);
         for (const scheduleId of rentScheduleIds) {
@@ -228,6 +281,8 @@ export class PaymentsService {
         include: { allocations: true },
       });
     });
+
+    await this.messaging.settleCharges(updated.id, messagingChargeIds);
 
     await this.events.emit(DOMAIN_EVENTS.PAYMENT_VALIDATED, {
       paymentId: updated.id,
@@ -282,6 +337,11 @@ export class PaymentsService {
       include: { allocations: true },
     });
     if (newStatus === PaymentStatus.VALIDATED) {
+      const meta = (updated.metadata ?? {}) as PaymentMetadata;
+      const chargeIds = Array.isArray(meta.messagingChargeIds)
+        ? meta.messagingChargeIds
+        : [];
+      await this.messaging.settleCharges(updated.id, chargeIds);
       await this.events.emit(DOMAIN_EVENTS.PAYMENT_VALIDATED, {
         paymentId: updated.id,
         userId: updated.userId,
@@ -397,6 +457,7 @@ export class PaymentsService {
   private toPublic(
     p: Payment & { allocations: PaymentAllocation[] },
   ): PublicPayment {
+    const meta = (p.metadata ?? {}) as PaymentMetadata;
     return {
       id: p.id,
       userId: p.userId,
@@ -409,6 +470,7 @@ export class PaymentsService {
       idempotencyKey: p.idempotencyKey,
       validatedBy: p.validatedBy,
       validatedAt: p.validatedAt?.toISOString() ?? null,
+      messagingDebtXaf: Number(meta.messagingDebtXaf ?? 0),
       allocations: p.allocations.map((a) => ({
         id: a.id,
         type: a.type,
