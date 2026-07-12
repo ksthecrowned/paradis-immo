@@ -746,6 +746,64 @@
         ]
       }
     },
+    "/api/v1/properties/{id}/publish": {
+      "post": {
+        "operationId": "PropertiesController_publish",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Publish a DRAFT or PAUSED property (→ ACTIVE)",
+        "tags": [
+          "Properties"
+        ]
+      }
+    },
+    "/api/v1/properties/{id}/pause": {
+      "post": {
+        "operationId": "PropertiesController_pause",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Pause an ACTIVE property",
+        "tags": [
+          "Properties"
+        ]
+      }
+    },
     "/api/v1/properties/{id}/visit-templates": {
       "post": {
         "operationId": "VisitSlotsController_createTemplate",
