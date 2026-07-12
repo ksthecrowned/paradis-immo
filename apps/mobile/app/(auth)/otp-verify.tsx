@@ -76,7 +76,9 @@ export default function OTPVerifyScreen(): React.JSX.Element {
     try {
       const tokens = await verifyOtp(phone, otp);
       const needsProfile = !tokens.user.name?.trim();
-      if (flow === 'register' || needsProfile) {
+      if (flow === 'register') {
+        router.replace('/(auth)/setup/intent');
+      } else if (needsProfile) {
         router.replace('/(auth)/personnal-infos');
       } else {
         router.replace('/(tabs)');
@@ -231,7 +233,7 @@ export default function OTPVerifyScreen(): React.JSX.Element {
             accessibilityLabel="Vérifier"
           >
             {loading ? (
-              <ActivityIndicator color={colors.surface} />
+              <ActivityIndicator color={colors.onPrimary} />
             ) : (
               <Text style={styles.ctaText}>Vérifier</Text>
             )}
@@ -345,6 +347,6 @@ const styles = StyleSheet.create({
   ctaText: {
     fontSize: 16,
     fontWeight: '700',
-    color: colors.surface,
+    color: colors.onPrimary,
   },
 });

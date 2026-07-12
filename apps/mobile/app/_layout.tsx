@@ -1,19 +1,28 @@
 import 'react-native-gesture-handler';
-import { colors } from '@/constants/theme';
+import { colors, getBootColorScheme } from '@/constants/theme';
 import { FeedbackProvider } from '@/context/FeedbackContext';
 import { LocationProvider } from '@/context/LocationContext';
 import { Stack } from 'expo-router';
+import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
+import { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 export default function RootLayout(): React.JSX.Element {
+  const statusBarStyle =
+    getBootColorScheme() === 'light' ? 'dark' : 'light';
+
+  useEffect(() => {
+    void SplashScreen.hideAsync();
+  }, []);
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <LocationProvider>
           <FeedbackProvider>
-            <StatusBar style="dark" />
+            <StatusBar style={statusBarStyle} />
             <Stack
               screenOptions={{
                 headerShown: false,
@@ -30,6 +39,10 @@ export default function RootLayout(): React.JSX.Element {
               />
               <Stack.Screen
                 name="(auth)/otp-verify"
+                options={{ animation: 'slide_from_right' }}
+              />
+              <Stack.Screen
+                name="(auth)/setup"
                 options={{ animation: 'slide_from_right' }}
               />
               <Stack.Screen
@@ -111,6 +124,34 @@ export default function RootLayout(): React.JSX.Element {
               />
               <Stack.Screen
                 name="activity"
+                options={{
+                  headerShown: false,
+                  animation: 'slide_from_right',
+                }}
+              />
+              <Stack.Screen
+                name="portfolio/[propertyId]/index"
+                options={{
+                  headerShown: false,
+                  animation: 'slide_from_right',
+                }}
+              />
+              <Stack.Screen
+                name="portfolio/[propertyId]/rent"
+                options={{
+                  headerShown: false,
+                  animation: 'slide_from_right',
+                }}
+              />
+              <Stack.Screen
+                name="stays/[id]"
+                options={{
+                  headerShown: false,
+                  animation: 'slide_from_right',
+                }}
+              />
+              <Stack.Screen
+                name="purchases/[id]"
                 options={{
                   headerShown: false,
                   animation: 'slide_from_right',

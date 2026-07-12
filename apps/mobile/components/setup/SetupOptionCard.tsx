@@ -42,7 +42,8 @@ export function SetupOptionCard({
 
 const styles = StyleSheet.create({
   card: {
-    flex: 1,
+    width: '48%',
+    flexGrow: 1,
     minHeight: 128,
     padding: spacing.md,
     borderRadius: radii.xl,
