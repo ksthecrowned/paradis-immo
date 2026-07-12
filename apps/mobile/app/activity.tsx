@@ -63,7 +63,7 @@ export default function ActivityScreen(): React.JSX.Element {
     useCallback(() => {
       let active = true;
       void (async () => {
-        const ok = await ensureAuthenticated(router, '/(tabs)/activity');
+        const ok = await ensureAuthenticated(router, '/activity');
         if (active) setReady(ok);
       })();
       return () => {
@@ -99,7 +99,7 @@ export default function ActivityScreen(): React.JSX.Element {
   return (
     <View style={styles.screen}>
       <View style={[styles.header, { paddingTop: insets.top + spacing.md }]}>
-        <Text style={styles.title}>Mon activité</Text>
+        <Text style={styles.title}>Mon historique</Text>
         <Text style={styles.subtitle}>
           Visites, réservations, achats et paiements
         </Text>

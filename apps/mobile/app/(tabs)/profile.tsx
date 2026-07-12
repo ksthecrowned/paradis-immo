@@ -86,7 +86,7 @@ export default function ProfileScreen(): React.JSX.Element {
       key: 'leases',
       label: 'Mes locations',
       icon: 'key-outline',
-      onPress: () => router.push('/leases'),
+      onPress: () => router.push('/(tabs)/locations'),
     },
     {
       key: 'documents',
@@ -102,9 +102,9 @@ export default function ProfileScreen(): React.JSX.Element {
     },
     {
       key: 'activity',
-      label: 'Mon activité',
+      label: 'Mon historique',
       icon: 'time-outline',
-      onPress: () => router.push('/(tabs)/activity'),
+      onPress: () => router.push('/activity'),
     },
     {
       key: 'notifications',

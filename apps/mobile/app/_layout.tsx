@@ -110,6 +110,13 @@ export default function RootLayout(): React.JSX.Element {
                 }}
               />
               <Stack.Screen
+                name="activity"
+                options={{
+                  headerShown: false,
+                  animation: 'slide_from_right',
+                }}
+              />
+              <Stack.Screen
                 name="leases/index"
                 options={{
                   headerShown: false,

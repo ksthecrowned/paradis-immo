@@ -177,7 +177,7 @@ export default function VisitScreen(): React.JSX.Element {
         title="Visite réservée"
         message="Votre créneau est confirmé. Retrouvez-le dans Mon activité."
         primaryLabel="Voir mon activité"
-        onPrimary={() => router.replace('/(tabs)/activity')}
+        onPrimary={() => router.replace('/activity')}
         secondaryLabel="Retour au bien"
         onSecondary={() => router.replace(`/property/${property.id}`)}
       />

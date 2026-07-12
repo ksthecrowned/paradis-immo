@@ -4,7 +4,9 @@ import {
   canCreateMaintenance,
   canPayRentLine,
   getMockLease,
+  getPrimaryActiveLease,
   leaseStatusLabel,
+  listActiveLeases,
   listMockLeases,
   listRentActivityItems,
   listScheduleForLease,
@@ -18,6 +20,17 @@ describe('mock leases', () => {
     expect(leases.length).toBeGreaterThanOrEqual(2);
     expect(leases.some((l) => l.status === 'ACTIVE')).toBe(true);
     expect(leases.some((l) => l.status === 'TERMINATED')).toBe(true);
+  });
+
+  test('listActiveLeases returns only ACTIVE', () => {
+    const active = listActiveLeases();
+    expect(active.every((l) => l.status === 'ACTIVE')).toBe(true);
+    expect(active.some((l) => l.id === 'lease-1')).toBe(true);
+    expect(active.some((l) => l.id === 'lease-2')).toBe(false);
+  });
+
+  test('getPrimaryActiveLease returns lease-1 in seed data', () => {
+    expect(getPrimaryActiveLease()?.id).toBe('lease-1');
   });
 
   test('active lease has payable line', () => {

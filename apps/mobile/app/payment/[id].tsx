@@ -100,8 +100,8 @@ export default function PaymentScreen(): React.JSX.Element {
       <SuccessScreen
         title="Paiement enregistré"
         message="Paiement en espèces en attente de validation par l’agence. Vous serez notifié une fois confirmé."
-        primaryLabel="Voir mon activité"
-        onPrimary={() => router.replace('/(tabs)/activity')}
+        primaryLabel="Retour aux locations"
+        onPrimary={() => router.replace('/(tabs)/locations')}
         secondaryLabel="Retour au bien"
         onSecondary={() => router.replace(`/property/${property.id}`)}
       />

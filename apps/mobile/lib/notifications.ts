@@ -35,17 +35,18 @@ export function resolveNotificationRoute(
   }
 
   if (data.screen === 'activity') {
-    return { pathname: '/(tabs)/activity' };
+    return { pathname: '/activity' };
   }
 
   const type = data.type;
+  if (type === 'RENT_DUE_SOON' || type === 'RENT_OVERDUE') {
+    return { pathname: '/(tabs)/locations' };
+  }
   if (
     type === 'VISIT_CONFIRMED' ||
-    type === 'RENT_DUE_SOON' ||
-    type === 'RENT_OVERDUE' ||
     type === 'PAYMENT_RECEIPT_READY'
   ) {
-    return { pathname: '/(tabs)/activity' };
+    return { pathname: '/activity' };
   }
 
   return null;

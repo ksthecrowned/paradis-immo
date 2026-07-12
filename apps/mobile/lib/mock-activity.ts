@@ -108,6 +108,31 @@ export function listMockActivity(segment: ActivitySegment): ActivityItem[] {
   return ITEMS.filter((item) => item.segment === segment);
 }
 
+export type ProspectSection = {
+  key: 'upcoming' | 'in_progress';
+  title: string;
+  items: ActivityItem[];
+};
+
+export function listProspectPipeline(): ProspectSection[] {
+  return [
+    {
+      key: 'upcoming',
+      title: 'À venir',
+      items: listMockActivity('visits').filter((item) => item.tone !== 'danger'),
+    },
+    {
+      key: 'in_progress',
+      title: 'En cours',
+      items: [
+        ...listMockActivity('bookings'),
+        ...listMockActivity('sales'),
+        ...listMockActivity('payments'),
+      ].filter((item) => item.tone !== 'danger'),
+    },
+  ];
+}
+
 export const ACTIVITY_TABS: Array<{ key: ActivitySegment; label: string }> = [
   { key: 'visits', label: 'Visites' },
   { key: 'bookings', label: 'Réservations' },

@@ -147,6 +147,16 @@ export function listMockLeases(): MockLease[] {
   return [...LEASES];
 }
 
+export function listActiveLeases(): MockLease[] {
+  return listMockLeases()
+    .filter((lease) => lease.status === 'ACTIVE')
+    .sort((a, b) => b.startDate.localeCompare(a.startDate));
+}
+
+export function getPrimaryActiveLease(): MockLease | undefined {
+  return listActiveLeases()[0];
+}
+
 export function getMockLease(id: string): MockLease | undefined {
   return LEASES.find((lease) => lease.id === id);
 }

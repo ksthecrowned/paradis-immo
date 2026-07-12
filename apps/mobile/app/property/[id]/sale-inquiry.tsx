@@ -88,7 +88,7 @@ export default function SaleInquiryScreen(): React.JSX.Element {
         title="Demande envoyée"
         message="Un conseiller Paradis Immo vous recontactera bientôt au sujet de ce bien."
         primaryLabel="Voir mon activité"
-        onPrimary={() => router.replace('/(tabs)/activity')}
+        onPrimary={() => router.replace('/activity')}
         secondaryLabel="Retour au bien"
         onSecondary={() => router.replace(`/property/${property.id}`)}
       />

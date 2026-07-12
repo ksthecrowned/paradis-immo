@@ -71,14 +71,14 @@ export default function TabsLayout(): React.JSX.Element {
         }}
       />
       <Tabs.Screen
-        name="activity"
+        name="locations"
         options={{
-          title: 'Activité',
-          headerTitle: 'Mon activité',
+          title: 'Locations',
+          headerTitle: 'Locations',
           headerShown: false,
           tabBarIcon: ({ color, size, focused }) => (
             <Ionicons
-              name={focused ? "time-sharp" : "time-outline"}
+              name={focused ? 'key' : 'key-outline'}
               color={color}
               size={size}
             />
