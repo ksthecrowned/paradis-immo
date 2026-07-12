@@ -9,15 +9,8 @@ import {
   type OwnerPaymentRow,
   type OwnerVisitRow,
 } from '@/app/owner/dashboard/owner-dashboard';
-
-interface PublicPayment {
-  id: string;
-  status: string;
-  amount: string;
-  currency: string;
-  method: string;
-  createdAt: string;
-}
+import { listManagedPayments, type PublicPayment } from '@/lib/owner/payments';
+import { fetchOwnerStats } from '@/lib/owner/stats';
 
 interface PublicVisitBooking {
   id: string;
@@ -53,58 +46,62 @@ export default function OwnerDashboardPage(): React.JSX.Element {
     if (!ready) return;
     let cancelled = false;
     (async (): Promise<void> => {
-      try {
-        const [paymentRows, visitRows] = await Promise.all([
-          apiFetch<PublicPayment[]>('/payments/my').catch(() => [] as PublicPayment[]),
-          apiFetch<PublicVisitBooking[]>('/visits/managed').catch(() => [] as PublicVisitBooking[]),
-        ]);
-        if (cancelled) return;
-        const nextCounts: OwnerDashboardCounts = {
-          properties: null,
-          activeLeases: null,
-          pendingPayments: paymentRows.filter(
-            (p) =>
-              p.status === 'PENDING' ||
-              p.status === 'PENDING_VALIDATION' ||
-              p.status === 'FAILED',
-          ).length,
-          visitRequests: visitRows.filter((v) => v.status === 'PENDING').length,
-        };
-        setCounts(nextCounts);
-        setPayments(
-          paymentRows.slice(0, 5).map((p) => ({
-            id: p.id,
-            date: formatDate(p.createdAt),
-            amount: formatMoney(p.amount, p.currency),
-            status: p.status,
-            method: p.method,
-          })),
+      const [statsResult, paymentRows, visitRows] = await Promise.all([
+        fetchOwnerStats()
+          .then((s) => ({ ok: true as const, s }))
+          .catch((err: unknown) => ({ ok: false as const, err })),
+        listManagedPayments().catch(() => [] as PublicPayment[]),
+        apiFetch<PublicVisitBooking[]>('/visits/managed').catch(
+          () => [] as PublicVisitBooking[],
+        ),
+      ]);
+      if (cancelled) return;
+
+      if (!statsResult.ok) {
+        setError(
+          statsResult.err instanceof ApiError
+            ? statsResult.err.message
+            : 'Erreur de chargement des indicateurs',
         );
-        setVisits(
-          visitRows.slice(0, 5).map((v) => ({
-            id: v.id,
-            date: formatDate(v.createdAt),
-            status: v.status,
-            propertyId: v.propertyId,
-          })),
-        );
-      } catch (err) {
-        if (cancelled) return;
-        setError(err instanceof ApiError ? err.message : 'Erreur de chargement');
+        setCounts({
+          activeProperties: 0,
+          activeLeases: 0,
+          pendingPayments: 0,
+          pendingVisitRequests: 0,
+        });
+      } else {
+        setError(null);
+        setCounts({
+          activeProperties: statsResult.s.activeProperties,
+          activeLeases: statsResult.s.activeLeases,
+          pendingPayments: statsResult.s.pendingPayments,
+          pendingVisitRequests: statsResult.s.pendingVisitRequests,
+        });
       }
+
+      setPayments(
+        paymentRows.slice(0, 5).map((p) => ({
+          id: p.id,
+          date: formatDate(p.createdAt),
+          amount: formatMoney(p.amount, p.currency),
+          status: p.status,
+          method: p.method,
+        })),
+      );
+      setVisits(
+        visitRows.slice(0, 5).map((v) => ({
+          id: v.id,
+          date: formatDate(v.createdAt),
+          status: v.status,
+          propertyId: v.propertyId,
+        })),
+      );
     })();
     return () => {
       cancelled = true;
     };
   }, [ready]);
 
-  if (error) {
-    return (
-      <div className="rounded-lg border border-danger/40 bg-danger/10 p-4 text-sm text-danger">
-        {error}
-      </div>
-    );
-  }
   if (!counts) {
     return (
       <div className="animate-pulse space-y-6">
@@ -124,7 +121,15 @@ export default function OwnerDashboardPage(): React.JSX.Element {
       </div>
     );
   }
+
   return (
-    <OwnerDashboard counts={counts} payments={payments} visits={visits} />
+    <>
+      {error ? (
+        <div className="mb-4 rounded-lg border border-danger/40 bg-danger/10 p-4 text-sm text-danger">
+          {error}
+        </div>
+      ) : null}
+      <OwnerDashboard counts={counts} payments={payments} visits={visits} />
+    </>
   );
 }

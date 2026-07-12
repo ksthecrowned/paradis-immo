@@ -14,10 +14,10 @@ import { DASH_CHART_COLORS, DASH_STAT_ICONS } from '@/lib/dash-icons';
 import { ROUTES } from '@/lib/routes';
 
 export interface OwnerDashboardCounts {
-  properties: number | null;
-  activeLeases: number | null;
+  activeProperties: number;
+  activeLeases: number;
   pendingPayments: number;
-  visitRequests: number;
+  pendingVisitRequests: number;
 }
 
 export interface OwnerPaymentRow {
@@ -44,7 +44,8 @@ const SPARKLINES = {
 
 function paymentTone(status: string): 'success' | 'warning' | 'danger' | 'neutral' {
   if (status === 'VALIDATED' || status === 'PAID') return 'success';
-  if (status === 'PENDING_VALIDATION' || status === 'PENDING') return 'warning';
+  if (status === 'PENDING_VALIDATION' || status === 'PENDING' || status === 'INITIATED')
+    return 'warning';
   if (status === 'FAILED') return 'danger';
   return 'neutral';
 }
@@ -53,6 +54,7 @@ function paymentLabel(status: string): string {
   const map: Record<string, string> = {
     VALIDATED: 'Validé',
     PENDING_VALIDATION: 'En attente',
+    INITIATED: 'Initié',
     PENDING: 'En attente',
     FAILED: 'Échoué',
   };
@@ -101,14 +103,14 @@ export function OwnerDashboard({
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
           label="Biens actifs"
-          value={counts.properties ?? 12}
+          value={counts.activeProperties}
           href={ROUTES.owner.properties}
           icon={DASH_STAT_ICONS.buildings}
           sparkline={SPARKLINES.properties}
         />
         <StatCard
           label="Baux actifs"
-          value={counts.activeLeases ?? 8}
+          value={counts.activeLeases}
           href={ROUTES.owner.leases}
           icon={DASH_STAT_ICONS.document}
           sparkline={SPARKLINES.leases}
@@ -124,7 +126,7 @@ export function OwnerDashboard({
         />
         <StatCard
           label="Demandes de visite"
-          value={counts.visitRequests}
+          value={counts.pendingVisitRequests}
           href={ROUTES.owner.visits}
           icon={DASH_STAT_ICONS.calendar}
           sparkline={SPARKLINES.visits}
@@ -132,15 +134,18 @@ export function OwnerDashboard({
         />
       </div>
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
-        <div className="xl:col-span-5">
-          <RevenueChart />
-        </div>
-        <div className="xl:col-span-4">
-          <PropertyModeChart />
-        </div>
-        <div className="xl:col-span-3">
-          <SessionsMapCard />
+      <div className="space-y-2">
+        <p className="text-xs text-muted">Aperçu (données démo)</p>
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
+          <div className="xl:col-span-5">
+            <RevenueChart />
+          </div>
+          <div className="xl:col-span-4">
+            <PropertyModeChart />
+          </div>
+          <div className="xl:col-span-3">
+            <SessionsMapCard />
+          </div>
         </div>
       </div>
 
