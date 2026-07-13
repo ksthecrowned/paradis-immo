@@ -1,4 +1,8 @@
-import { ForbiddenException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import {
   MessageChannel,
@@ -259,6 +263,40 @@ describe('PaymentsService', () => {
     expect(payment.status).toBe('PENDING_VALIDATION');
     expect(payment.method).toBe('CASH');
     expect(payment.provider).toBeNull();
+  });
+
+  it('initiatePayment stores rentScheduleId in metadata without allocations', async () => {
+    const payment = await payments.initiatePayment({
+      userId: tenantUserId,
+      amount: '150000',
+      currency: 'XAF',
+      method: 'CASH',
+      idempotencyKey: `cash-${Date.now()}-meta-sched`,
+      rentScheduleId,
+    });
+    createdPaymentIds.push(payment.id);
+
+    expect(payment.status).toBe('PENDING_VALIDATION');
+    expect(payment.allocations).toHaveLength(0);
+
+    const row = await prisma.payment.findUniqueOrThrow({
+      where: { id: payment.id },
+    });
+    const meta = (row.metadata ?? {}) as { rentScheduleId?: string };
+    expect(meta.rentScheduleId).toBe(rentScheduleId);
+  });
+
+  it('initiatePayment rejects unknown rentScheduleId', async () => {
+    await expect(
+      payments.initiatePayment({
+        userId: tenantUserId,
+        amount: '150000',
+        currency: 'XAF',
+        method: 'CASH',
+        idempotencyKey: `cash-${Date.now()}-bad-sched`,
+        rentScheduleId: '00000000-0000-0000-0000-000000000099',
+      }),
+    ).rejects.toBeInstanceOf(NotFoundException);
   });
 
   it('agent validates cash payment → VALIDATED + emits PAYMENT_VALIDATED', async () => {

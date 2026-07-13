@@ -28,6 +28,7 @@ export interface InitiatePaymentInput {
   provider?: 'AIRTEL' | 'MOMO';
   phone?: string;
   idempotencyKey: string;
+  rentScheduleId?: string;
   metadata?: Record<string, unknown>;
 }
 
@@ -92,6 +93,19 @@ export class PaymentsService {
     });
     if (existing) return this.toPublic(existing);
 
+    if (input.rentScheduleId) {
+      const schedule = await this.prisma.rentSchedule.findUnique({
+        where: { id: input.rentScheduleId },
+        select: { id: true },
+      });
+      if (!schedule) {
+        throw new NotFoundException({
+          code: 'RENT_SCHEDULE_NOT_FOUND',
+          message: 'Rent schedule does not exist',
+        });
+      }
+    }
+
     const debt = await this.messaging.openBalanceXaf(
       MessagePayerType.USER,
       input.userId,
@@ -107,6 +121,9 @@ export class PaymentsService {
     const total = base + debt;
     const metadata: PaymentMetadata = {
       ...(input.metadata ?? {}),
+      ...(input.rentScheduleId
+        ? { rentScheduleId: input.rentScheduleId }
+        : {}),
       ...(debt > 0
         ? {
             messagingDebtXaf: debt,

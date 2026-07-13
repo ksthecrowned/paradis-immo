@@ -35,6 +35,7 @@ class InitiatePaymentDto {
   @IsOptional() @IsIn(['AIRTEL', 'MOMO']) provider?: 'AIRTEL' | 'MOMO';
   @IsOptional() @IsString() phone?: string;
   @IsString() idempotencyKey!: string;
+  @IsOptional() @IsString() rentScheduleId?: string;
 }
 
 class AllocationDto {
