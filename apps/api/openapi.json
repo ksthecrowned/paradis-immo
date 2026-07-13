@@ -2053,6 +2053,35 @@
         ]
       }
     },
+    "/api/v1/payments/{id}": {
+      "get": {
+        "operationId": "PaymentsController_getOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get a payment by id",
+        "tags": [
+          "Payments"
+        ]
+      }
+    },
     "/api/v1/payments/webhooks/mobile-money": {
       "post": {
         "operationId": "PaymentsController_webhook",
