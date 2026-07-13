@@ -52,6 +52,15 @@ export class LeasesController {
     return this.leases.listMyLeases(current.userId);
   }
 
+  @Get(':id')
+  @ApiOperation({ summary: 'Get a lease by id (manager or tenant)' })
+  getOne(
+    @CurrentUser() current: AuthenticatedUser,
+    @Param('id') id: string,
+  ) {
+    return this.leases.getOne(current.userId, id);
+  }
+
   @Post(':id/request-sign')
   @HttpCode(201)
   @ApiOperation({
@@ -72,7 +81,10 @@ export class LeasesController {
 
   @Get(':id/schedule')
   @ApiOperation({ summary: 'Get the rent schedule for a lease' })
-  schedule(@Param('id') id: string) {
-    return this.leases.getSchedule(id);
+  schedule(
+    @CurrentUser() current: AuthenticatedUser,
+    @Param('id') id: string,
+  ) {
+    return this.leases.getSchedule(current.userId, id);
   }
 }

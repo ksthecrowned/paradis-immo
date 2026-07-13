@@ -264,7 +264,30 @@ export class LeasesService {
     return this.toPublic(updated);
   }
 
-  async getSchedule(leaseId: string): Promise<PublicRentScheduleEntry[]> {
+  async getOne(userId: string, leaseId: string): Promise<PublicLease> {
+    const lease = await this.prisma.lease.findUnique({ where: { id: leaseId } });
+    if (!lease) {
+      throw new NotFoundException({
+        code: 'LEASE_NOT_FOUND',
+        message: 'Lease does not exist',
+      });
+    }
+    await this.assertCanReadLease(userId, lease);
+    return this.toPublic(lease);
+  }
+
+  async getSchedule(
+    userId: string,
+    leaseId: string,
+  ): Promise<PublicRentScheduleEntry[]> {
+    const lease = await this.prisma.lease.findUnique({ where: { id: leaseId } });
+    if (!lease) {
+      throw new NotFoundException({
+        code: 'LEASE_NOT_FOUND',
+        message: 'Lease does not exist',
+      });
+    }
+    await this.assertCanReadLease(userId, lease);
     const rows = await this.prisma.rentSchedule.findMany({
       where: { leaseId },
       orderBy: { dueDate: 'asc' },
@@ -322,5 +345,16 @@ export class LeasesService {
     propertyId: string,
   ): Promise<void> {
     await this.agencyAccess.assertCanOperateOnProperty(userId, propertyId);
+  }
+
+  private async assertCanReadLease(
+    userId: string,
+    lease: Pick<Lease, 'propertyId' | 'tenantId'>,
+  ): Promise<void> {
+    if (lease.tenantId === userId) return;
+    await this.agencyAccess.assertCanOperateOnProperty(
+      userId,
+      lease.propertyId,
+    );
   }
 }

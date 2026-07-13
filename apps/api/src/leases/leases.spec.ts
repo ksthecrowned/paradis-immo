@@ -1,4 +1,5 @@
 import { Test } from '@nestjs/testing';
+import { ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { EventPublisher } from '../events/event.publisher';
 import { LeasesService } from './leases.service';
@@ -238,5 +239,89 @@ describe('LeasesService — schedule generation', () => {
     expect(found?.propertyId).toBe(propertyId);
     expect(found?.tenantId).toBe(tenantUserId);
     expect(found?.status).toBe('DRAFT');
+  });
+
+  it('getOne returns the lease for the property owner', async () => {
+    const lease = await leases.createLease(ownerUserId, {
+      propertyId,
+      tenantId: tenantUserId,
+      startDate: new Date('2027-01-01T00:00:00Z'),
+      endDate: new Date('2027-06-30T00:00:00Z'),
+      monthlyRent: '100000',
+      currency: 'XAF',
+      deposit: '200000',
+    });
+    createdLeaseIds.push(lease.id);
+    const got = await leases.getOne(ownerUserId, lease.id);
+    expect(got.id).toBe(lease.id);
+    expect(got.propertyId).toBe(propertyId);
+  });
+
+  it('getOne allows the tenant', async () => {
+    const lease = await leases.createLease(ownerUserId, {
+      propertyId,
+      tenantId: tenantUserId,
+      startDate: new Date('2027-07-01T00:00:00Z'),
+      endDate: new Date('2027-12-31T00:00:00Z'),
+      monthlyRent: '110000',
+      currency: 'XAF',
+      deposit: '220000',
+    });
+    createdLeaseIds.push(lease.id);
+    const got = await leases.getOne(tenantUserId, lease.id);
+    expect(got.id).toBe(lease.id);
+  });
+
+  it('getOne forbids a stranger', async () => {
+    const lease = await leases.createLease(ownerUserId, {
+      propertyId,
+      tenantId: tenantUserId,
+      startDate: new Date('2028-01-01T00:00:00Z'),
+      endDate: new Date('2028-03-31T00:00:00Z'),
+      monthlyRent: '90000',
+      currency: 'XAF',
+      deposit: '180000',
+    });
+    createdLeaseIds.push(lease.id);
+    const stranger = await prisma.user.create({
+      data: {
+        phone: `+24207${String(Date.now()).slice(-7)}`,
+        countryId,
+        name: 'Lease Stranger',
+      },
+    });
+    await expect(leases.getOne(stranger.id, lease.id)).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
+    await prisma.user
+      .delete({ where: { id: stranger.id } })
+      .catch(() => undefined);
+  });
+
+  it('getSchedule forbids a stranger', async () => {
+    const lease = await leases.createLease(ownerUserId, {
+      propertyId,
+      tenantId: tenantUserId,
+      startDate: new Date('2028-04-01T00:00:00Z'),
+      endDate: new Date('2028-06-30T00:00:00Z'),
+      monthlyRent: '95000',
+      currency: 'XAF',
+      deposit: '190000',
+    });
+    createdLeaseIds.push(lease.id);
+    await leases.activateLease(ownerUserId, lease.id);
+    const stranger = await prisma.user.create({
+      data: {
+        phone: `+24207${String(Date.now()).slice(-6)}9`,
+        countryId,
+        name: 'Schedule Stranger',
+      },
+    });
+    await expect(
+      leases.getSchedule(stranger.id, lease.id),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    await prisma.user
+      .delete({ where: { id: stranger.id } })
+      .catch(() => undefined);
   });
 });
