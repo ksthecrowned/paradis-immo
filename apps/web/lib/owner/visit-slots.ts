@@ -91,6 +91,36 @@ export async function listAvailableSlots(
   );
 }
 
+export async function openSlot(
+  propertyId: string,
+  body: { startAt: string; endAt: string },
+): Promise<PublicVisitSlot> {
+  return apiFetch<PublicVisitSlot>(
+    `/properties/${propertyId}/visit-slots/open`,
+    { method: 'POST', body },
+  );
+}
+
+export async function unblockSlot(slotId: string): Promise<PublicVisitSlot> {
+  return apiFetch<PublicVisitSlot>(`/visit-slots/${slotId}/unblock`, {
+    method: 'POST',
+  });
+}
+
+export async function listManagedSlots(
+  propertyId: string,
+  from?: string,
+  to?: string,
+): Promise<PublicVisitSlot[]> {
+  const params = new URLSearchParams();
+  if (from) params.set('from', from);
+  if (to) params.set('to', to);
+  const qs = params.toString();
+  return apiFetch<PublicVisitSlot[]>(
+    `/properties/${propertyId}/visit-slots/managed${qs ? `?${qs}` : ''}`,
+  );
+}
+
 export function slotStatusLabel(status: string): string {
   const map: Record<string, string> = {
     AVAILABLE: 'Disponible',
