@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   DashboardPageHeader,
@@ -17,6 +18,7 @@ import {
   type PublicMaintenanceTicket,
 } from '@/lib/owner/maintenance';
 import { listMyProperties } from '@/lib/owner/properties';
+import { ROUTES } from '@/lib/routes';
 import { useRequireSession } from '@/hooks/use-require-session';
 
 function formatDate(iso: string): string {
@@ -148,7 +150,7 @@ export function OwnerMaintenancePage(): React.JSX.Element {
           { value: 'OPEN', label: 'Ouvert' },
           { value: 'ASSIGNED', label: 'Assigné' },
           { value: 'IN_PROGRESS', label: 'En cours' },
-          { value: 'RESOLVED', label: 'Résolu' },
+          { value: 'DONE', label: 'Terminé' },
           { value: 'CLOSED', label: 'Fermé' },
         ],
         render: (value) => (
@@ -162,12 +164,19 @@ export function OwnerMaintenancePage(): React.JSX.Element {
     [],
   );
 
+  if (!ready) {
+    return <p className="text-sm text-muted">Chargement de la session…</p>;
+  }
+
   return (
     <section className="space-y-6">
       <DashboardPageHeader title="Maintenance" />
 
       {error ? (
-        <div className="rounded-xl border border-danger/40 bg-danger/10 px-4 py-3 text-sm text-danger">
+        <div
+          role="alert"
+          className="rounded-xl border border-danger/40 bg-danger/10 px-4 py-3 text-sm text-danger"
+        >
           {error}
         </div>
       ) : null}

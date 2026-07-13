@@ -31,7 +31,7 @@ const STATUS_OPTIONS = [
   'OPEN',
   'ASSIGNED',
   'IN_PROGRESS',
-  'RESOLVED',
+  'DONE',
   'CLOSED',
 ] as const;
 
