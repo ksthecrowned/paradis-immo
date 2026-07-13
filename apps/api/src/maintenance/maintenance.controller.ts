@@ -87,11 +87,25 @@ export class MaintenanceController {
     return this.maintenance.listForActor(current.userId);
   }
 
+  @Get('maintenance/tickets/:id')
+  @UseGuards(AppAuthGuard)
+  @ApiOperation({ summary: 'Get a maintenance ticket by id' })
+  getOne(
+    @CurrentUser() current: AuthenticatedUser,
+    @Param('id') id: string,
+  ) {
+    return this.maintenance.getOne(current.userId, id);
+  }
+
   @Patch('maintenance/tickets/:id')
   @UseGuards(AppAuthGuard)
   @ApiOperation({ summary: 'Update a ticket status or estimated cost' })
-  update(@Param('id') id: string, @Body() dto: UpdateTicketDto) {
-    return this.maintenance.updateTicket(id, {
+  update(
+    @CurrentUser() current: AuthenticatedUser,
+    @Param('id') id: string,
+    @Body() dto: UpdateTicketDto,
+  ) {
+    return this.maintenance.updateTicket(current.userId, id, {
       status: dto.status,
       estimatedCost: dto.estimatedCost,
     });
@@ -100,7 +114,15 @@ export class MaintenanceController {
   @Patch('maintenance/tickets/:id/assign')
   @UseGuards(AppAuthGuard)
   @ApiOperation({ summary: 'Assign a ticket to a technician' })
-  assign(@Param('id') id: string, @Body() dto: AssignTicketDto) {
-    return this.maintenance.assignTicket(id, dto.assigneeId);
+  assign(
+    @CurrentUser() current: AuthenticatedUser,
+    @Param('id') id: string,
+    @Body() dto: AssignTicketDto,
+  ) {
+    return this.maintenance.assignTicket(
+      current.userId,
+      id,
+      dto.assigneeId,
+    );
   }
 }

@@ -1,10 +1,11 @@
 import { Test } from '@nestjs/testing';
-import { NotFoundException } from '@nestjs/common';
+import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { MaintenancePriority, MaintenanceStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { EventPublisher } from '../events/event.publisher';
 import { MandateApprovalService } from '../mandates/mandate-approval.service';
 import { MandatesService } from '../mandates/mandates.service';
+import { AgencyAccessService } from '../mandates/agency-access.service';
 import { MaintenanceService } from './maintenance.service';
 
 describe('MaintenanceService', () => {
@@ -37,6 +38,7 @@ describe('MaintenanceService', () => {
         MaintenanceService,
         MandateApprovalService,
         MandatesService,
+        AgencyAccessService,
         PrismaService,
         { provide: EventPublisher, useValue: eventBus },
       ],
@@ -293,9 +295,91 @@ describe('MaintenanceService', () => {
     });
     createdTicketIds.push(t.id);
 
-    const assigned = await maintenance.assignTicket(t.id, agentUserId);
+    const assigned = await maintenance.assignTicket(
+      ownerUserId,
+      t.id,
+      agentUserId,
+    );
     expect(assigned.status).toBe(MaintenanceStatus.ASSIGNED);
     expect(assigned.assigneeId).toBe(agentUserId);
+  });
+
+  it('getOne returns ticket for property owner', async () => {
+    const t = await maintenance.createTicket({
+      propertyId: rentPropertyId,
+      reporterId: tenantUserId,
+      title: 'Fuite',
+      description: 'Cuisine',
+    });
+    createdTicketIds.push(t.id);
+    const got = await maintenance.getOne(ownerUserId, t.id);
+    expect(got.id).toBe(t.id);
+  });
+
+  it('getOne allows the reporter', async () => {
+    const t = await maintenance.createTicket({
+      propertyId: rentPropertyId,
+      reporterId: tenantUserId,
+      title: 'Prise',
+      description: 'Salon',
+    });
+    createdTicketIds.push(t.id);
+    const got = await maintenance.getOne(tenantUserId, t.id);
+    expect(got.id).toBe(t.id);
+  });
+
+  it('getOne forbids a stranger', async () => {
+    const t = await maintenance.createTicket({
+      propertyId: rentPropertyId,
+      reporterId: tenantUserId,
+      title: 'X',
+      description: 'Y',
+    });
+    createdTicketIds.push(t.id);
+    const stranger = await prisma.user.create({
+      data: {
+        phone: `+24209${String(Date.now()).slice(-7)}`,
+        countryId,
+        name: 'Maint Stranger',
+      },
+    });
+    await expect(maintenance.getOne(stranger.id, t.id)).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
+    await prisma.user
+      .delete({ where: { id: stranger.id } })
+      .catch(() => undefined);
+  });
+
+  it('updateTicket forbids reporter who is not manager', async () => {
+    const t = await maintenance.createTicket({
+      propertyId: rentPropertyId,
+      reporterId: tenantUserId,
+      title: 'Z',
+      description: 'Z',
+    });
+    createdTicketIds.push(t.id);
+    await expect(
+      maintenance.updateTicket(tenantUserId, t.id, {
+        status: MaintenanceStatus.IN_PROGRESS,
+      }),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it('updateTicket allows owner to set status and cost', async () => {
+    const t = await maintenance.createTicket({
+      propertyId: rentPropertyId,
+      reporterId: tenantUserId,
+      title: 'Peinture',
+      description: 'Mur',
+    });
+    createdTicketIds.push(t.id);
+    const updated = await maintenance.updateTicket(ownerUserId, t.id, {
+      status: MaintenanceStatus.IN_PROGRESS,
+      estimatedCost: 75000,
+    });
+    expect(updated.status).toBe(MaintenanceStatus.IN_PROGRESS);
+    expect(updated.estimatedCost).toBe('75000');
   });
 
   it('listForActor returns tickets on properties the actor owns', async () => {

@@ -13,6 +13,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { EventPublisher } from '../events/event.publisher';
 import { DOMAIN_EVENTS } from '../events/event.types';
 import { MandateApprovalService } from '../mandates/mandate-approval.service';
+import { AgencyAccessService } from '../mandates/agency-access.service';
 
 /**
  * MVP rule: URGENT priority combined with an estimated cost above this
@@ -64,6 +65,7 @@ export class MaintenanceService {
     private readonly prisma: PrismaService,
     private readonly events: EventPublisher,
     private readonly approvals: MandateApprovalService,
+    private readonly agencyAccess: AgencyAccessService,
   ) {}
 
   async createTicket(
@@ -131,7 +133,25 @@ export class MaintenanceService {
     return this.toPublic(ticket);
   }
 
+  async getOne(
+    userId: string,
+    ticketId: string,
+  ): Promise<PublicMaintenanceTicket> {
+    const ticket = await this.prisma.maintenanceTicket.findUnique({
+      where: { id: ticketId },
+    });
+    if (!ticket) {
+      throw new NotFoundException({
+        code: 'TICKET_NOT_FOUND',
+        message: 'Ticket does not exist',
+      });
+    }
+    await this.assertCanReadTicket(userId, ticket);
+    return this.toPublic(ticket);
+  }
+
   async updateTicket(
+    userId: string,
     ticketId: string,
     input: UpdateMaintenanceTicketInput,
   ): Promise<PublicMaintenanceTicket> {
@@ -144,6 +164,10 @@ export class MaintenanceService {
         message: 'Ticket does not exist',
       });
     }
+    await this.agencyAccess.assertCanOperateOnProperty(
+      userId,
+      existing.propertyId,
+    );
     const updated = await this.prisma.maintenanceTicket.update({
       where: { id: ticketId },
       data: {
@@ -157,6 +181,7 @@ export class MaintenanceService {
   }
 
   async assignTicket(
+    userId: string,
     ticketId: string,
     assigneeId: string,
   ): Promise<PublicMaintenanceTicket> {
@@ -169,6 +194,10 @@ export class MaintenanceService {
         message: 'Ticket does not exist',
       });
     }
+    await this.agencyAccess.assertCanOperateOnProperty(
+      userId,
+      existing.propertyId,
+    );
     const assignee = await this.prisma.user.findUnique({
       where: { id: assigneeId },
       select: { id: true },
@@ -237,6 +266,17 @@ export class MaintenanceService {
     if (input.priority !== MaintenancePriority.URGENT) return false;
     if (input.estimatedCost === undefined) return false;
     return input.estimatedCost > URGENT_APPROVAL_THRESHOLD_XAF;
+  }
+
+  private async assertCanReadTicket(
+    userId: string,
+    ticket: Pick<MaintenanceTicket, 'propertyId' | 'reporterId'>,
+  ): Promise<void> {
+    if (ticket.reporterId === userId) return;
+    await this.agencyAccess.assertCanOperateOnProperty(
+      userId,
+      ticket.propertyId,
+    );
   }
 
   private toPublic(t: MaintenanceTicket): PublicMaintenanceTicket {
