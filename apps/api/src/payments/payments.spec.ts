@@ -333,6 +333,53 @@ describe('PaymentsService', () => {
     expect(schedule?.status).toBe('PAID');
   });
 
+  it('owner validates cash with empty allocations using metadata.rentScheduleId', async () => {
+    // Reset schedule to PENDING if previous test marked it PAID.
+    await prisma.rentSchedule.update({
+      where: { id: rentScheduleId },
+      data: { status: 'PENDING' },
+    });
+    await prisma.paymentAllocation.deleteMany({
+      where: { rentScheduleId },
+    });
+
+    const payment = await payments.initiatePayment({
+      userId: tenantUserId,
+      amount: '150000',
+      currency: 'XAF',
+      method: 'CASH',
+      idempotencyKey: `cash-${Date.now()}-owner-meta`,
+      rentScheduleId,
+    });
+    createdPaymentIds.push(payment.id);
+
+    const validated = await payments.validateCashPayment(
+      ownerUserId,
+      payment.id,
+      [],
+    );
+    expect(validated.status).toBe('VALIDATED');
+    expect(validated.validatedBy).toBe(ownerUserId);
+    expect(
+      validated.allocations.some((a) => a.rentScheduleId === rentScheduleId),
+    ).toBe(true);
+  });
+
+  it('validateCashPayment without allocations or metadata rejects with BadRequest', async () => {
+    const payment = await payments.initiatePayment({
+      userId: tenantUserId,
+      amount: '150000',
+      currency: 'XAF',
+      method: 'CASH',
+      idempotencyKey: `cash-${Date.now()}-no-alloc`,
+    });
+    createdPaymentIds.push(payment.id);
+
+    await expect(
+      payments.validateCashPayment(ownerUserId, payment.id, []),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
   it('lists cash payments awaiting manual validation', async () => {
     const payment = await payments.initiatePayment({
       userId: tenantUserId,

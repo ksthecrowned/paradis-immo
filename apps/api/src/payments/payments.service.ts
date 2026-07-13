@@ -196,7 +196,47 @@ export class PaymentsService {
       });
     }
 
-    const firstAlloc = allocations.find(
+    const meta = (payment.metadata ?? {}) as PaymentMetadata;
+    const messagingDebt = Number(meta.messagingDebtXaf ?? 0);
+    const messagingChargeIds = Array.isArray(meta.messagingChargeIds)
+      ? meta.messagingChargeIds
+      : [];
+
+    const finalAllocations: PaymentAllocationInput[] = [...allocations];
+    const hasRentAlloc = finalAllocations.some(
+      (a) => a.type === 'RENT_SCHEDULE' && a.rentScheduleId,
+    );
+    if (!hasRentAlloc) {
+      const scheduleId =
+        typeof meta.rentScheduleId === 'string' ? meta.rentScheduleId : null;
+      if (!scheduleId) {
+        throw new BadRequestException({
+          code: 'PAYMENT_ALLOCATION_REQUIRED',
+          message:
+            'Rent schedule allocation is required (body or payment metadata)',
+        });
+      }
+      const rentAmount = Number(payment.amount) - messagingDebt;
+      finalAllocations.push({
+        type: AllocatableType.RENT_SCHEDULE,
+        refId: scheduleId,
+        rentScheduleId: scheduleId,
+        amount: rentAmount,
+      });
+    }
+
+    if (
+      messagingDebt > 0 &&
+      !finalAllocations.some((a) => a.type === AllocatableType.MESSAGING_DEBT)
+    ) {
+      finalAllocations.push({
+        type: AllocatableType.MESSAGING_DEBT,
+        refId: payment.userId,
+        amount: messagingDebt,
+      });
+    }
+
+    const firstAlloc = finalAllocations.find(
       (a) => a.type === 'RENT_SCHEDULE' && a.rentScheduleId,
     );
     let property: { ownerId: string; organizationId: string } | null = null;
@@ -246,24 +286,6 @@ export class PaymentsService {
             'Only the property owner or an agent of the managing org can validate this payment',
         });
       }
-    }
-
-    const meta = (payment.metadata ?? {}) as PaymentMetadata;
-    const messagingDebt = Number(meta.messagingDebtXaf ?? 0);
-    const messagingChargeIds = Array.isArray(meta.messagingChargeIds)
-      ? meta.messagingChargeIds
-      : [];
-
-    const finalAllocations: PaymentAllocationInput[] = [...allocations];
-    if (
-      messagingDebt > 0 &&
-      !finalAllocations.some((a) => a.type === AllocatableType.MESSAGING_DEBT)
-    ) {
-      finalAllocations.push({
-        type: AllocatableType.MESSAGING_DEBT,
-        refId: payment.userId,
-        amount: messagingDebt,
-      });
     }
 
     const updated = await this.prisma.$transaction(async (tx) => {
