@@ -113,6 +113,17 @@ export class PaymentsController {
     return this.payments.listManaged(current.userId);
   }
 
+  @Get('payments/:id')
+  @UseGuards(AppAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get a payment by id' })
+  getOne(
+    @CurrentUser() current: AuthenticatedUser,
+    @Param('id') id: string,
+  ) {
+    return this.payments.getOne(current.userId, id);
+  }
+
   @Post('payments/webhooks/mobile-money')
   @HttpCode(200)
   @ApiOperation({ summary: 'Mobile money provider webhook' })

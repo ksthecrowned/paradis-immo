@@ -418,10 +418,99 @@ export class PaymentsService {
 
   /**
    * Payments on properties the user owns or manages (via an organization
-   * membership). Walks the chain properties → leases → rent schedules →
-   * payment allocations → payments.
+   * membership). Union of allocated payments and pending cash linked to the
+   * portfolio (metadata.rentScheduleId or payer ACTIVE lease).
    */
   async listManaged(userId: string): Promise<PublicPayment[]> {
+    const propertyIds = await this.accessiblePropertyIds(userId);
+    if (propertyIds.length === 0) return [];
+
+    const leases = await this.prisma.lease.findMany({
+      where: { propertyId: { in: propertyIds } },
+      select: { id: true, tenantId: true, status: true },
+    });
+    const leaseIds = leases.map((l) => l.id);
+    const activeTenantIds = [
+      ...new Set(
+        leases
+          .filter((l) => l.status === 'ACTIVE')
+          .map((l) => l.tenantId),
+      ),
+    ];
+
+    const schedules =
+      leaseIds.length === 0
+        ? []
+        : await this.prisma.rentSchedule.findMany({
+            where: { leaseId: { in: leaseIds } },
+            select: { id: true },
+          });
+    const scheduleIds = schedules.map((s) => s.id);
+    const scheduleIdSet = new Set(scheduleIds);
+    const tenantIdSet = new Set(activeTenantIds);
+
+    const allocatedIds =
+      scheduleIds.length === 0
+        ? []
+        : (
+            await this.prisma.paymentAllocation.findMany({
+              where: { rentScheduleId: { in: scheduleIds } },
+              select: { paymentId: true },
+              distinct: ['paymentId'],
+              take: 500,
+            })
+          ).map((a) => a.paymentId);
+
+    const pendingRows = await this.prisma.payment.findMany({
+      where: {
+        method: 'CASH',
+        status: PaymentStatus.PENDING_VALIDATION,
+      },
+      include: { allocations: true },
+      orderBy: { createdAt: 'desc' },
+      take: 500,
+    });
+    const pendingIds = pendingRows
+      .filter((p) => {
+        const meta = (p.metadata ?? {}) as PaymentMetadata;
+        if (
+          typeof meta.rentScheduleId === 'string' &&
+          scheduleIdSet.has(meta.rentScheduleId)
+        ) {
+          return true;
+        }
+        return tenantIdSet.has(p.userId);
+      })
+      .map((p) => p.id);
+
+    const paymentIds = Array.from(new Set([...allocatedIds, ...pendingIds]));
+    if (paymentIds.length === 0) return [];
+
+    const rows = await this.prisma.payment.findMany({
+      where: { id: { in: paymentIds } },
+      include: { allocations: true },
+      orderBy: { createdAt: 'desc' },
+      take: 200,
+    });
+    return rows.map((p) => this.toPublic(p));
+  }
+
+  async getOne(userId: string, paymentId: string): Promise<PublicPayment> {
+    const payment = await this.prisma.payment.findUnique({
+      where: { id: paymentId },
+      include: { allocations: true },
+    });
+    if (!payment) {
+      throw new NotFoundException({
+        code: 'PAYMENT_NOT_FOUND',
+        message: 'Payment does not exist',
+      });
+    }
+    await this.assertCanReadPayment(userId, payment);
+    return this.toPublic(payment);
+  }
+
+  private async accessiblePropertyIds(userId: string): Promise<string[]> {
     const accessible = await this.prisma.property.findMany({
       where: {
         OR: [
@@ -436,39 +525,57 @@ export class PaymentsService {
       select: { id: true },
       take: 500,
     });
-    const propertyIds = accessible.map((p) => p.id);
-    if (propertyIds.length === 0) return [];
+    return accessible.map((p) => p.id);
+  }
 
-    const leases = await this.prisma.lease.findMany({
-      where: { propertyId: { in: propertyIds } },
+  private async assertCanReadPayment(
+    userId: string,
+    payment: Payment & { allocations: PaymentAllocation[] },
+  ): Promise<void> {
+    if (payment.userId === userId) return;
+
+    const meta = (payment.metadata ?? {}) as PaymentMetadata;
+    const scheduleIds = new Set<string>();
+    for (const a of payment.allocations) {
+      if (a.rentScheduleId) scheduleIds.add(a.rentScheduleId);
+    }
+    if (typeof meta.rentScheduleId === 'string') {
+      scheduleIds.add(meta.rentScheduleId);
+    }
+
+    const propertyIds = await this.accessiblePropertyIds(userId);
+    if (propertyIds.length === 0) {
+      throw new ForbiddenException({
+        code: 'PAYMENT_FORBIDDEN',
+        message: 'You are not authorized to read this payment',
+      });
+    }
+
+    if (scheduleIds.size > 0) {
+      const hit = await this.prisma.rentSchedule.findFirst({
+        where: {
+          id: { in: [...scheduleIds] },
+          lease: { propertyId: { in: propertyIds } },
+        },
+        select: { id: true },
+      });
+      if (hit) return;
+    }
+
+    const activeLease = await this.prisma.lease.findFirst({
+      where: {
+        tenantId: payment.userId,
+        status: 'ACTIVE',
+        propertyId: { in: propertyIds },
+      },
       select: { id: true },
     });
-    const leaseIds = leases.map((l) => l.id);
-    if (leaseIds.length === 0) return [];
+    if (activeLease) return;
 
-    const schedules = await this.prisma.rentSchedule.findMany({
-      where: { leaseId: { in: leaseIds } },
-      select: { id: true },
+    throw new ForbiddenException({
+      code: 'PAYMENT_FORBIDDEN',
+      message: 'You are not authorized to read this payment',
     });
-    const scheduleIds = schedules.map((s) => s.id);
-    if (scheduleIds.length === 0) return [];
-
-    const allocations = await this.prisma.paymentAllocation.findMany({
-      where: { rentScheduleId: { in: scheduleIds } },
-      select: { paymentId: true },
-      distinct: ['paymentId'],
-      take: 500,
-    });
-    const paymentIds = Array.from(new Set(allocations.map((a) => a.paymentId)));
-    if (paymentIds.length === 0) return [];
-
-    const rows = await this.prisma.payment.findMany({
-      where: { id: { in: paymentIds } },
-      include: { allocations: true },
-      orderBy: { createdAt: 'desc' },
-      take: 200,
-    });
-    return rows.map((p) => this.toPublic(p));
   }
 
   private async maybeMarkRentSchedulePaid(

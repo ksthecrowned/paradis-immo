@@ -510,6 +510,77 @@ describe('PaymentsService', () => {
     expect(managed).toEqual([]);
   });
 
+  it('listManaged includes pending cash linked by metadata.rentScheduleId', async () => {
+    const payment = await payments.initiatePayment({
+      userId: tenantUserId,
+      amount: '150000',
+      currency: 'XAF',
+      method: 'CASH',
+      idempotencyKey: `cash-${Date.now()}-pending-managed`,
+      rentScheduleId,
+    });
+    createdPaymentIds.push(payment.id);
+
+    const managed = await payments.listManaged(ownerUserId);
+    expect(managed.some((p) => p.id === payment.id)).toBe(true);
+  });
+
+  it('getOne returns payment for owner of linked property', async () => {
+    const payment = await payments.initiatePayment({
+      userId: tenantUserId,
+      amount: '150000',
+      currency: 'XAF',
+      method: 'CASH',
+      idempotencyKey: `cash-${Date.now()}-getone-owner`,
+      rentScheduleId,
+    });
+    createdPaymentIds.push(payment.id);
+
+    const got = await payments.getOne(ownerUserId, payment.id);
+    expect(got.id).toBe(payment.id);
+  });
+
+  it('getOne returns payment for the payer', async () => {
+    const payment = await payments.initiatePayment({
+      userId: tenantUserId,
+      amount: '150000',
+      currency: 'XAF',
+      method: 'CASH',
+      idempotencyKey: `cash-${Date.now()}-getone-payer`,
+      rentScheduleId,
+    });
+    createdPaymentIds.push(payment.id);
+
+    const got = await payments.getOne(tenantUserId, payment.id);
+    expect(got.id).toBe(payment.id);
+  });
+
+  it('getOne forbids a stranger', async () => {
+    const payment = await payments.initiatePayment({
+      userId: tenantUserId,
+      amount: '150000',
+      currency: 'XAF',
+      method: 'CASH',
+      idempotencyKey: `cash-${Date.now()}-getone-stranger`,
+      rentScheduleId,
+    });
+    createdPaymentIds.push(payment.id);
+
+    const stranger = await prisma.user.create({
+      data: {
+        phone: `+24209${String(Date.now()).slice(-7)}`,
+        countryId,
+        name: 'Pay Stranger',
+      },
+    });
+    await expect(
+      payments.getOne(stranger.id, payment.id),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    await prisma.user
+      .delete({ where: { id: stranger.id } })
+      .catch(() => undefined);
+  });
+
   it('initiatePayment adds OPEN messaging debt to amount and allocation metadata', async () => {
     await prisma.messageCharge.deleteMany({
       where: {
