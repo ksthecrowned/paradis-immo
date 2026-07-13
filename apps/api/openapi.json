@@ -1513,6 +1513,35 @@
         ]
       }
     },
+    "/api/v1/leases/{id}": {
+      "get": {
+        "operationId": "LeasesController_getOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get a lease by id (manager or tenant)",
+        "tags": [
+          "Leases"
+        ]
+      }
+    },
     "/api/v1/leases/{id}/request-sign": {
       "post": {
         "operationId": "LeasesController_requestSign",
