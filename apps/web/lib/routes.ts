@@ -13,6 +13,7 @@ export const ROUTES = {
     visitSlots: (id: string) => `/owner/properties/${id}/visit-slots`,
     visits: '/owner/visits',
     leases: '/owner/leases',
+    leasesAdd: '/owner/leases/add',
     lease: (id: string) => `/owner/leases/${id}`,
     payments: '/owner/payments',
     maintenance: '/owner/maintenance',
