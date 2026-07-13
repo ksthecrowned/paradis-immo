@@ -1718,6 +1718,33 @@
       }
     },
     "/api/v1/maintenance/tickets/{id}": {
+      "get": {
+        "operationId": "MaintenanceController_getOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get a maintenance ticket by id",
+        "tags": [
+          "Maintenance"
+        ]
+      },
       "patch": {
         "operationId": "MaintenanceController_update",
         "parameters": [
