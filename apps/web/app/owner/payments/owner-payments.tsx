@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   DashboardPageHeader,
@@ -12,8 +13,10 @@ import {
   listManagedPayments,
   paymentStatusLabel,
   paymentStatusTone,
+  validatePayment,
   type PublicPayment,
 } from '@/lib/owner/payments';
+import { ROUTES } from '@/lib/routes';
 import { useRequireSession } from '@/hooks/use-require-session';
 
 function formatDate(iso: string): string {
@@ -39,6 +42,7 @@ export function OwnerPaymentsPage(): React.JSX.Element {
   const [rows, setRows] = useState<PublicPayment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [validatingId, setValidatingId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -61,6 +65,33 @@ export function OwnerPaymentsPage(): React.JSX.Element {
     if (!ready) return;
     void load();
   }, [load, ready]);
+
+  const handleValidate = useCallback(
+    async (payment: PublicPayment) => {
+      if (
+        !confirm(
+          `Valider le paiement de ${formatMoney(payment.amount, payment.currency)} ?`,
+        )
+      ) {
+        return;
+      }
+      setValidatingId(payment.id);
+      try {
+        await validatePayment(payment.id);
+        await load();
+        setError(null);
+      } catch (err) {
+        setError(
+          err instanceof ApiError
+            ? err.message
+            : 'Impossible de valider le paiement.',
+        );
+      } finally {
+        setValidatingId(null);
+      }
+    },
+    [load],
+  );
 
   const columns = useMemo<ListColumn<PublicPayment>[]>(
     () => [
@@ -133,6 +164,26 @@ export function OwnerPaymentsPage(): React.JSX.Element {
         searchPlaceholder="Rechercher un paiement…"
         emptyMessage="Aucun paiement à afficher."
         tableId="owner-payments-table"
+        actions={(row) => (
+          <div className="flex flex-wrap gap-2">
+            <Link
+              href={ROUTES.owner.payment(row.id)}
+              className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-card-hover"
+            >
+              Voir
+            </Link>
+            {row.method === 'CASH' && row.status === 'PENDING_VALIDATION' ? (
+              <button
+                type="button"
+                disabled={validatingId === row.id}
+                onClick={() => void handleValidate(row)}
+                className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-card-hover disabled:opacity-50"
+              >
+                {validatingId === row.id ? 'Validation…' : 'Valider'}
+              </button>
+            ) : null}
+          </div>
+        )}
       />
     </section>
   );
