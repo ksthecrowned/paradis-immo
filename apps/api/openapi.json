@@ -938,6 +938,103 @@
         ]
       }
     },
+    "/api/v1/properties/{id}/visit-slots/open": {
+      "post": {
+        "operationId": "VisitSlotsController_openSlot",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BlockSlotDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Open a one-off available visit slot",
+        "tags": [
+          "VisitSlots"
+        ]
+      }
+    },
+    "/api/v1/visit-slots/{id}/unblock": {
+      "post": {
+        "operationId": "VisitSlotsController_unblockSlot",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Unblock a blocked visit slot",
+        "tags": [
+          "VisitSlots"
+        ]
+      }
+    },
+    "/api/v1/properties/{id}/visit-slots/managed": {
+      "get": {
+        "operationId": "VisitSlotsController_listManaged",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List all upcoming visit slots for managers",
+        "tags": [
+          "VisitSlots"
+        ]
+      }
+    },
     "/api/v1/properties/{id}/visit-slots": {
       "get": {
         "operationId": "VisitSlotsController_listAvailable",
