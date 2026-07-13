@@ -16,6 +16,7 @@ export const ROUTES = {
     leasesAdd: '/owner/leases/add',
     lease: (id: string) => `/owner/leases/${id}`,
     payments: '/owner/payments',
+    payment: (id: string) => `/owner/payments/${id}`,
     maintenance: '/owner/maintenance',
     maintenanceTicket: (id: string) => `/owner/maintenance/${id}`,
     mandate: '/owner/mandate',
