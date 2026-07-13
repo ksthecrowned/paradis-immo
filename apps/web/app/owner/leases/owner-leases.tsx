@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   DashboardPageHeader,
@@ -14,6 +15,7 @@ import {
   listManagedLeases,
   type PublicLease,
 } from '@/lib/owner/leases';
+import { ROUTES } from '@/lib/routes';
 import { useRequireSession } from '@/hooks/use-require-session';
 
 function formatDate(iso: string): string {
@@ -46,7 +48,9 @@ export function OwnerLeasesPage(): React.JSX.Element {
       setError(null);
     } catch (err) {
       setError(
-        err instanceof ApiError ? err.message : 'Impossible de charger les baux.',
+        err instanceof ApiError
+          ? err.message
+          : 'Impossible de charger les baux.',
       );
     } finally {
       setLoading(false);
@@ -65,7 +69,9 @@ export function OwnerLeasesPage(): React.JSX.Element {
         label: 'Bien',
         sortable: true,
         render: (value) => (
-          <span className="font-mono text-xs text-muted">{String(value).slice(0, 8)}…</span>
+          <span className="font-mono text-xs text-muted">
+            {String(value).slice(0, 8)}…
+          </span>
         ),
       },
       {
@@ -74,7 +80,9 @@ export function OwnerLeasesPage(): React.JSX.Element {
         sortable: true,
         className: 'hidden sm:table-cell',
         render: (value) => (
-          <span className="font-mono text-xs text-muted">{String(value).slice(0, 8)}…</span>
+          <span className="font-mono text-xs text-muted">
+            {String(value).slice(0, 8)}…
+          </span>
         ),
       },
       {
@@ -94,8 +102,7 @@ export function OwnerLeasesPage(): React.JSX.Element {
         key: 'monthlyRent',
         label: 'Loyer',
         sortable: true,
-        render: (value, row) =>
-          formatMoney(String(value), row.currency),
+        render: (value, row) => formatMoney(String(value), row.currency),
       },
       {
         key: 'status',
@@ -120,12 +127,29 @@ export function OwnerLeasesPage(): React.JSX.Element {
     [],
   );
 
+  if (!ready) {
+    return <p className="text-sm text-muted">Chargement de la session…</p>;
+  }
+
   return (
     <section className="space-y-6">
-      <DashboardPageHeader title="Baux" />
+      <DashboardPageHeader
+        title="Baux"
+        actions={
+          <Link
+            href={ROUTES.owner.leasesAdd}
+            className="inline-flex items-center rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white hover:bg-accent/90"
+          >
+            Créer un bail
+          </Link>
+        }
+      />
 
       {error ? (
-        <div className="rounded-xl border border-danger/40 bg-danger/10 px-4 py-3 text-sm text-danger">
+        <div
+          role="alert"
+          className="rounded-xl border border-danger/40 bg-danger/10 px-4 py-3 text-sm text-danger"
+        >
           {error}
         </div>
       ) : null}
@@ -137,8 +161,26 @@ export function OwnerLeasesPage(): React.JSX.Element {
         onRefresh={load}
         entityLabel="baux"
         searchPlaceholder="Rechercher un bail…"
-        emptyMessage="Aucun bail à afficher."
+        emptyMessage={
+          <span className="inline-flex flex-col items-center gap-3 py-2">
+            <span>Aucun bail à afficher.</span>
+            <Link
+              href={ROUTES.owner.leasesAdd}
+              className="inline-flex items-center rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white hover:bg-accent/90"
+            >
+              Créer un bail
+            </Link>
+          </span>
+        }
         tableId="owner-leases-table"
+        actions={(row) => (
+          <Link
+            href={ROUTES.owner.lease(row.id)}
+            className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-card-hover"
+          >
+            Voir
+          </Link>
+        )}
       />
     </section>
   );
