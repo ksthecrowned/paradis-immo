@@ -15,8 +15,16 @@ export interface PublicMaintenanceTicket {
   updatedAt: string;
 }
 
-export async function listManagedMaintenance(): Promise<PublicMaintenanceTicket[]> {
+export async function listManagedMaintenance(): Promise<
+  PublicMaintenanceTicket[]
+> {
   return apiFetch<PublicMaintenanceTicket[]>('/maintenance/tickets/managed');
+}
+
+export async function getMaintenanceTicket(
+  id: string,
+): Promise<PublicMaintenanceTicket> {
+  return apiFetch<PublicMaintenanceTicket>(`/maintenance/tickets/${id}`);
 }
 
 export interface CreateMaintenanceTicketInput {
@@ -64,7 +72,7 @@ export function maintenanceStatusLabel(status: string): string {
     OPEN: 'Ouvert',
     ASSIGNED: 'Assigné',
     IN_PROGRESS: 'En cours',
-    RESOLVED: 'Résolu',
+    DONE: 'Terminé',
     CLOSED: 'Fermé',
   };
   return map[status] ?? status;
@@ -73,7 +81,7 @@ export function maintenanceStatusLabel(status: string): string {
 export function maintenanceStatusTone(
   status: string,
 ): 'success' | 'warning' | 'danger' | 'neutral' {
-  if (status === 'RESOLVED' || status === 'CLOSED') return 'success';
+  if (status === 'DONE' || status === 'CLOSED') return 'success';
   if (status === 'OPEN') return 'warning';
   if (status === 'IN_PROGRESS' || status === 'ASSIGNED') return 'neutral';
   return 'neutral';
