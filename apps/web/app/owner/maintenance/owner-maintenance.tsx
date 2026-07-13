@@ -257,6 +257,14 @@ export function OwnerMaintenancePage(): React.JSX.Element {
         searchPlaceholder="Rechercher un ticket…"
         emptyMessage="Aucun ticket de maintenance."
         tableId="owner-maintenance-table"
+        actions={(row) => (
+          <Link
+            href={ROUTES.owner.maintenanceTicket(row.id)}
+            className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-card-hover"
+          >
+            Voir
+          </Link>
+        )}
       />
     </section>
   );
