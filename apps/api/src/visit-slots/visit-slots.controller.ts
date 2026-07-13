@@ -92,6 +92,49 @@ export class VisitSlotsController {
     });
   }
 
+  @Post('properties/:id/visit-slots/open')
+  @UseGuards(AppAuthGuard)
+  @HttpCode(201)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Open a one-off available visit slot' })
+  openSlot(
+    @CurrentUser() current: AuthenticatedUser,
+    @Param('id') id: string,
+    @Body() dto: BlockSlotDto,
+  ) {
+    return this.slots.openSlot(current.userId, id, {
+      startAt: new Date(dto.startAt),
+      endAt: new Date(dto.endAt),
+    });
+  }
+
+  @Post('visit-slots/:id/unblock')
+  @UseGuards(AppAuthGuard)
+  @HttpCode(200)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Unblock a blocked visit slot' })
+  unblockSlot(
+    @CurrentUser() current: AuthenticatedUser,
+    @Param('id') id: string,
+  ) {
+    return this.slots.unblockSlot(current.userId, id);
+  }
+
+  @Get('properties/:id/visit-slots/managed')
+  @UseGuards(AppAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'List all upcoming visit slots for managers' })
+  listManaged(
+    @CurrentUser() current: AuthenticatedUser,
+    @Param('id') id: string,
+    @Query() query: AvailableSlotsQueryDto,
+  ) {
+    return this.slots.listManagedSlots(current.userId, id, {
+      from: query.from ? new Date(query.from) : undefined,
+      to: query.to ? new Date(query.to) : undefined,
+    });
+  }
+
   @Get('properties/:id/visit-slots')
   @ApiOperation({ summary: 'List available visit slots (public)' })
   listAvailable(

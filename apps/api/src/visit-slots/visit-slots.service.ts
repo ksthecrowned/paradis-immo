@@ -158,6 +158,104 @@ export class VisitSlotsService {
     return this.slotToPublic(created);
   }
 
+  async openSlot(
+    userId: string,
+    propertyId: string,
+    input: { startAt: Date; endAt: Date },
+  ): Promise<PublicVisitSlot> {
+    await this.assertCanManageProperty(userId, propertyId);
+    const property = await this.prisma.property.findUnique({
+      where: { id: propertyId },
+      select: { visitEnabled: true },
+    });
+    if (!property?.visitEnabled) {
+      throw new BadRequestException({
+        code: 'VISITS_DISABLED',
+        message: 'Visits are not enabled for this property',
+      });
+    }
+    if (input.endAt <= input.startAt) {
+      throw new BadRequestException({
+        code: 'INVALID_SLOT_RANGE',
+        message: 'endAt must be after startAt',
+      });
+    }
+    const existing = await this.prisma.visitSlot.findUnique({
+      where: {
+        propertyId_startAt: { propertyId, startAt: input.startAt },
+      },
+    });
+    if (existing?.status === VisitSlotStatus.BOOKED) {
+      throw new ConflictException({
+        code: 'SLOT_BOOKED',
+        message: 'Cannot open a slot that is already booked',
+      });
+    }
+    const saved = await this.prisma.visitSlot.upsert({
+      where: {
+        propertyId_startAt: { propertyId, startAt: input.startAt },
+      },
+      create: {
+        propertyId,
+        startAt: input.startAt,
+        endAt: input.endAt,
+        status: VisitSlotStatus.AVAILABLE,
+        source: VisitSlotSource.MANUAL,
+      },
+      update: {
+        endAt: input.endAt,
+        status: VisitSlotStatus.AVAILABLE,
+        source: VisitSlotSource.MANUAL,
+      },
+    });
+    return this.slotToPublic(saved);
+  }
+
+  async unblockSlot(
+    userId: string,
+    slotId: string,
+  ): Promise<PublicVisitSlot> {
+    const slot = await this.prisma.visitSlot.findUnique({
+      where: { id: slotId },
+    });
+    if (!slot) {
+      throw new NotFoundException({
+        code: 'SLOT_NOT_FOUND',
+        message: 'Visit slot does not exist',
+      });
+    }
+    await this.assertCanManageProperty(userId, slot.propertyId);
+    if (slot.status !== VisitSlotStatus.BLOCKED) {
+      throw new BadRequestException({
+        code: 'SLOT_NOT_BLOCKED',
+        message: 'Only blocked slots can be unblocked',
+      });
+    }
+    const updated = await this.prisma.visitSlot.update({
+      where: { id: slotId },
+      data: { status: VisitSlotStatus.AVAILABLE },
+    });
+    return this.slotToPublic(updated);
+  }
+
+  async listManagedSlots(
+    userId: string,
+    propertyId: string,
+    opts: { from?: Date; to?: Date } = {},
+  ): Promise<PublicVisitSlot[]> {
+    await this.assertCanManageProperty(userId, propertyId);
+    const from = opts.from ?? new Date();
+    const rows = await this.prisma.visitSlot.findMany({
+      where: {
+        propertyId,
+        startAt: { gte: from },
+        ...(opts.to ? { endAt: { lte: opts.to } } : {}),
+      },
+      orderBy: { startAt: 'asc' },
+    });
+    return rows.map((s) => this.slotToPublic(s));
+  }
+
   // ------------------------------------------------------------------
   // List available slots (public-ish)
   // ------------------------------------------------------------------
