@@ -22,7 +22,7 @@ export function FormCard({
       <div className="border-b-4 border-t-0 border-accent">
         <div className="flex items-center justify-between gap-3 border-b border-border px-5 py-4">
           <div className="flex items-center gap-2">
-            <h2 className="text-lg font-semibold text-foreground">{title}</h2>
+            <h2 className="text-xl font-semibold text-foreground">{title}</h2>
             {hint ? (
               <span title={hint} className="text-muted">
                 <Icon icon="mdi:information-outline" className="h-4 w-4" />

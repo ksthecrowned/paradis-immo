@@ -43,7 +43,7 @@ export function SidebarNav({
       className="flex h-full flex-col overflow-y-auto px-3 py-4"
     >
       {!collapsed ? (
-        <p className="mb-3 px-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-heading/80">
+        <p className="mb-3 px-3 text-xs font-semibold uppercase tracking-[0.12em] text-heading/80">
           Menu
         </p>
       ) : null}
@@ -59,7 +59,7 @@ export function SidebarNav({
                 title={collapsed ? item.label : undefined}
                 aria-current={active ? 'page' : undefined}
                 className={
-                  'group flex items-center gap-3 rounded-lg px-3 py-2.5 text-[13px] font-medium transition-colors ' +
+                  'group flex items-center gap-3 rounded-lg px-3 py-2.5 text-base font-medium transition-colors ' +
                   (active
                     ? 'bg-card-hover text-active'
                     : 'text-muted hover:bg-card-hover hover:text-active')

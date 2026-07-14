@@ -51,7 +51,7 @@ export function Topbar({ onMenuClick }: TopbarProps): React.JSX.Element {
         <button
           type="button"
           onClick={handleLogout}
-          className="inline-flex items-center gap-2 rounded-full bg-card px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-card-hover hover:text-active"
+          className="inline-flex items-center gap-2 rounded-full bg-card px-3 py-2.5 text-base font-medium text-foreground transition-colors hover:bg-card-hover hover:text-active"
           aria-label="Se déconnecter"
           title="Se déconnecter"
         >

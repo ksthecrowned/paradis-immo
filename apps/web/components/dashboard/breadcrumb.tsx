@@ -23,7 +23,7 @@ export function Breadcrumb({
     >
       <ol
         className={
-          'inline-flex flex-wrap items-center gap-1.5 text-sm text-muted ' +
+          'inline-flex flex-wrap items-center gap-1.5 text-base text-muted ' +
           (align === 'end' ? 'justify-end' : '')
         }
       >
