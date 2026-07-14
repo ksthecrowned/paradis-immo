@@ -1,20 +1,14 @@
 'use client';
 
-import Image from 'next/image';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { ApiError } from '@/lib/api';
 import {
-  confirmMedia,
   listMedia,
-  presignMedia,
+  uploadMedia,
   type MediaItem,
 } from '@/lib/owner/media';
-
-interface UploadState {
-  fileName: string;
-  status: 'uploading' | 'done' | 'error';
-  message?: string;
-}
+import { DropZone } from '@/components/forms/DropZone';
+import { MediaGallery, type MediaGalleryItem } from '@/components/detail/MediaGallery';
 
 export interface PropertyMediaUploaderProps {
   propertyId: string;
@@ -27,12 +21,14 @@ export function PropertyMediaUploader({
   initialMedia,
   onMediaChange,
 }: PropertyMediaUploaderProps): React.JSX.Element {
-  const inputRef = useRef<HTMLInputElement>(null);
   const [media, setMedia] = useState<MediaItem[]>(initialMedia);
-  const [uploads, setUploads] = useState<UploadState[]>([]);
+  const [uploads, setUploads] = useState<
+    { id: string; fileName: string; status: 'uploading' | 'done' | 'error'; message?: string }[]
+  >([]);
   const [globalError, setGlobalError] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
 
-  const refreshMedia = useCallback(async () => {
+  const refreshMedia = useCallback(async (): Promise<MediaItem[]> => {
     const items = await listMedia(propertyId);
     setMedia(items);
     onMediaChange(items);
@@ -40,72 +36,48 @@ export function PropertyMediaUploader({
   }, [onMediaChange, propertyId]);
 
   const handleFiles = useCallback(
-    async (files: FileList | null) => {
-      if (!files?.length) return;
+    async (files: File[]) => {
+      if (files.length === 0) return;
       setGlobalError(null);
+      setIsUploading(true);
       const startPosition = media.length;
+      const ids = files.map(
+        (f) => `${f.name}-${f.size}-${f.lastModified}-${Math.random().toString(36).slice(2, 8)}`,
+      );
 
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        if (!file.type.startsWith('image/')) {
-          setUploads((prev) => [
-            ...prev,
-            {
-              fileName: file.name,
-              status: 'error',
-              message: 'Seules les images sont acceptées.',
-            },
-          ]);
-          continue;
-        }
+      setUploads((prev) => [
+        ...prev,
+        ...files.map((f, i) => ({
+          id: ids[i],
+          fileName: f.name,
+          status: 'uploading' as const,
+        })),
+      ]);
 
-        setUploads((prev) => [
-          ...prev,
-          { fileName: file.name, status: 'uploading' },
-        ]);
-
-        try {
-          const presign = await presignMedia(propertyId, {
-            filename: file.name,
-            contentType: file.type,
-            type: 'PHOTO',
-          });
-          const putRes = await fetch(presign.uploadUrl, {
-            method: 'PUT',
-            body: file,
-            headers: { 'Content-Type': file.type },
-          });
-          if (!putRes.ok) {
-            throw new Error(`Upload R2 échoué (${putRes.status})`);
-          }
-          await confirmMedia(propertyId, {
-            url: presign.fileUrl,
-            type: 'PHOTO',
-            position: startPosition + i,
-          });
-          setUploads((prev) =>
-            prev.map((u) =>
-              u.fileName === file.name && u.status === 'uploading'
-                ? { ...u, status: 'done' }
-                : u,
-            ),
-          );
-        } catch (err) {
-          const message =
-            err instanceof ApiError
-              ? err.message
-              : err instanceof Error
+      // Upload in parallel; track each one.
+      await Promise.all(
+        files.map(async (file, i) => {
+          const id = ids[i];
+          try {
+            await uploadMedia(propertyId, file, startPosition + i);
+            setUploads((prev) =>
+              prev.map((u) => (u.id === id ? { ...u, status: 'done' } : u)),
+            );
+          } catch (err) {
+            const message =
+              err instanceof ApiError
                 ? err.message
-                : 'Échec de l’upload';
-          setUploads((prev) =>
-            prev.map((u) =>
-              u.fileName === file.name && u.status === 'uploading'
-                ? { ...u, status: 'error', message }
-                : u,
-            ),
-          );
-        }
-      }
+                : err instanceof Error
+                  ? err.message
+                  : 'Échec de l’upload';
+            setUploads((prev) =>
+              prev.map((u) =>
+                u.id === id ? { ...u, status: 'error', message } : u,
+              ),
+            );
+          }
+        }),
+      );
 
       try {
         await refreshMedia();
@@ -116,34 +88,26 @@ export function PropertyMediaUploader({
             : 'Impossible de rafraîchir la galerie.',
         );
       }
-
-      if (inputRef.current) {
-        inputRef.current.value = '';
-      }
+      setIsUploading(false);
     },
     [media.length, propertyId, refreshMedia],
   );
 
+  const galleryItems: MediaGalleryItem[] = media.map((m) => ({
+    id: m.id,
+    url: m.url,
+  }));
+
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-3">
-        <button
-          type="button"
-          onClick={() => inputRef.current?.click()}
-          className="inline-flex items-center rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-foreground hover:bg-card-hover"
-        >
-          Ajouter des photos
-        </button>
-        <input
-          ref={inputRef}
-          type="file"
-          accept="image/*"
-          multiple
-          className="hidden"
-          onChange={(e) => void handleFiles(e.target.files)}
-        />
-        <span className="text-xs text-muted">JPEG, PNG, WebP via Cloudflare R2</span>
-      </div>
+      <DropZone
+        onFiles={handleFiles}
+        accept="image/*"
+        multiple
+        disabled={isUploading}
+        title="Glissez vos photos ici"
+        hint="ou cliquez pour parcourir"
+      />
 
       {globalError ? (
         <p className="text-sm text-danger" role="alert">
@@ -152,10 +116,10 @@ export function PropertyMediaUploader({
       ) : null}
 
       {uploads.length > 0 ? (
-        <ul className="space-y-1 text-sm">
-          {uploads.map((u, idx) => (
+        <ul className="space-y-1 text-xs">
+          {uploads.map((u) => (
             <li
-              key={`${u.fileName}-${idx}`}
+              key={u.id}
               className={
                 u.status === 'error'
                   ? 'text-danger'
@@ -175,29 +139,10 @@ export function PropertyMediaUploader({
         </ul>
       ) : null}
 
-      {media.length === 0 ? (
-        <p className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted">
-          Aucune photo. Ajoutez au moins une image pour présenter le bien.
-        </p>
-      ) : (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
-          {media.map((item) => (
-            <div
-              key={item.id}
-              className="relative aspect-[4/3] overflow-hidden rounded-lg border border-border bg-card"
-            >
-              <Image
-                src={item.url}
-                alt=""
-                fill
-                className="object-cover"
-                sizes="(max-width: 768px) 50vw, 25vw"
-                unoptimized
-              />
-            </div>
-          ))}
-        </div>
-      )}
+      <MediaGallery
+        items={galleryItems}
+        emptyLabel="Aucune photo. Ajoutez au moins une image pour présenter le bien."
+      />
     </div>
   );
 }

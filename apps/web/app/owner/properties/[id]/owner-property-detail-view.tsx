@@ -12,6 +12,8 @@ import {
   DetailRow,
   DetailHeader,
   DetailSection,
+  MediaGallery,
+  type MediaGalleryItem,
 } from '@/components/detail';
 import { useResourceDetail } from '@/hooks/use-resource-detail';
 import { useRequireSession } from '@/hooks/use-require-session';
@@ -112,6 +114,10 @@ export function OwnerPropertyDetailView({
   const canArchive = property.status !== 'ARCHIVED';
 
   const cover = media.slice().sort((a, b) => a.position - b.position)[0]?.url;
+  const galleryItems: MediaGalleryItem[] = media
+    .slice()
+    .sort((a, b) => a.position - b.position)
+    .map((m) => ({ id: m.id, url: m.url }));
 
   return (
     <div className="space-y-6">
@@ -265,7 +271,14 @@ export function OwnerPropertyDetailView({
       </DetailCard>
 
       <DetailCard title="Médias">
-        <div className="p-5">
+        <div className="space-y-6 p-5">
+          {galleryItems.length > 0 ? (
+            <MediaGallery items={galleryItems} />
+          ) : (
+            <p className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted">
+              Aucun média.
+            </p>
+          )}
           <PropertyMediaUploader
             propertyId={propertyId}
             initialMedia={media}

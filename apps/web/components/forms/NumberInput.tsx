@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type ChangeEvent } from 'react';
+import { useState, type ChangeEvent, type KeyboardEvent } from 'react';
 import { Icon } from '@iconify/react';
 
 export type NumberInputProps = {
@@ -14,6 +14,7 @@ export type NumberInputProps = {
   invalid?: boolean;
   disabled?: boolean;
   required?: boolean;
+  allowDecimals?: boolean;
   className?: string;
   ariaLabel?: string;
 };
@@ -42,12 +43,25 @@ const clamp = (n: number, min?: number, max?: number): number => {
 };
 
 /**
- * Number input with explicit [-] / [+] buttons and a centered text
- * field. The native spin buttons are hidden so the UI is consistent
- * across browsers. The value is exchanged with the parent as a
- * string (empty string = no value), matching the rest of the form
- * fields.
+ * Sanitize a typed string to a numeric form:
+ * - keep digits, an optional single leading minus, an optional single
+ *   decimal point (when `allowDecimals` is true)
+ * - reject any other character
+ *
+ * Returns null if the result is not a valid number.
  */
+const sanitize = (raw: string, allowDecimals: boolean): string | null => {
+  if (raw === '') return '';
+  // Build a regex matching the format we accept.
+  const re = allowDecimals ? /^-?\d*\.?\d*$/ : /^-?\d*$/;
+  if (!re.test(raw)) return null;
+  // Reject "-" alone, "." alone, "-." etc. — user is mid-typing.
+  if (raw === '-' || raw === '.' || raw === '-.') return null;
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return null;
+  return raw;
+};
+
 export function NumberInput({
   name,
   value,
@@ -59,6 +73,7 @@ export function NumberInput({
   invalid = false,
   disabled = false,
   required = false,
+  allowDecimals = true,
   className = '',
   ariaLabel,
 }: NumberInputProps): React.JSX.Element {
@@ -68,11 +83,40 @@ export function NumberInput({
   const atMin = typeof min === 'number' && current <= min;
   const atMax = typeof max === 'number' && current >= max;
 
-  const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
-    onChange(e.target.value);
+  const handleChange = (e: ChangeEvent<HTMLInputElement>): void => {
+    const next = sanitize(e.target.value, allowDecimals);
+    if (next === null) return; // Reject invalid input — keep previous value.
+    onChange(next);
   };
 
-  const commit = () => {
+  // Block keys that would produce an invalid character.
+  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>): void => {
+    const allowedControl = [
+      'Backspace',
+      'Delete',
+      'Tab',
+      'Escape',
+      'Enter',
+      'ArrowLeft',
+      'ArrowRight',
+      'ArrowUp',
+      'ArrowDown',
+      'Home',
+      'End',
+    ];
+    if (allowedControl.includes(e.key)) return;
+    if ((e.ctrlKey || e.metaKey) && ['a', 'c', 'v', 'x'].includes(e.key.toLowerCase())) {
+      return;
+    }
+    if (/^\d$/.test(e.key)) return;
+    if (e.key === '-' && (e.currentTarget.selectionStart ?? 0) === 0) return;
+    if (allowDecimals && e.key === '.' && !e.currentTarget.value.includes('.')) {
+      return;
+    }
+    e.preventDefault();
+  };
+
+  const commit = (): void => {
     const n = parse(value);
     if (n === null) {
       // Empty is allowed if not required.
@@ -83,7 +127,7 @@ export function NumberInput({
     if (clamped !== n) onChange(String(clamped));
   };
 
-  const increment = () => {
+  const increment = (): void => {
     if (disabled) return;
     const n = parse(value) ?? 0;
     const next = n + step;
@@ -91,7 +135,7 @@ export function NumberInput({
     onChange(String(clamped));
   };
 
-  const decrement = () => {
+  const decrement = (): void => {
     if (disabled) return;
     const n = parse(value) ?? 0;
     const next = n - step;
@@ -113,9 +157,10 @@ export function NumberInput({
       </button>
       <input
         type="text"
-        inputMode="decimal"
+        inputMode={allowDecimals ? 'decimal' : 'numeric'}
         value={value}
         onChange={handleChange}
+        onKeyDown={handleKeyDown}
         onFocus={() => setFocused(true)}
         onBlur={() => {
           setFocused(false);
@@ -126,7 +171,7 @@ export function NumberInput({
         required={required}
         aria-label={ariaLabel}
         aria-invalid={invalid || undefined}
-        className={`${BASE} ${STATE(invalid)} ${focused ? '' : ''}`}
+        className={`${BASE} ${STATE(invalid)}`}
       />
       <button
         type="button"

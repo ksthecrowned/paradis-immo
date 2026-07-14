@@ -17,3 +17,5 @@ export { SelectSearch, type SelectSearchOption, type SelectSearchProps } from '.
 export { DateField, type DateFieldProps } from './DateField';
 export { Switcher, type SwitcherProps } from './Switcher';
 export { NumberInput, type NumberInputProps } from './NumberInput';
+export { DropZone, type DropZoneProps } from './DropZone';
+export { FileUpload, type FileUploadItem, type FileUploadProps } from './FileUpload';
