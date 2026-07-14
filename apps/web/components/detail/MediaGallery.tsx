@@ -16,6 +16,12 @@ export type MediaGalleryProps = {
   items: MediaGalleryItem[];
   className?: string;
   emptyLabel?: string;
+  /**
+   * When provided, each tile shows a "remove" button in the top-left
+   * corner and clicking it calls this handler with the item's id. Use
+   * for editable contexts (form tabs, draft uploads).
+   */
+  onRemove?: (id: string) => void;
 };
 
 /**
@@ -27,6 +33,7 @@ export function MediaGallery({
   items,
   className = '',
   emptyLabel = 'Aucun média.',
+  onRemove,
 }: MediaGalleryProps): React.JSX.Element {
   const [activeIdx, setActiveIdx] = useState<number | null>(null);
 
@@ -44,23 +51,40 @@ export function MediaGallery({
     <div className={className}>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
         {items.map((item, idx) => (
-          <button
+          <div
             key={item.id}
-            type="button"
-            onClick={() => setActiveIdx(idx)}
-            className="group relative aspect-[4/3] overflow-hidden rounded-lg border border-border bg-card focus:outline-none focus:ring-2 focus:ring-accent/40"
-            aria-label={`Aperçu ${idx + 1} sur ${items.length}`}
+            className="group relative aspect-[4/3] overflow-hidden rounded-lg border border-border bg-card"
           >
-            <Image
-              src={item.url}
-              alt={item.alt ?? ''}
-              fill
-              sizes="(max-width: 768px) 50vw, 25vw"
-              unoptimized
-              className="object-cover transition-transform group-hover:scale-105"
-            />
-            <span className="pointer-events-none absolute inset-0 bg-black/0 transition-colors group-hover:bg-black/20" />
-            <span className="pointer-events-none absolute right-2 top-2 rounded-full bg-black/60 px-2 py-1 text-xs text-white opacity-0 transition-opacity group-hover:opacity-100">
+            <button
+              type="button"
+              onClick={() => setActiveIdx(idx)}
+              className="absolute inset-0 focus:outline-none focus:ring-2 focus:ring-accent/40"
+              aria-label={`Aperçu ${idx + 1} sur ${items.length}`}
+            >
+              <Image
+                src={item.url}
+                alt={item.alt ?? ''}
+                fill
+                sizes="(max-width: 768px) 50vw, 25vw"
+                unoptimized
+                className="object-cover transition-transform group-hover:scale-105"
+              />
+              <span className="pointer-events-none absolute inset-0 bg-black/0 transition-colors group-hover:bg-black/20" />
+            </button>
+            {onRemove ? (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onRemove(item.id);
+                }}
+                className="absolute left-2 top-2 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-black/70 text-white opacity-0 transition-opacity hover:bg-danger group-hover:opacity-100"
+                aria-label={`Retirer ${item.alt ?? `l'image ${idx + 1}`}`}
+              >
+                <Icon icon="mdi:close" className="h-4 w-4" />
+              </button>
+            ) : null}
+            <span className="pointer-events-none absolute right-2 top-2 z-10 rounded-full bg-black/60 px-2 py-1 text-xs text-white opacity-0 transition-opacity group-hover:opacity-100">
               <Icon icon="mdi:arrow-expand" className="h-3 w-3" />
             </span>
             {item.caption ? (
@@ -68,7 +92,7 @@ export function MediaGallery({
                 {item.caption}
               </span>
             ) : null}
-          </button>
+          </div>
         ))}
       </div>
 

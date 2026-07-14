@@ -1,5 +1,6 @@
 'use client';
 
+import { Icon } from '@iconify/react';
 import { DashboardPageHeader } from '@/components/dashboard';
 import {
   ApiErrorBanner,
@@ -27,6 +28,7 @@ import {
   type PublicQuartier,
 } from '@/lib/owner/locations';
 import { uploadMedia, type MediaItem } from '@/lib/owner/media';
+import { MediaGallery, type MediaGalleryItem } from '@/components/detail/MediaGallery';
 import {
   createProperty,
   defaultPriceUnit,
@@ -42,7 +44,7 @@ import {
 } from '@/lib/owner/properties';
 import { ROUTES } from '@/lib/routes';
 import { useRouter } from 'next/navigation';
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import {
   parseCurrency,
   parseNumeric,
@@ -244,6 +246,28 @@ export function OwnerPropertyForm({
     }
     setPendingFiles([]);
   };
+
+  // Build preview items from queued files. Object URLs are stable across
+  // renders (memoized by index) and revoked when the user removes a file
+  // or the component unmounts.
+  const pendingPreviews: MediaGalleryItem[] = useMemo(() => {
+    const urls = pendingFiles.map((f) => URL.createObjectURL(f));
+    return pendingFiles.map((f, idx) => ({
+      id: `pending-${idx}-${f.name}-${f.size}`,
+      url: urls[idx],
+      alt: f.name,
+      caption: `${f.name} — ${(f.size / 1024).toFixed(0)} Ko`,
+    }));
+    // We only rebuild when the queue length or identity changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingFiles.length, pendingFiles.map((f) => `${f.name}-${f.size}-${f.lastModified}`).join('|')]);
+
+  // Revoke pending previews when the queue changes or on unmount.
+  useEffect(() => {
+    return () => {
+      pendingPreviews.forEach((p) => URL.revokeObjectURL(p.url));
+    };
+  }, [pendingPreviews]);
 
   const form = useResourceForm<FormValues>({
     initial: { ...defaultValues(), ...initial },
@@ -606,11 +630,21 @@ export function OwnerPropertyForm({
       icon: 'mdi:image-multiple',
       content: (
         <div className="space-y-4">
-          <p className="text-sm text-muted">
-            {propertyId
-              ? 'Les fichiers ajoutés sont envoyés immédiatement.'
-              : 'Les fichiers ajoutés seront envoyés après la création du bien.'}
-          </p>
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-sm text-muted">
+              {propertyId
+                ? 'Les fichiers ajoutés sont envoyés immédiatement.'
+                : 'Les fichiers ajoutés seront envoyés après la création du bien.'}
+            </p>
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="inline-flex flex-shrink-0 items-center gap-2 rounded-lg border border-input-border bg-card px-4 py-2.5 text-sm font-medium text-foreground hover:bg-card-hover"
+            >
+              <Icon icon="mdi:image-plus" className="h-4 w-4" />
+              Ajouter des photos
+            </button>
+          </div>
 
           <input
             ref={fileInputRef}
@@ -650,15 +684,6 @@ export function OwnerPropertyForm({
             }}
           />
 
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            className="inline-flex items-center gap-2 rounded-lg border border-input-border bg-card px-4 py-2.5 text-sm font-medium text-foreground hover:bg-card-hover"
-          >
-            <span aria-hidden>📷</span>
-            Choisir des photos
-          </button>
-
           {mediaError ? (
             <p role="alert" className="text-sm text-danger">
               {mediaError}
@@ -666,62 +691,53 @@ export function OwnerPropertyForm({
           ) : null}
 
           {propertyId && existingMedia.length > 0 ? (
-            <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
-              {existingMedia
+            <MediaGallery
+              items={existingMedia
                 .slice()
                 .sort((a, b) => a.position - b.position)
-                .map((m) => (
-                  <li
-                    key={m.id}
-                    className="relative aspect-[4/3] overflow-hidden rounded-lg border border-border bg-card"
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={m.url}
-                      alt=""
-                      className="h-full w-full object-cover"
-                    />
-                  </li>
-                ))}
-            </ul>
+                .map<MediaGalleryItem>((m) => ({ id: m.id, url: m.url }))}
+              emptyLabel="Aucun média pour ce bien."
+            />
           ) : null}
 
-          {pendingFiles.length > 0 ? (
+          {!propertyId && pendingPreviews.length > 0 ? (
             <div className="space-y-2">
-              <p className="text-xs font-medium text-muted">
-                {pendingFiles.length} fichier(s) en attente d'envoi
-              </p>
-              <ul className="space-y-1 text-sm">
-                {pendingFiles.map((f, idx) => (
-                  <li
-                    key={`${f.name}-${idx}`}
-                    className="flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2"
-                  >
-                    <span className="flex-1 truncate text-foreground">
-                      {f.name}
-                    </span>
-                    <span className="text-xs text-muted">
-                      {(f.size / 1024).toFixed(0)} Ko
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setPendingFiles((prev) => prev.filter((_, i) => i !== idx))
-                      }
-                      className="text-xs text-danger hover:underline"
-                    >
-                      Retirer
-                    </button>
-                  </li>
-                ))}
-              </ul>
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-medium text-muted">
+                  {pendingPreviews.length} photo(s) sélectionnée(s) — envoi à
+                  la création du bien
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    pendingPreviews.forEach((p) => URL.revokeObjectURL(p.url));
+                    setPendingFiles([]);
+                  }}
+                  className="text-xs text-muted hover:text-danger"
+                >
+                  Tout retirer
+                </button>
+              </div>
+              <MediaGallery
+                items={pendingPreviews}
+                onRemove={(id) => {
+                  // Extract the original index from the id ("pending-N-...").
+                  const match = /^pending-(\d+)-/.exec(id);
+                  if (!match) return;
+                  const idx = Number(match[1]);
+                  setPendingFiles((prev) => {
+                    const next = prev.filter((_, i) => i !== idx);
+                    return next;
+                  });
+                }}
+              />
             </div>
           ) : null}
 
           {!propertyId && pendingFiles.length === 0 ? (
             <p className="rounded-lg border border-dashed border-border bg-card-hover p-6 text-center text-sm text-muted">
-              Aucune photo sélectionnée. Vous pourrez aussi en ajouter depuis la
-              page du bien après création.
+              Aucune photo sélectionnée. Vous pourrez aussi en ajouter depuis
+              la page du bien après création.
             </p>
           ) : null}
         </div>
