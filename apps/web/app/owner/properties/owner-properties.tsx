@@ -17,7 +17,7 @@ import {
   archiveProperty,
   formatPropertyPrice,
   listMyProperties,
-  propertyModeLabel,
+  propertyCardBadgeLabel,
   propertyStatusLabel,
   propertyStatusTone,
   publishProperty,
@@ -128,9 +128,16 @@ export function OwnerPropertiesPage(): React.JSX.Element {
         render: (value, row) => (
           <Link
             href={ROUTES.owner.property(row.id)}
-            className="font-medium text-accent hover:underline"
+            className="inline-flex items-center gap-2 font-medium text-accent hover:underline"
           >
             {String(value)}
+            {row.isFeatured ? (
+              <Icon
+                icon="mdi:star"
+                className="h-4 w-4 text-warning"
+                aria-label="À la une"
+              />
+            ) : null}
           </Link>
         ),
       },
@@ -145,7 +152,36 @@ export function OwnerPropertiesPage(): React.JSX.Element {
           { value: 'RENT_SHORT', label: 'Location courte' },
           { value: 'SALE', label: 'Vente' },
         ],
-        render: (value) => propertyModeLabel(String(value)),
+        render: (_, row) => propertyCardBadgeLabel(row),
+      },
+      {
+        key: 'listingStatus',
+        label: 'Marché',
+        sortable: true,
+        filterable: true,
+        filterType: 'select',
+        filterOptions: [
+          { value: 'AVAILABLE', label: 'Disponible' },
+          { value: 'AVAILABLE_SOON', label: 'Bientôt disponible' },
+          { value: 'UNDER_OFFER', label: 'Sous offre' },
+          { value: 'OCCUPIED', label: 'Occupé' },
+          { value: 'SOLD', label: 'Vendu' },
+        ],
+        render: (_, row) =>
+          row.listingStatus ? (
+            <StatusBadge
+              label={row.listingStatus}
+              tone={
+                row.listingStatus === 'AVAILABLE'
+                  ? 'success'
+                  : row.listingStatus === 'SOLD'
+                    ? 'danger'
+                    : 'warning'
+              }
+            />
+          ) : (
+            <span className="text-muted">—</span>
+          ),
       },
       {
         key: 'status',

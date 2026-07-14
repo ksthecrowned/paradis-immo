@@ -13,6 +13,47 @@ export type ListingStatus =
   | 'OCCUPIED'
   | 'AVAILABLE_SOON';
 
+export type PropertyFeatureId =
+  | 'cuisine'
+  | 'debarras'
+  | 'climatisation'
+  | 'chauffe_eau'
+  | 'wifi'
+  | 'piscine'
+  | 'parking'
+  | 'jardin'
+  | 'securite'
+  | 'groupe_electrogene'
+  | 'meuble'
+  | 'balcon'
+  | 'terrasse'
+  | 'eau_courante';
+
+export type MapViewId = 'neighborhood' | 'streetView' | 'tour360';
+
+export const PROPERTY_FEATURES: { id: PropertyFeatureId; label: string; icon: string }[] = [
+  { id: 'cuisine', label: 'Cuisine équipée', icon: 'mdi:silverware-fork-knife' },
+  { id: 'debarras', label: 'Débarras', icon: 'mdi:archive-outline' },
+  { id: 'climatisation', label: 'Climatisation', icon: 'mdi:snowflake' },
+  { id: 'chauffe_eau', label: 'Chauffe-eau', icon: 'mdi:water-boiler' },
+  { id: 'wifi', label: 'Wi-Fi', icon: 'mdi:wifi' },
+  { id: 'piscine', label: 'Piscine', icon: 'mdi:pool' },
+  { id: 'parking', label: 'Parking', icon: 'mdi:parking' },
+  { id: 'jardin', label: 'Jardin', icon: 'mdi:flower-outline' },
+  { id: 'securite', label: 'Sécurité 24/7', icon: 'mdi:shield-check-outline' },
+  { id: 'groupe_electrogene', label: 'Groupe électrogène', icon: 'mdi:generator-portable' },
+  { id: 'meuble', label: 'Meublé', icon: 'mdi:sofa-outline' },
+  { id: 'balcon', label: 'Balcon', icon: 'mdi:balcony' },
+  { id: 'terrasse', label: 'Terrasse', icon: 'mdi:terrace' },
+  { id: 'eau_courante', label: 'Eau courante', icon: 'mdi:water-pump' },
+];
+
+export const MAP_VIEWS: { id: MapViewId; label: string; icon: string }[] = [
+  { id: 'neighborhood', label: 'Quartier', icon: 'mdi:map-search-outline' },
+  { id: 'streetView', label: 'Street View', icon: 'mdi:google-street-view' },
+  { id: 'tour360', label: 'Visite 360°', icon: 'mdi:rotate-3d-variant' },
+];
+
 export interface PublicProperty {
   id: string;
   title: string;
@@ -33,10 +74,18 @@ export interface PublicProperty {
   visitType: VisitType | null;
   visitPrice: number | null;
   visitDuration: number | null;
+  features?: PropertyFeatureId[];
+  mapViews?: MapViewId[];
   listingStatus?: ListingStatus;
   availableFrom?: string | null;
   isFeatured?: boolean;
   floor?: string | null;
+  yearBuilt?: number | null;
+  condition?: string | null;
+  lotSize?: number | null;
+  parkingSpaces?: number | null;
+  orientation?: string | null;
+  landTitle?: string | null;
   media?: Array<{ id: string; url: string; type: string; position: number }>;
   quartier: {
     id: string;
@@ -70,6 +119,22 @@ export interface CreatePropertyInput {
   bedrooms?: number;
   bathrooms?: number;
   surface?: number;
+  // Building / lot
+  floor?: string;
+  yearBuilt?: number;
+  condition?: string;
+  lotSize?: number;
+  parkingSpaces?: number;
+  orientation?: string;
+  landTitle?: string;
+  // Equipment / views
+  features?: PropertyFeatureId[];
+  mapViews?: MapViewId[];
+  // Marketplace listing
+  listingStatus?: ListingStatus;
+  availableFrom?: string | null;
+  isFeatured?: boolean;
+  // Visit configuration
   visitEnabled?: boolean;
   visitType?: VisitType;
   visitPrice?: number;
@@ -95,8 +160,30 @@ export async function createProperty(
 }
 
 export type UpdatePropertyInput = Partial<
-  Omit<CreatePropertyInput, 'countryId' | 'quartierId'>
->;
+  Omit<
+    CreatePropertyInput,
+    | 'countryId'
+    | 'quartierId'
+    | 'floor'
+    | 'yearBuilt'
+    | 'condition'
+    | 'lotSize'
+    | 'parkingSpaces'
+    | 'orientation'
+    | 'landTitle'
+    | 'availableFrom'
+  >
+> & {
+  // Nullable to support clearing fields on update.
+  floor?: string | null;
+  yearBuilt?: number | null;
+  condition?: string | null;
+  lotSize?: number | null;
+  parkingSpaces?: number | null;
+  orientation?: string | null;
+  landTitle?: string | null;
+  availableFrom?: string | null;
+};
 
 export async function updateProperty(
   id: string,
@@ -239,4 +326,56 @@ export function formatPropertyPrice(
     maximumFractionDigits: 0,
   }).format(price);
   return `${formatted}${unitLabels[priceUnit] ?? ''}`;
+}
+
+export function listingStatusLabel(status: string | undefined | null): string {
+  const map: Record<string, string> = {
+    AVAILABLE: 'Disponible',
+    SOLD: 'Vendu',
+    UNDER_OFFER: 'Sous offre',
+    OCCUPIED: 'Occupé',
+    AVAILABLE_SOON: 'Bientôt disponible',
+  };
+  return map[status ?? ''] ?? status ?? '—';
+}
+
+export function listingStatusTone(
+  status: string | undefined | null,
+): 'success' | 'warning' | 'danger' | 'neutral' | 'accent' {
+  switch (status) {
+    case 'AVAILABLE':
+      return 'success';
+    case 'AVAILABLE_SOON':
+      return 'accent';
+    case 'UNDER_OFFER':
+      return 'warning';
+    case 'OCCUPIED':
+      return 'warning';
+    case 'SOLD':
+      return 'danger';
+    default:
+      return 'neutral';
+  }
+}
+
+export function featureLabel(id: string): string {
+  return (
+    PROPERTY_FEATURES.find((f) => f.id === id)?.label ??
+    MAP_VIEWS.find((v) => v.id === id)?.label ??
+    id
+  );
+}
+
+export function featureIcon(id: string): string {
+  return (
+    PROPERTY_FEATURES.find((f) => f.id === id)?.icon ??
+    MAP_VIEWS.find((v) => v.id === id)?.icon ??
+    'mdi:checkbox-blank-circle-outline'
+  );
+}
+
+export function propertyConditionLabel(value: string | null | undefined): string {
+  if (!value) return '—';
+  // The API keeps this as a free string — show as-is, trimmed.
+  return value;
 }

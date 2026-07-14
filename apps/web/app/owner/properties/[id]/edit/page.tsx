@@ -6,7 +6,12 @@ import { notFound } from 'next/navigation';
 async function loadInitial(
   id: string,
 ): Promise<
-  | { initial: Record<string, unknown>; status: string; updatedAt: string }
+  | {
+      initial: Record<string, unknown>;
+      status: string;
+      updatedAt: string;
+      createdAt: string;
+    }
   | { notFound: true }
 > {
   try {
@@ -14,6 +19,7 @@ async function loadInitial(
     return {
       status: property.status,
       updatedAt: property.updatedAt ?? '',
+      createdAt: property.createdAt,
       initial: {
         title: property.title,
         description: property.description,
@@ -26,6 +32,21 @@ async function loadInitial(
         bedrooms: property.bedrooms != null ? String(property.bedrooms) : '',
         bathrooms: property.bathrooms != null ? String(property.bathrooms) : '',
         surface: property.surface != null ? String(property.surface) : '',
+        floor: property.floor ?? '',
+        yearBuilt: property.yearBuilt != null ? String(property.yearBuilt) : '',
+        condition: property.condition ?? '',
+        lotSize: property.lotSize != null ? String(property.lotSize) : '',
+        parkingSpaces:
+          property.parkingSpaces != null ? String(property.parkingSpaces) : '',
+        orientation: property.orientation ?? '',
+        landTitle: property.landTitle ?? '',
+        features: (property.features ?? []) as never,
+        mapViews: (property.mapViews ?? []) as never,
+        listingStatus: (property.listingStatus ?? 'AVAILABLE') as never,
+        availableFrom: property.availableFrom
+          ? property.availableFrom.slice(0, 10)
+          : '',
+        isFeatured: Boolean(property.isFeatured),
         visitEnabled: property.visitEnabled,
         visitType: property.visitType ?? 'FREE',
         visitPrice: property.visitPrice != null ? String(property.visitPrice) : '',
@@ -60,6 +81,7 @@ export default async function OwnerPropertyEditPage({
       submitLabel="Enregistrer"
       initialStatus={result.status as never}
       initialUpdatedAt={result.updatedAt}
+      initialCreatedAt={result.createdAt}
     />
   );
 }

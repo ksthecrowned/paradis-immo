@@ -6,7 +6,7 @@ import { useCallback, useState } from 'react';
 import { Icon } from '@iconify/react';
 import { Button } from '@/components/primitives';
 import { DashboardPageHeader, StatusBadge } from '@/components/dashboard';
-import { ApiErrorBanner } from '@/components/forms';
+import { ApiErrorBanner, StatusPill } from '@/components/forms';
 import {
   DetailCard,
   DetailRow,
@@ -22,7 +22,12 @@ import { PropertyMediaUploader } from '@/components/owner/property-media-uploade
 import { listMedia, type MediaItem } from '@/lib/owner/media';
 import {
   archiveProperty,
+  featureIcon,
+  featureLabel,
   formatPropertyPrice,
+  listingStatusLabel,
+  listingStatusTone,
+  MAP_VIEWS,
   pauseProperty,
   propertyModeLabel,
   propertyStatusLabel,
@@ -225,7 +230,7 @@ export function OwnerPropertyDetailView({
             value={property.bathrooms ?? '—'}
           />
           <DetailRow
-            label="Surface"
+            label="Surface habitable"
             value={property.surface != null ? `${property.surface} m²` : '—'}
           />
         </DetailCard>
@@ -240,6 +245,121 @@ export function OwnerPropertyDetailView({
           <DetailRow label="Quartier" value={property.quartier.name} />
         </DetailCard>
       </DetailSection>
+
+      <DetailCard title="Détails du bien">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <DetailRow label="Étage" value={property.floor ?? '—'} />
+          <DetailRow
+            label="Année de construction"
+            value={property.yearBuilt ?? '—'}
+          />
+          <DetailRow label="État" value={property.condition ?? '—'} />
+          <DetailRow
+            label="Surface terrain"
+            value={property.lotSize != null ? `${property.lotSize} m²` : '—'}
+          />
+          <DetailRow
+            label="Places de parking"
+            value={property.parkingSpaces ?? '—'}
+          />
+          <DetailRow label="Orientation" value={property.orientation ?? '—'} />
+          <DetailRow
+            label="Titre foncier"
+            value={property.landTitle ?? '—'}
+            className="sm:col-span-2 lg:col-span-3"
+          />
+        </div>
+      </DetailCard>
+
+      <DetailCard title="Équipements & vues immersives">
+        <div className="space-y-5 p-5">
+          {property.features && property.features.length > 0 ? (
+            <div>
+              <p className="mb-2 text-sm font-medium text-muted">Équipements</p>
+              <div className="flex flex-wrap gap-2">
+                {property.features.map((f) => (
+                  <span
+                    key={f}
+                    className="inline-flex items-center gap-2 rounded-full border border-input-border bg-card px-3 py-1.5 text-sm text-foreground"
+                  >
+                    <Icon
+                      icon={featureIcon(f)}
+                      className="h-4 w-4 text-accent"
+                    />
+                    {featureLabel(f)}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-muted">
+              Aucun équipement renseigné pour ce bien.
+            </p>
+          )}
+
+          <div className="border-t border-border pt-4">
+            <p className="mb-2 text-sm font-medium text-muted">
+              Vues immersives disponibles
+            </p>
+            {property.mapViews && property.mapViews.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {property.mapViews.map((v) => {
+                  const def = MAP_VIEWS.find((m) => m.id === v);
+                  return (
+                    <span
+                      key={v}
+                      className="inline-flex items-center gap-2 rounded-full border border-accent/40 bg-accent/5 px-3 py-1.5 text-sm text-accent"
+                    >
+                      <Icon
+                        icon={def?.icon ?? 'mdi:map-outline'}
+                        className="h-4 w-4"
+                      />
+                      {def?.label ?? v}
+                    </span>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-sm text-muted">
+                Aucune vue immersive activée.
+              </p>
+            )}
+          </div>
+        </div>
+      </DetailCard>
+
+      <DetailCard title="Statut marketplace">
+        <div className="space-y-4 p-5">
+          <div className="flex flex-wrap items-center gap-3">
+            <StatusPill
+              label={listingStatusLabel(property.listingStatus)}
+              tone={listingStatusTone(property.listingStatus)}
+              icon="mdi:storefront-outline"
+            />
+            {property.isFeatured ? (
+              <StatusPill
+                label="À la une"
+                tone="accent"
+                icon="mdi:star"
+              />
+            ) : null}
+          </div>
+          {property.availableFrom ? (
+            <DetailRow
+              label="Disponible à partir du"
+              value={new Date(property.availableFrom).toLocaleDateString('fr-FR', {
+                day: '2-digit',
+                month: 'long',
+                year: 'numeric',
+              })}
+            />
+          ) : null}
+          <p className="text-xs text-muted">
+            Le statut affiché sur le marché public est calculé en fonction du
+            mode de location et des éventuelles réservations en cours.
+          </p>
+        </div>
+      </DetailCard>
 
       <DetailCard title="Visite">
         <DetailRow

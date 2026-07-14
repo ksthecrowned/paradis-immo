@@ -4,6 +4,8 @@ import { Icon } from '@iconify/react';
 import { DashboardPageHeader } from '@/components/dashboard';
 import {
   ApiErrorBanner,
+  DateField,
+  FeatureChips,
   FormCard,
   FormField,
   FormFooter,
@@ -40,7 +42,11 @@ import {
   createProperty,
   defaultPriceUnit,
   getProperty,
+  listingStatusLabel,
+  listingStatusTone,
+  MAP_VIEWS,
   pauseProperty,
+  PROPERTY_FEATURES,
   propertyModeLabel,
   propertyStatusLabel,
   propertyStatusTone,
@@ -48,7 +54,10 @@ import {
   publishProperty,
   updateProperty,
   type CreatePropertyInput,
+  type ListingStatus,
+  type MapViewId,
   type PriceUnit,
+  type PropertyFeatureId,
   type PropertyMode,
   type PropertyStatus,
   type PropertyType,
@@ -78,6 +87,22 @@ type FormValues = {
   bedrooms: string;
   bathrooms: string;
   surface: string;
+  // Building / lot details
+  floor: string;
+  yearBuilt: string;
+  condition: string;
+  lotSize: string;
+  parkingSpaces: string;
+  orientation: string;
+  landTitle: string;
+  // Equipment / map views
+  features: PropertyFeatureId[];
+  mapViews: MapViewId[];
+  // Marketplace
+  listingStatus: ListingStatus;
+  availableFrom: string;
+  isFeatured: boolean;
+  // Visit configuration
   visitEnabled: boolean;
   visitType: VisitType;
   visitPrice: string;
@@ -109,6 +134,18 @@ const defaultValues = (): FormValues => ({
   bedrooms: '',
   bathrooms: '',
   surface: '',
+  floor: '',
+  yearBuilt: '',
+  condition: '',
+  lotSize: '',
+  parkingSpaces: '',
+  orientation: '',
+  landTitle: '',
+  features: [],
+  mapViews: [],
+  listingStatus: 'AVAILABLE',
+  availableFrom: '',
+  isFeatured: false,
   visitEnabled: false,
   visitType: 'FREE',
   visitPrice: '',
@@ -136,6 +173,15 @@ const validate = (v: FormValues): Record<string, string> => {
   e.bathrooms = validateNumeric(v.bathrooms, { min: 0 }) ?? '';
   e.surface = validateNumeric(v.surface, { min: 0 }) ?? '';
   e.quartierId = validateRequired(v.quartierId, 'Le quartier') ?? '';
+  e.yearBuilt =
+    v.yearBuilt === ''
+      ? ''
+      : (validateNumeric(v.yearBuilt, { min: 1800, max: 2100 }) ?? '');
+  e.lotSize = v.lotSize === '' ? '' : (validateNumeric(v.lotSize, { min: 0 }) ?? '');
+  e.parkingSpaces =
+    v.parkingSpaces === ''
+      ? ''
+      : (validateNumeric(v.parkingSpaces, { min: 0 }) ?? '');
   e.visitDuration = validateNumeric(v.visitDuration, { min: 5, max: 240 }) ?? '';
   e.visitPrice =
     v.visitEnabled && v.visitType === 'PAID'
@@ -150,6 +196,9 @@ const toCreateInput = (v: FormValues): CreatePropertyInput => {
   const bedrooms = parseNumeric(v.bedrooms);
   const bathrooms = parseNumeric(v.bathrooms);
   const surface = parseNumeric(v.surface);
+  const yearBuilt = parseNumeric(v.yearBuilt);
+  const lotSize = parseNumeric(v.lotSize);
+  const parkingSpaces = parseNumeric(v.parkingSpaces);
   return {
     title: v.title.trim(),
     description: v.description.trim(),
@@ -164,6 +213,18 @@ const toCreateInput = (v: FormValues): CreatePropertyInput => {
     ...(bedrooms !== null ? { bedrooms } : {}),
     ...(bathrooms !== null ? { bathrooms } : {}),
     ...(surface !== null ? { surface } : {}),
+    ...(v.floor.trim() ? { floor: v.floor.trim() } : {}),
+    ...(yearBuilt !== null ? { yearBuilt } : {}),
+    ...(v.condition.trim() ? { condition: v.condition.trim() } : {}),
+    ...(lotSize !== null ? { lotSize } : {}),
+    ...(parkingSpaces !== null ? { parkingSpaces } : {}),
+    ...(v.orientation.trim() ? { orientation: v.orientation.trim() } : {}),
+    ...(v.landTitle.trim() ? { landTitle: v.landTitle.trim() } : {}),
+    ...(v.features.length > 0 ? { features: v.features } : {}),
+    ...(v.mapViews.length > 0 ? { mapViews: v.mapViews } : {}),
+    listingStatus: v.listingStatus,
+    ...(v.availableFrom ? { availableFrom: v.availableFrom } : {}),
+    isFeatured: v.isFeatured,
     visitEnabled: v.visitEnabled,
     ...(v.visitEnabled
       ? {
@@ -177,22 +238,39 @@ const toCreateInput = (v: FormValues): CreatePropertyInput => {
   };
 };
 
-const toUpdateInput = (v: FormValues): UpdatePropertyInput => ({
-  title: v.title.trim(),
-  description: v.description.trim(),
-  price: parseCurrency(v.price),
-  address: v.address.trim(),
-  visitEnabled: v.visitEnabled,
-  ...(v.visitEnabled
-    ? {
-        visitType: v.visitType,
-        visitDuration: parseNumeric(v.visitDuration) ?? 30,
-        ...(v.visitType === 'PAID' && v.visitPrice
-          ? { visitPrice: parseCurrency(v.visitPrice) }
-          : {}),
-      }
-    : {}),
-});
+const toUpdateInput = (v: FormValues): UpdatePropertyInput => {
+  const yearBuilt = parseNumeric(v.yearBuilt);
+  const lotSize = parseNumeric(v.lotSize);
+  const parkingSpaces = parseNumeric(v.parkingSpaces);
+  return {
+    title: v.title.trim(),
+    description: v.description.trim(),
+    price: parseCurrency(v.price),
+    address: v.address.trim(),
+    ...(v.floor.trim() ? { floor: v.floor.trim() } : { floor: null }),
+    ...(yearBuilt !== null ? { yearBuilt } : { yearBuilt: null }),
+    ...(v.condition.trim() ? { condition: v.condition.trim() } : { condition: null }),
+    ...(lotSize !== null ? { lotSize } : { lotSize: null }),
+    ...(parkingSpaces !== null ? { parkingSpaces } : { parkingSpaces: null }),
+    ...(v.orientation.trim() ? { orientation: v.orientation.trim() } : { orientation: null }),
+    ...(v.landTitle.trim() ? { landTitle: v.landTitle.trim() } : { landTitle: null }),
+    features: v.features,
+    mapViews: v.mapViews,
+    listingStatus: v.listingStatus,
+    availableFrom: v.availableFrom ? v.availableFrom : null,
+    isFeatured: v.isFeatured,
+    visitEnabled: v.visitEnabled,
+    ...(v.visitEnabled
+      ? {
+          visitType: v.visitType,
+          visitDuration: parseNumeric(v.visitDuration) ?? 30,
+          ...(v.visitType === 'PAID' && v.visitPrice
+            ? { visitPrice: parseCurrency(v.visitPrice) }
+            : {}),
+        }
+      : {}),
+  };
+};
 
 export type OwnerPropertyFormProps = {
   initial?: Partial<FormValues>;
@@ -548,38 +626,239 @@ export function OwnerPropertyForm({
       label: 'Caractéristiques',
       icon: 'mdi:format-list-bulleted',
       content: (
-        <div className="grid gap-4 sm:grid-cols-3">
-          <FormField name="bedrooms" label="Chambres" error={form.errors.bedrooms}>
-            <NumberInput
-              name="bedrooms"
-              min={0}
-              value={form.values.bedrooms}
-              onChange={(v) => form.setField('bedrooms', v)}
-              invalid={!!form.errors.bedrooms}
-            />
-          </FormField>
-          <FormField
-            name="bathrooms"
-            label="Salles de bain"
-            error={form.errors.bathrooms}
-          >
-            <NumberInput
+        <div className="space-y-6">
+          <div className="grid gap-4 sm:grid-cols-3">
+            <FormField name="bedrooms" label="Chambres" error={form.errors.bedrooms}>
+              <NumberInput
+                name="bedrooms"
+                min={0}
+                value={form.values.bedrooms}
+                onChange={(v) => form.setField('bedrooms', v)}
+                invalid={!!form.errors.bedrooms}
+              />
+            </FormField>
+            <FormField
               name="bathrooms"
-              min={0}
-              value={form.values.bathrooms}
-              onChange={(v) => form.setField('bathrooms', v)}
-              invalid={!!form.errors.bathrooms}
+              label="Salles de bain"
+              error={form.errors.bathrooms}
+            >
+              <NumberInput
+                name="bathrooms"
+                min={0}
+                value={form.values.bathrooms}
+                onChange={(v) => form.setField('bathrooms', v)}
+                invalid={!!form.errors.bathrooms}
+              />
+            </FormField>
+            <FormField name="surface" label="Surface habitable (m²)" error={form.errors.surface}>
+              <NumberInput
+                name="surface"
+                min={0}
+                value={form.values.surface}
+                onChange={(v) => form.setField('surface', v)}
+                invalid={!!form.errors.surface}
+              />
+            </FormField>
+          </div>
+
+          <div className="border-t border-border pt-4">
+            <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-foreground">
+              <Icon icon="mdi:office-building-outline" className="h-4 w-4 text-muted" />
+              Détails du bien
+            </h3>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <FormField name="floor" label="Étage" hint="Ex. RDC, 1er, 2ème">
+                <Input
+                  id="floor"
+                  value={form.values.floor}
+                  onChange={(e) => form.setField('floor', e.target.value)}
+                  placeholder="RDC"
+                  maxLength={50}
+                />
+              </FormField>
+              <FormField
+                name="yearBuilt"
+                label="Année de construction"
+                error={form.errors.yearBuilt}
+              >
+                <NumberInput
+                  name="yearBuilt"
+                  min={1800}
+                  max={2100}
+                  value={form.values.yearBuilt}
+                  onChange={(v) => form.setField('yearBuilt', v)}
+                  invalid={!!form.errors.yearBuilt}
+                />
+              </FormField>
+              <FormField name="condition" label="État" hint="Ex. Neuf, Bon, À rénover">
+                <Input
+                  id="condition"
+                  value={form.values.condition}
+                  onChange={(e) => form.setField('condition', e.target.value)}
+                  placeholder="Bon état"
+                  maxLength={80}
+                />
+              </FormField>
+              <FormField
+                name="lotSize"
+                label="Surface terrain (m²)"
+                error={form.errors.lotSize}
+                hint="Uniquement pour maisons / terrains"
+              >
+                <NumberInput
+                  name="lotSize"
+                  min={0}
+                  value={form.values.lotSize}
+                  onChange={(v) => form.setField('lotSize', v)}
+                  invalid={!!form.errors.lotSize}
+                />
+              </FormField>
+              <FormField
+                name="parkingSpaces"
+                label="Places de parking"
+                error={form.errors.parkingSpaces}
+              >
+                <NumberInput
+                  name="parkingSpaces"
+                  min={0}
+                  value={form.values.parkingSpaces}
+                  onChange={(v) => form.setField('parkingSpaces', v)}
+                  invalid={!!form.errors.parkingSpaces}
+                />
+              </FormField>
+              <FormField name="orientation" label="Orientation" hint="Ex. Sud, Nord-Est">
+                <Input
+                  id="orientation"
+                  value={form.values.orientation}
+                  onChange={(e) => form.setField('orientation', e.target.value)}
+                  placeholder="Sud"
+                  maxLength={50}
+                />
+              </FormField>
+              <FormField
+                name="landTitle"
+                label="Titre foncier"
+                className="sm:col-span-2 lg:col-span-3"
+                hint="Numéro ou type de titre (ACD, CPF, etc.)"
+              >
+                <Input
+                  id="landTitle"
+                  value={form.values.landTitle}
+                  onChange={(e) => form.setField('landTitle', e.target.value)}
+                  placeholder="ACD n°1234"
+                  maxLength={80}
+                />
+              </FormField>
+            </div>
+          </div>
+        </div>
+      ),
+    },
+    {
+      id: 'features',
+      label: 'Équipements',
+      icon: 'mdi:star-outline',
+      content: (
+        <div className="space-y-6">
+          <FormField
+            name="features"
+            label="Équipements du bien"
+            hint="Sélectionnez tout ce qui s'applique au bien."
+          >
+            <FeatureChips
+              items={PROPERTY_FEATURES.map((f) => ({
+                id: f.id,
+                label: f.label,
+                icon: f.icon,
+              }))}
+              value={form.values.features}
+              onChange={(v) => form.setField('features', v as PropertyFeatureId[])}
             />
           </FormField>
-          <FormField name="surface" label="Surface (m²)" error={form.errors.surface}>
-            <NumberInput
-              name="surface"
-              min={0}
-              value={form.values.surface}
-              onChange={(v) => form.setField('surface', v)}
-              invalid={!!form.errors.surface}
+
+          <div className="border-t border-border pt-4">
+            <FormField
+              name="mapViews"
+              label="Vues immersives disponibles"
+              hint="Cochez les modes de visite virtuelle que vous proposez pour ce bien."
+            >
+              <FeatureChips
+                items={MAP_VIEWS.map((v) => ({
+                  id: v.id,
+                  label: v.label,
+                  icon: v.icon,
+                }))}
+                value={form.values.mapViews}
+                onChange={(v) => form.setField('mapViews', v as MapViewId[])}
+              />
+            </FormField>
+          </div>
+        </div>
+      ),
+    },
+    {
+      id: 'marketplace',
+      label: 'Marché',
+      icon: 'mdi:storefront-outline',
+      content: (
+        <div className="space-y-4">
+          <FormField
+            name="listingStatus"
+            label="Statut de publication"
+            hint="Affiché sur la fiche du bien et dans les filtres marketplace."
+          >
+            <Select
+              value={form.values.listingStatus}
+              onChange={(e) =>
+                form.setField('listingStatus', e.target.value as ListingStatus)
+              }
+            >
+              <option value="AVAILABLE">Disponible</option>
+              <option value="AVAILABLE_SOON">Bientôt disponible</option>
+              <option value="UNDER_OFFER">Sous offre</option>
+              <option value="OCCUPIED">Occupé</option>
+              <option value="SOLD">Vendu</option>
+            </Select>
+          </FormField>
+
+          <FormField
+            name="availableFrom"
+            label="Disponible à partir du"
+            hint="Affiché uniquement pour le statut « Bientôt disponible »."
+          >
+            <DateField
+              id="availableFrom"
+              value={form.values.availableFrom}
+              onChange={(e) => form.setField('availableFrom', e.target.value)}
             />
           </FormField>
+
+          <FormField
+            name="isFeatured"
+            label="Mise en avant"
+            hint="Le bien sera affiché en tête de liste sur le marché."
+          >
+            <Switcher
+              checked={form.values.isFeatured}
+              onChange={(v) => form.setField('isFeatured', v)}
+              label={form.values.isFeatured ? 'À la une' : 'Standard'}
+            />
+          </FormField>
+
+          <div className="rounded-lg border border-border bg-card-hover p-4">
+            <div className="flex items-start gap-3">
+              <Icon
+                icon="mdi:information-outline"
+                className="mt-0.5 h-5 w-5 flex-shrink-0 text-muted"
+              />
+              <div className="text-sm text-muted">
+                Le statut marketplace est calculé automatiquement pour les
+                locations courtes et les locations longues. Les valeurs que
+                vous saisissez ici sont indicatives et peuvent être
+                ajustées par le système.
+              </div>
+            </div>
+          </div>
         </div>
       ),
     },
