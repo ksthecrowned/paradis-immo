@@ -52,10 +52,10 @@ export function FormField({
 }
 
 const FIELD_INPUT_CLASS =
-  'block w-full rounded-lg border border-input-border bg-search px-3 py-2.5 text-base text-foreground placeholder:text-muted focus:border-input-focus-border focus:ring-2 focus:ring-accent/30 focus:outline-none';
+  'block w-full rounded-lg border border-input-border bg-search px-3 py-2.5 text-base text-foreground placeholder:text-placeholder focus:border-input-focus-border focus:ring-2 focus:ring-accent/30 focus:outline-none';
 
 const FIELD_ERROR_CLASS =
-  'block w-full rounded-lg border border-danger bg-search px-3 py-2.5 text-base text-foreground placeholder:text-muted focus:border-danger focus:ring-2 focus:ring-danger/30 focus:outline-none';
+  'block w-full rounded-lg border border-danger bg-search px-3 py-2.5 text-base text-foreground placeholder:text-placeholder focus:border-danger focus:ring-2 focus:ring-danger/30 focus:outline-none';
 
 export type InputProps = React.InputHTMLAttributes<HTMLInputElement> & { invalid?: boolean };
 

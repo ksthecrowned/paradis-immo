@@ -20,6 +20,7 @@ html[data-bs-theme="dark"] {
   --muted: #afb9cf;
   --active: #ffffff;
   --heading: #aab8c5;
+  --placeholder: #6b7785;
   --search: #232a31;
   --input-border: #3a4551;
   --input-focus-border: #4a5663;
@@ -43,6 +44,7 @@ html[data-bs-theme="light"] {
   --muted: #8391a2;
   --active: #313a46;
   --heading: #6c757d;
+  --placeholder: #9aa4b1;
   --search: #f1f3fa;
   --input-border: #dee2e6;
   --input-focus-border: #b8c2cc;
@@ -65,6 +67,7 @@ html[data-bs-theme="light"] {
   --color-muted: var(--muted);
   --color-active: var(--active);
   --color-heading: var(--heading);
+  --color-placeholder: var(--placeholder);
   --color-search: var(--search);
   --color-input-border: var(--input-border);
   --color-input-focus-border: var(--input-focus-border);
