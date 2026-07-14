@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { Icon } from '@iconify/react';
 
 export type SelectSearchOption = {
   value: string;
@@ -16,10 +16,16 @@ export type SelectSearchProps = {
   placeholder?: string;
   invalid?: boolean;
   disabled?: boolean;
-  emptyLabel?: string;
   className?: string;
 };
 
+/**
+ * Native-styled select. The original "search overlay" was not reliable
+ * (the native select swallowed the text input). For entity lists that
+ * are short (cities, arrondissements, quartiers) a native select with
+ * Preline styling is the right tradeoff. A real combobox can be added
+ * later if we need to filter long lists.
+ */
 export function SelectSearch({
   name,
   value,
@@ -28,66 +34,37 @@ export function SelectSearch({
   placeholder = 'Sélectionner…',
   invalid = false,
   disabled = false,
-  emptyLabel = 'Aucun résultat',
   className = '',
 }: SelectSearchProps): React.JSX.Element {
-  const [query, setQuery] = useState('');
-
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return options;
-    return options.filter(
-      (o) =>
-        o.label.toLowerCase().includes(q) ||
-        (o.hint?.toLowerCase().includes(q) ?? false),
-    );
-  }, [options, query]);
-
-  const current = options.find((o) => o.value === value);
+  const BASE =
+    'block w-full rounded-lg border bg-search px-3 py-2.5 text-sm text-foreground focus:ring-2 focus:outline-none';
+  const STATE = invalid
+    ? 'border-danger focus:border-danger focus:ring-danger/30'
+    : 'border-input-border focus:border-input-focus-border focus:ring-accent/30';
+  const DISABLED = disabled ? 'cursor-not-allowed opacity-50' : '';
 
   return (
-    <div className={`relative ${className}`}>
-      <input type="hidden" name={name} value={value} />
-      <input
-        type="text"
-        role="combobox"
-        aria-expanded={false}
-        placeholder={current ? current.label : placeholder}
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        disabled={disabled}
-        className={[
-          'block w-full rounded-lg border bg-search px-3 py-2.5 pr-9 text-sm text-foreground placeholder:text-muted',
-          'focus:ring-2 focus:outline-none',
-          invalid
-            ? 'border-danger focus:border-danger focus:ring-danger/30'
-            : 'border-input-border focus:border-input-focus-border focus:ring-accent/30',
-          disabled ? 'cursor-not-allowed opacity-50' : '',
-        ].join(' ')}
-      />
+    <div className="relative">
       <select
-        aria-label={placeholder}
+        name={name}
         value={value}
-        onChange={(e) => {
-          onChange(e.target.value);
-          setQuery('');
-        }}
+        onChange={(e) => onChange(e.target.value)}
         disabled={disabled}
-        className="absolute inset-0 cursor-pointer appearance-none bg-transparent px-3 py-2.5 text-sm text-transparent focus:outline-none"
+        className={`${BASE} ${STATE} ${DISABLED} appearance-none pr-9 ${className}`}
       >
         <option value="">{placeholder}</option>
-        {filtered.length === 0 ? (
-          <option value={value} disabled>
-            {emptyLabel}
+        {options.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
           </option>
-        ) : (
-          filtered.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
-            </option>
-          ))
-        )}
+        ))}
       </select>
+      <span
+        aria-hidden
+        className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-muted"
+      >
+        <Icon icon="mdi:chevron-down" className="h-4 w-4" />
+      </span>
     </div>
   );
 }

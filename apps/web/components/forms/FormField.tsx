@@ -87,11 +87,19 @@ export type SelectProps = React.SelectHTMLAttributes<HTMLSelectElement> & {
 
 export function Select({ invalid = false, className = '', children, ...rest }: SelectProps) {
   return (
-    <select
-      className={`${invalid ? FIELD_ERROR_CLASS : FIELD_INPUT_CLASS} ${className}`}
-      {...rest}
-    >
-      {children}
-    </select>
+    <div className="relative">
+      <select
+        className={`${invalid ? FIELD_ERROR_CLASS : FIELD_INPUT_CLASS} appearance-none pr-9 ${className}`}
+        {...rest}
+      >
+        {children}
+      </select>
+      <span
+        aria-hidden
+        className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-muted"
+      >
+        <Icon icon="mdi:chevron-down" className="h-4 w-4" />
+      </span>
+    </div>
   );
 }

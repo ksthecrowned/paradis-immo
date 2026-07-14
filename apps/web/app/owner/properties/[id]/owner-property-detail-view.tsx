@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Icon } from '@iconify/react';
 import { Button } from '@/components/primitives';
 import { DashboardPageHeader, StatusBadge } from '@/components/dashboard';
@@ -44,14 +44,20 @@ export function OwnerPropertyDetailView({
   const [actionBusy, setActionBusy] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
-  const { data, loading, error, reload } = useResourceDetail<DetailData>(
-    async () => {
+  const load = useCallback(
+    async (id: string): Promise<DetailData> => {
       const [property, media] = await Promise.all([
-        getProperty(propertyId),
-        listMedia(propertyId),
+        getProperty(id),
+        listMedia(id),
       ]);
       return { property, media };
     },
+    [],
+  );
+
+  const { data, loading, error, reload } = useResourceDetail<DetailData>(
+    propertyId,
+    load,
   );
 
   if (!ready || loading) {
