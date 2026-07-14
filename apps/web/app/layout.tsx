@@ -3,13 +3,14 @@ import { PrelineBoot } from '@/components/preline-boot';
 import { ThemeProvider } from '@/components/theme-provider';
 import { ThemeScript } from '@/components/theme-script';
 import type { Metadata } from 'next';
-import { Poppins } from 'next/font/google';
+import { Inter } from 'next/font/google';
 import './globals.css';
 
-const poppins = Poppins({
-  variable: '--font-poppins',
+const inter = Inter({
+  variable: '--font-inter',
   subsets: ['latin'],
   weight: ['400', '500', '600', '700'],
+  display: 'swap',
 });
 
 export const metadata: Metadata = {
@@ -29,7 +30,7 @@ export default function RootLayout({
       data-topbar-color="dark"
       data-sidebar-color="dark"
       suppressHydrationWarning
-      className={`${poppins.variable} h-full antialiased`}
+      className={`${inter.variable} h-full antialiased`}
     >
       <head>
         <ThemeScript />
