@@ -65,6 +65,29 @@ enum ListingStatus {
   AVAILABLE_SOON
 }
 
+enum PropertyFeatureId {
+  cuisine
+  debarras
+  climatisation
+  chauffe_eau
+  wifi
+  piscine
+  parking
+  jardin
+  securite
+  groupe_electrogene
+  meuble
+  balcon
+  terrasse
+  eau_courante
+}
+
+enum MapViewId {
+  neighborhood
+  streetView
+  tour360
+}
+
 enum PriceUnit {
   NIGHT
   WEEK

@@ -110,6 +110,13 @@ export class PropertiesService {
       });
     }
 
+    // Validate listingStatus against mode (same rules as update).
+    const coercedListingStatus = coerceListingStatusForWrite(
+      dto.mode,
+      dto.listingStatus,
+    );
+    assertListingStatusForMode(dto.mode, coercedListingStatus);
+
     // Auto-create / reuse the user's personal OWNER org
     const ownerOrg = await this.orgs.ensureOwnerOrg(userId, dto.countryId);
 
@@ -132,6 +139,20 @@ export class PropertiesService {
         bedrooms: dto.bedrooms ?? null,
         bathrooms: dto.bathrooms ?? null,
         surface: dto.surface ?? null,
+        floor: dto.floor ?? null,
+        yearBuilt: dto.yearBuilt ?? null,
+        condition: dto.condition ?? null,
+        lotSize: dto.lotSize ?? null,
+        parkingSpaces: dto.parkingSpaces ?? null,
+        orientation: dto.orientation ?? null,
+        landTitle: dto.landTitle ?? null,
+        features: (dto.features ?? null) as unknown as Prisma.InputJsonValue,
+        mapViews: (dto.mapViews ?? null) as unknown as Prisma.InputJsonValue,
+        listingStatus: coercedListingStatus,
+        availableFrom: dto.availableFrom
+          ? new Date(dto.availableFrom)
+          : null,
+        isFeatured: dto.isFeatured ?? false,
         visitEnabled: dto.visitEnabled ?? false,
         visitType: dto.visitType ?? null,
         visitPrice:
@@ -315,6 +336,23 @@ export class PropertiesService {
         ...(dto.bedrooms !== undefined ? { bedrooms: dto.bedrooms } : {}),
         ...(dto.bathrooms !== undefined ? { bathrooms: dto.bathrooms } : {}),
         ...(dto.surface !== undefined ? { surface: dto.surface } : {}),
+        ...(dto.floor !== undefined ? { floor: dto.floor } : {}),
+        ...(dto.yearBuilt !== undefined ? { yearBuilt: dto.yearBuilt } : {}),
+        ...(dto.condition !== undefined ? { condition: dto.condition } : {}),
+        ...(dto.lotSize !== undefined ? { lotSize: dto.lotSize } : {}),
+        ...(dto.parkingSpaces !== undefined
+          ? { parkingSpaces: dto.parkingSpaces }
+          : {}),
+        ...(dto.orientation !== undefined
+          ? { orientation: dto.orientation }
+          : {}),
+        ...(dto.landTitle !== undefined ? { landTitle: dto.landTitle } : {}),
+        ...(dto.features !== undefined
+          ? { features: dto.features as unknown as Prisma.InputJsonValue }
+          : {}),
+        ...(dto.mapViews !== undefined
+          ? { mapViews: dto.mapViews as unknown as Prisma.InputJsonValue }
+          : {}),
         ...(dto.visitEnabled !== undefined
           ? { visitEnabled: dto.visitEnabled }
           : {}),

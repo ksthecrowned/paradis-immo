@@ -1,11 +1,16 @@
 import { Type } from 'class-transformer';
 import {
+  IsArray,
   IsBoolean,
   IsDateString,
   IsEnum,
+  IsInt,
   IsNumber,
   IsOptional,
   IsString,
+  Max,
+  MaxLength,
+  Min,
   MinLength,
   ValidateNested,
 } from 'class-validator';
@@ -15,6 +20,8 @@ import {
   PropertyType,
   VisitType,
   ListingStatus,
+  PropertyFeatureId,
+  MapViewId,
 } from '@prisma/client';
 
 export class CreatePropertyDto {
@@ -63,6 +70,72 @@ export class CreatePropertyDto {
   @IsOptional()
   surface?: number;
 
+  // -------- Building / lot details --------
+  // floor, condition, orientation, landTitle stay as free strings —
+  // values are documented but not strictly enumerated (mobile keeps
+  // the same convention).
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  floor?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1800)
+  @Max(2100)
+  yearBuilt?: number;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  condition?: string;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  lotSize?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  parkingSpaces?: number;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  orientation?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  landTitle?: string;
+
+  // -------- Equipment / features --------
+  @IsOptional()
+  @IsArray()
+  @IsEnum(PropertyFeatureId, { each: true })
+  features?: PropertyFeatureId[];
+
+  // -------- Immersive map views --------
+  @IsOptional()
+  @IsArray()
+  @IsEnum(MapViewId, { each: true })
+  mapViews?: MapViewId[];
+
+  // -------- Marketplace listing --------
+  @IsOptional()
+  @IsEnum(ListingStatus)
+  listingStatus?: ListingStatus;
+
+  @IsOptional()
+  @IsDateString()
+  availableFrom?: string | null;
+
+  @IsOptional()
+  @IsBoolean()
+  isFeatured?: boolean;
+
+  // -------- Visit configuration --------
   @IsOptional()
   @IsBoolean()
   visitEnabled?: boolean;
@@ -93,11 +166,28 @@ export class UpdatePropertyDto {
   @IsOptional() bathrooms?: number;
   @IsOptional() surface?: number;
 
-  @IsOptional() @IsBoolean() visitEnabled?: boolean;
-  @IsOptional() @IsEnum(VisitType) visitType?: VisitType;
-  @IsOptional() visitPrice?: number;
-  @IsOptional() visitDuration?: number;
+  // -------- Building / lot details --------
+  @IsOptional() @IsString() @MaxLength(50) floor?: string;
+  @IsOptional() @IsInt() @Min(1800) @Max(2100) yearBuilt?: number;
+  @IsOptional() @IsString() @MaxLength(80) condition?: string;
+  @IsOptional() @IsNumber() @Min(0) lotSize?: number;
+  @IsOptional() @IsInt() @Min(0) parkingSpaces?: number;
+  @IsOptional() @IsString() @MaxLength(50) orientation?: string;
+  @IsOptional() @IsString() @MaxLength(80) landTitle?: string;
 
+  // -------- Equipment / features --------
+  @IsOptional()
+  @IsArray()
+  @IsEnum(PropertyFeatureId, { each: true })
+  features?: PropertyFeatureId[];
+
+  // -------- Immersive map views --------
+  @IsOptional()
+  @IsArray()
+  @IsEnum(MapViewId, { each: true })
+  mapViews?: MapViewId[];
+
+  // -------- Marketplace listing --------
   @IsOptional()
   @IsEnum(ListingStatus)
   listingStatus?: ListingStatus;
@@ -109,6 +199,13 @@ export class UpdatePropertyDto {
   @IsOptional()
   @IsBoolean()
   isFeatured?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  visitEnabled?: boolean;
+  @IsOptional() @IsEnum(VisitType) visitType?: VisitType;
+  @IsOptional() visitPrice?: number;
+  @IsOptional() visitDuration?: number;
 
   @IsOptional()
   @ValidateNested()
