@@ -32,7 +32,7 @@ export function FormStepper({
               onClick={handleClick}
               disabled={index > currentIndex}
               className={[
-                'flex items-center gap-2 rounded-full px-3 py-1.5 text-sm transition-colors',
+                'flex items-center gap-2 rounded-full px-3 py-1.5 text-base transition-colors',
                 isActive
                   ? 'bg-accent text-white'
                   : isComplete

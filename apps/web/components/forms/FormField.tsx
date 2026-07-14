@@ -26,7 +26,7 @@ export function FormField({
     <div className={className}>
       <label
         htmlFor={name}
-        className="mb-1.5 flex items-center gap-1 text-sm font-medium text-foreground"
+        className="mb-1.5 flex items-center gap-1 text-base font-medium text-foreground"
       >
         <span>{label}</span>
         {required ? <span className="text-danger">*</span> : null}
@@ -41,9 +41,9 @@ export function FormField({
         <p
           id={errorId}
           role="alert"
-          className="mt-1 flex items-center gap-1 text-xs text-danger"
+          className="mt-1 flex items-center gap-1 text-sm text-danger"
         >
-          <Icon icon="mdi:alert-circle" className="h-3.5 w-3.5" />
+          <Icon icon="mdi:alert-circle" className="h-4 w-4" />
           <span>{error}</span>
         </p>
       ) : null}
@@ -52,10 +52,10 @@ export function FormField({
 }
 
 const FIELD_INPUT_CLASS =
-  'block w-full rounded-lg border border-input-border bg-search px-3 py-2.5 text-sm text-foreground placeholder:text-muted focus:border-input-focus-border focus:ring-2 focus:ring-accent/30 focus:outline-none';
+  'block w-full rounded-lg border border-input-border bg-search px-3 py-2.5 text-base text-foreground placeholder:text-muted focus:border-input-focus-border focus:ring-2 focus:ring-accent/30 focus:outline-none';
 
 const FIELD_ERROR_CLASS =
-  'block w-full rounded-lg border border-danger bg-search px-3 py-2.5 text-sm text-foreground placeholder:text-muted focus:border-danger focus:ring-2 focus:ring-danger/30 focus:outline-none';
+  'block w-full rounded-lg border border-danger bg-search px-3 py-2.5 text-base text-foreground placeholder:text-muted focus:border-danger focus:ring-2 focus:ring-danger/30 focus:outline-none';
 
 export type InputProps = React.InputHTMLAttributes<HTMLInputElement> & { invalid?: boolean };
 

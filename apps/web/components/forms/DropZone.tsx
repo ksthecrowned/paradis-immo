@@ -119,7 +119,7 @@ export function DropZone({
           icon={dragOver ? 'mdi:cloud-download' : 'mdi:cloud-upload-outline'}
           className="h-10 w-10"
         />
-        <p className="text-sm font-medium text-foreground">{title}</p>
+        <p className="text-base font-medium text-foreground">{title}</p>
         <p className="text-xs text-muted">{hint}</p>
         <p className="text-xs text-muted">Taille max. : {maxSizeMb} Mo</p>
         <input

@@ -3,10 +3,10 @@
 import { Icon } from '@iconify/react';
 import type { ButtonHTMLAttributes, ReactNode } from 'react';
 
-type ButtonVariant = 'primary' | 'secondary' | 'danger' | 'ghost';
-type ButtonSize = 'sm' | 'md' | 'lg';
+export type ButtonVariant = 'primary' | 'secondary' | 'danger' | 'ghost';
+export type ButtonSize = 'sm' | 'md' | 'lg';
 
-type ButtonProps = {
+export type ButtonProps = {
   variant?: ButtonVariant;
   size?: ButtonSize;
   loading?: boolean;
@@ -27,8 +27,8 @@ const VARIANT_CLASS: Record<ButtonVariant, string> = {
 
 const SIZE_CLASS: Record<ButtonSize, string> = {
   sm: 'px-3 py-1.5 text-sm gap-1.5',
-  md: 'px-4 py-2 text-sm gap-2',
-  lg: 'px-5 py-2.5 text-base gap-2',
+  md: 'px-4 py-2.5 text-base gap-2',
+  lg: 'px-5 py-3 text-base gap-2',
 };
 
 export function Button({

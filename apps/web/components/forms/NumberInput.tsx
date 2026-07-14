@@ -20,7 +20,7 @@ export type NumberInputProps = {
 };
 
 const BASE =
-  'block w-full rounded-lg border bg-search px-3 py-2.5 text-center text-sm text-foreground placeholder:text-muted focus:ring-2 focus:outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none';
+  'block w-full rounded-lg border bg-search px-3 py-2.5 text-center text-base text-foreground placeholder:text-muted focus:ring-2 focus:outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none';
 
 const STATE = (invalid: boolean) =>
   invalid
@@ -28,7 +28,7 @@ const STATE = (invalid: boolean) =>
     : 'border-input-border focus:border-input-focus-border focus:ring-accent/30';
 
 const BTN =
-  'flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg border border-input-border bg-card text-foreground transition-colors hover:bg-card-hover disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-accent/30';
+  'flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-lg border border-input-border bg-card text-foreground transition-colors hover:bg-card-hover disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-accent/30';
 
 const parse = (raw: string): number | null => {
   if (raw === '') return null;

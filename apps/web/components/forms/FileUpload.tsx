@@ -121,7 +121,7 @@ export function FileUpload({
                   </div>
                 )}
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm text-foreground">{item.name}</p>
+                  <p className="truncate text-base text-foreground">{item.name}</p>
                   <p className="text-xs text-muted">{formatSize(item.size)}</p>
                 </div>
                 <button

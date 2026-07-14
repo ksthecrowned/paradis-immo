@@ -11,7 +11,7 @@ export function DateField({
     <input
       type="date"
       className={[
-        'block w-full rounded-lg border bg-search px-3 py-2.5 text-sm text-foreground',
+        'block w-full rounded-lg border bg-search px-3 py-2.5 text-base text-foreground',
         'focus:ring-2 focus:outline-none',
         invalid
           ? 'border-danger focus:border-danger focus:ring-danger/30'

@@ -24,7 +24,7 @@ export type SelectSearchProps = {
 };
 
 const BASE_INPUT =
-  'block w-full rounded-lg border bg-search px-3 py-2.5 text-sm text-foreground placeholder:text-muted focus:ring-2 focus:outline-none';
+  'block w-full rounded-lg border bg-search px-3 py-2.5 text-base text-foreground placeholder:text-muted focus:ring-2 focus:outline-none';
 const STATE_INPUT = (invalid: boolean) =>
   invalid
     ? 'border-danger focus:border-danger focus:ring-danger/30'
@@ -179,13 +179,13 @@ export function SelectSearch({
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
                     placeholder={searchPlaceholder}
-                    className="block w-full rounded-lg border border-input-border bg-search py-2 pl-9 pr-3 text-sm text-foreground placeholder:text-muted focus:border-input-focus-border focus:ring-2 focus:ring-accent/30 focus:outline-none"
+                    className="block w-full rounded-lg border border-input-border bg-search py-2.5 pl-9 pr-3 text-base text-foreground placeholder:text-muted focus:border-input-focus-border focus:ring-2 focus:ring-accent/30 focus:outline-none"
                   />
                 </div>
               </div>
               <ul className="max-h-60 overflow-y-auto py-1">
                 {filtered.length === 0 ? (
-                  <li className="px-3 py-2 text-sm text-muted">{emptyLabel}</li>
+                  <li className="px-3 py-2 text-base text-muted">{emptyLabel}</li>
                 ) : (
                   filtered.map((o) => {
                     const isActive = o.value === value;
@@ -197,7 +197,7 @@ export function SelectSearch({
                           aria-selected={isActive}
                           onClick={() => handleSelect(o.value)}
                           className={[
-                            'flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm',
+                            'flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-base',
                             isActive
                               ? 'bg-accent/15 text-accent'
                               : 'text-foreground hover:bg-card-hover',
