@@ -1,8 +1,22 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { DashboardPageHeader } from '@/components/dashboard';
+import {
+  ApiErrorBanner,
+  FormCard,
+  FormField,
+  FormFooter,
+  FormTabs,
+  Input,
+  NumberInput,
+  Select,
+  SelectSearch,
+  Switcher,
+  Textarea,
+  type FormTab,
+} from '@/components/forms';
+import { useRequireSession } from '@/hooks/use-require-session';
+import { useResourceForm } from '@/hooks/use-resource-form';
 import { ApiError } from '@/lib/api';
 import {
   listArrondissements,
@@ -12,24 +26,52 @@ import {
   type PublicCity,
   type PublicQuartier,
 } from '@/lib/owner/locations';
+import { PropertyMediaUploader } from '@/components/owner/property-media-uploader';
 import {
   createProperty,
   defaultPriceUnit,
   propertyModeLabel,
   propertyTypeLabel,
+  updateProperty,
   type CreatePropertyInput,
+  type PriceUnit,
   type PropertyMode,
   type PropertyType,
-  type PriceUnit,
+  type UpdatePropertyInput,
   type VisitType,
 } from '@/lib/owner/properties';
 import { ROUTES } from '@/lib/routes';
-import { useRequireSession } from '@/hooks/use-require-session';
+import { useRouter } from 'next/navigation';
+import { useEffect, useState, type FormEvent } from 'react';
+import {
+  parseCurrency,
+  parseNumeric,
+  validateCurrency,
+  validateNumeric,
+  validateRequired,
+} from '@/lib/validation';
 
-const inputClass =
-  'block w-full rounded-lg border border-input-border bg-search px-3 py-2.5 text-sm text-foreground placeholder:text-muted focus:border-input-focus-border focus:ring-input-focus-border';
-
-const labelClass = 'mb-1 block text-sm font-medium text-foreground';
+type FormValues = {
+  title: string;
+  description: string;
+  type: PropertyType;
+  mode: PropertyMode;
+  price: string;
+  currency: string;
+  priceUnit: PriceUnit;
+  address: string;
+  bedrooms: string;
+  bathrooms: string;
+  surface: string;
+  visitEnabled: boolean;
+  visitType: VisitType;
+  visitPrice: string;
+  visitDuration: string;
+  countryId: string;
+  cityId: string;
+  arrondissementId: string;
+  quartierId: string;
+};
 
 const PROPERTY_MODES: PropertyMode[] = ['RENT_LONG', 'RENT_SHORT', 'SALE'];
 const PROPERTY_TYPES: PropertyType[] = [
@@ -40,493 +82,522 @@ const PROPERTY_TYPES: PropertyType[] = [
 ];
 const PRICE_UNITS: PriceUnit[] = ['NIGHT', 'WEEK', 'MONTH', 'TOTAL'];
 
-export function OwnerPropertyForm(): React.JSX.Element {
+const defaultValues = (): FormValues => ({
+  title: '',
+  description: '',
+  type: 'APARTMENT',
+  mode: 'RENT_LONG',
+  price: '',
+  currency: 'XAF',
+  priceUnit: 'MONTH',
+  address: '',
+  bedrooms: '',
+  bathrooms: '',
+  surface: '',
+  visitEnabled: false,
+  visitType: 'FREE',
+  visitPrice: '',
+  visitDuration: '30',
+  countryId: '',
+  cityId: '',
+  arrondissementId: '',
+  quartierId: '',
+});
+
+const validate = (v: FormValues): Record<string, string> => {
+  const e: Record<string, string> = {};
+  e.title = validateRequired(v.title, 'Le titre') ?? '';
+  if (!e.title && v.title.trim().length < 3) e.title = 'Minimum 3 caractères.';
+  e.description = validateRequired(v.description, 'La description') ?? '';
+  if (!e.description && v.description.trim().length < 10)
+    e.description = 'Minimum 10 caractères.';
+  e.price = validateRequired(v.price, 'Le prix') ?? validateCurrency(v.price) ?? '';
+  if (!e.price) {
+    const n = parseCurrency(v.price);
+    if (n <= 0) e.price = 'Le prix doit être supérieur à 0.';
+  }
+  e.address = validateRequired(v.address, 'L’adresse') ?? '';
+  e.bedrooms = validateNumeric(v.bedrooms, { min: 0 }) ?? '';
+  e.bathrooms = validateNumeric(v.bathrooms, { min: 0 }) ?? '';
+  e.surface = validateNumeric(v.surface, { min: 0 }) ?? '';
+  e.quartierId = validateRequired(v.quartierId, 'Le quartier') ?? '';
+  e.visitDuration = validateNumeric(v.visitDuration, { min: 5, max: 240 }) ?? '';
+  e.visitPrice =
+    v.visitEnabled && v.visitType === 'PAID'
+      ? validateRequired(v.visitPrice, 'Le tarif de visite') ??
+        validateCurrency(v.visitPrice) ??
+        ''
+      : '';
+  return e;
+};
+
+const toCreateInput = (v: FormValues): CreatePropertyInput => {
+  const bedrooms = parseNumeric(v.bedrooms);
+  const bathrooms = parseNumeric(v.bathrooms);
+  const surface = parseNumeric(v.surface);
+  return {
+    title: v.title.trim(),
+    description: v.description.trim(),
+    type: v.type,
+    mode: v.mode,
+    price: parseCurrency(v.price),
+    currency: v.currency.trim().toUpperCase(),
+    priceUnit: v.priceUnit,
+    quartierId: v.quartierId,
+    address: v.address.trim(),
+    countryId: v.countryId,
+    ...(bedrooms !== null ? { bedrooms } : {}),
+    ...(bathrooms !== null ? { bathrooms } : {}),
+    ...(surface !== null ? { surface } : {}),
+    visitEnabled: v.visitEnabled,
+    ...(v.visitEnabled
+      ? {
+          visitType: v.visitType,
+          visitDuration: parseNumeric(v.visitDuration) ?? 30,
+          ...(v.visitType === 'PAID' && v.visitPrice
+            ? { visitPrice: parseCurrency(v.visitPrice) }
+            : {}),
+        }
+      : {}),
+  };
+};
+
+const toUpdateInput = (v: FormValues): UpdatePropertyInput => ({
+  title: v.title.trim(),
+  description: v.description.trim(),
+  price: parseCurrency(v.price),
+  address: v.address.trim(),
+  visitEnabled: v.visitEnabled,
+  ...(v.visitEnabled
+    ? {
+        visitType: v.visitType,
+        visitDuration: parseNumeric(v.visitDuration) ?? 30,
+        ...(v.visitType === 'PAID' && v.visitPrice
+          ? { visitPrice: parseCurrency(v.visitPrice) }
+          : {}),
+      }
+    : {}),
+});
+
+export type OwnerPropertyFormProps = {
+  initial?: Partial<FormValues>;
+  propertyId?: string;
+  submitLabel: string;
+  onCancel?: () => void;
+};
+
+export function OwnerPropertyForm({
+  initial,
+  propertyId,
+  submitLabel,
+  onCancel,
+}: OwnerPropertyFormProps): React.JSX.Element {
   const router = useRouter();
   const { ready } = useRequireSession();
-
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [type, setType] = useState<PropertyType>('APARTMENT');
-  const [mode, setMode] = useState<PropertyMode>('RENT_LONG');
-  const [price, setPrice] = useState('');
-  const [currency, setCurrency] = useState('XAF');
-  const [priceUnit, setPriceUnit] = useState<PriceUnit>('MONTH');
-  const [address, setAddress] = useState('');
-  const [bedrooms, setBedrooms] = useState('');
-  const [bathrooms, setBathrooms] = useState('');
-  const [surface, setSurface] = useState('');
-  const [visitEnabled, setVisitEnabled] = useState(false);
-  const [visitType, setVisitType] = useState<VisitType>('FREE');
-  const [visitPrice, setVisitPrice] = useState('');
-  const [visitDuration, setVisitDuration] = useState('30');
-
-  const [countryId, setCountryId] = useState('');
   const [cities, setCities] = useState<PublicCity[]>([]);
-  const [cityId, setCityId] = useState('');
-  const [arrondissements, setArrondissements] = useState<PublicArrondissement[]>(
-    [],
-  );
-  const [arrondissementId, setArrondissementId] = useState('');
+  const [arrondissements, setArrondissements] = useState<PublicArrondissement[]>([]);
   const [quartiers, setQuartiers] = useState<PublicQuartier[]>([]);
-  const [quartierId, setQuartierId] = useState('');
-
   const [loadingLocations, setLoadingLocations] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    setPriceUnit(defaultPriceUnit(mode));
-  }, [mode]);
+  const form = useResourceForm<FormValues>({
+    initial: { ...defaultValues(), ...initial },
+    validate,
+    onSubmit: async (values) => {
+      if (propertyId) {
+        await updateProperty(propertyId, toUpdateInput(values));
+        router.push(ROUTES.owner.property(propertyId));
+      } else {
+        const created = await createProperty(toCreateInput(values));
+        router.push(ROUTES.owner.property(created.id));
+      }
+    },
+  });
 
   useEffect(() => {
     if (!ready) return;
+    let cancelled = false;
     void (async () => {
       setLoadingLocations(true);
       try {
         const cityList = await listCities('CG');
+        if (cancelled) return;
         setCities(cityList);
-        if (cityList[0]) {
-          setCountryId(cityList[0].country.id);
-          setCityId(cityList[0].id);
+        if (!form.values.countryId && cityList[0]) {
+          form.setField('countryId', cityList[0].country.id);
+        }
+        if (!form.values.cityId && cityList[0]) {
+          form.setField('cityId', cityList[0].id);
         }
       } catch (err) {
-        setError(
-          err instanceof ApiError
-            ? err.message
-            : 'Impossible de charger les villes.',
+        if (cancelled) return;
+        form.setError(
+          'locations',
+          err instanceof ApiError ? err.message : 'Impossible de charger les villes.',
         );
       } finally {
-        setLoadingLocations(false);
+        if (!cancelled) setLoadingLocations(false);
       }
     })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready]);
 
   useEffect(() => {
-    if (!cityId) {
+    if (!form.values.cityId) {
       setArrondissements([]);
-      setArrondissementId('');
+      if (form.values.arrondissementId) form.setField('arrondissementId', '');
       return;
     }
-    void listArrondissements(cityId).then((items) => {
+    let cancelled = false;
+    void listArrondissements(form.values.cityId).then((items) => {
+      if (cancelled) return;
       setArrondissements(items);
-      setArrondissementId(items[0]?.id ?? '');
+      if (!form.values.arrondissementId && items[0]) {
+        form.setField('arrondissementId', items[0].id);
+      }
     });
-  }, [cityId]);
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.values.cityId]);
 
   useEffect(() => {
-    if (!arrondissementId) {
+    if (!form.values.arrondissementId) {
       setQuartiers([]);
-      setQuartierId('');
+      if (form.values.quartierId) form.setField('quartierId', '');
       return;
     }
-    void listQuartiers(arrondissementId).then((items) => {
+    let cancelled = false;
+    void listQuartiers(form.values.arrondissementId).then((items) => {
+      if (cancelled) return;
       setQuartiers(items);
-      setQuartierId(items[0]?.id ?? '');
+      if (!form.values.quartierId && items[0]) {
+        form.setField('quartierId', items[0].id);
+      }
     });
-  }, [arrondissementId]);
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.values.arrondissementId]);
 
-  const handleSubmit = useCallback(
-    async (e: FormEvent<HTMLFormElement>) => {
-      e.preventDefault();
-      if (!quartierId || !countryId) {
-        setError('Sélectionnez un quartier.');
-        return;
-      }
-      setSubmitting(true);
-      setError(null);
-      try {
-        const body: CreatePropertyInput = {
-          title: title.trim(),
-          description: description.trim(),
-          type,
-          mode,
-          price: Number(price),
-          currency: currency.trim().toUpperCase(),
-          priceUnit,
-          quartierId,
-          address: address.trim(),
-          countryId,
-          ...(bedrooms ? { bedrooms: Number(bedrooms) } : {}),
-          ...(bathrooms ? { bathrooms: Number(bathrooms) } : {}),
-          ...(surface ? { surface: Number(surface) } : {}),
-          visitEnabled,
-          ...(visitEnabled
-            ? {
-                visitType,
-                visitDuration: Number(visitDuration) || 30,
-                ...(visitType === 'PAID' && visitPrice
-                  ? { visitPrice: Number(visitPrice) }
-                  : {}),
-              }
-            : {}),
-        };
-        const created = await createProperty(body);
-        router.push(ROUTES.owner.property(created.id));
-      } catch (err) {
-        setError(
-          err instanceof ApiError
-            ? err.message
-            : 'Impossible de créer le bien.',
-        );
-      } finally {
-        setSubmitting(false);
-      }
-    },
-    [
-      address,
-      bathrooms,
-      bedrooms,
-      countryId,
-      currency,
-      description,
-      mode,
-      price,
-      priceUnit,
-      quartierId,
-      router,
-      surface,
-      title,
-      type,
-      visitDuration,
-      visitEnabled,
-      visitPrice,
-      visitType,
-    ],
-  );
+  useEffect(() => {
+    form.setField('priceUnit', defaultPriceUnit(form.values.mode));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.values.mode]);
 
-  if (!ready) {
-    return <p className="text-sm text-muted">Chargement de la session…</p>;
-  }
-
-  return (
-    <div>
-      <DashboardPageHeader title="Ajouter un bien" />
-
-      {error ? (
-        <div
-          role="alert"
-          className="mb-4 rounded-lg border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger"
-        >
-          {error}
-        </div>
-      ) : null}
-
-      <form
-        onSubmit={(e) => void handleSubmit(e)}
-        className="mx-auto max-w-2xl space-y-6 rounded-md border border-border bg-card p-6 shadow-sm"
-      >
-        <div>
-          <label htmlFor="title" className={labelClass}>
-            Titre
-          </label>
-          <input
-            id="title"
-            required
-            minLength={3}
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            className={inputClass}
-            placeholder="Appartement 3 pièces, Bacongo"
-          />
-        </div>
-
-        <div>
-          <label htmlFor="description" className={labelClass}>
-            Description
-          </label>
-          <textarea
-            id="description"
-            required
-            minLength={10}
-            rows={4}
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            className={inputClass}
-            placeholder="Décrivez le bien, les équipements, l'accès…"
-          />
-        </div>
-
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div>
-            <label htmlFor="mode" className={labelClass}>
-              Mode
-            </label>
-            <select
-              id="mode"
-              value={mode}
-              onChange={(e) => setMode(e.target.value as PropertyMode)}
-              className={inputClass}
-            >
-              {PROPERTY_MODES.map((m) => (
-                <option key={m} value={m}>
-                  {propertyModeLabel(m)}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label htmlFor="type" className={labelClass}>
-              Type de bien
-            </label>
-            <select
-              id="type"
-              value={type}
-              onChange={(e) => setType(e.target.value as PropertyType)}
-              className={inputClass}
-            >
-              {PROPERTY_TYPES.map((t) => (
-                <option key={t} value={t}>
-                  {propertyTypeLabel(t)}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        <div className="grid gap-4 sm:grid-cols-3">
-          <div>
-            <label htmlFor="price" className={labelClass}>
-              Prix
-            </label>
-            <input
-              id="price"
-              type="number"
-              required
-              min={0}
-              value={price}
-              onChange={(e) => setPrice(e.target.value)}
-              className={inputClass}
+  const tabs: FormTab[] = [
+    {
+      id: 'general',
+      label: 'Général',
+      icon: 'mdi:home-city',
+      content: (
+        <div className="space-y-4">
+          <FormField name="title" label="Titre" required error={form.errors.title}>
+            <Input
+              id="title"
+              value={form.values.title}
+              onChange={(e) => form.setField('title', e.target.value)}
+              placeholder="Appartement 3 pièces, Bacongo"
+              invalid={!!form.errors.title}
             />
-          </div>
-          <div>
-            <label htmlFor="currency" className={labelClass}>
-              Devise
-            </label>
-            <input
-              id="currency"
-              required
-              maxLength={3}
-              value={currency}
-              onChange={(e) => setCurrency(e.target.value)}
-              className={inputClass}
+          </FormField>
+          <FormField
+            name="description"
+            label="Description"
+            required
+            error={form.errors.description}
+          >
+            <Textarea
+              id="description"
+              rows={4}
+              value={form.values.description}
+              onChange={(e) => form.setField('description', e.target.value)}
+              placeholder="Décrivez le bien, les équipements, l'accès…"
+              invalid={!!form.errors.description}
             />
+          </FormField>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <FormField name="mode" label="Mode" required>
+              <Select
+                id="mode"
+                value={form.values.mode}
+                onChange={(e) => form.setField('mode', e.target.value as PropertyMode)}
+              >
+                {PROPERTY_MODES.map((m) => (
+                  <option key={m} value={m}>
+                    {propertyModeLabel(m)}
+                  </option>
+                ))}
+              </Select>
+            </FormField>
+            <FormField name="type" label="Type de bien" required>
+              <Select
+                id="type"
+                value={form.values.type}
+                onChange={(e) => form.setField('type', e.target.value as PropertyType)}
+              >
+                {PROPERTY_TYPES.map((t) => (
+                  <option key={t} value={t}>
+                    {propertyTypeLabel(t)}
+                  </option>
+                ))}
+              </Select>
+            </FormField>
           </div>
-          <div>
-            <label htmlFor="priceUnit" className={labelClass}>
-              Unité
-            </label>
-            <select
-              id="priceUnit"
-              value={priceUnit}
-              onChange={(e) => setPriceUnit(e.target.value as PriceUnit)}
-              className={inputClass}
+          <div className="grid gap-4 sm:grid-cols-3">
+            <FormField
+              name="price"
+              label="Prix"
+              required
+              error={form.errors.price}
+              className="sm:col-span-2"
+            >
+              <NumberInput
+                id="price"
+                min={0}
+                value={form.values.price}
+                onChange={(e) => form.setField('price', e.target.value)}
+                invalid={!!form.errors.price}
+              />
+            </FormField>
+            <FormField name="currency" label="Devise">
+              <Input
+                id="currency"
+                value={form.values.currency}
+                onChange={(e) => form.setField('currency', e.target.value)}
+                placeholder="XAF"
+                maxLength={3}
+              />
+            </FormField>
+          </div>
+          <FormField name="priceUnit" label="Unité de prix">
+            <Select
+              value={form.values.priceUnit}
+              onChange={(e) => form.setField('priceUnit', e.target.value as PriceUnit)}
             >
               {PRICE_UNITS.map((u) => (
                 <option key={u} value={u}>
                   {u}
                 </option>
               ))}
-            </select>
-          </div>
+            </Select>
+          </FormField>
         </div>
-
-        <div>
-          <label htmlFor="address" className={labelClass}>
-            Adresse
-          </label>
-          <input
-            id="address"
+      ),
+    },
+    {
+      id: 'location',
+      label: 'Localisation',
+      icon: 'mdi:map-marker',
+      content: (
+        <div className="space-y-4">
+          <FormField name="address" label="Adresse" required error={form.errors.address}>
+            <Input
+              id="address"
+              value={form.values.address}
+              onChange={(e) => form.setField('address', e.target.value)}
+              placeholder="Rue, numéro, repère"
+              invalid={!!form.errors.address}
+            />
+          </FormField>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <FormField name="cityId" label="Ville">
+              <SelectSearch
+                name="cityId"
+                value={form.values.cityId}
+                onChange={(v) => form.setField('cityId', v)}
+                options={cities.map((c) => ({ value: c.id, label: c.name }))}
+                placeholder="Sélectionner une ville"
+                disabled={loadingLocations}
+              />
+            </FormField>
+            <FormField name="arrondissementId" label="Arrondissement">
+              <SelectSearch
+                name="arrondissementId"
+                value={form.values.arrondissementId}
+                onChange={(v) => form.setField('arrondissementId', v)}
+                options={arrondissements.map((a) => ({
+                  value: a.id,
+                  label: a.name,
+                }))}
+                placeholder="Sélectionner un arrondissement"
+                disabled={!form.values.cityId}
+              />
+            </FormField>
+          </div>
+          <FormField
+            name="quartierId"
+            label="Quartier"
             required
-            minLength={2}
-            value={address}
-            onChange={(e) => setAddress(e.target.value)}
-            className={inputClass}
-            placeholder="Rue, repère…"
-          />
+            error={form.errors.quartierId}
+          >
+            <SelectSearch
+              name="quartierId"
+              value={form.values.quartierId}
+              onChange={(v) => form.setField('quartierId', v)}
+              options={quartiers.map((q) => ({ value: q.id, label: q.name }))}
+              placeholder="Sélectionner un quartier"
+              invalid={!!form.errors.quartierId}
+              disabled={!form.values.arrondissementId}
+            />
+          </FormField>
         </div>
-
-        <fieldset className="space-y-3 rounded-lg border border-border p-4">
-          <legend className="px-1 text-sm font-medium text-foreground">
-            Localisation
-          </legend>
-          {loadingLocations ? (
-            <p className="text-sm text-muted">Chargement des villes…</p>
-          ) : (
-            <div className="grid gap-4 sm:grid-cols-3">
-              <div>
-                <label htmlFor="city" className={labelClass}>
-                  Ville
-                </label>
-                <select
-                  id="city"
-                  value={cityId}
-                  onChange={(e) => setCityId(e.target.value)}
-                  className={inputClass}
-                >
-                  {cities.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label htmlFor="arrondissement" className={labelClass}>
-                  Arrondissement
-                </label>
-                <select
-                  id="arrondissement"
-                  value={arrondissementId}
-                  onChange={(e) => setArrondissementId(e.target.value)}
-                  className={inputClass}
-                >
-                  {arrondissements.map((a) => (
-                    <option key={a.id} value={a.id}>
-                      {a.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label htmlFor="quartier" className={labelClass}>
-                  Quartier
-                </label>
-                <select
-                  id="quartier"
-                  required
-                  value={quartierId}
-                  onChange={(e) => setQuartierId(e.target.value)}
-                  className={inputClass}
-                >
-                  {quartiers.map((q) => (
-                    <option key={q.id} value={q.id}>
-                      {q.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-          )}
-        </fieldset>
-
+      ),
+    },
+    {
+      id: 'characteristics',
+      label: 'Caractéristiques',
+      icon: 'mdi:format-list-bulleted',
+      content: (
         <div className="grid gap-4 sm:grid-cols-3">
-          <div>
-            <label htmlFor="bedrooms" className={labelClass}>
-              Chambres
-            </label>
-            <input
+          <FormField name="bedrooms" label="Chambres" error={form.errors.bedrooms}>
+            <NumberInput
               id="bedrooms"
-              type="number"
               min={0}
-              value={bedrooms}
-              onChange={(e) => setBedrooms(e.target.value)}
-              className={inputClass}
+              value={form.values.bedrooms}
+              onChange={(e) => form.setField('bedrooms', e.target.value)}
+              invalid={!!form.errors.bedrooms}
             />
-          </div>
-          <div>
-            <label htmlFor="bathrooms" className={labelClass}>
-              Salles de bain
-            </label>
-            <input
+          </FormField>
+          <FormField
+            name="bathrooms"
+            label="Salles de bain"
+            error={form.errors.bathrooms}
+          >
+            <NumberInput
               id="bathrooms"
-              type="number"
               min={0}
-              value={bathrooms}
-              onChange={(e) => setBathrooms(e.target.value)}
-              className={inputClass}
+              value={form.values.bathrooms}
+              onChange={(e) => form.setField('bathrooms', e.target.value)}
+              invalid={!!form.errors.bathrooms}
             />
-          </div>
-          <div>
-            <label htmlFor="surface" className={labelClass}>
-              Surface (m²)
-            </label>
-            <input
+          </FormField>
+          <FormField name="surface" label="Surface (m²)" error={form.errors.surface}>
+            <NumberInput
               id="surface"
-              type="number"
               min={0}
-              value={surface}
-              onChange={(e) => setSurface(e.target.value)}
-              className={inputClass}
+              value={form.values.surface}
+              onChange={(e) => form.setField('surface', e.target.value)}
+              invalid={!!form.errors.surface}
             />
-          </div>
+          </FormField>
         </div>
-
-        <fieldset className="space-y-3 rounded-lg border border-border p-4">
-          <legend className="flex items-center gap-2 px-1 text-sm font-medium text-foreground">
-            <input
-              id="visitEnabled"
-              type="checkbox"
-              checked={visitEnabled}
-              onChange={(e) => setVisitEnabled(e.target.checked)}
-              className="rounded border-border"
+      ),
+    },
+    {
+      id: 'visit',
+      label: 'Visite',
+      icon: 'mdi:calendar-clock',
+      content: (
+        <div className="space-y-4">
+          <FormField name="visitEnabled" label="Activer les visites">
+            <Switcher
+              checked={form.values.visitEnabled}
+              onChange={(v) => form.setField('visitEnabled', v)}
+              label={form.values.visitEnabled ? 'Visites activées' : 'Visites désactivées'}
             />
-            <label htmlFor="visitEnabled">Visites activées</label>
-          </legend>
-          {visitEnabled ? (
-            <div className="grid gap-4 sm:grid-cols-3">
-              <div>
-                <label htmlFor="visitType" className={labelClass}>
-                  Type de visite
-                </label>
-                <select
-                  id="visitType"
-                  value={visitType}
-                  onChange={(e) => setVisitType(e.target.value as VisitType)}
-                  className={inputClass}
+          </FormField>
+          {form.values.visitEnabled ? (
+            <>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <FormField name="visitType" label="Type de visite" required>
+                  <Select
+                    value={form.values.visitType}
+                    onChange={(e) =>
+                      form.setField('visitType', e.target.value as VisitType)
+                    }
+                  >
+                    <option value="FREE">Gratuite</option>
+                    <option value="PAID">Payante</option>
+                  </Select>
+                </FormField>
+                <FormField
+                  name="visitDuration"
+                  label="Durée (min)"
+                  required
+                  error={form.errors.visitDuration}
                 >
-                  <option value="FREE">Gratuite</option>
-                  <option value="PAID">Payante</option>
-                </select>
-              </div>
-              {visitType === 'PAID' ? (
-                <div>
-                  <label htmlFor="visitPrice" className={labelClass}>
-                    Prix visite
-                  </label>
-                  <input
-                    id="visitPrice"
-                    type="number"
-                    min={0}
-                    value={visitPrice}
-                    onChange={(e) => setVisitPrice(e.target.value)}
-                    className={inputClass}
+                  <NumberInput
+                    min={5}
+                    max={240}
+                    value={form.values.visitDuration}
+                    onChange={(e) => form.setField('visitDuration', e.target.value)}
+                    invalid={!!form.errors.visitDuration}
                   />
-                </div>
-              ) : null}
-              <div>
-                <label htmlFor="visitDuration" className={labelClass}>
-                  Durée (min)
-                </label>
-                <input
-                  id="visitDuration"
-                  type="number"
-                  min={15}
-                  value={visitDuration}
-                  onChange={(e) => setVisitDuration(e.target.value)}
-                  className={inputClass}
-                />
+                </FormField>
               </div>
-            </div>
+              {form.values.visitType === 'PAID' ? (
+                <FormField
+                  name="visitPrice"
+                  label="Tarif (XAF)"
+                  required
+                  error={form.errors.visitPrice}
+                >
+                  <NumberInput
+                    min={0}
+                    value={form.values.visitPrice}
+                    onChange={(e) => form.setField('visitPrice', e.target.value)}
+                    invalid={!!form.errors.visitPrice}
+                  />
+                </FormField>
+              ) : null}
+            </>
           ) : null}
-        </fieldset>
-
-        <div className="flex flex-wrap gap-3 pt-2">
-          <button
-            type="submit"
-            disabled={submitting || loadingLocations}
-            className="inline-flex items-center rounded-lg bg-accent px-5 py-2.5 text-sm font-semibold text-white hover:bg-accent/90 disabled:opacity-50"
-          >
-            {submitting ? 'Création…' : 'Créer le bien'}
-          </button>
-          <button
-            type="button"
-            onClick={() => router.push(ROUTES.owner.properties)}
-            className="inline-flex items-center rounded-lg border border-border bg-card px-5 py-2.5 text-sm font-medium text-foreground hover:bg-card-hover"
-          >
-            Annuler
-          </button>
         </div>
-      </form>
+      ),
+    },
+    {
+      id: 'media',
+      label: 'Médias',
+      icon: 'mdi:image-multiple',
+      content: propertyId ? (
+        <PropertyMediaUploader
+          propertyId={propertyId}
+          initialMedia={[]}
+          onMediaChange={() => undefined}
+        />
+      ) : (
+        <p className="rounded-lg border border-dashed border-border bg-card-hover p-6 text-center text-sm text-muted">
+          Vous pourrez ajouter des photos et vidéos après avoir créé le bien.
+        </p>
+      ),
+    },
+  ];
+
+  const handleSubmit = (e: FormEvent) => {
+    void form.handleSubmit(e);
+  };
+
+  if (!ready) {
+    return <p className="text-sm text-muted">Chargement de la session…</p>;
+  }
+
+  return (
+    <div className="space-y-6">
+      <DashboardPageHeader
+        title={propertyId ? 'Modifier le bien' : 'Ajouter un bien'}
+      />
+      <ApiErrorBanner message={form.submitError} />
+      <FormCard
+        title="Informations du bien"
+        hint="Les champs marqués d'un astérisque sont obligatoires."
+        footer={
+          <FormFooter
+            onSubmit={() => form.handleSubmit()}
+            onCancel={onCancel ?? (() => router.back())}
+            submitLabel={submitLabel}
+            saving={form.saving}
+          />
+        }
+      >
+        <form onSubmit={handleSubmit} className="space-y-2">
+          <FormTabs tabs={tabs} />
+        </form>
+      </FormCard>
     </div>
   );
 }

@@ -1,13 +1,17 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Icon } from '@iconify/react';
 import {
   DashboardPageHeader,
   ListDataTable,
   StatusBadge,
   type ListColumn,
 } from '@/components/dashboard';
+import { Button } from '@/components/primitives';
+import { ApiErrorBanner } from '@/components/forms';
 import { ApiError } from '@/lib/api';
 import {
   archiveProperty,
@@ -103,10 +107,11 @@ export function OwnerPropertiesPage(): React.JSX.Element {
             ?.slice()
             .sort((a, b) => a.position - b.position)[0]?.url;
           return url ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
+            <Image
               src={url}
               alt=""
+              width={40}
+              height={40}
               className="size-10 rounded-md object-cover"
             />
           ) : (
@@ -194,23 +199,15 @@ export function OwnerPropertiesPage(): React.JSX.Element {
       <DashboardPageHeader
         title="Mes biens"
         actions={
-          <Link
-            href={ROUTES.owner.propertiesAdd}
-            className="inline-flex items-center rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white hover:bg-accent/90"
-          >
-            Ajouter un bien
+          <Link href={ROUTES.owner.propertiesAdd}>
+            <Button icon="mdi:plus" variant="primary">
+              Ajouter un bien
+            </Button>
           </Link>
         }
       />
 
-      {error ? (
-        <div
-          role="alert"
-          className="mb-4 rounded-lg border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger"
-        >
-          {error}
-        </div>
-      ) : null}
+      <ApiErrorBanner message={error} />
 
       <ListDataTable
         data={rows}
@@ -218,15 +215,20 @@ export function OwnerPropertiesPage(): React.JSX.Element {
         loading={loading}
         searchPlaceholder="Rechercher un bien…"
         emptyMessage={
-          <span className="inline-flex flex-col items-center gap-3 py-2">
-            <span>Vous n’avez pas encore de bien.</span>
-            <Link
-              href={ROUTES.owner.propertiesAdd}
-              className="inline-flex items-center rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white hover:bg-accent/90"
-            >
-              Ajouter un bien
+          <div className="flex flex-col items-center gap-3 py-6">
+            <Icon
+              icon="mdi:home-city-outline"
+              className="h-12 w-12 text-muted"
+            />
+            <p className="text-sm text-muted">
+              Vous n’avez pas encore de bien.
+            </p>
+            <Link href={ROUTES.owner.propertiesAdd}>
+              <Button icon="mdi:plus" variant="primary">
+                Ajouter un bien
+              </Button>
             </Link>
-          </span>
+          </div>
         }
         entityLabel="biens"
         onRefresh={() => void load()}
@@ -239,7 +241,7 @@ export function OwnerPropertiesPage(): React.JSX.Element {
               Voir
             </Link>
             <Link
-              href={ROUTES.owner.property(row.id)}
+              href={ROUTES.owner.propertyEdit(row.id)}
               className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-card-hover"
             >
               Éditer

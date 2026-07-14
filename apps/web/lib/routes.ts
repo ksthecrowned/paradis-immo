@@ -10,6 +10,7 @@ export const ROUTES = {
     properties: '/owner/properties',
     propertiesAdd: '/owner/properties/add',
     property: (id: string) => `/owner/properties/${id}`,
+    propertyEdit: (id: string) => `/owner/properties/${id}/edit`,
     visitSlots: (id: string) => `/owner/properties/${id}/visit-slots`,
     visits: '/owner/visits',
     leases: '/owner/leases',
