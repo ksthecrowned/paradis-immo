@@ -5,10 +5,15 @@ import { notFound } from 'next/navigation';
 
 async function loadInitial(
   id: string,
-): Promise<{ initial: Record<string, unknown> } | { notFound: true }> {
+): Promise<
+  | { initial: Record<string, unknown>; status: string; updatedAt: string }
+  | { notFound: true }
+> {
   try {
     const property = await getProperty(id);
     return {
+      status: property.status,
+      updatedAt: property.updatedAt ?? '',
       initial: {
         title: property.title,
         description: property.description,
@@ -53,6 +58,8 @@ export default async function OwnerPropertyEditPage({
       propertyId={id}
       initial={result.initial as never}
       submitLabel="Enregistrer"
+      initialStatus={result.status as never}
+      initialUpdatedAt={result.updatedAt}
     />
   );
 }

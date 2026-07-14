@@ -7,13 +7,19 @@ import {
   FormCard,
   FormField,
   FormFooter,
+  FormLayout,
+  FormSidebar,
   FormTabs,
   Input,
+  MetaList,
   NumberInput,
   Select,
   SelectSearch,
+  StatusPill,
   Switcher,
   Textarea,
+  TipBox,
+  ActionList,
   type FormTab,
 } from '@/components/forms';
 import { useRequireSession } from '@/hooks/use-require-session';
@@ -30,14 +36,21 @@ import {
 import { uploadMedia, type MediaItem } from '@/lib/owner/media';
 import { MediaGallery, type MediaGalleryItem } from '@/components/detail/MediaGallery';
 import {
+  archiveProperty,
   createProperty,
   defaultPriceUnit,
+  getProperty,
+  pauseProperty,
   propertyModeLabel,
+  propertyStatusLabel,
+  propertyStatusTone,
   propertyTypeLabel,
+  publishProperty,
   updateProperty,
   type CreatePropertyInput,
   type PriceUnit,
   type PropertyMode,
+  type PropertyStatus,
   type PropertyType,
   type UpdatePropertyInput,
   type VisitType,
@@ -186,6 +199,9 @@ export type OwnerPropertyFormProps = {
   propertyId?: string;
   submitLabel: string;
   onCancel?: () => void;
+  initialStatus?: PropertyStatus;
+  initialUpdatedAt?: string;
+  initialCreatedAt?: string;
 };
 
 export function OwnerPropertyForm({
@@ -193,6 +209,9 @@ export function OwnerPropertyForm({
   propertyId,
   submitLabel,
   onCancel,
+  initialStatus,
+  initialUpdatedAt,
+  initialCreatedAt,
 }: OwnerPropertyFormProps): React.JSX.Element {
   const router = useRouter();
   const { ready } = useRequireSession();
@@ -207,6 +226,10 @@ export function OwnerPropertyForm({
     initial && 'media' in initial ? ((initial as { media?: MediaItem[] }).media ?? []) : [],
   );
   const [mediaError, setMediaError] = useState<string | null>(null);
+  const [status, setStatus] = useState<PropertyStatus>(initialStatus ?? 'DRAFT');
+  const [updatedAt, setUpdatedAt] = useState<string | undefined>(initialUpdatedAt);
+  const [createdAt] = useState<string | undefined>(initialCreatedAt);
+  const [sideActionBusy, setSideActionBusy] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // On edit, fetch the existing media for the gallery tab.
@@ -753,28 +776,219 @@ export function OwnerPropertyForm({
     return <p className="text-sm text-muted">Chargement de la session…</p>;
   }
 
+  const runSideAction = async (
+    key: string,
+    fn: () => Promise<unknown>,
+  ): Promise<void> => {
+    setSideActionBusy(key);
+    setMediaError(null);
+    try {
+      await fn();
+      // Refresh the status by re-loading the property (edit mode).
+      if (propertyId) {
+        const fresh = await getProperty(propertyId);
+        setStatus(fresh.status);
+        setUpdatedAt(fresh.updatedAt);
+      }
+    } catch (err) {
+      setMediaError(
+        err instanceof ApiError ? err.message : 'Action impossible.',
+      );
+    } finally {
+      setSideActionBusy(null);
+    }
+  };
+
+  const formatDate = (iso?: string): string => {
+    if (!iso) return '—';
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return '—';
+    return d.toLocaleString('fr-FR', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+
+  const statusTone = propertyStatusTone(status);
+  const statusIcon =
+    status === 'ACTIVE'
+      ? 'mdi:check-circle'
+      : status === 'PAUSED'
+        ? 'mdi:pause-circle'
+        : status === 'ARCHIVED'
+          ? 'mdi:archive'
+          : 'mdi:pencil-circle';
+
+  const sidebar = propertyId ? (
+    <FormSidebar
+      sections={[
+        {
+          title: 'Statut',
+          icon: 'mdi:flag-variant-outline',
+          children: (
+            <div className="flex flex-col gap-2">
+              <StatusPill
+                label={propertyStatusLabel(status)}
+                tone={statusTone}
+                icon={statusIcon}
+              />
+              <p className="text-xs text-muted">
+                {status === 'DRAFT' &&
+                  'Ce bien n’est pas encore visible sur le marché.'}
+                {status === 'ACTIVE' &&
+                  'Ce bien est visible et ouvert aux réservations.'}
+                {status === 'PAUSED' &&
+                  'Ce bien est momentanément masqué du marché.'}
+                {status === 'ARCHIVED' &&
+                  'Ce bien est archivé. Il n’est plus visible.'}
+              </p>
+            </div>
+          ),
+        },
+        {
+          title: 'Métadonnées',
+          icon: 'mdi:information-outline',
+          children: (
+            <MetaList
+              rows={[
+                { label: 'Référence', value: <span className="font-mono text-xs">{propertyId.slice(0, 8)}</span> },
+                { label: 'Créé le', value: formatDate(createdAt) },
+                { label: 'Mis à jour', value: formatDate(updatedAt) },
+              ]}
+            />
+          ),
+        },
+        {
+          title: 'Actions rapides',
+          icon: 'mdi:lightning-bolt-outline',
+          children: (
+            <ActionList
+              actions={[
+                ...(status === 'DRAFT' || status === 'PAUSED'
+                  ? [
+                      {
+                        label: 'Publier maintenant',
+                        icon: 'mdi:check-circle-outline',
+                        variant: 'primary' as const,
+                        loading: sideActionBusy === 'publish',
+                        onClick: () =>
+                          runSideAction('publish', () =>
+                            publishProperty(propertyId),
+                          ),
+                      },
+                    ]
+                  : []),
+                ...(status === 'ACTIVE'
+                  ? [
+                      {
+                        label: 'Mettre en pause',
+                        icon: 'mdi:pause-circle-outline',
+                        variant: 'secondary' as const,
+                        loading: sideActionBusy === 'pause',
+                        onClick: () =>
+                          runSideAction('pause', () => pauseProperty(propertyId)),
+                      },
+                    ]
+                  : []),
+                ...(status !== 'ARCHIVED'
+                  ? [
+                      {
+                        label: 'Archiver',
+                        icon: 'mdi:archive-outline',
+                        variant: 'danger' as const,
+                        loading: sideActionBusy === 'archive',
+                        onClick: () => {
+                          if (
+                            typeof window !== 'undefined' &&
+                            !window.confirm(
+                              'Archiver ce bien ? Il ne sera plus visible sur le marché.',
+                            )
+                          ) {
+                            return;
+                          }
+                          void runSideAction('archive', () =>
+                            archiveProperty(propertyId),
+                          );
+                        },
+                      },
+                    ]
+                  : []),
+              ]}
+            />
+          ),
+        },
+      ]}
+    />
+  ) : (
+    <FormSidebar
+      sections={[
+        {
+          title: 'À propos',
+          icon: 'mdi:information-outline',
+          children: (
+            <p className="text-sm text-muted">
+              Vous allez créer un bien. Il sera enregistré en{' '}
+              <strong>brouillon</strong> et pourra être publié depuis la page
+              du bien ou la liste de vos biens.
+            </p>
+          ),
+        },
+        {
+          title: 'Conseils',
+          icon: 'mdi:lightbulb-on-outline',
+          children: (
+            <TipBox
+              tips={[
+                {
+                  icon: 'mdi:image-multiple-outline',
+                  title: 'Ajoutez des photos',
+                  body: 'Un bien avec au moins 5 photos reçoit 3× plus de demandes.',
+                },
+                {
+                  icon: 'mdi:map-marker-outline',
+                  title: 'Localisation précise',
+                  body: 'Indiquez la ville, l’arrondissement et le quartier pour apparaître dans les bonnes recherches.',
+                },
+                {
+                  icon: 'mdi:cash-multiple',
+                  title: 'Prix réaliste',
+                  body: 'Les biens avec un prix cohérent du marché sont contactés 2× plus vite.',
+                },
+              ]}
+            />
+          ),
+        },
+      ]}
+    />
+  );
+
   return (
     <div className="space-y-6">
       <DashboardPageHeader
         title={propertyId ? 'Modifier le bien' : 'Ajouter un bien'}
       />
-      <ApiErrorBanner message={form.submitError} />
-      <FormCard
-        title="Informations du bien"
-        hint="Les champs marqués d'un astérisque sont obligatoires."
-        footer={
-          <FormFooter
-            onSubmit={() => form.handleSubmit()}
-            onCancel={onCancel ?? (() => router.back())}
-            submitLabel={submitLabel}
-            saving={form.saving}
-          />
-        }
-      >
-        <form onSubmit={handleSubmit} className="space-y-2">
-          <FormTabs tabs={tabs} />
-        </form>
-      </FormCard>
+      <ApiErrorBanner message={form.submitError ?? mediaError} />
+      <FormLayout sidebar={sidebar}>
+        <FormCard
+          title="Informations du bien"
+          hint="Les champs marqués d'un astérisque sont obligatoires."
+          footer={
+            <FormFooter
+              onSubmit={() => form.handleSubmit()}
+              onCancel={onCancel ?? (() => router.back())}
+              submitLabel={submitLabel}
+              saving={form.saving}
+            />
+          }
+        >
+          <form onSubmit={handleSubmit} className="space-y-2">
+            <FormTabs tabs={tabs} />
+          </form>
+        </FormCard>
+      </FormLayout>
     </div>
   );
 }
