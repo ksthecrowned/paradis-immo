@@ -357,10 +357,10 @@ export function OwnerPropertyForm({
               className="sm:col-span-2"
             >
               <NumberInput
-                id="price"
+                name="price"
                 min={0}
                 value={form.values.price}
-                onChange={(e) => form.setField('price', e.target.value)}
+                onChange={(v) => form.setField('price', v)}
                 invalid={!!form.errors.price}
               />
             </FormField>
@@ -456,10 +456,10 @@ export function OwnerPropertyForm({
         <div className="grid gap-4 sm:grid-cols-3">
           <FormField name="bedrooms" label="Chambres" error={form.errors.bedrooms}>
             <NumberInput
-              id="bedrooms"
+              name="bedrooms"
               min={0}
               value={form.values.bedrooms}
-              onChange={(e) => form.setField('bedrooms', e.target.value)}
+              onChange={(v) => form.setField('bedrooms', v)}
               invalid={!!form.errors.bedrooms}
             />
           </FormField>
@@ -469,19 +469,19 @@ export function OwnerPropertyForm({
             error={form.errors.bathrooms}
           >
             <NumberInput
-              id="bathrooms"
+              name="bathrooms"
               min={0}
               value={form.values.bathrooms}
-              onChange={(e) => form.setField('bathrooms', e.target.value)}
+              onChange={(v) => form.setField('bathrooms', v)}
               invalid={!!form.errors.bathrooms}
             />
           </FormField>
           <FormField name="surface" label="Surface (m²)" error={form.errors.surface}>
             <NumberInput
-              id="surface"
+              name="surface"
               min={0}
               value={form.values.surface}
-              onChange={(e) => form.setField('surface', e.target.value)}
+              onChange={(v) => form.setField('surface', v)}
               invalid={!!form.errors.surface}
             />
           </FormField>
@@ -522,10 +522,11 @@ export function OwnerPropertyForm({
                   error={form.errors.visitDuration}
                 >
                   <NumberInput
+                    name="visitDuration"
                     min={5}
                     max={240}
                     value={form.values.visitDuration}
-                    onChange={(e) => form.setField('visitDuration', e.target.value)}
+                    onChange={(v) => form.setField('visitDuration', v)}
                     invalid={!!form.errors.visitDuration}
                   />
                 </FormField>
@@ -538,9 +539,10 @@ export function OwnerPropertyForm({
                   error={form.errors.visitPrice}
                 >
                   <NumberInput
+                    name="visitPrice"
                     min={0}
                     value={form.values.visitPrice}
-                    onChange={(e) => form.setField('visitPrice', e.target.value)}
+                    onChange={(v) => form.setField('visitPrice', v)}
                     invalid={!!form.errors.visitPrice}
                   />
                 </FormField>
