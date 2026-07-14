@@ -26,7 +26,7 @@ import {
   type PublicCity,
   type PublicQuartier,
 } from '@/lib/owner/locations';
-import { PropertyMediaUploader } from '@/components/owner/property-media-uploader';
+import { uploadMedia, type MediaItem } from '@/lib/owner/media';
 import {
   createProperty,
   defaultPriceUnit,
@@ -42,7 +42,7 @@ import {
 } from '@/lib/owner/properties';
 import { ROUTES } from '@/lib/routes';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import {
   parseCurrency,
   parseNumeric,
@@ -198,6 +198,52 @@ export function OwnerPropertyForm({
   const [arrondissements, setArrondissements] = useState<PublicArrondissement[]>([]);
   const [quartiers, setQuartiers] = useState<PublicQuartier[]>([]);
   const [loadingLocations, setLoadingLocations] = useState(true);
+  // Files queued for upload. On add, they're held until the property is
+  // created, then uploaded in order. On edit, they upload immediately.
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const [existingMedia, setExistingMedia] = useState<MediaItem[]>(
+    initial && 'media' in initial ? ((initial as { media?: MediaItem[] }).media ?? []) : [],
+  );
+  const [mediaError, setMediaError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  // On edit, fetch the existing media for the gallery tab.
+  useEffect(() => {
+    if (!ready || !propertyId) return;
+    let cancelled = false;
+    import('@/lib/owner/media')
+      .then(({ listMedia }) => listMedia(propertyId))
+      .then((items) => {
+        if (cancelled) return;
+        setExistingMedia(items);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setMediaError(
+          err instanceof ApiError
+            ? err.message
+            : 'Impossible de charger les médias.',
+        );
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [ready, propertyId]);
+
+  const uploadAllPending = async (targetId: string): Promise<void> => {
+    for (let i = 0; i < pendingFiles.length; i++) {
+      try {
+        await uploadMedia(targetId, pendingFiles[i], i);
+      } catch (err) {
+        setMediaError(
+          err instanceof ApiError
+            ? err.message
+            : `Échec de l'upload de « ${pendingFiles[i].name} »`,
+        );
+      }
+    }
+    setPendingFiles([]);
+  };
 
   const form = useResourceForm<FormValues>({
     initial: { ...defaultValues(), ...initial },
@@ -205,9 +251,11 @@ export function OwnerPropertyForm({
     onSubmit: async (values) => {
       if (propertyId) {
         await updateProperty(propertyId, toUpdateInput(values));
+        await uploadAllPending(propertyId);
         router.push(ROUTES.owner.property(propertyId));
       } else {
         const created = await createProperty(toCreateInput(values));
+        await uploadAllPending(created.id);
         router.push(ROUTES.owner.property(created.id));
       }
     },
@@ -556,16 +604,127 @@ export function OwnerPropertyForm({
       id: 'media',
       label: 'Médias',
       icon: 'mdi:image-multiple',
-      content: propertyId ? (
-        <PropertyMediaUploader
-          propertyId={propertyId}
-          initialMedia={[]}
-          onMediaChange={() => undefined}
-        />
-      ) : (
-        <p className="rounded-lg border border-dashed border-border bg-card-hover p-6 text-center text-sm text-muted">
-          Vous pourrez ajouter des photos et vidéos après avoir créé le bien.
-        </p>
+      content: (
+        <div className="space-y-4">
+          <p className="text-sm text-muted">
+            {propertyId
+              ? 'Les fichiers ajoutés sont envoyés immédiatement.'
+              : 'Les fichiers ajoutés seront envoyés après la création du bien.'}
+          </p>
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            className="hidden"
+            onChange={async (e) => {
+              const files = Array.from(e.target.files ?? []);
+              e.target.value = '';
+              if (files.length === 0) return;
+              setMediaError(null);
+              if (propertyId) {
+                // Edit mode: upload immediately.
+                for (let i = 0; i < files.length; i++) {
+                  try {
+                    await uploadMedia(
+                      propertyId,
+                      files[i],
+                      existingMedia.length + i,
+                    );
+                  } catch (err) {
+                    setMediaError(
+                      err instanceof ApiError
+                        ? err.message
+                        : `Échec de l'upload de « ${files[i].name} »`,
+                    );
+                  }
+                }
+                // Refresh gallery list.
+                const { listMedia } = await import('@/lib/owner/media');
+                setExistingMedia(await listMedia(propertyId));
+              } else {
+                // Add mode: queue, uploaded on submit.
+                setPendingFiles((prev) => [...prev, ...files]);
+              }
+            }}
+          />
+
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="inline-flex items-center gap-2 rounded-lg border border-input-border bg-card px-4 py-2.5 text-sm font-medium text-foreground hover:bg-card-hover"
+          >
+            <span aria-hidden>📷</span>
+            Choisir des photos
+          </button>
+
+          {mediaError ? (
+            <p role="alert" className="text-sm text-danger">
+              {mediaError}
+            </p>
+          ) : null}
+
+          {propertyId && existingMedia.length > 0 ? (
+            <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+              {existingMedia
+                .slice()
+                .sort((a, b) => a.position - b.position)
+                .map((m) => (
+                  <li
+                    key={m.id}
+                    className="relative aspect-[4/3] overflow-hidden rounded-lg border border-border bg-card"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={m.url}
+                      alt=""
+                      className="h-full w-full object-cover"
+                    />
+                  </li>
+                ))}
+            </ul>
+          ) : null}
+
+          {pendingFiles.length > 0 ? (
+            <div className="space-y-2">
+              <p className="text-xs font-medium text-muted">
+                {pendingFiles.length} fichier(s) en attente d'envoi
+              </p>
+              <ul className="space-y-1 text-sm">
+                {pendingFiles.map((f, idx) => (
+                  <li
+                    key={`${f.name}-${idx}`}
+                    className="flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2"
+                  >
+                    <span className="flex-1 truncate text-foreground">
+                      {f.name}
+                    </span>
+                    <span className="text-xs text-muted">
+                      {(f.size / 1024).toFixed(0)} Ko
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setPendingFiles((prev) => prev.filter((_, i) => i !== idx))
+                      }
+                      className="text-xs text-danger hover:underline"
+                    >
+                      Retirer
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+
+          {!propertyId && pendingFiles.length === 0 ? (
+            <p className="rounded-lg border border-dashed border-border bg-card-hover p-6 text-center text-sm text-muted">
+              Aucune photo sélectionnée. Vous pourrez aussi en ajouter depuis la
+              page du bien après création.
+            </p>
+          ) : null}
+        </div>
       ),
     },
   ];
