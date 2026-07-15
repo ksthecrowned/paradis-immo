@@ -54,7 +54,7 @@ function ChildRow({
         onClick={onNavigate}
         aria-current={active ? 'page' : undefined}
         className={
-          'group flex items-center gap-3 rounded-lg py-2 text-base font-medium transition-colors ' +
+          'group flex items-center gap-3 rounded-lg py-2 text-sm transition-colors ' +
           (active
             ? 'text-active'
             : 'text-muted hover:bg-card-hover hover:text-active')
@@ -211,7 +211,7 @@ function NavItemRow({
           onClick={handleParentClick}
           title={collapsed ? item.label : undefined}
           aria-current={active ? 'page' : undefined}
-          className="flex min-w-0 flex-1 items-center gap-3 px-3 py-2.5 text-base"
+          className="flex min-w-0 flex-1 items-center gap-3 px-3 py-2.5 text-sm"
         >
           <DashIcon
             icon={icon}
@@ -293,7 +293,7 @@ export function SidebarNav({
                   {group.label}
                 </p>
               ) : null}
-              <ul className="space-y-0.5">
+              <ul className="space-y-2">
                 {group.items.map((item) => (
                   <li key={item.href + item.label}>
                     <NavItemRow

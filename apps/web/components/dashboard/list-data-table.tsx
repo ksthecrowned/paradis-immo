@@ -35,6 +35,12 @@ export interface ListDataTableProps<T> {
   onPageSizeChange?: (pageSize: number) => void;
   onRefresh?: () => void;
   loading?: boolean;
+  /** Click handler on a row. When provided, rows get `cursor-pointer` + hover. */
+  onRowClick?: (row: T) => void;
+  /** Highlights the row whose id matches. */
+  selectedRowId?: string;
+  /** Field used to read each row's id (for `selectedRowId` match). */
+  rowIdKey?: keyof T;
 }
 
 type PageItem = number | 'ellipsis';
@@ -167,6 +173,9 @@ interface TableRowProps<T> {
   columns: ListColumn<T>[];
   rowIndex: number;
   actions?: (row: T) => React.ReactNode;
+  onRowClick?: (row: T) => void;
+  isSelected?: boolean;
+  rowIdKey?: keyof T;
 }
 
 const TableRow = memo(function TableRow<T extends object>({
@@ -174,9 +183,26 @@ const TableRow = memo(function TableRow<T extends object>({
   columns,
   rowIndex,
   actions,
+  onRowClick,
+  isSelected,
+  rowIdKey: rowIdKeyProp,
 }: TableRowProps<T>) {
+  const clickable = typeof onRowClick === 'function';
+  const rowClasses = [
+    'transition-colors',
+    clickable ? 'cursor-pointer' : '',
+    isSelected ? 'bg-accent/5' : 'hover:bg-card-hover/40',
+  ]
+    .filter(Boolean)
+    .join(' ');
+
   return (
-    <tr className="transition-colors hover:bg-card-hover/60">
+    <tr
+      className={rowClasses}
+      onClick={clickable ? () => onRowClick!(row) : undefined}
+      aria-current={isSelected ? 'true' : undefined}
+      data-row-id={String((row as Record<string, unknown>)[String(rowIdKeyProp ?? 'id')] ?? '')}
+    >
       {columns.map((col, colIndex) => (
         <TableCell
           key={`cell-${rowIndex}-${colIndex}`}
@@ -188,7 +214,13 @@ const TableRow = memo(function TableRow<T extends object>({
       ))}
       {actions ? (
         <td className="whitespace-nowrap p-3 text-end text-sm font-medium">
-          <div className="inline-flex gap-x-2">{actions(row)}</div>
+          {/* Stop propagation so row-level click does not fire when acting on a row action. */}
+          <div
+            className="inline-flex gap-x-2"
+            onClick={(event) => event.stopPropagation()}
+          >
+            {actions(row)}
+          </div>
         </td>
       ) : null}
     </tr>
@@ -213,6 +245,9 @@ export function ListDataTable<T extends object>({
   onPageSizeChange,
   onRefresh,
   loading = false,
+  onRowClick,
+  selectedRowId,
+  rowIdKey = 'id' as keyof T,
 }: ListDataTableProps<T>): React.JSX.Element {
   const [search, setSearch] = useState('');
   const [colFilters, setColFilters] = useState<Record<string, string>>({});
@@ -336,7 +371,7 @@ export function ListDataTable<T extends object>({
     'inline-flex items-center gap-x-2 rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground shadow-sm transition-colors hover:bg-card-hover focus:outline-none';
 
   return (
-    <div className="mx-auto flex w-full flex-col rounded-md border border-border border-t-4 border-t-accent bg-card shadow-sm">
+    <div className="mx-auto flex w-full flex-col rounded-lg border border-border bg-card shadow-sm">
       <div className="rounded-xl px-3 py-4 md:py-5">
         <div className="mb-4 flex items-center space-x-2">
           {enableClientFilters ? (
@@ -413,7 +448,7 @@ export function ListDataTable<T extends object>({
                     className="fixed inset-0 z-40"
                     onClick={() => setShowExport(false)}
                   />
-                  <div className="absolute end-0 top-full z-50 mt-2 w-36 rounded-md border border-border bg-card shadow-xl">
+                  <div className="absolute end-0 top-full z-50 mt-2 w-36 rounded-lg border border-border bg-card shadow-xl">
                     <div className="space-y-0.5 p-1">
                       <button
                         type="button"
@@ -434,11 +469,11 @@ export function ListDataTable<T extends object>({
           </div>
         </div>
 
-        <div className="min-h-[480px] overflow-x-auto">
+        <div className="overflow-x-auto">
           <div className="inline-block min-w-full align-middle">
-            <div className="min-h-[480px] overflow-hidden">
+            <div className="overflow-hidden">
               <table id={tableId} className="min-w-full table-fixed">
-                <thead className="border-b border-border">
+                <thead className="border-b border-border bg-card-hover/30">
                   <tr>
                     {columns.map((col, colIndex) => (
                       <th
@@ -472,7 +507,7 @@ export function ListDataTable<T extends object>({
                                     onClick={() => setOpenFilter(null)}
                                   />
                                   <div
-                                    className="absolute z-20 mt-2 rounded-md border border-border bg-card p-2 shadow-md"
+                                    className="absolute z-20 mt-2 rounded-lg border border-border bg-card p-2 shadow-md"
                                     style={{ minWidth: 160 }}
                                   >
                                     {col.filterType === 'select' ? (
@@ -521,7 +556,7 @@ export function ListDataTable<T extends object>({
                           </div>
                         ) : (
                           <div
-                            className={`inline-flex items-center rounded-md border border-transparent px-2.5 py-1 text-sm text-muted hover:border-border ${col.sortable ? 'cursor-pointer select-none' : ''}`}
+                            className={`inline-flex items-center rounded-md border border-transparent px-2.5 py-1 text-muted hover:border-border ${col.sortable ? 'cursor-pointer select-none' : ''}`}
                             onClick={() =>
                               col.sortable && handleSort(String(col.key))
                             }
@@ -567,15 +602,25 @@ export function ListDataTable<T extends object>({
                       </td>
                     </tr>
                   ) : (
-                    paginated.map((row, i) => (
-                      <TableRow
-                        key={i}
-                        row={row}
-                        columns={columns}
-                        rowIndex={i}
-                        actions={actions}
-                      />
-                    ))
+                    paginated.map((row, i) => {
+                      const rowId = String(
+                        (row as Record<string, unknown>)[String(rowIdKey)] ?? '',
+                      );
+                      const isSelected =
+                        !!onRowClick && !!selectedRowId && rowId === selectedRowId;
+                      return (
+                        <TableRow
+                          key={i}
+                          row={row}
+                          columns={columns}
+                          rowIndex={i}
+                          actions={actions}
+                          onRowClick={onRowClick}
+                          isSelected={isSelected}
+                          rowIdKey={rowIdKey}
+                        />
+                      );
+                    })
                   )}
                 </tbody>
               </table>
@@ -608,7 +653,7 @@ export function ListDataTable<T extends object>({
                   onClick={() => setPage(item)}
                   className={`inline-flex min-w-[40px] items-center justify-center rounded-full p-2.5 text-sm ${
                     item === page
-                      ? 'bg-card-hover text-active'
+                      ? 'bg-accent/10 text-accent font-medium'
                       : 'text-foreground hover:bg-card-hover'
                   }`}
                 >

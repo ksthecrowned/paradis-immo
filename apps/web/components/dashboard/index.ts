@@ -25,5 +25,20 @@ export {
   SidebarUserMenu,
   type SidebarUserMenuProps,
 } from './sidebar-user-menu';
+export {
+  TableActionMenu,
+  type TableActionMenuItem,
+  type TableActionMenuProps,
+} from './table-action-menu';
 export { StatCard, type StatCardProps } from './stat-card';
 export { Topbar, type TopbarProps } from './topbar';
+export {
+  BookingsCalendar,
+  type BookingSummary,
+  type BookingsCalendarProps,
+} from './bookings-calendar';
+export {
+  VisitsCalendar,
+  type VisitBookingSummary,
+  type VisitsCalendarProps,
+} from './visits-calendar';

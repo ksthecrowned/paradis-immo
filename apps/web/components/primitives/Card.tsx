@@ -14,7 +14,7 @@ export function Card({
   return (
     <div
       className={[
-        'rounded-2xl bg-card',
+        'rounded-lg bg-card',
         bordered ? 'border border-border' : '',
         className,
       ].join(' ')}

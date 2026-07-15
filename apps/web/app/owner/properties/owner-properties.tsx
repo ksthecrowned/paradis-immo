@@ -8,6 +8,7 @@ import {
   DashboardPageHeader,
   ListDataTable,
   StatusBadge,
+  TableActionMenu,
   type ListColumn,
 } from '@/components/dashboard';
 import { Button } from '@/components/primitives';
@@ -17,9 +18,12 @@ import {
   archiveProperty,
   formatPropertyPrice,
   listMyProperties,
+  listingStatusLabel,
+  listingStatusTone,
   propertyCardBadgeLabel,
   propertyStatusLabel,
   propertyStatusTone,
+  propertyTypeIcon,
   publishProperty,
   type PublicProperty,
 } from '@/lib/owner/properties';
@@ -106,17 +110,27 @@ export function OwnerPropertiesPage(): React.JSX.Element {
           const url = row.media
             ?.slice()
             .sort((a, b) => a.position - b.position)[0]?.url;
-          return url ? (
-            <Image
-              src={url}
-              alt=""
-              width={40}
-              height={40}
-              className="size-10 rounded-md object-cover"
-            />
-          ) : (
-            <span className="inline-flex size-10 items-center justify-center rounded-md bg-card-hover text-[10px] text-muted">
-              —
+          if (url) {
+            return (
+              <Image
+                src={url}
+                alt=""
+                width={40}
+                height={40}
+                className="size-10 rounded-md object-cover"
+              />
+            );
+          }
+          return (
+            <span
+              aria-label={row.type}
+              title={row.type}
+              className="inline-flex size-10 items-center justify-center rounded-md bg-accent-muted text-accent"
+            >
+              <Icon
+                icon={propertyTypeIcon(row.type)}
+                className="h-5 w-5"
+              />
             </span>
           );
         },
@@ -170,14 +184,8 @@ export function OwnerPropertiesPage(): React.JSX.Element {
         render: (_, row) =>
           row.listingStatus ? (
             <StatusBadge
-              label={row.listingStatus}
-              tone={
-                row.listingStatus === 'AVAILABLE'
-                  ? 'success'
-                  : row.listingStatus === 'SOLD'
-                    ? 'danger'
-                    : 'warning'
-              }
+              label={listingStatusLabel(row.listingStatus)}
+              tone={listingStatusTone(row.listingStatus)}
             />
           ) : (
             <span className="text-muted">—</span>
@@ -268,42 +276,44 @@ export function OwnerPropertiesPage(): React.JSX.Element {
         }
         entityLabel="biens"
         onRefresh={() => void load()}
-        actions={(row) => (
-          <div className="flex flex-wrap items-center gap-1.5">
-            <Link
-              href={ROUTES.owner.property(row.id)}
-              className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-card-hover"
-            >
-              Voir
-            </Link>
-            <Link
-              href={ROUTES.owner.propertyEdit(row.id)}
-              className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-card-hover"
-            >
-              Éditer
-            </Link>
-            {row.status === 'DRAFT' || row.status === 'PAUSED' ? (
-              <button
-                type="button"
-                disabled={actionId === row.id}
-                onClick={() => void handlePublish(row.id)}
-                className="rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-white hover:bg-accent/90 disabled:opacity-50"
-              >
-                Publier
-              </button>
-            ) : null}
-            {row.status !== 'ARCHIVED' ? (
-              <button
-                type="button"
-                disabled={actionId === row.id}
-                onClick={() => void handleArchive(row.id)}
-                className="rounded-lg border border-danger/40 px-3 py-1.5 text-xs font-medium text-danger hover:bg-danger/10 disabled:opacity-50"
-              >
-                Archiver
-              </button>
-            ) : null}
-          </div>
-        )}
+        actions={(row) => {
+          const canPublish = row.status === 'DRAFT' || row.status === 'PAUSED';
+          const canArchive = row.status !== 'ARCHIVED';
+          return (
+            <TableActionMenu
+              viewHref={ROUTES.owner.property(row.id)}
+              viewLabel="Voir le bien"
+              items={[
+                {
+                  icon: 'solar:pen-linear',
+                  label: 'Éditer',
+                  href: ROUTES.owner.propertyEdit(row.id),
+                },
+                ...(canPublish
+                  ? [
+                      {
+                        icon: 'solar:upload-square-linear',
+                        label: 'Publier',
+                        onSelect: () => void handlePublish(row.id),
+                        disabled: actionId === row.id,
+                      } as const,
+                    ]
+                  : []),
+                ...(canArchive
+                  ? [
+                      {
+                        icon: 'solar:archive-down-minimlistic-linear',
+                        label: 'Archiver',
+                        destructive: true,
+                        onSelect: () => void handleArchive(row.id),
+                        disabled: actionId === row.id,
+                      } as const,
+                    ]
+                  : []),
+              ]}
+            />
+          );
+        }}
       />
     </div>
   );

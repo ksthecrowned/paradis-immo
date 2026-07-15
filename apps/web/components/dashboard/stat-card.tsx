@@ -28,7 +28,7 @@ export function StatCard({
   const lineColor = sparklineColor ?? DASH_CHART_COLORS.purple;
 
   const inner = (
-    <div className="flex h-full flex-col overflow-hidden rounded-md border border-border bg-card">
+    <div className="flex h-full flex-col overflow-hidden rounded-lg border border-border bg-card">
       <div className="flex items-start justify-between gap-3 p-5">
         <div className="min-w-0">
           <p className="text-base font-medium text-muted">{label}</p>

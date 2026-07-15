@@ -27,7 +27,7 @@ export function DataTable<T extends { id: string }>({
   emptyMessage = 'Aucune donnée',
 }: DataTableProps<T>): React.JSX.Element {
   return (
-    <div className="rounded-md border border-border bg-card">
+    <div className="rounded-lg border border-border bg-card">
       <div className="flex items-center justify-between gap-3 border-b border-border px-5 py-4">
         <div>
           <h3 className="text-base font-semibold text-heading">{title}</h3>
@@ -94,13 +94,14 @@ export function StatusBadge({
   tone,
 }: {
   label: string;
-  tone: 'success' | 'warning' | 'danger' | 'neutral';
+  tone: 'success' | 'warning' | 'danger' | 'neutral' | 'accent';
 }): React.JSX.Element {
   const tones = {
     success: 'bg-success/15 text-success',
     warning: 'bg-warning/15 text-warning',
     danger: 'bg-danger/15 text-danger',
     neutral: 'bg-border/60 text-muted',
+    accent: 'bg-accent/15 text-accent',
   };
   return (
     <span

@@ -1,13 +1,13 @@
 'use client';
 
-import Link from 'next/link';
-import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   DashboardPageHeader,
   ListDataTable,
   StatusBadge,
   type ListColumn,
 } from '@/components/dashboard';
+import { Button } from '@/components/primitives/Button';
+import { useRequireSession } from '@/hooks/use-require-session';
 import { ApiError } from '@/lib/api';
 import {
   leaseStatusLabel,
@@ -16,7 +16,8 @@ import {
   type PublicLease,
 } from '@/lib/owner/leases';
 import { ROUTES } from '@/lib/routes';
-import { useRequireSession } from '@/hooks/use-require-session';
+import Link from 'next/link';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 function formatDate(iso: string): string {
   return new Intl.DateTimeFormat('fr-FR', {
@@ -136,11 +137,10 @@ export function OwnerLeasesPage(): React.JSX.Element {
       <DashboardPageHeader
         title="Baux"
         actions={
-          <Link
-            href={ROUTES.owner.leasesAdd}
-            className="inline-flex items-center rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white hover:bg-accent/90"
-          >
-            Créer un bail
+          <Link href={ROUTES.owner.leasesAdd}>
+            <Button icon="mdi:plus" variant="primary">
+              Créer un bail
+            </Button>
           </Link>
         }
       />
@@ -164,11 +164,10 @@ export function OwnerLeasesPage(): React.JSX.Element {
         emptyMessage={
           <span className="inline-flex flex-col items-center gap-3 py-2">
             <span>Aucun bail à afficher.</span>
-            <Link
-              href={ROUTES.owner.leasesAdd}
-              className="inline-flex items-center rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white hover:bg-accent/90"
-            >
-              Créer un bail
+            <Link href={ROUTES.owner.leasesAdd}>
+              <Button icon="mdi:plus" variant="primary">
+                Créer un bail
+              </Button>
             </Link>
           </span>
         }
@@ -176,7 +175,7 @@ export function OwnerLeasesPage(): React.JSX.Element {
         actions={(row) => (
           <Link
             href={ROUTES.owner.lease(row.id)}
-            className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-card-hover"
+            className="rounded-lg border border-border px-3 py-1.5 text-xs text-foreground hover:bg-card-hover"
           >
             Voir
           </Link>

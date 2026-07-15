@@ -1,23 +1,23 @@
 'use client';
 
-import Link from 'next/link';
-import { useCallback, useEffect, useState } from 'react';
 import {
-  DashboardPageHeader,
-  StatusBadge,
+    DashboardPageHeader,
+    StatusBadge,
 } from '@/components/dashboard';
+import { useRequireSession } from '@/hooks/use-require-session';
 import { ApiError } from '@/lib/api';
 import {
-  activateLease,
-  getLease,
-  getLeaseSchedule,
-  leaseStatusLabel,
-  leaseStatusTone,
-  type PublicLease,
-  type PublicRentScheduleEntry,
+    activateLease,
+    getLease,
+    getLeaseSchedule,
+    leaseStatusLabel,
+    leaseStatusTone,
+    type PublicLease,
+    type PublicRentScheduleEntry,
 } from '@/lib/owner/leases';
 import { ROUTES } from '@/lib/routes';
-import { useRequireSession } from '@/hooks/use-require-session';
+import Link from 'next/link';
+import { useCallback, useEffect, useState } from 'react';
 
 export interface OwnerLeaseDetailProps {
   leaseId: string;
@@ -167,7 +167,7 @@ export function OwnerLeaseDetail({
         </div>
       ) : null}
 
-      <div className="grid gap-4 rounded-md border border-border bg-card p-5 sm:grid-cols-2">
+      <div className="grid gap-4 rounded-lg border border-border bg-card p-5 sm:grid-cols-2">
         <div>
           <p className="text-xs font-medium uppercase tracking-wide text-muted">
             Bien

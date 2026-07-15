@@ -167,7 +167,7 @@ export function RevenueChart(): React.JSX.Element {
   );
 
   return (
-    <div className="flex h-full flex-col rounded-md border border-border bg-card p-5">
+    <div className="flex h-full flex-col rounded-lg border border-border bg-card p-5">
       <div className="mb-3 flex items-center justify-between gap-2">
         <h3 className="text-base font-semibold text-heading">Revenus</h3>
         <ChartRangeToggle range={range} onChange={setRange} />
@@ -195,7 +195,7 @@ export function PropertyModeChart(): React.JSX.Element {
   const options = useMemo(() => buildDonutOptions(theme), [theme]);
 
   return (
-    <div className="flex h-full flex-col rounded-md border border-border bg-card p-5">
+    <div className="flex h-full flex-col rounded-lg border border-border bg-card p-5">
       <div className="mb-3 flex items-center justify-between gap-2">
         <h3 className="text-base font-semibold text-heading">
           Biens par mode
@@ -248,7 +248,7 @@ export function PropertyModeChart(): React.JSX.Element {
 
 export function SessionsMapCard(): React.JSX.Element {
   return (
-    <div className="flex h-full flex-col rounded-md border border-border bg-card p-5">
+    <div className="flex h-full flex-col rounded-lg border border-border bg-card p-5">
       <div className="mb-3 flex items-center justify-between gap-2">
         <h3 className="text-base font-semibold text-heading">
           Sessions par ville

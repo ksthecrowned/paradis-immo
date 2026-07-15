@@ -8,6 +8,11 @@ export interface PublicVisitBooking {
   status: string;
   paymentId: string | null;
   createdAt: string;
+  // The /visits/managed endpoint joins VisitBooking with its slot and returns
+  // the slot's start/end dates — typed here so calendar views can use them
+  // without an extra fetch.
+  slotStartAt?: string;
+  slotEndAt?: string;
 }
 
 export async function listManagedVisits(): Promise<PublicVisitBooking[]> {

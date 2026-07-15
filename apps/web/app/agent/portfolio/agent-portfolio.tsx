@@ -1,34 +1,34 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  DashboardPageHeader,
-  ListDataTable,
-  StatusBadge,
-  type ListColumn,
+    DashboardPageHeader,
+    ListDataTable,
+    StatusBadge,
+    type ListColumn,
 } from '@/components/dashboard';
-import { ApiError } from '@/lib/api';
-import { listOrgProperties } from '@/lib/agent/portfolio';
+import { useRequireSession } from '@/hooks/use-require-session';
 import {
-  assignMandate,
-  listManagedMandates,
-  listOrganizationAgents,
-  type PublicMandate,
-  type PublicOrgAgent,
+    assignMandate,
+    listManagedMandates,
+    listOrganizationAgents,
+    type PublicMandate,
+    type PublicOrgAgent,
 } from '@/lib/agent/mandates';
+import { listOrgProperties } from '@/lib/agent/portfolio';
+import { ApiError } from '@/lib/api';
 import {
-  agentOrganizationIds,
-  isAgencyGerant,
-  listMyOrganizations,
+    agentOrganizationIds,
+    isAgencyGerant,
+    listMyOrganizations,
 } from '@/lib/me';
 import {
-  formatPropertyPrice,
-  propertyModeLabel,
-  propertyStatusLabel,
-  propertyStatusTone,
-  type PublicProperty,
+    formatPropertyPrice,
+    propertyModeLabel,
+    propertyStatusLabel,
+    propertyStatusTone,
+    type PublicProperty,
 } from '@/lib/owner/properties';
-import { useRequireSession } from '@/hooks/use-require-session';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 export function AgentPortfolioPage(): React.JSX.Element {
   const { ready } = useRequireSession();
@@ -198,7 +198,7 @@ export function AgentPortfolioPage(): React.JSX.Element {
         tableId="agent-portfolio-table"
       />
 
-      <div className="space-y-3 rounded-md border border-border bg-card p-5">
+      <div className="space-y-3 rounded-lg border border-border bg-card p-5">
         <div>
           <h2 className="text-base font-semibold text-heading">
             Mandats à affecter

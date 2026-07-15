@@ -1,22 +1,22 @@
 'use client';
 
-import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  DashboardPageHeader,
-  ListDataTable,
-  StatusBadge,
-  type ListColumn,
+    DashboardPageHeader,
+    ListDataTable,
+    StatusBadge,
+    type ListColumn,
 } from '@/components/dashboard';
-import { ApiError } from '@/lib/api';
-import {
-  activateLease,
-  createLease,
-  listManagedLeases,
-  requestLeaseSign,
-  type PublicLease,
-} from '@/lib/agent/leases';
-import { leaseStatusLabel, leaseStatusTone } from '@/lib/owner/leases';
 import { useRequireSession } from '@/hooks/use-require-session';
+import {
+    activateLease,
+    createLease,
+    listManagedLeases,
+    requestLeaseSign,
+    type PublicLease,
+} from '@/lib/agent/leases';
+import { ApiError } from '@/lib/api';
+import { leaseStatusLabel, leaseStatusTone } from '@/lib/owner/leases';
+import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 
 function formatDate(iso: string): string {
   return new Intl.DateTimeFormat('fr-FR', {
@@ -200,7 +200,7 @@ export function AgentLeasesPage(): React.JSX.Element {
 
       <form
         onSubmit={(e) => void handleSubmit(e)}
-        className="max-w-2xl space-y-4 rounded-md border border-border bg-card p-5"
+        className="max-w-2xl space-y-4 rounded-lg border border-border bg-card p-5"
       >
         <h2 className="text-base font-semibold text-heading">Créer un bail</h2>
         <div className="grid gap-4 sm:grid-cols-2">

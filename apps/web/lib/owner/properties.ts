@@ -289,6 +289,17 @@ export function propertyTypeLabel(type: string): string {
   return map[type] ?? type;
 }
 
+/** Solar icon per property type — used as a photo placeholder. */
+export function propertyTypeIcon(type: string): string {
+  const map: Record<string, string> = {
+    APARTMENT: 'solar:buildings-2-linear',
+    HOUSE: 'solar:home-2-linear',
+    LAND: 'solar:map-point-wave-linear',
+    COMMERCIAL: 'solar:shop-linear',
+  };
+  return map[type] ?? 'solar:home-2-linear';
+}
+
 export function propertyStatusLabel(status: string): string {
   const map: Record<string, string> = {
     DRAFT: 'Brouillon',

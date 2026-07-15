@@ -1,19 +1,22 @@
 'use client';
 
-import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { DashboardPageHeader, StatusBadge } from '@/components/dashboard';
+import { DetailCard } from '@/components/detail';
+import { ApiErrorBanner } from '@/components/forms';
+import { Button } from '@/components/primitives';
+import { useRequireSession } from '@/hooks/use-require-session';
 import { ApiError } from '@/lib/api';
 import {
   approvalStatusLabel,
-  createMandate,
   decideApproval,
   listPendingApprovals,
   mandateActionLabel,
   type PublicMandateApproval,
 } from '@/lib/owner/mandates';
-import { listMyProperties } from '@/lib/owner/properties';
-import { listPublicAgencies } from '@/lib/public/agencies';
-import { useRequireSession } from '@/hooks/use-require-session';
+import { ROUTES } from '@/lib/routes';
+import { Icon } from '@iconify/react';
+import Link from 'next/link';
+import { useCallback, useEffect, useState } from 'react';
 
 function formatDate(iso: string): string {
   return new Intl.DateTimeFormat('fr-FR', {
@@ -45,16 +48,6 @@ export function OwnerMandatePage(): React.JSX.Element {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionId, setActionId] = useState<string | null>(null);
-  const [propertyId, setPropertyId] = useState('');
-  const [organizationId, setOrganizationId] = useState('');
-  const [properties, setProperties] = useState<
-    Array<{ id: string; title: string }>
-  >([]);
-  const [organizations, setOrganizations] = useState<
-    Array<{ id: string; name: string }>
-  >([]);
-  const [creating, setCreating] = useState(false);
-  const [mandateCreated, setMandateCreated] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -76,46 +69,7 @@ export function OwnerMandatePage(): React.JSX.Element {
   useEffect(() => {
     if (!ready) return;
     void load();
-    void (async () => {
-      try {
-        const [props, agencies] = await Promise.all([
-          listMyProperties(),
-          listPublicAgencies(),
-        ]);
-        setProperties(props.map((p) => ({ id: p.id, title: p.title })));
-        setOrganizations(agencies.map((o) => ({ id: o.id, name: o.name })));
-        if (props[0]) setPropertyId(props[0].id);
-        if (agencies[0]) setOrganizationId(agencies[0].id);
-      } catch {
-        // optional prefill
-      }
-    })();
   }, [load, ready]);
-
-  const handleCreateMandate = useCallback(
-    async (e: FormEvent) => {
-      e.preventDefault();
-      setCreating(true);
-      setMandateCreated(false);
-      setError(null);
-      try {
-        await createMandate({
-          propertyId: propertyId.trim(),
-          organizationId: organizationId.trim(),
-        });
-        setMandateCreated(true);
-      } catch (err) {
-        setError(
-          err instanceof ApiError
-            ? err.message
-            : 'Impossible de créer le mandat.',
-        );
-      } finally {
-        setCreating(false);
-      }
-    },
-    [organizationId, propertyId],
-  );
 
   const handleDecide = useCallback(
     async (id: string, approve: boolean) => {
@@ -138,125 +92,90 @@ export function OwnerMandatePage(): React.JSX.Element {
     [load],
   );
 
+  if (!ready) {
+    return <p className="text-base text-muted">Chargement de la session…</p>;
+  }
+
   return (
     <section className="space-y-6">
-      <DashboardPageHeader title="Mon mandat" />
+      <DashboardPageHeader
+        title="Mes mandats"
+        actions={
+          <Link href={ROUTES.owner.mandateAdd}>
+            <Button icon="mdi:plus" variant="primary">
+              Déléguer un bien
+            </Button>
+          </Link>
+        }
+      />
 
-      {error ? (
-        <div className="rounded-xl border border-danger/40 bg-danger/10 px-4 py-3 text-sm text-danger">
-          {error}
+      <ApiErrorBanner message={error} />
+
+      <DetailCard title="Comment ça marche ?">
+        <div className="px-5 py-4 text-sm text-muted">
+          Déléguez la gestion d&apos;un bien à une agence, puis validez ici les
+          actions qui nécessitent votre accord.
         </div>
-      ) : null}
-
-      <div className="rounded-xl border border-border bg-card p-5 text-sm text-muted">
-        Déléguez la gestion d’un bien à une agence, puis validez ici les
-        actions qui nécessitent votre accord.
-      </div>
-
-      {mandateCreated ? (
-        <div className="rounded-xl border border-success/40 bg-success/10 px-4 py-3 text-sm text-foreground">
-          Mandat créé avec succès.
-        </div>
-      ) : null}
-
-      <form
-        onSubmit={(e) => void handleCreateMandate(e)}
-        className="space-y-4 rounded-md border border-border bg-card p-5"
-      >
-        <h2 className="text-base font-semibold text-heading">
-          Déléguer un bien
-        </h2>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <label className="block text-sm">
-            <span className="mb-1 block text-muted">Bien</span>
-            <select
-              value={propertyId}
-              onChange={(e) => setPropertyId(e.target.value)}
-              required
-              className="w-full rounded-lg border border-border bg-background px-3 py-2"
-            >
-              {properties.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.title}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="block text-sm">
-            <span className="mb-1 block text-muted">Agence</span>
-            <select
-              value={organizationId}
-              onChange={(e) => setOrganizationId(e.target.value)}
-              required
-              className="w-full rounded-lg border border-border bg-background px-3 py-2"
-            >
-              {organizations.map((o) => (
-                <option key={o.id} value={o.id}>
-                  {o.name}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-        <button
-          type="submit"
-          disabled={creating}
-          className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent/90 disabled:opacity-50"
-        >
-          {creating ? 'Création…' : 'Créer le mandat'}
-        </button>
-      </form>
+      </DetailCard>
 
       {loading ? (
-        <p className="text-sm text-muted">Chargement…</p>
+        <p className="text-base text-muted">Chargement…</p>
       ) : approvals.length === 0 ? (
-        <p className="text-sm text-muted">Aucune approbation en attente.</p>
+        <div className="flex flex-col items-center gap-4 rounded-lg border border-border bg-card px-6 py-10 text-center">
+          <Icon icon="mdi:handshake-outline" className="h-10 w-10 text-muted" />
+          <p className="text-base text-muted">Aucune approbation en attente.</p>
+          <Link href={ROUTES.owner.mandateAdd}>
+            <Button icon="mdi:plus" variant="primary">
+              Déléguer un bien
+            </Button>
+          </Link>
+        </div>
       ) : (
         <ul className="space-y-4">
           {approvals.map((item) => (
-            <li
-              key={item.id}
-              className="rounded-xl border border-border bg-card p-5"
-            >
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div className="space-y-2">
+            <li key={item.id}>
+              <DetailCard
+                title={mandateActionLabel(item.actionType)}
+                actions={
+                  item.status === 'PENDING' ? (
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        icon="mdi:check"
+                        variant="primary"
+                        size="sm"
+                        loading={actionId === item.id}
+                        onClick={() => void handleDecide(item.id, true)}
+                      >
+                        Approuver
+                      </Button>
+                      <Button
+                        icon="mdi:close"
+                        variant="secondary"
+                        size="sm"
+                        disabled={actionId === item.id}
+                        onClick={() => void handleDecide(item.id, false)}
+                      >
+                        Rejeter
+                      </Button>
+                    </div>
+                  ) : null
+                }
+              >
+                <div className="space-y-2 px-5 py-4">
                   <div className="flex flex-wrap items-center gap-2">
-                    <h2 className="text-base font-semibold text-heading">
-                      {mandateActionLabel(item.actionType)}
-                    </h2>
                     <StatusBadge
                       label={approvalStatusLabel(item.status)}
                       tone={item.status === 'PENDING' ? 'warning' : 'neutral'}
                     />
                   </div>
-                  <p className="text-sm text-muted">
+                  <p className="text-base text-muted">
                     {payloadSummary(item.payload)}
                   </p>
-                  <p className="text-xs text-muted">
+                  <p className="text-sm text-muted">
                     Demandé le {formatDate(item.createdAt)}
                   </p>
                 </div>
-                {item.status === 'PENDING' ? (
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      disabled={actionId === item.id}
-                      onClick={() => void handleDecide(item.id, true)}
-                      className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent/90 disabled:opacity-50"
-                    >
-                      Approuver
-                    </button>
-                    <button
-                      type="button"
-                      disabled={actionId === item.id}
-                      onClick={() => void handleDecide(item.id, false)}
-                      className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-muted hover:bg-card-hover disabled:opacity-50"
-                    >
-                      Rejeter
-                    </button>
-                  </div>
-                ) : null}
-              </div>
+              </DetailCard>
             </li>
           ))}
         </ul>

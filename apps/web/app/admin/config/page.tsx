@@ -8,7 +8,7 @@ export default function AdminConfigPage(): React.JSX.Element {
     <section className="space-y-6">
       <DashboardPageHeader title="Configuration" />
 
-      <div className="max-w-xl space-y-6 rounded-md border border-border bg-card p-5 text-sm">
+      <div className="max-w-xl space-y-6 rounded-lg border border-border bg-card p-5 text-sm">
         <p className="text-muted">
           Liens de téléchargement de l&apos;application mobile affichés sur la
           page d&apos;accueil. Ces valeurs sont définies via les variables

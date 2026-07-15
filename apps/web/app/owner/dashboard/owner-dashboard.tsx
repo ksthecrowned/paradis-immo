@@ -1,17 +1,15 @@
 'use client';
 
 import {
-    DashboardPageHeader,
-    DataTable,
-    PropertyModeChart,
-    RevenueChart,
-    SessionsMapCard,
-    StatCard,
-    StatusBadge,
+  DataTable,
+  PropertyModeChart,
+  RevenueChart,
+  SessionsMapCard,
+  StatCard,
+  StatusBadge,
 } from '@/components/dashboard';
 import { DASH_CHART_COLORS, DASH_STAT_ICONS } from '@/lib/dash-icons';
 import { ROUTES } from '@/lib/routes';
-import Link from 'next/link';
 
 export interface OwnerDashboardCounts {
   activeProperties: number;
@@ -88,18 +86,6 @@ export function OwnerDashboard({
 }): React.JSX.Element {
   return (
     <section className="space-y-6">
-      <DashboardPageHeader
-        title="Tableau de bord"
-        actions={
-          <Link
-            href={ROUTES.owner.propertiesAdd}
-            className="inline-flex items-center justify-center rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white hover:bg-accent/90"
-          >
-            Ajouter un bien
-          </Link>
-        }
-      />
-
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
           label="Biens actifs"
@@ -135,7 +121,6 @@ export function OwnerDashboard({
       </div>
 
       <div className="space-y-2">
-        <p className="text-xs text-muted">Aperçu (données démo)</p>
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
           <div className="xl:col-span-5">
             <RevenueChart />

@@ -2,8 +2,8 @@
 
 import { usePathname } from 'next/navigation';
 import { Breadcrumb, type BreadcrumbItem } from './breadcrumb';
-import { DashboardDecorations } from './dashboard-decorations';
 import { breadcrumbForPath } from '@/lib/routes';
+import { PageHeader } from './page-header';
 
 export interface DashboardPageHeaderProps {
   title: string;
@@ -11,6 +11,10 @@ export interface DashboardPageHeaderProps {
   actions?: React.ReactNode;
 }
 
+/**
+ * Header used across non-dashboard dashboard pages (listings, details, etc.).
+ * Wraps PageHeader with the breadcrumb strip below the title.
+ */
 export function DashboardPageHeader({
   title,
   breadcrumb,
@@ -20,15 +24,18 @@ export function DashboardPageHeader({
   const crumbs = breadcrumb ?? breadcrumbForPath(pathname);
 
   return (
-    <div className="relative mb-6">
-      <DashboardDecorations />
-      <div className="relative flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-xl font-semibold text-heading">{title}</h1>
-        {crumbs.length > 0 ? <Breadcrumb items={crumbs} align="end" /> : null}
-      </div>
-      {actions ? (
-        <div className="relative mt-4 flex flex-wrap items-center gap-2">
-          {actions}
+    <div>
+      <PageHeader title={title} />
+      {(crumbs.length > 0 || actions) ? (
+        <div className="-mt-4 mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          {crumbs.length > 0 ? (
+            <Breadcrumb items={crumbs} />
+          ) : (
+            <span />
+          )}
+          {actions ? (
+            <div className="flex flex-wrap items-center gap-2">{actions}</div>
+          ) : null}
         </div>
       ) : null}
     </div>

@@ -13,14 +13,18 @@ export const ROUTES = {
     propertyEdit: (id: string) => `/owner/properties/${id}/edit`,
     visitSlots: (id: string) => `/owner/properties/${id}/visit-slots`,
     visits: '/owner/visits',
+    visitSlotsIndex: '/owner/visit-slots',
     leases: '/owner/leases',
     leasesAdd: '/owner/leases/add',
     lease: (id: string) => `/owner/leases/${id}`,
     payments: '/owner/payments',
     payment: (id: string) => `/owner/payments/${id}`,
     maintenance: '/owner/maintenance',
+    maintenanceAdd: '/owner/maintenance/add',
     maintenanceTicket: (id: string) => `/owner/maintenance/${id}`,
+    maintenanceEdit: (id: string) => `/owner/maintenance/${id}/edit`,
     mandate: '/owner/mandate',
+    mandateAdd: '/owner/mandate/add',
     bookings: '/owner/bookings',
   },
   agent: {
@@ -47,6 +51,13 @@ export interface NavItem {
   label: string;
   /** Match exact path only (e.g. dashboard root). */
   exact?: boolean;
+  /**
+   * When `true`, child routes also count as active matches for the parent
+   * (default behaviour). Set to `false` to make the parent highlight only
+   * on its own path — useful when children are siblings rather than nested
+   * pages of the parent.
+   */
+  activeOnChildren?: boolean;
   /** Optional sub-items shown as a dropdown. */
   children?: NavItem[];
 }
@@ -65,7 +76,7 @@ export const OWNER_NAV: NavItem[] = [
   { href: ROUTES.owner.leases, label: 'Baux' },
   { href: ROUTES.owner.payments, label: 'Paiements' },
   { href: ROUTES.owner.maintenance, label: 'Maintenance' },
-  { href: ROUTES.owner.mandate, label: 'Mon mandat' },
+  { href: ROUTES.owner.mandate, label: 'Mes mandats' },
 ];
 
 export const AGENT_NAV: NavItem[] = [
@@ -94,7 +105,14 @@ export const OWNER_NAV_GROUPS: NavGroup[] = [
     items: [
       { href: ROUTES.owner.dashboard, label: 'Tableau de bord', exact: true },
       { href: ROUTES.owner.bookings, label: 'Réservations' },
-      { href: ROUTES.owner.visits, label: 'Visites' },
+      {
+        href: ROUTES.owner.visits,
+        label: 'Visites',
+        children: [
+          { href: ROUTES.owner.visits, label: 'Demandes' },
+          { href: ROUTES.owner.visitSlotsIndex, label: 'Créneaux' },
+        ],
+      },
       {
         href: ROUTES.owner.leases,
         label: 'Baux',
@@ -118,7 +136,7 @@ export const OWNER_NAV_GROUPS: NavGroup[] = [
         ],
       },
       { href: ROUTES.owner.maintenance, label: 'Maintenance' },
-      { href: ROUTES.owner.mandate, label: 'Mon mandat' },
+      { href: ROUTES.owner.mandate, label: 'Mes mandats' },
     ],
   },
 ];
@@ -172,7 +190,9 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
 export function isNavActive(pathname: string, item: NavItem): boolean {
   if (item.exact) return pathname === item.href;
   if (pathname === item.href || pathname.startsWith(`${item.href}/`)) return true;
-  if (item.children?.length) {
+  // Default: a parent is also active when a child matches (good for nested
+  // sub-pages). Set `activeOnChildren: false` to opt out (siblings case).
+  if (item.activeOnChildren !== false && item.children?.length) {
     return item.children.some((child) => isNavActive(pathname, child));
   }
   return false;
@@ -189,7 +209,7 @@ const BREADCRUMB_LABELS: Record<string, string> = {
   validation: 'Validation paiements',
   messaging: 'Messaging SMS',
   maintenance: 'Maintenance',
-  mandate: 'Mon mandat',
+  mandate: 'Mes mandats',
   portfolio: 'Portefeuille',
   sales: 'Demandes vente',
   bookings: 'Réservations',

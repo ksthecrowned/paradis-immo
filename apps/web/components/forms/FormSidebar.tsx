@@ -1,5 +1,5 @@
-import type { ReactNode } from 'react';
 import { Icon } from '@iconify/react';
+import type { ReactNode } from 'react';
 
 export type FormSidebarSection = {
   /** Section title (e.g. "Statut", "Métadonnées"). */
@@ -28,7 +28,7 @@ export function FormSidebar({
       {sections.map((s, idx) => (
         <section
           key={`${s.title}-${idx}`}
-          className="rounded-xl border border-border bg-card p-5"
+          className="rounded-lg border border-border bg-card p-5"
         >
           <header className="mb-3 flex items-center gap-2">
             {s.icon ? (

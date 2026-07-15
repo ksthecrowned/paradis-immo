@@ -20,16 +20,25 @@ function usePrelineInit(): void {
   }, [pathname]);
 }
 
-function useIsLg(): boolean {
+/**
+ * Tracks the lg breakpoint AND whether the component has mounted on the
+ * client. We need both: `isLg` drives the sidebar offset, and we can't
+ * know its value on the server. The `mounted` flag lets us skip the
+ * first paint entirely (no sidebar, no main) to avoid a flash where
+ * the main renders with margin=0 and then slides to the right.
+ */
+function useIsLg(): { isLg: boolean; mounted: boolean } {
   const [isLg, setIsLg] = useState(false);
+  const [mounted, setMounted] = useState(false);
   useEffect(() => {
     const mq = window.matchMedia('(min-width: 1024px)');
     const update = (): void => setIsLg(mq.matches);
     update();
+    setMounted(true);
     mq.addEventListener('change', update);
     return () => mq.removeEventListener('change', update);
   }, []);
-  return isLg;
+  return { isLg, mounted };
 }
 
 export interface DashboardShellProps {
@@ -46,8 +55,15 @@ export function DashboardShell({
 }: DashboardShellProps): React.JSX.Element {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
-  const isLg = useIsLg();
+  const { isLg, mounted } = useIsLg();
   usePrelineInit();
+
+  // Premier render côté client : on sait que `mounted` est false car
+  // useEffect n'a pas encore tourné. On évite ainsi tout flash SSR/hydratation
+  // où le main apparaît collé à gauche avant que isLg passe à true.
+  if (!mounted) {
+    return <div className="min-h-screen bg-background" aria-hidden />;
+  }
 
   const sidebarWidth = collapsed ? SIDEBAR_COLLAPSED : SIDEBAR_FULL;
   const mainOffset = isLg ? sidebarWidth : 0;

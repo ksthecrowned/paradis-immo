@@ -1,16 +1,16 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
-import { useSession } from 'next-auth/react';
-import { useEffect, useState } from 'react';
 import { backendWebSetRole } from '@/lib/backend-auth';
 import {
-  isWebAccountActive,
-  resolveDashboardPath,
+    isWebAccountActive,
+    resolveDashboardPath,
 } from '@/lib/web-account';
+import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
 
 const btnClass =
-  'flex w-full flex-col items-start rounded-xl border border-border bg-card p-5 text-left shadow-sm transition hover:border-accent hover:bg-sidebar disabled:opacity-50';
+  'flex w-full flex-col items-start rounded-lg border border-border bg-card p-5 text-left shadow-sm transition hover:border-accent hover:bg-sidebar disabled:opacity-50';
 
 export default function OnboardingRolePage(): React.JSX.Element {
   const router = useRouter();
