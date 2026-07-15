@@ -42,7 +42,7 @@ export default function WelcomeScreen(): React.JSX.Element {
       >
         <View style={styles.bottom}>
           <Text style={styles.headline}>
-            Votre guide fidèle dans l'immobilier
+            Votre immobilier, au bout des doigts.
           </Text>
           <Text style={styles.subtitle}>
             Locations et ventes vérifiées — visitez, réservez et payez en toute

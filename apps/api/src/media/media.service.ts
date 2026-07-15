@@ -95,6 +95,44 @@ export class MediaService {
     };
   }
 
+  /**
+   * Browser → API → R2 upload (no R2 CORS needed). Prefer this in local/dev
+   * when the R2 bucket CORS policy is missing or misconfigured.
+   */
+  async upload(
+    userId: string,
+    propertyId: string,
+    file: { buffer: Buffer; originalname: string; mimetype: string },
+    position?: number,
+  ): Promise<MediaItem> {
+    await this.assertCanWrite(userId, propertyId);
+    let mediaType: MediaType;
+    try {
+      mediaType = this.r2.resolveMediaType(file.mimetype);
+    } catch (err) {
+      if (err instanceof MediaTypeError) {
+        throw new BadRequestException({
+          code: 'UNSUPPORTED_CONTENT_TYPE',
+          message: err.message,
+        });
+      }
+      throw err;
+    }
+
+    const { url } = await this.r2.uploadPropertyFile({
+      propertyId,
+      filename: file.originalname || 'upload.bin',
+      contentType: file.mimetype,
+      body: file.buffer,
+    });
+
+    return this.confirm(userId, propertyId, {
+      url,
+      type: mediaType,
+      position,
+    });
+  }
+
   async list(userId: string | null, propertyId: string): Promise<MediaItem[]> {
     // Read is public for marketplace browsing, but we still verify the property exists.
     const property = await this.prisma.property.findUnique({

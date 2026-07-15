@@ -83,6 +83,8 @@ export class R2Service {
     });
     const uploadUrl = await getSignedUrl(this.client, command, {
       expiresIn: URL_TTL_SECONDS,
+      // Keep Content-Type in the signature so the browser PUT matches.
+      signableHeaders: new Set(['content-type']),
     });
     return {
       uploadUrl,
@@ -90,6 +92,22 @@ export class R2Service {
       key,
       expiresIn: URL_TTL_SECONDS,
     };
+  }
+
+  /**
+   * Server-side property media upload (avoids browser→R2 CORS).
+   * Same key convention as createPresignedUpload.
+   */
+  async uploadPropertyFile(params: {
+    propertyId: string;
+    filename: string;
+    contentType: string;
+    body: Buffer;
+  }): Promise<{ url: string; key: string }> {
+    const safeFilename = sanitizeFilename(params.filename);
+    const key = `properties/${params.propertyId}/${Date.now()}-${randomToken(6)}-${safeFilename}`;
+    const { url } = await this.uploadBuffer(key, params.body, params.contentType);
+    return { url, key };
   }
 
   /**

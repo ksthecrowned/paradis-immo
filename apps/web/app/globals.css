@@ -30,6 +30,8 @@ html[data-bs-theme="dark"] {
   --success: #22c997;
   --warning: #f5a623;
   --danger: #ef4444;
+  --scrollbar-thumb: #3a4551;
+  --scrollbar-thumb-hover: #4a5663;
 }
 
 html[data-bs-theme="light"] {
@@ -54,6 +56,8 @@ html[data-bs-theme="light"] {
   --success: #1abc9c;
   --warning: #f7b84b;
   --danger: #f1556c;
+  --scrollbar-thumb: #c8d0db;
+  --scrollbar-thumb-hover: #a8b3c0;
 }
 
 @theme inline {
@@ -103,5 +107,38 @@ body {
   button:disabled,
   [aria-disabled="true"] {
     cursor: not-allowed;
+  }
+
+  /*
+   * Custom scrollbar — 6px, always visible (Linear-style).
+   * Track transparent, thumb via --scrollbar-thumb, darker on hover.
+   * Webkit/Chromium/Edge via ::-webkit-scrollbar, Firefox via scrollbar-* props.
+   */
+  html {
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
+  }
+
+  *::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background-color: var(--scrollbar-thumb);
+    border-radius: 9999px;
+    border: 0;
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background-color: var(--scrollbar-thumb-hover);
+  }
+
+  *::-webkit-scrollbar-corner {
+    background: transparent;
   }
 }

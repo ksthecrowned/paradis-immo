@@ -41,3 +41,20 @@ export async function confirmMedia(
     body: input,
   });
 }
+
+/** Upload via API → R2 (avoids browser CORS against R2). */
+export async function uploadMedia(
+  propertyId: string,
+  file: File,
+  position?: number,
+): Promise<MediaItem> {
+  const form = new FormData();
+  form.append('file', file);
+  if (position !== undefined) {
+    form.append('position', String(position));
+  }
+  return apiFetch<MediaItem>(`/properties/${propertyId}/media/upload`, {
+    method: 'POST',
+    body: form,
+  });
+}

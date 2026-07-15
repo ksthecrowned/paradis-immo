@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 
-type CardProps = {
+export type CardProps = {
   bordered?: boolean;
   className?: string;
   children: ReactNode;

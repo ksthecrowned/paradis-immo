@@ -1,4 +1,5 @@
 import { APP_STORE_URL, PLAY_STORE_URL } from '@/lib/store-links';
+import Image from 'next/image';
 
 const APP_STORE_BADGE = '/aivalable-on-the-app-store-2-logo-svgrepo-com.svg';
 const PLAY_STORE_BADGE = '/google-play-download-android-app-logo-svgrepo-com.svg';
@@ -27,8 +28,7 @@ export function LandingStoreBadges({
         className="inline-flex transition-opacity hover:opacity-90"
         aria-label="Télécharger sur l’App Store"
       >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
+        <Image
           src={APP_STORE_BADGE}
           alt="Disponible sur l’App Store"
           width={148}
@@ -44,8 +44,7 @@ export function LandingStoreBadges({
         className="inline-flex transition-opacity hover:opacity-90"
         aria-label="Télécharger sur Google Play"
       >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
+        <Image
           src={PLAY_STORE_BADGE}
           alt="Disponible sur Google Play"
           width={148}

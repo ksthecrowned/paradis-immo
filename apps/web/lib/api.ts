@@ -27,6 +27,16 @@ export type ApiFetchOptions = Omit<RequestInit, 'body'> & {
   anonymous?: boolean;
 };
 
+function isFormDataBody(body: unknown): body is FormData {
+  return typeof FormData !== 'undefined' && body instanceof FormData;
+}
+
+function serializeBody(body: unknown): BodyInit | undefined {
+  if (body === undefined) return undefined;
+  if (isFormDataBody(body)) return body;
+  return JSON.stringify(body);
+}
+
 /** Avoid hammering GET /api/auth/session on every parallel apiFetch. */
 const TOKEN_CACHE_TTL_MS = 30_000;
 let cachedAccessToken: string | null | undefined;
@@ -142,7 +152,10 @@ export async function apiFetch<T>(
 
   const buildHeaders = async (token: string | null): Promise<Headers> => {
     const h = new Headers();
-    if (body !== undefined) h.set('Content-Type', 'application/json');
+    // Let the browser set multipart boundary for FormData.
+    if (body !== undefined && !isFormDataBody(body)) {
+      h.set('Content-Type', 'application/json');
+    }
     if (!anonymous && token) {
       h.set('Authorization', `Bearer ${token}`);
     }
@@ -157,7 +170,7 @@ export async function apiFetch<T>(
     return fetch(url, {
       ...rest,
       headers: await buildHeaders(token),
-      body: body === undefined ? undefined : JSON.stringify(body),
+      body: serializeBody(body),
     });
   };
 
@@ -199,7 +212,10 @@ export async function apiFetchPaginated<T>(
 
   const buildHeaders = async (token: string | null): Promise<Headers> => {
     const h = new Headers();
-    if (body !== undefined) h.set('Content-Type', 'application/json');
+    // Let the browser set multipart boundary for FormData.
+    if (body !== undefined && !isFormDataBody(body)) {
+      h.set('Content-Type', 'application/json');
+    }
     if (!anonymous && token) {
       h.set('Authorization', `Bearer ${token}`);
     }
@@ -214,7 +230,7 @@ export async function apiFetchPaginated<T>(
     return fetch(url, {
       ...rest,
       headers: await buildHeaders(token),
-      body: body === undefined ? undefined : JSON.stringify(body),
+      body: serializeBody(body),
     });
   };
 

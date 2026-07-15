@@ -2,8 +2,6 @@
 
 import { DashIcon } from '@/components/dash-icon';
 import { useTheme } from '@/components/theme-provider';
-import { invalidateAccessTokenCache } from '@/lib/api';
-import { logout } from '@/lib/auth';
 import { DASH_ICONS } from '@/lib/dash-icons';
 import { RoleSwitcher } from './role-switcher';
 
@@ -13,11 +11,6 @@ export interface TopbarProps {
 
 export function Topbar({ onMenuClick }: TopbarProps): React.JSX.Element {
   const { theme, toggleTheme } = useTheme();
-
-  function handleLogout(): void {
-    invalidateAccessTokenCache();
-    void logout('/login');
-  }
 
   return (
     <div className="flex min-w-0 flex-1 items-center gap-3 px-4 lg:px-5 border-b border-border">
@@ -46,22 +39,6 @@ export function Topbar({ onMenuClick }: TopbarProps): React.JSX.Element {
             width={22}
             height={22}
           />
-        </button>
-
-        <button
-          type="button"
-          onClick={handleLogout}
-          className="inline-flex items-center gap-2 rounded-full bg-card px-3 py-2.5 text-base font-medium text-foreground transition-colors hover:bg-card-hover hover:text-active"
-          aria-label="Se déconnecter"
-          title="Se déconnecter"
-        >
-          <DashIcon
-            icon={DASH_ICONS.logout}
-            width={18}
-            height={18}
-            className="text-muted"
-          />
-          <span className="hidden sm:inline">Déconnexion</span>
         </button>
       </div>
     </div>

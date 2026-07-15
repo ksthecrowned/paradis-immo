@@ -8,6 +8,7 @@ import {
   propertyLocationLabel,
   type PublicProperty,
 } from '@/lib/owner/properties';
+import Image from 'next/image';
 
 const PLACEHOLDERS = [
   '/landing/house1.jpg',
@@ -77,12 +78,13 @@ export function LandingPropertyCard({
         href={href}
         className="block rounded-[20px] border border-[var(--lp-border)] bg-[var(--lp-surface)] p-2 transition-[opacity,transform] hover:opacity-[0.98] active:scale-[0.995]"
       >
-        <div className="relative overflow-hidden rounded-2xl border border-[var(--lp-border)]">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
+        <div className="relative h-[210px] overflow-hidden rounded-2xl border border-[var(--lp-border)]">
+          <Image
             src={cover}
             alt=""
-            className={`h-[210px] w-full object-cover ${grayscale ? 'grayscale' : ''}`}
+            fill
+            sizes="(max-width: 768px) 100vw, 33vw"
+            className={`object-cover ${grayscale ? 'grayscale' : ''}`}
           />
           <span
             className={`absolute start-4 top-4 rounded-full px-4 py-1.5 text-sm font-bold text-white ${

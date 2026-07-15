@@ -32,6 +32,7 @@ export default function OTPVerifyScreen(): React.JSX.Element {
 
   const inputRef = useRef<TextInput>(null);
   const [code, setCode] = useState('');
+  const [focused, setFocused] = useState(false);
   const [loading, setLoading] = useState(false);
   const [resendIn, setResendIn] = useState(RESEND_SECONDS);
   const [sending, setSending] = useState(false);
@@ -88,6 +89,7 @@ export default function OTPVerifyScreen(): React.JSX.Element {
         title: 'Code renvoyé',
         message: 'Un nouveau SMS vient de vous être envoyé.',
       });
+      inputRef.current?.focus();
     } catch (err) {
       showFeedback({
         type: 'error',
@@ -140,43 +142,44 @@ export default function OTPVerifyScreen(): React.JSX.Element {
           </Text>
         </View>
 
-        <Pressable
-          style={styles.otpRow}
-          onPress={() => inputRef.current?.focus()}
-          accessibilityRole="button"
-          accessibilityLabel="Saisir le code OTP"
-        >
-          {Array.from({ length: OTP_LENGTH }).map((_, index) => {
-            const digit = code[index] ?? '';
-            const active = index === code.length;
-            return (
-              <View
-                key={index}
-                style={[
-                  styles.otpBox,
-                  digit ? styles.otpBoxFilled : null,
-                  active ? styles.otpBoxActive : null,
-                ]}
-              >
-                <Text style={styles.otpDigit}>{digit}</Text>
-              </View>
-            );
-          })}
-        </Pressable>
-
-        <TextInput
-          ref={inputRef}
-          value={code}
-          onChangeText={handleChange}
-          keyboardType="number-pad"
-          textContentType="oneTimeCode"
-          autoComplete="sms-otp"
-          maxLength={OTP_LENGTH}
-          style={styles.hiddenInput}
-          autoFocus
-          caretHidden
-          accessibilityLabel="Code de vérification"
-        />
+        <View style={styles.otpWrap}>
+          <View style={styles.otpRow} pointerEvents="none">
+            {Array.from({ length: OTP_LENGTH }).map((_, index) => {
+              const digit = code[index] ?? '';
+              const active =
+                focused && index === Math.min(code.length, OTP_LENGTH - 1);
+              return (
+                <View
+                  key={index}
+                  style={[
+                    styles.otpBox,
+                    digit ? styles.otpBoxFilled : null,
+                    active ? styles.otpBoxActive : null,
+                  ]}
+                >
+                  <Text style={styles.otpDigit}>{digit}</Text>
+                </View>
+              );
+            })}
+          </View>
+          <TextInput
+            ref={inputRef}
+            value={code}
+            onChangeText={handleChange}
+            onFocus={() => setFocused(true)}
+            onBlur={() => setFocused(false)}
+            keyboardType="number-pad"
+            textContentType="oneTimeCode"
+            autoComplete="sms-otp"
+            maxLength={OTP_LENGTH}
+            style={styles.otpInput}
+            autoFocus
+            caretHidden
+            showSoftInputOnFocus
+            blurOnSubmit={false}
+            accessibilityLabel="Code de vérification"
+          />
+        </View>
 
         <View style={styles.resendBlock}>
           {resendIn > 0 ? (
@@ -259,6 +262,9 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.ink,
   },
+  otpWrap: {
+    position: 'relative',
+  },
   otpRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -287,11 +293,10 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.ink,
   },
-  hiddenInput: {
-    position: 'absolute',
-    opacity: 0,
-    height: 1,
-    width: 1,
+  otpInput: {
+    ...StyleSheet.absoluteFillObject,
+    opacity: 0.02,
+    color: 'transparent',
   },
   resendBlock: {
     marginTop: spacing.lg,

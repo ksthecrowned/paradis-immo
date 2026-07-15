@@ -1,17 +1,17 @@
 'use client';
 
-import Link from 'next/link';
 import {
-  DashboardPageHeader,
-  DataTable,
-  PropertyModeChart,
-  RevenueChart,
-  SessionsMapCard,
-  StatCard,
-  StatusBadge,
+    DashboardPageHeader,
+    DataTable,
+    PropertyModeChart,
+    RevenueChart,
+    SessionsMapCard,
+    StatCard,
+    StatusBadge,
 } from '@/components/dashboard';
 import { DASH_CHART_COLORS, DASH_STAT_ICONS } from '@/lib/dash-icons';
 import { ROUTES } from '@/lib/routes';
+import Link from 'next/link';
 
 export interface OwnerDashboardCounts {
   activeProperties: number;

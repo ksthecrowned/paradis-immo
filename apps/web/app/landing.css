@@ -31,12 +31,14 @@
 
   color: var(--lp-ink);
   background: var(--lp-bg);
-  font-feature-settings: 'ss01' on;
+  font-feature-settings: "ss01" on;
   color-scheme: light;
-  transition: background-color 0.2s ease, color 0.2s ease;
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease;
 }
 
-html[data-bs-theme='dark'] .landing {
+html[data-bs-theme="dark"] .landing {
   /* darkColors (Darkone / mobile) */
   --lp-primary: #7065f0;
   --lp-primary-hover: #5a50d6;
@@ -126,7 +128,7 @@ html[data-bs-theme='dark'] .landing {
 .landing-btn-outline {
   background: transparent;
   color: var(--lp-ink);
-  border: 1px solid var(--lp-ink);
+  border: 1px solid var(--lp-border);
   border-radius: var(--lp-radius-full);
   padding-inline: 22px;
 }
@@ -168,7 +170,7 @@ html[data-bs-theme='dark'] .landing {
 }
 
 .landing-nav-left::after {
-  content: '';
+  content: "";
   position: absolute;
   left: 0;
   right: 0;

@@ -1,10 +1,10 @@
 'use client';
 
-import Link from 'next/link';
-import { useEffect, useState } from 'react';
 import { DashIcon } from '@/components/dash-icon';
 import { useTheme } from '@/components/theme-provider';
 import { DASH_ICONS } from '@/lib/dash-icons';
+import Link from 'next/link';
+import { useEffect, useState } from 'react';
 import { LandingLogo } from './landing-logo';
 
 const LEFT_LINKS = [
@@ -113,7 +113,7 @@ export function LandingNav(): React.JSX.Element {
             />
           </button>
           <Link href="/login" className="landing-btn landing-btn-outline">
-            Contact Us
+            Contact
           </Link>
         </div>
 
@@ -154,7 +154,7 @@ export function LandingNav(): React.JSX.Element {
               className="landing-btn landing-btn-outline mt-3 w-full"
               onClick={() => setOpen(false)}
             >
-              Contact Us
+              Contact
             </Link>
           </nav>
         </div>

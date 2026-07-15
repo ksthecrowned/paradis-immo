@@ -1,7 +1,7 @@
 import { CircleIconButton } from '@/components/ui/CircleIconButton';
 import { colors, radii, spacing } from '@/constants/theme';
-import { getPropertyGallery } from '@/lib/mock-properties';
 import { useCatalogProperty } from '@/hooks/use-catalog-property';
+import { getPropertyGallery } from '@/lib/mock-properties';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -280,7 +280,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     fontSize: 15,
     fontWeight: '700',
-    color: colors.surface,
+    color: colors.onPrimary,
   },
   thumbs: {
     paddingHorizontal: spacing.md,

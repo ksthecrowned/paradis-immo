@@ -47,6 +47,14 @@ export interface NavItem {
   label: string;
   /** Match exact path only (e.g. dashboard root). */
   exact?: boolean;
+  /** Optional sub-items shown as a dropdown. */
+  children?: NavItem[];
+}
+
+export interface NavGroup {
+  /** Section label shown above the items. */
+  label: string;
+  items: NavItem[];
 }
 
 export const OWNER_NAV: NavItem[] = [
@@ -79,9 +87,95 @@ export const ADMIN_NAV: NavItem[] = [
   { href: ROUTES.admin.config, label: 'Configuration' },
 ];
 
+/** Grouped sidebar nav per role — Activité / Patrimoine / Compte. */
+export const OWNER_NAV_GROUPS: NavGroup[] = [
+  {
+    label: 'Activité',
+    items: [
+      { href: ROUTES.owner.dashboard, label: 'Tableau de bord', exact: true },
+      { href: ROUTES.owner.bookings, label: 'Réservations' },
+      { href: ROUTES.owner.visits, label: 'Visites' },
+      {
+        href: ROUTES.owner.leases,
+        label: 'Baux',
+        children: [
+          { href: ROUTES.owner.leases, label: 'Mes baux' },
+          { href: ROUTES.owner.leasesAdd, label: 'Ajouter un bail' },
+        ],
+      },
+      { href: ROUTES.owner.payments, label: 'Paiements' },
+    ],
+  },
+  {
+    label: 'Patrimoine',
+    items: [
+      {
+        href: ROUTES.owner.properties,
+        label: 'Biens',
+        children: [
+          { href: ROUTES.owner.properties, label: 'Mes biens' },
+          { href: ROUTES.owner.propertiesAdd, label: 'Ajouter un bien' },
+        ],
+      },
+      { href: ROUTES.owner.maintenance, label: 'Maintenance' },
+      { href: ROUTES.owner.mandate, label: 'Mon mandat' },
+    ],
+  },
+];
+
+export const AGENT_NAV_GROUPS: NavGroup[] = [
+  {
+    label: 'Activité',
+    items: [
+      { href: ROUTES.agent.dashboard, label: 'Tableau de bord', exact: true },
+      { href: ROUTES.agent.bookings, label: 'Réservations' },
+      { href: ROUTES.agent.visits, label: 'Visites' },
+      { href: ROUTES.agent.leases, label: 'Baux' },
+      { href: ROUTES.agent.sales, label: 'Demandes vente' },
+      { href: ROUTES.agent.paymentsValidation, label: 'Validation paiements' },
+      { href: ROUTES.agent.messaging, label: 'Messaging SMS' },
+    ],
+  },
+  {
+    label: 'Patrimoine',
+    items: [
+      {
+        href: ROUTES.agent.portfolio,
+        label: 'Portefeuille',
+        children: [
+          { href: ROUTES.agent.portfolio, label: 'Mes biens' },
+          { href: ROUTES.agent.sales, label: 'Demandes de vente' },
+        ],
+      },
+      { href: ROUTES.agent.maintenance, label: 'Maintenance' },
+    ],
+  },
+];
+
+export const ADMIN_NAV_GROUPS: NavGroup[] = [
+  {
+    label: 'Activité',
+    items: [
+      { href: ROUTES.admin.dashboard, label: 'Tableau de bord', exact: true },
+      { href: ROUTES.admin.moderation, label: 'Modération' },
+    ],
+  },
+  {
+    label: 'Compte',
+    items: [
+      { href: ROUTES.admin.users, label: 'Utilisateurs' },
+      { href: ROUTES.admin.config, label: 'Configuration' },
+    ],
+  },
+];
+
 export function isNavActive(pathname: string, item: NavItem): boolean {
   if (item.exact) return pathname === item.href;
-  return pathname === item.href || pathname.startsWith(`${item.href}/`);
+  if (pathname === item.href || pathname.startsWith(`${item.href}/`)) return true;
+  if (item.children?.length) {
+    return item.children.some((child) => isNavActive(pathname, child));
+  }
+  return false;
 }
 
 const BREADCRUMB_LABELS: Record<string, string> = {
