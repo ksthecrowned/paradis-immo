@@ -120,7 +120,7 @@ export function OwnerMaintenanceDetail({
         <div className="flex items-start gap-3 rounded-2xl border border-warning/40 bg-warning/10 px-4 py-3 text-base text-foreground">
           <Icon
             icon="mdi:alert-circle-outline"
-            className="mt-0.5 h-5 w-5 flex-shrink-0 text-warning"
+            className="mt-0.5 h-5 w-5 shrink-0 text-warning"
           />
           <p>
             Ce ticket nécessite une approbation propriétaire (réparation urgente

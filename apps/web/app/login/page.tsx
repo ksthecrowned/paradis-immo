@@ -65,7 +65,7 @@ function LoginForm(): React.JSX.Element {
       const next = await getSession();
       router.refresh();
       router.replace(
-        next?.user ? resolveDashboardPath(next.user) : '/onboarding/role',
+        next?.user ? resolveDashboardPath(next.user) : '/auth/continue',
       );
     } catch {
       setError('Connexion impossible');
@@ -132,7 +132,7 @@ function LoginForm(): React.JSX.Element {
                   disabled={busy}
                   className={btnSecondaryClass}
                   onClick={() =>
-                    void signIn('google', { callbackUrl: '/onboarding/role' })
+                    void signIn('google', { callbackUrl: '/auth/continue' })
                   }
                 >
                   <Image
