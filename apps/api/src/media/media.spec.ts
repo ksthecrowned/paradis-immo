@@ -17,6 +17,13 @@ describe('Media (e2e)', () => {
   let propertyId: string;
   let organizationId: string;
   const createdMediaIds: string[] = [];
+  let fakeR2: {
+    resolveMediaType: jest.Mock;
+    createPresignedUpload: jest.Mock;
+    validateFileUrl: jest.Mock;
+    createPresignedDelete: jest.Mock;
+    uploadPropertyFile: jest.Mock;
+  };
 
   beforeAll(async () => {
     // Provide R2 env so R2Service can construct the client
@@ -26,11 +33,12 @@ describe('Media (e2e)', () => {
     process.env.R2_BUCKET = 'test-bucket';
     process.env.R2_PUBLIC_URL = 'https://cdn.example.com';
 
-    const fakeR2 = {
+    fakeR2 = {
       resolveMediaType: jest.fn(),
       createPresignedUpload: jest.fn(),
       validateFileUrl: jest.fn(),
       createPresignedDelete: jest.fn(),
+      uploadPropertyFile: jest.fn(),
     };
 
     const moduleRef = await Test.createTestingModule({
@@ -150,6 +158,12 @@ describe('Media (e2e)', () => {
         );
       }
     });
+    fakeR2.uploadPropertyFile.mockImplementation(
+      (p: { propertyId: string; filename: string }) => ({
+        url: `https://cdn.example.com/properties/${p.propertyId}/${p.filename}`,
+        key: `properties/${p.propertyId}/${p.filename}`,
+      }),
+    );
   });
 
   afterAll(async () => {
@@ -281,5 +295,33 @@ describe('Media (e2e)', () => {
     const body = res.body as Array<{ propertyId: string; type: string }>;
     expect(body.length).toBeGreaterThan(0);
     body.forEach((m) => expect(m.propertyId).toBe(propertyId));
+  });
+
+  it('rejects VIDEO larger than 20 Mo', async () => {
+    const big = Buffer.alloc(20 * 1024 * 1024 + 1, 0);
+    const res = await request(app.getHttpServer())
+      .post(`/api/v1/properties/${propertyId}/media/upload`)
+      .set('x-test-user', ownerUserId)
+      .attach('file', big, { filename: 'big.mp4', contentType: 'video/mp4' });
+    expect(res.status).toBe(400);
+    expect(res.body.code).toBe('FILE_TOO_LARGE');
+    expect(res.body.message).toBe('La vidéo ne doit pas dépasser 20 Mo.');
+    expect(fakeR2.uploadPropertyFile).not.toHaveBeenCalled();
+  });
+
+  it('accepts a small VIDEO upload', async () => {
+    const res = await request(app.getHttpServer())
+      .post(`/api/v1/properties/${propertyId}/media/upload`)
+      .set('x-test-user', ownerUserId)
+      .attach('file', Buffer.from('fake-mp4'), {
+        filename: 'clip.mp4',
+        contentType: 'video/mp4',
+      })
+      .expect(201);
+
+    const body = res.body as { id: string; type: string; propertyId: string };
+    expect(body.type).toBe('VIDEO');
+    expect(body.propertyId).toBe(propertyId);
+    createdMediaIds.push(body.id);
   });
 });

@@ -24,7 +24,7 @@ import {
 import type { AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { AppAuthGuard } from '../common/guards/auth.guard';
 import { ConfirmMediaDto, PresignMediaDto } from './dto/media.dto';
-import { MediaService } from './media.service';
+import { MAX_VIDEO_BYTES, MediaService } from './media.service';
 
 /**
  * Media upload flow:
@@ -69,7 +69,8 @@ export class MediaController {
   @ApiConsumes('multipart/form-data')
   @UseInterceptors(
     FileInterceptor('file', {
-      limits: { fileSize: 15 * 1024 * 1024 },
+      // Headroom above MAX_VIDEO_BYTES so oversize VIDEO reaches MediaService (multipart overhead).
+      limits: { fileSize: MAX_VIDEO_BYTES + 1024 * 1024 },
     }),
   )
   @ApiOperation({

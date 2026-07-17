@@ -8,6 +8,8 @@ import { MediaType } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { R2Service, MediaTypeError } from './r2.service';
 
+export const MAX_VIDEO_BYTES = 20 * 1024 * 1024;
+
 export interface PresignResult {
   uploadUrl: string;
   fileUrl: string;
@@ -117,6 +119,13 @@ export class MediaService {
         });
       }
       throw err;
+    }
+
+    if (mediaType === MediaType.VIDEO && file.buffer.length > MAX_VIDEO_BYTES) {
+      throw new BadRequestException({
+        code: 'FILE_TOO_LARGE',
+        message: 'La vidéo ne doit pas dépasser 20 Mo.',
+      });
     }
 
     const { url } = await this.r2.uploadPropertyFile({
