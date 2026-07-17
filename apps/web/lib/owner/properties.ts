@@ -29,7 +29,7 @@ export type PropertyFeatureId =
   | 'terrasse'
   | 'eau_courante';
 
-export type MapViewId = 'neighborhood' | 'streetView' | 'tour360';
+export type MapViewId = 'neighborhood' | 'tour360';
 
 export const PROPERTY_FEATURES: { id: PropertyFeatureId; label: string; icon: string }[] = [
   { id: 'cuisine', label: 'Cuisine équipée', icon: 'mdi:silverware-fork-knife' },
@@ -50,8 +50,11 @@ export const PROPERTY_FEATURES: { id: PropertyFeatureId; label: string; icon: st
 
 export const MAP_VIEWS: { id: MapViewId; label: string; icon: string }[] = [
   { id: 'neighborhood', label: 'Quartier', icon: 'mdi:map-search-outline' },
-  { id: 'streetView', label: 'Street View', icon: 'mdi:google-street-view' },
-  { id: 'tour360', label: 'Visite 360°', icon: 'mdi:rotate-3d-variant' },
+  {
+    id: 'tour360',
+    label: 'Visite 360° (bientôt)',
+    icon: 'mdi:rotate-3d-variant',
+  },
 ];
 
 export interface PublicProperty {
