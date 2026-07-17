@@ -44,7 +44,7 @@ function MagicForm(): React.JSX.Element {
         setError(result.error);
         return;
       }
-      router.replace('/onboarding/role');
+      router.replace('/auth/continue');
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Échec');

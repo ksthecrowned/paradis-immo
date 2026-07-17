@@ -1,6 +1,7 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
+import { Icon } from '@iconify/react';
 import { ApiError } from '@/lib/api';
 import {
   listMedia,
@@ -16,6 +17,31 @@ export interface PropertyMediaUploaderProps {
   onMediaChange: (items: MediaItem[]) => void;
 }
 
+const MAX_VIDEO_BYTES = 20 * 1024 * 1024;
+const VIDEO_TYPES = new Set(['video/mp4', 'video/quicktime']);
+
+function isVideoFile(file: File): boolean {
+  return VIDEO_TYPES.has(file.type);
+}
+
+function validateMediaFiles(files: File[]): { ok: File[]; error: string | null } {
+  const ok: File[] = [];
+  for (const f of files) {
+    if (isVideoFile(f)) {
+      if (f.size > MAX_VIDEO_BYTES) {
+        return { ok: [], error: `« ${f.name} » dépasse 20 Mo.` };
+      }
+      ok.push(f);
+      continue;
+    }
+    if (!f.type.startsWith('image/')) {
+      return { ok: [], error: `« ${f.name} » : format non supporté.` };
+    }
+    ok.push(f);
+  }
+  return { ok, error: null };
+}
+
 export function PropertyMediaUploader({
   propertyId,
   initialMedia,
@@ -27,6 +53,8 @@ export function PropertyMediaUploader({
   >([]);
   const [globalError, setGlobalError] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const photoInputRef = useRef<HTMLInputElement | null>(null);
+  const videoInputRef = useRef<HTMLInputElement | null>(null);
 
   const refreshMedia = useCallback(async (): Promise<MediaItem[]> => {
     const items = await listMedia(propertyId);
@@ -38,25 +66,29 @@ export function PropertyMediaUploader({
   const handleFiles = useCallback(
     async (files: File[]) => {
       if (files.length === 0) return;
+      const { ok, error } = validateMediaFiles(files);
+      if (error) {
+        setGlobalError(error);
+        return;
+      }
       setGlobalError(null);
       setIsUploading(true);
       const startPosition = media.length;
-      const ids = files.map(
+      const ids = ok.map(
         (f) => `${f.name}-${f.size}-${f.lastModified}-${Math.random().toString(36).slice(2, 8)}`,
       );
 
       setUploads((prev) => [
         ...prev,
-        ...files.map((f, i) => ({
+        ...ok.map((f, i) => ({
           id: ids[i],
           fileName: f.name,
           status: 'uploading' as const,
         })),
       ]);
 
-      // Upload in parallel; track each one.
       await Promise.all(
-        files.map(async (file, i) => {
+        ok.map(async (file, i) => {
           const id = ids[i];
           try {
             await uploadMedia(propertyId, file, startPosition + i);
@@ -96,17 +128,64 @@ export function PropertyMediaUploader({
   const galleryItems: MediaGalleryItem[] = media.map((m) => ({
     id: m.id,
     url: m.url,
+    type: m.type,
   }));
 
   return (
     <div className="space-y-4">
       <DropZone
-        onFiles={handleFiles}
-        accept="image/*"
+        onFiles={(files) => void handleFiles(files)}
+        accept="image/*,video/mp4,video/quicktime"
+        maxSizeMb={20}
         multiple
         disabled={isUploading}
-        title="Glissez vos photos ici"
-        hint="ou cliquez pour parcourir"
+        title="Glissez photos ou vidéo ici"
+        hint="JPG, PNG, WEBP, MP4, MOV — vidéo max 20 Mo"
+      />
+
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          disabled={isUploading}
+          onClick={() => photoInputRef.current?.click()}
+          className="inline-flex items-center gap-2 rounded-lg border border-input-border bg-card px-4 py-2.5 text-sm font-medium text-foreground hover:bg-card-hover disabled:opacity-50"
+        >
+          <Icon icon="mdi:image-plus" className="h-4 w-4" />
+          Ajouter des photos
+        </button>
+        <button
+          type="button"
+          disabled={isUploading}
+          onClick={() => videoInputRef.current?.click()}
+          className="inline-flex items-center gap-2 rounded-lg border border-input-border bg-card px-4 py-2.5 text-sm font-medium text-foreground hover:bg-card-hover disabled:opacity-50"
+        >
+          <Icon icon="mdi:video-plus" className="h-4 w-4" />
+          Ajouter une vidéo
+        </button>
+      </div>
+
+      <input
+        ref={photoInputRef}
+        type="file"
+        accept="image/*"
+        multiple
+        className="hidden"
+        onChange={(e) => {
+          const files = Array.from(e.target.files ?? []);
+          e.target.value = '';
+          void handleFiles(files);
+        }}
+      />
+      <input
+        ref={videoInputRef}
+        type="file"
+        accept="video/mp4,video/quicktime"
+        className="hidden"
+        onChange={(e) => {
+          const files = Array.from(e.target.files ?? []);
+          e.target.value = '';
+          void handleFiles(files);
+        }}
       />
 
       {globalError ? (
@@ -132,7 +211,7 @@ export function PropertyMediaUploader({
               {u.status === 'uploading'
                 ? 'envoi…'
                 : u.status === 'done'
-                  ? 'ajoutée'
+                  ? 'ajouté'
                   : (u.message ?? 'erreur')}
             </li>
           ))}
@@ -141,7 +220,7 @@ export function PropertyMediaUploader({
 
       <MediaGallery
         items={galleryItems}
-        emptyLabel="Aucune photo. Ajoutez au moins une image pour présenter le bien."
+        emptyLabel="Ajoutez des photos ou une vidéo pour valoriser le bien."
       />
     </div>
   );

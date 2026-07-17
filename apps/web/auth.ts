@@ -115,11 +115,17 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         }
       }
 
-      if (trigger === 'update' && session?.orgRoles) {
+      if (trigger === 'update' && session) {
         return {
           ...token,
-          orgRoles: session.orgRoles as string[],
-          roles: (session.roles as string[]) ?? token.roles,
+          orgRoles:
+            session.orgRoles !== undefined
+              ? (session.orgRoles as string[])
+              : token.orgRoles,
+          roles:
+            session.roles !== undefined
+              ? (session.roles as string[])
+              : token.roles,
           accessToken: (session.accessToken as string) ?? token.accessToken,
           refreshToken: (session.refreshToken as string) ?? token.refreshToken,
         };
@@ -132,12 +138,23 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           phone: user.phone ?? null,
           email: user.email ?? null,
           name: user.name,
-          roles: user.roles,
-          orgRoles: user.orgRoles ?? [],
+          roles: Array.isArray(user.roles) ? user.roles : token.roles ?? [],
+          orgRoles: Array.isArray(user.orgRoles)
+            ? user.orgRoles
+            : token.orgRoles ?? [],
           accessToken: user.accessToken,
           refreshToken: user.refreshToken,
           accessTokenExpires: Date.now() + ACCESS_TOKEN_TTL_MS,
         };
+      }
+
+      // Legacy cookies written before orgRoles existed: rehydrate from Nest.
+      if (
+        token.refreshToken &&
+        token.orgRoles === undefined &&
+        !(token.roles ?? []).includes('PLATFORM_ADMIN')
+      ) {
+        return refreshAccessToken(token);
       }
 
       if (Date.now() < token.accessTokenExpires) {

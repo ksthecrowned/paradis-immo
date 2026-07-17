@@ -122,7 +122,7 @@ export function OwnerPropertyDetailView({
   const galleryItems: MediaGalleryItem[] = media
     .slice()
     .sort((a, b) => a.position - b.position)
-    .map((m) => ({ id: m.id, url: m.url }));
+    .map((m) => ({ id: m.id, url: m.url, type: m.type }));
   const managingOrganization = property.organization ?? property.ownerOrg;
   const updatedAtLabel = new Date(property.updatedAt).toLocaleDateString(
     'fr-FR',
@@ -369,7 +369,9 @@ export function OwnerPropertyDetailView({
             </p>
             {property.mapViews && property.mapViews.length > 0 ? (
               <div className="flex flex-wrap gap-2">
-                {property.mapViews.map((v) => {
+                {property.mapViews
+                  .filter((v) => v === 'neighborhood' || v === 'tour360')
+                  .map((v) => {
                   const def = MAP_VIEWS.find((m) => m.id === v);
                   return (
                     <span
@@ -381,6 +383,11 @@ export function OwnerPropertyDetailView({
                         className="h-4 w-4"
                       />
                       {def?.label ?? v}
+                      {v === 'tour360' ? (
+                        <span className="rounded-full bg-muted/30 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted">
+                          Bientôt
+                        </span>
+                      ) : null}
                     </span>
                   );
                 })}
@@ -462,7 +469,7 @@ export function OwnerPropertyDetailView({
             <MediaGallery items={galleryItems} />
           ) : (
             <p className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted">
-              Aucun média.
+              Ajoutez des photos ou une vidéo pour valoriser le bien.
             </p>
           )}
           <PropertyMediaUploader

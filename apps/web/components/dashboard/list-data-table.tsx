@@ -388,7 +388,7 @@ export function ListDataTable<T extends object>({
                   className="block w-full rounded-lg border border-input-border bg-search py-2 ps-9 pe-3 text-sm text-foreground shadow-sm placeholder:text-placeholder focus:border-accent focus:ring-2 focus:ring-accent/30 focus:outline-none"
                   placeholder={searchPlaceholder}
                 />
-                <div className="pointer-events-none absolute inset-y-0 start-0 flex items-center ps-3">
+                <div className="pointer-events-none absolute inset-y-0 inset-s-0 flex items-center ps-3">
                   <DashIcon
                     icon="solar:magnifer-linear"
                     className="size-4 text-muted"
@@ -448,7 +448,7 @@ export function ListDataTable<T extends object>({
                     className="fixed inset-0 z-40"
                     onClick={() => setShowExport(false)}
                   />
-                  <div className="absolute end-0 top-full z-50 mt-2 w-36 rounded-lg border border-border bg-card shadow-xl">
+                  <div className="absolute inset-e-0 top-full z-50 mt-2 w-36 rounded-lg border border-border bg-card shadow-xl">
                     <div className="space-y-0.5 p-1">
                       <button
                         type="button"

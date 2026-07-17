@@ -20,6 +20,7 @@ import {
   resolvePublicListing,
   type ListingStatusValue,
 } from './listing-status';
+import { filterMapViews } from './map-views.util';
 
 export interface PublicProperty {
   id: string;
@@ -668,7 +669,7 @@ export class PropertiesService {
       parkingSpaces: p.parkingSpaces ?? null,
       orientation: p.orientation ?? null,
       landTitle: p.landTitle ?? null,
-      mapViews: this.jsonStringArray(p.mapViews),
+      mapViews: filterMapViews(p.mapViews),
       media,
       quartier: {
         id: p.quartier.id,

@@ -554,7 +554,7 @@ async function seedTestUsers(
         'eau_courante',
         'parking',
       ],
-      mapViews: ['neighborhood', 'streetView'],
+      mapViews: ['neighborhood'],
     },
     create: {
       id: DEMO_PROPERTY_ID,
@@ -599,7 +599,7 @@ async function seedTestUsers(
         'eau_courante',
         'parking',
       ],
-      mapViews: ['neighborhood', 'streetView'],
+      mapViews: ['neighborhood'],
     },
   });
 
@@ -645,7 +645,7 @@ async function seedTestUsers(
         'terrasse',
         'eau_courante',
       ],
-      mapViews: ['neighborhood', 'streetView', 'tour360'],
+      mapViews: ['neighborhood', 'tour360'],
     },
     create: {
       id: DEMO_PROPERTY_SALE_ID,
@@ -695,7 +695,7 @@ async function seedTestUsers(
         'terrasse',
         'eau_courante',
       ],
-      mapViews: ['neighborhood', 'streetView', 'tour360'],
+      mapViews: ['neighborhood', 'tour360'],
     },
   });
 

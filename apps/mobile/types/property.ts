@@ -19,7 +19,7 @@ export type PropertyFeatureId =
   | 'terrasse'
   | 'eau_courante';
 
-export type PropertyMapView = 'neighborhood' | 'streetView' | 'tour360';
+export type PropertyMapView = 'neighborhood' | 'tour360';
 
 export type ListingStatus =
   | 'AVAILABLE'
@@ -27,6 +27,14 @@ export type ListingStatus =
   | 'UNDER_OFFER'
   | 'OCCUPIED'
   | 'AVAILABLE_SOON';
+
+export type PropertyMediaKind = 'PHOTO' | 'VIDEO';
+
+export type PropertyMediaItem = {
+  id?: string;
+  url: string;
+  type: PropertyMediaKind;
+};
 
 export type Property = {
   id: string;
@@ -38,6 +46,8 @@ export type Property = {
   priceAmount: number;
   coverImage: string;
   images?: string[];
+  /** Typed media list for gallery (photos + videos). */
+  mediaItems?: PropertyMediaItem[];
   location?: string;
   cityId?: string;
   cityName?: string;
@@ -100,7 +110,6 @@ export type Property = {
 
 const ALL_MAP_VIEWS: PropertyMapView[] = [
   'neighborhood',
-  'streetView',
   'tour360',
 ];
 

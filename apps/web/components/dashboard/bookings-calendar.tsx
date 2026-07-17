@@ -281,7 +281,7 @@ function DayCell({
         'hover:bg-card-hover focus:outline-none focus:ring-1 focus:ring-accent/40',
         cell.outside ? 'text-muted/40' : 'text-foreground',
         cell.isToday ? 'bg-accent/5' : '',
-        selected ? '!bg-accent/15' : '',
+        selected ? 'bg-accent/15!' : '',
       ].join(' ')}
     >
       <span

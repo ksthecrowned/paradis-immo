@@ -11,7 +11,7 @@
 
 | # | Item | Accès | Statut |
 |---|------|-------|--------|
-| 1 | Merger `feat/rich-media-video-mapviews` | 🟢 | ⏳ toi (smoke + PR) |
+| 1 | Rich Media V1 (vidéo + nettoyage mapViews) | 🟢 | ✅ mergé sur main |
 | 2 | Frais de visite sur fiche publique | 🟢 | ✅ fait |
 | 3 | Fiche confiance & contact (spec) | 🟡 | ✅ fait |
 | 4 | `Mis à jour le …` (agent + popup more) | 🟡 | ✅ fait |

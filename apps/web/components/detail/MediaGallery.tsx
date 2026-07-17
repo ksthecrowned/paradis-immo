@@ -10,6 +10,7 @@ export type MediaGalleryItem = {
   alt?: string;
   /** Optional caption rendered under the image. */
   caption?: string;
+  type?: 'PHOTO' | 'VIDEO' | string;
 };
 
 export type MediaGalleryProps = {
@@ -61,15 +62,32 @@ export function MediaGallery({
               className="absolute inset-0 focus:outline-none focus:ring-2 focus:ring-accent/40"
               aria-label={`Aperçu ${idx + 1} sur ${items.length}`}
             >
-              <Image
-                src={item.url}
-                alt={item.alt ?? ''}
-                fill
-                sizes="(max-width: 768px) 50vw, 25vw"
-                unoptimized
-                className="object-cover transition-transform group-hover:scale-105"
-              />
-              <span className="pointer-events-none absolute inset-0 bg-black/0 transition-colors group-hover:bg-black/20" />
+              {item.type === 'VIDEO' ? (
+                <div className="absolute inset-0 flex items-center justify-center bg-black">
+                  <video
+                    src={item.url}
+                    className="h-full w-full object-cover"
+                    muted
+                    preload="metadata"
+                    playsInline
+                  />
+                  <span className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/35">
+                    <Icon icon="mdi:play-circle" className="h-10 w-10 text-white" />
+                  </span>
+                </div>
+              ) : (
+                <>
+                  <Image
+                    src={item.url}
+                    alt={item.alt ?? ''}
+                    fill
+                    sizes="(max-width: 768px) 50vw, 25vw"
+                    unoptimized
+                    className="object-cover transition-transform group-hover:scale-105"
+                  />
+                  <span className="pointer-events-none absolute inset-0 bg-black/0 transition-colors group-hover:bg-black/20" />
+                </>
+              )}
             </button>
             {onRemove ? (
               <button
@@ -85,7 +103,10 @@ export function MediaGallery({
               </button>
             ) : null}
             <span className="pointer-events-none absolute right-2 top-2 z-10 rounded-full bg-black/60 px-2 py-1 text-xs text-white opacity-0 transition-opacity group-hover:opacity-100">
-              <Icon icon="mdi:arrow-expand" className="h-3 w-3" />
+              <Icon
+                icon={item.type === 'VIDEO' ? 'mdi:play' : 'mdi:arrow-expand'}
+                className="h-3 w-3"
+              />
             </span>
             {item.caption ? (
               <span className="pointer-events-none absolute inset-x-0 bottom-0 bg-black/60 px-2 py-1 text-xs text-white">
@@ -144,14 +165,23 @@ export function MediaGallery({
             className="relative max-h-[90vh] max-w-[90vw]"
             onClick={(e) => e.stopPropagation()}
           >
-            <Image
-              src={items[activeIdx].url}
-              alt={items[activeIdx].alt ?? ''}
-              width={1600}
-              height={1200}
-              unoptimized
-              className="max-h-[90vh] w-auto max-w-[90vw] rounded-lg object-contain"
-            />
+            {items[activeIdx].type === 'VIDEO' ? (
+              <video
+                src={items[activeIdx].url}
+                controls
+                autoPlay
+                className="max-h-[90vh] max-w-[90vw] rounded-lg"
+              />
+            ) : (
+              <Image
+                src={items[activeIdx].url}
+                alt={items[activeIdx].alt ?? ''}
+                width={1600}
+                height={1200}
+                unoptimized
+                className="max-h-[90vh] w-auto max-w-[90vw] rounded-lg object-contain"
+              />
+            )}
             <p className="mt-2 text-center text-sm text-white/80">
               {activeIdx + 1} / {items.length}
               {items[activeIdx].caption ? ` — ${items[activeIdx].caption}` : null}
