@@ -5,6 +5,7 @@ import { DashboardPageHeader } from '@/components/dashboard';
 import {
   ApiErrorBanner,
   DateField,
+  DropZone,
   FeatureChips,
   FormCard,
   FormField,
@@ -972,6 +973,14 @@ export function OwnerPropertyForm({
               ? 'Les fichiers ajoutés sont envoyés immédiatement.'
               : 'Les fichiers ajoutés seront envoyés après la création du bien.'}
           </p>
+          <DropZone
+            onFiles={(files) => void ingestMediaFiles(files)}
+            accept="image/*,video/mp4,video/quicktime"
+            maxSizeMb={20}
+            multiple
+            title="Glissez photos ou vidéo ici"
+            hint="JPG, PNG, WEBP, MP4, MOV — vidéo max 20 Mo"
+          />
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
