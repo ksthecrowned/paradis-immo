@@ -297,6 +297,18 @@ describe('Media (e2e)', () => {
     body.forEach((m) => expect(m.propertyId).toBe(propertyId));
   });
 
+  it('rejects PHOTO larger than 15 Mo', async () => {
+    const big = Buffer.alloc(15 * 1024 * 1024 + 1, 0);
+    const res = await request(app.getHttpServer())
+      .post(`/api/v1/properties/${propertyId}/media/upload`)
+      .set('x-test-user', ownerUserId)
+      .attach('file', big, { filename: 'big.jpg', contentType: 'image/jpeg' });
+    expect(res.status).toBe(400);
+    expect(res.body.code).toBe('FILE_TOO_LARGE');
+    expect(res.body.message).toBe('La photo ne doit pas dépasser 15 Mo.');
+    expect(fakeR2.uploadPropertyFile).not.toHaveBeenCalled();
+  });
+
   it('rejects VIDEO larger than 20 Mo', async () => {
     const big = Buffer.alloc(20 * 1024 * 1024 + 1, 0);
     const res = await request(app.getHttpServer())

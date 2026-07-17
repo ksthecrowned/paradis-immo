@@ -9,6 +9,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { R2Service, MediaTypeError } from './r2.service';
 
 export const MAX_VIDEO_BYTES = 20 * 1024 * 1024;
+export const MAX_PHOTO_BYTES = 15 * 1024 * 1024;
 
 export interface PresignResult {
   uploadUrl: string;
@@ -125,6 +126,12 @@ export class MediaService {
       throw new BadRequestException({
         code: 'FILE_TOO_LARGE',
         message: 'La vidéo ne doit pas dépasser 20 Mo.',
+      });
+    }
+    if (mediaType === MediaType.PHOTO && file.buffer.length > MAX_PHOTO_BYTES) {
+      throw new BadRequestException({
+        code: 'FILE_TOO_LARGE',
+        message: 'La photo ne doit pas dépasser 15 Mo.',
       });
     }
 
