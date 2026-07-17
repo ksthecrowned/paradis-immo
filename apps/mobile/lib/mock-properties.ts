@@ -53,7 +53,7 @@ export const MOCK_PROPERTIES: Property[] = [
     landTitle: 'Titre foncier',
     mode: 'SALE',
     category: 'house',
-    mapViews: ['neighborhood', 'streetView', 'tour360'],
+    mapViews: ['neighborhood', 'tour360'],
     features: [
       'cuisine',
       'debarras',
@@ -97,7 +97,7 @@ export const MOCK_PROPERTIES: Property[] = [
     landTitle: 'Bail emphytéotique',
     mode: 'RENT_LONG',
     category: 'apartment',
-    mapViews: ['neighborhood', 'streetView'],
+    mapViews: ['neighborhood'],
     features: [
       'cuisine',
       'climatisation',

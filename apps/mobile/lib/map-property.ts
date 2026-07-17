@@ -67,6 +67,11 @@ export function mapPublicProperty(api: PublicProperty): Property {
     priceAmount: api.price,
     coverImage: cover,
     images: media.slice(1).map((m) => m.url),
+    mediaItems: media.map((m) => ({
+      id: m.id,
+      url: m.url,
+      type: m.type === 'VIDEO' ? ('VIDEO' as const) : ('PHOTO' as const),
+    })),
     location: `${q}, ${city}`,
     cityId: api.quartier.arrondissement.city.id,
     cityName: city,

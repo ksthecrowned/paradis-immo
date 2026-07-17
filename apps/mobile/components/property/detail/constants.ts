@@ -19,11 +19,6 @@ export const MAP_VIEW_META: Record<
     icon: 'map-outline',
     pinIcon: 'location-outline',
   },
-  streetView: {
-    label: 'Street View',
-    icon: 'scan-outline',
-    pinIcon: 'navigate-outline',
-  },
   tour360: {
     label: 'Visite 360°',
     icon: 'globe-outline',

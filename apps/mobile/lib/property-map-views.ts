@@ -5,6 +5,5 @@ export function propertyMapViewPath(
   view: PropertyMapView,
 ): string {
   if (view === 'neighborhood') return `/property/${propertyId}/neighborhood`;
-  if (view === 'streetView') return `/property/${propertyId}/street-view`;
   return `/property/${propertyId}/tour-360`;
 }

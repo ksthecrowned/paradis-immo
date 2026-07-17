@@ -33,7 +33,9 @@
       "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "Paradis Immo utilise votre position pour afficher les biens près de chez vous.",
-        "UIBackgroundModes": ["remote-notification"]
+        "UIBackgroundModes": [
+          "remote-notification"
+        ]
       },
       "config": {
         "googleMapsApiKey": "AIzaSyDrMnIhSgl6Zx-mUMQjubE4rD1EE89FjUo"
@@ -69,7 +71,8 @@
         {
           "locationWhenInUsePermission": "Paradis Immo utilise votre position pour afficher les biens près de chez vous."
         }
-      ]
+      ],
+      "expo-video"
     ]
   }
 }

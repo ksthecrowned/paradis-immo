@@ -6,6 +6,7 @@ import {
   type PropertyDetailRow,
 } from '@/lib/neighborhood';
 import type { PropertyFeatureMeta } from '@/lib/property-features';
+import type { PropertyMediaItem } from '@/types/property';
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, Text, View, type ImageSourcePropType } from 'react-native';
 import { DESCRIPTION_PREVIEW_LINES } from './constants';
@@ -18,6 +19,7 @@ type Props = {
   onToggleDescription: () => void;
   gallery: ImageSourcePropType[];
   previewPhotos: ImageSourcePropType[];
+  mediaItems?: PropertyMediaItem[];
   features: PropertyFeatureMeta[];
   detailRows: PropertyDetailRow[];
   neighborhood: NeighborhoodPlace[];
@@ -30,6 +32,7 @@ export function PropertyDetailBody({
   onToggleDescription,
   gallery,
   previewPhotos,
+  mediaItems,
   features,
   detailRows,
   neighborhood,
@@ -40,6 +43,7 @@ export function PropertyDetailBody({
         propertyId={propertyId}
         gallery={gallery}
         previewPhotos={previewPhotos}
+        mediaItems={mediaItems}
       />
 
       {description ? (

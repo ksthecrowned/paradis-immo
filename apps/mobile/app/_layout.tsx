@@ -74,14 +74,6 @@ export default function RootLayout(): React.JSX.Element {
                 }}
               />
               <Stack.Screen
-                name="property/[id]/street-view"
-                options={{
-                  headerShown: false,
-                  animation: 'slide_from_bottom',
-                  presentation: 'fullScreenModal',
-                }}
-              />
-              <Stack.Screen
                 name="property/[id]/tour-360"
                 options={{
                   headerShown: false,

@@ -232,6 +232,7 @@ export default function PropertyScreen(): React.JSX.Element {
           onToggleDescription={() => setDescriptionExpanded((v) => !v)}
           gallery={gallery}
           previewPhotos={previewPhotos}
+          mediaItems={property.mediaItems}
           features={features}
           detailRows={detailRows}
           neighborhood={neighborhood}
