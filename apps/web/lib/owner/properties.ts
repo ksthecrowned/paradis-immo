@@ -74,6 +74,8 @@ export interface PublicProperty {
   visitType: VisitType | null;
   visitPrice: number | null;
   visitDuration: number | null;
+  depositMonths?: number | null;
+  agencyFeeAmount?: number | null;
   features?: PropertyFeatureId[];
   mapViews?: MapViewId[];
   listingStatus?: ListingStatus;
@@ -98,6 +100,11 @@ export interface PublicProperty {
   };
   ownerOrg: { id: string; name: string; type: string };
   organization?: { id: string; name: string; type: string };
+  agent?: {
+    id: string;
+    name: string;
+    phone: string | null;
+  } | null;
   ownerId: string;
   createdAt: string;
   updatedAt: string;
@@ -139,6 +146,8 @@ export interface CreatePropertyInput {
   visitType?: VisitType;
   visitPrice?: number;
   visitDuration?: number;
+  depositMonths?: number;
+  agencyFeeAmount?: number;
 }
 
 export async function listMyProperties(): Promise<PublicProperty[]> {
@@ -172,6 +181,10 @@ export type UpdatePropertyInput = Partial<
     | 'orientation'
     | 'landTitle'
     | 'availableFrom'
+    | 'lat'
+    | 'lng'
+    | 'depositMonths'
+    | 'agencyFeeAmount'
   >
 > & {
   // Nullable to support clearing fields on update.
@@ -183,6 +196,10 @@ export type UpdatePropertyInput = Partial<
   orientation?: string | null;
   landTitle?: string | null;
   availableFrom?: string | null;
+  lat?: number | null;
+  lng?: number | null;
+  depositMonths?: number | null;
+  agencyFeeAmount?: number | null;
 };
 
 export async function updateProperty(

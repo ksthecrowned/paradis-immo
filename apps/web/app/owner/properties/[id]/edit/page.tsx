@@ -29,6 +29,8 @@ async function loadInitial(
         currency: property.currency,
         priceUnit: property.priceUnit,
         address: property.address,
+        lat: property.lat != null ? String(property.lat) : '',
+        lng: property.lng != null ? String(property.lng) : '',
         bedrooms: property.bedrooms != null ? String(property.bedrooms) : '',
         bathrooms: property.bathrooms != null ? String(property.bathrooms) : '',
         surface: property.surface != null ? String(property.surface) : '',
@@ -51,6 +53,12 @@ async function loadInitial(
         visitType: property.visitType ?? 'FREE',
         visitPrice: property.visitPrice != null ? String(property.visitPrice) : '',
         visitDuration: String(property.visitDuration ?? 30),
+        depositMonths:
+          property.depositMonths != null ? String(property.depositMonths) : '',
+        agencyFeeAmount:
+          property.agencyFeeAmount != null
+            ? String(property.agencyFeeAmount)
+            : '',
         quartierId: property.quartier.id,
         arrondissementId: property.quartier.arrondissement.id,
         cityId: property.quartier.arrondissement.city.id,

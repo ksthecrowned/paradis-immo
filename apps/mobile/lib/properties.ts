@@ -26,6 +26,9 @@ export interface PublicProperty {
   visitType: VisitType | null;
   visitPrice: number | null;
   visitDuration: number | null;
+  depositMonths?: number | null;
+  agencyFeeAmount?: number | null;
+  favoriteCount?: number;
   features?: string[];
   listingStatus?: ListingStatus;
   availableFrom?: string | null;

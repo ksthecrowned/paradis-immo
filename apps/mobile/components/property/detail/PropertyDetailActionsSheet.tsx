@@ -1,5 +1,6 @@
 import { AgentRow } from '@/components/agency/AgentRow';
 import { colors, radii, spacing } from '@/constants/theme';
+import { formatDate } from '@/lib/format';
 import type { Property } from '@/types/property';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -49,6 +50,12 @@ export function PropertyDetailActionsSheet({
         >
           <View style={styles.actionsHandle} />
           <Text style={styles.actionsTitle}>Actions</Text>
+
+          {property.updatedAt ? (
+            <Text style={styles.updatedLabel}>
+              Mis à jour le {formatDate(property.updatedAt)}
+            </Text>
+          ) : null}
 
           <View style={styles.actionsAgent}>
             <AgentRow
@@ -185,6 +192,13 @@ const styles = StyleSheet.create({
     color: colors.ink,
     marginBottom: 8,
     paddingHorizontal: 4,
+  },
+  updatedLabel: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: colors.muted,
+    paddingHorizontal: 4,
+    marginBottom: 4,
   },
   actionsAgent: {
     marginBottom: 8,

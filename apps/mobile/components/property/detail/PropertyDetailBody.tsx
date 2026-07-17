@@ -6,13 +6,16 @@ import {
   type PropertyDetailRow,
 } from '@/lib/neighborhood';
 import type { PropertyFeatureMeta } from '@/lib/property-features';
+import type { Property } from '@/types/property';
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, Text, View, type ImageSourcePropType } from 'react-native';
 import { DESCRIPTION_PREVIEW_LINES } from './constants';
+import { PropertyDetailContact } from './PropertyDetailContact';
 import { PropertyDetailGalleryPreview } from './PropertyDetailGalleryPreview';
 
 type Props = {
   propertyId: string;
+  property: Property;
   description?: string;
   descriptionExpanded: boolean;
   onToggleDescription: () => void;
@@ -25,6 +28,7 @@ type Props = {
 
 export function PropertyDetailBody({
   propertyId,
+  property,
   description,
   descriptionExpanded,
   onToggleDescription,
@@ -124,6 +128,8 @@ export function PropertyDetailBody({
           </View>
         </View>
       ) : null}
+
+      <PropertyDetailContact property={property} />
 
       {neighborhood.length > 0 ? (
         <View style={styles.sectionBlock}>

@@ -142,6 +142,15 @@ export function PropertyDetailMapHero({
               <Text style={styles.indispoBadgeText}>{statusBadge}</Text>
             </View>
           ) : null}
+          {property.favoriteCount != null ? (
+            <View style={styles.favoriteBadge}>
+              <Ionicons name="heart" size={13} color={colors.danger} />
+              <Text style={styles.favoriteBadgeText}>
+                {property.favoriteCount}{' '}
+                {property.favoriteCount === 1 ? 'favori' : 'favoris'}
+              </Text>
+            </View>
+          ) : null}
         </View>
 
         {amenities.length > 0 ? (
@@ -288,6 +297,22 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: colors.danger,
+  },
+  favoriteBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: colors.surface,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: radii.full,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  favoriteBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.ink,
   },
   featureRow: {
     flexDirection: 'row',

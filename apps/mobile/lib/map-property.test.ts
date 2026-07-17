@@ -118,4 +118,21 @@ describe('mapPublicProperty', () => {
     expect(p.visitType).toBe('PAID');
     expect(p.visitPrice).toBe(5000);
   });
+
+  test('maps updatedAt', () => {
+    const p = mapPublicProperty(base);
+    expect(p.updatedAt).toBe('2026-01-01T00:00:00.000Z');
+  });
+
+  test('maps listing fees and favorite count', () => {
+    const p = mapPublicProperty({
+      ...base,
+      depositMonths: 2,
+      agencyFeeAmount: 75000,
+      favoriteCount: 3,
+    });
+    expect(p.depositMonths).toBe(2);
+    expect(p.agencyFeeAmount).toBe(75000);
+    expect(p.favoriteCount).toBe(3);
+  });
 });

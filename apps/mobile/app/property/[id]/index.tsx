@@ -227,6 +227,7 @@ export default function PropertyScreen(): React.JSX.Element {
 
         <PropertyDetailBody
           propertyId={property.id}
+          property={property}
           description={property.description}
           descriptionExpanded={descriptionExpanded}
           onToggleDescription={() => setDescriptionExpanded((v) => !v)}

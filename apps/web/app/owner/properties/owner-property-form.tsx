@@ -84,6 +84,8 @@ type FormValues = {
   currency: string;
   priceUnit: PriceUnit;
   address: string;
+  lat: string;
+  lng: string;
   bedrooms: string;
   bathrooms: string;
   surface: string;
@@ -107,6 +109,8 @@ type FormValues = {
   visitType: VisitType;
   visitPrice: string;
   visitDuration: string;
+  depositMonths: string;
+  agencyFeeAmount: string;
   countryId: string;
   cityId: string;
   arrondissementId: string;
@@ -131,6 +135,8 @@ const defaultValues = (): FormValues => ({
   currency: 'XAF',
   priceUnit: 'MONTH',
   address: '',
+  lat: '',
+  lng: '',
   bedrooms: '',
   bathrooms: '',
   surface: '',
@@ -150,6 +156,8 @@ const defaultValues = (): FormValues => ({
   visitType: 'FREE',
   visitPrice: '',
   visitDuration: '30',
+  depositMonths: '',
+  agencyFeeAmount: '',
   countryId: '',
   cityId: '',
   arrondissementId: '',
@@ -169,6 +177,15 @@ const validate = (v: FormValues): Record<string, string> => {
     if (n <= 0) e.price = 'Le prix doit être supérieur à 0.';
   }
   e.address = validateRequired(v.address, 'L’adresse') ?? '';
+  e.lat =
+    v.lat === '' ? '' : (validateNumeric(v.lat, { min: -90, max: 90 }) ?? '');
+  e.lng =
+    v.lng === '' ? '' : (validateNumeric(v.lng, { min: -180, max: 180 }) ?? '');
+  if (!e.lat && !e.lng && (v.lat === '') !== (v.lng === '')) {
+    const msg = 'Latitude et longitude doivent être renseignées ensemble.';
+    if (v.lat === '') e.lat = msg;
+    if (v.lng === '') e.lng = msg;
+  }
   e.bedrooms = validateNumeric(v.bedrooms, { min: 0 }) ?? '';
   e.bathrooms = validateNumeric(v.bathrooms, { min: 0 }) ?? '';
   e.surface = validateNumeric(v.surface, { min: 0 }) ?? '';
@@ -183,6 +200,16 @@ const validate = (v: FormValues): Record<string, string> => {
       ? ''
       : (validateNumeric(v.parkingSpaces, { min: 0 }) ?? '');
   e.visitDuration = validateNumeric(v.visitDuration, { min: 5, max: 240 }) ?? '';
+  e.depositMonths =
+    v.depositMonths === ''
+      ? ''
+      : (validateNumeric(v.depositMonths, { min: 0, max: 24 }) ?? '');
+  e.agencyFeeAmount =
+    v.agencyFeeAmount === ''
+      ? ''
+      : (validateCurrency(v.agencyFeeAmount) ??
+        validateNumeric(v.agencyFeeAmount, { min: 0 }) ??
+        '');
   e.visitPrice =
     v.visitEnabled && v.visitType === 'PAID'
       ? validateRequired(v.visitPrice, 'Le tarif de visite') ??
@@ -196,9 +223,14 @@ const toCreateInput = (v: FormValues): CreatePropertyInput => {
   const bedrooms = parseNumeric(v.bedrooms);
   const bathrooms = parseNumeric(v.bathrooms);
   const surface = parseNumeric(v.surface);
+  const lat = parseNumeric(v.lat);
+  const lng = parseNumeric(v.lng);
   const yearBuilt = parseNumeric(v.yearBuilt);
   const lotSize = parseNumeric(v.lotSize);
   const parkingSpaces = parseNumeric(v.parkingSpaces);
+  const depositMonths = parseNumeric(v.depositMonths);
+  const agencyFeeAmount =
+    v.agencyFeeAmount.trim() === '' ? null : parseCurrency(v.agencyFeeAmount);
   return {
     title: v.title.trim(),
     description: v.description.trim(),
@@ -210,6 +242,8 @@ const toCreateInput = (v: FormValues): CreatePropertyInput => {
     quartierId: v.quartierId,
     address: v.address.trim(),
     countryId: v.countryId,
+    ...(lat !== null ? { lat } : {}),
+    ...(lng !== null ? { lng } : {}),
     ...(bedrooms !== null ? { bedrooms } : {}),
     ...(bathrooms !== null ? { bathrooms } : {}),
     ...(surface !== null ? { surface } : {}),
@@ -218,6 +252,10 @@ const toCreateInput = (v: FormValues): CreatePropertyInput => {
     ...(v.condition.trim() ? { condition: v.condition.trim() } : {}),
     ...(lotSize !== null ? { lotSize } : {}),
     ...(parkingSpaces !== null ? { parkingSpaces } : {}),
+    ...(depositMonths !== null ? { depositMonths } : {}),
+    ...(agencyFeeAmount !== null && agencyFeeAmount > 0
+      ? { agencyFeeAmount }
+      : {}),
     ...(v.orientation.trim() ? { orientation: v.orientation.trim() } : {}),
     ...(v.landTitle.trim() ? { landTitle: v.landTitle.trim() } : {}),
     ...(v.features.length > 0 ? { features: v.features } : {}),
@@ -239,14 +277,24 @@ const toCreateInput = (v: FormValues): CreatePropertyInput => {
 };
 
 const toUpdateInput = (v: FormValues): UpdatePropertyInput => {
+  const lat = parseNumeric(v.lat);
+  const lng = parseNumeric(v.lng);
   const yearBuilt = parseNumeric(v.yearBuilt);
   const lotSize = parseNumeric(v.lotSize);
   const parkingSpaces = parseNumeric(v.parkingSpaces);
+  const depositMonths = parseNumeric(v.depositMonths);
+  const agencyFeeAmount =
+    v.agencyFeeAmount.trim() === '' ? null : parseCurrency(v.agencyFeeAmount);
   return {
     title: v.title.trim(),
     description: v.description.trim(),
     price: parseCurrency(v.price),
     address: v.address.trim(),
+    lat,
+    lng,
+    depositMonths,
+    agencyFeeAmount:
+      agencyFeeAmount !== null && agencyFeeAmount > 0 ? agencyFeeAmount : null,
     ...(v.floor.trim() ? { floor: v.floor.trim() } : { floor: null }),
     ...(yearBuilt !== null ? { yearBuilt } : { yearBuilt: null }),
     ...(v.condition.trim() ? { condition: v.condition.trim() } : { condition: null }),
@@ -618,6 +666,38 @@ export function OwnerPropertyForm({
               disabled={!form.values.arrondissementId}
             />
           </FormField>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <FormField
+              name="lat"
+              label="Latitude"
+              error={form.errors.lat}
+              hint="Optionnel — ex. -4.769 pour Pointe-Noire"
+            >
+              <Input
+                id="lat"
+                inputMode="decimal"
+                value={form.values.lat}
+                onChange={(e) => form.setField('lat', e.target.value)}
+                placeholder="-4.769"
+                invalid={!!form.errors.lat}
+              />
+            </FormField>
+            <FormField
+              name="lng"
+              label="Longitude"
+              error={form.errors.lng}
+              hint="Optionnel — ex. 11.866"
+            >
+              <Input
+                id="lng"
+                inputMode="decimal"
+                value={form.values.lng}
+                onChange={(e) => form.setField('lng', e.target.value)}
+                placeholder="11.866"
+                invalid={!!form.errors.lng}
+              />
+            </FormField>
+          </div>
         </div>
       ),
     },
@@ -844,6 +924,42 @@ export function OwnerPropertyForm({
               label={form.values.isFeatured ? 'À la une' : 'Standard'}
             />
           </FormField>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <FormField
+              name="depositMonths"
+              label="Caution (mois)"
+              hint="Location uniquement, si applicable."
+              error={form.errors.depositMonths}
+            >
+              <NumberInput
+                name="depositMonths"
+                min={0}
+                max={24}
+                allowDecimals={false}
+                value={form.values.depositMonths}
+                onChange={(v) => form.setField('depositMonths', v)}
+                invalid={!!form.errors.depositMonths}
+                placeholder="ex. 2"
+              />
+            </FormField>
+            <FormField
+              name="agencyFeeAmount"
+              label="Frais d’agence"
+              hint="Montant en devise du bien, si applicable."
+              error={form.errors.agencyFeeAmount}
+            >
+              <NumberInput
+                name="agencyFeeAmount"
+                min={0}
+                allowDecimals={false}
+                value={form.values.agencyFeeAmount}
+                onChange={(v) => form.setField('agencyFeeAmount', v)}
+                invalid={!!form.errors.agencyFeeAmount}
+                placeholder="ex. 50000"
+              />
+            </FormField>
+          </div>
 
           <div className="rounded-lg border border-border bg-card-hover p-4">
             <div className="flex items-start gap-3">

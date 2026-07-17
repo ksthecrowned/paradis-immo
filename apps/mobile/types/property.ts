@@ -84,6 +84,14 @@ export type Property = {
   visitEnabled?: boolean;
   visitType?: 'FREE' | 'PAID' | null;
   visitPrice?: number | null;
+  /** ISO timestamp of last listing update. */
+  updatedAt?: string;
+  /** Months of rent as deposit (when applicable). */
+  depositMonths?: number | null;
+  /** Agency fee in listing currency (when applicable). */
+  agencyFeeAmount?: number | null;
+  /** Active favorites count from API. */
+  favoriteCount?: number;
   /** @deprecated Prefer `mode`. Kept for older call sites. */
   status?: 'sale' | 'rent';
   lat: number;

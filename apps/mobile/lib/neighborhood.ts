@@ -364,5 +364,62 @@ export function buildPropertyDetailRows(
     });
   }
 
+  const visitFee = formatVisitFeeRow(property);
+  if (visitFee) rows.push(visitFee);
+
+  const listingFees = formatListingFeeRows(property);
+  rows.push(...listingFees);
+
   return rows;
+}
+
+function formatFcfa(amount: number): string {
+  return `${amount.toLocaleString('fr-FR').replace(/\u202f/g, ' ')} FCFA`;
+}
+
+function formatListingFeeRows(property: Property): PropertyDetailRow[] {
+  const rows: PropertyDetailRow[] = [];
+  if (property.depositMonths != null && property.depositMonths > 0) {
+    const months = property.depositMonths;
+    rows.push({
+      key: 'depositMonths',
+      label: 'Caution',
+      value: `${months} mois de loyer`,
+      icon: 'shield-outline',
+    });
+  }
+  if (property.agencyFeeAmount != null && property.agencyFeeAmount > 0) {
+    rows.push({
+      key: 'agencyFee',
+      label: 'Frais d’agence',
+      value: formatFcfa(property.agencyFeeAmount),
+      icon: 'business-outline',
+    });
+  }
+  return rows;
+}
+
+function formatVisitFeeRow(
+  property: Property,
+): PropertyDetailRow | null {
+  if (!property.visitEnabled) return null;
+  if (property.visitType === 'FREE') {
+    return {
+      key: 'visitFee',
+      label: 'Frais de visite',
+      value: 'Gratuit',
+      icon: 'cash-outline',
+    };
+  }
+  if (property.visitType === 'PAID') {
+    const amount = property.visitPrice;
+    if (amount == null || Number.isNaN(amount)) return null;
+    return {
+      key: 'visitFee',
+      label: 'Frais de visite',
+      value: `${amount.toLocaleString('fr-FR').replace(/\u202f/g, ' ')} FCFA`,
+      icon: 'cash-outline',
+    };
+  }
+  return null;
 }

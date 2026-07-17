@@ -123,6 +123,15 @@ export function OwnerPropertyDetailView({
     .slice()
     .sort((a, b) => a.position - b.position)
     .map((m) => ({ id: m.id, url: m.url }));
+  const managingOrganization = property.organization ?? property.ownerOrg;
+  const updatedAtLabel = new Date(property.updatedAt).toLocaleDateString(
+    'fr-FR',
+    {
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric',
+    },
+  );
 
   return (
     <div className="space-y-6">
@@ -209,7 +218,7 @@ export function OwnerPropertyDetailView({
 
       <ApiErrorBanner message={actionError} />
 
-      <DetailSection>
+      <DetailSection columns={3}>
         <DetailCard title="Informations générales">
           <DetailRow label="Description" value={property.description} />
           <DetailRow
@@ -233,6 +242,26 @@ export function OwnerPropertyDetailView({
             label="Surface habitable"
             value={property.surface != null ? `${property.surface} m²` : '—'}
           />
+          <DetailRow
+            label="Caution"
+            value={
+              property.depositMonths != null
+                ? `${property.depositMonths} mois`
+                : '—'
+            }
+          />
+          <DetailRow
+            label="Frais d’agence"
+            value={
+              property.agencyFeeAmount != null
+                ? formatPropertyPrice(
+                    property.agencyFeeAmount,
+                    property.currency,
+                    'TOTAL',
+                  )
+                : '—'
+            }
+          />
         </DetailCard>
 
         <DetailCard title="Localisation">
@@ -243,6 +272,43 @@ export function OwnerPropertyDetailView({
             value={property.quartier.arrondissement.name}
           />
           <DetailRow label="Quartier" value={property.quartier.name} />
+          <DetailRow
+            label="Coordonnées GPS"
+            value={
+              property.lat != null && property.lng != null
+                ? `${property.lat}, ${property.lng}`
+                : '—'
+            }
+          />
+        </DetailCard>
+
+        <DetailCard title="Gestionnaire">
+          <DetailRow
+            label="Agence"
+            value={managingOrganization?.name ?? '—'}
+          />
+          <DetailRow
+            label="Type"
+            value={
+              managingOrganization?.type === 'AGENCY'
+                ? 'Agence immobilière'
+                : managingOrganization?.type
+            }
+          />
+          <DetailRow label="Agent" value={property.agent?.name ?? 'Non assigné'} />
+          <DetailRow label="Téléphone">
+            {property.agent?.phone ? (
+              <a
+                href={`tel:${property.agent.phone.replace(/\s/g, '')}`}
+                className="font-medium text-accent hover:underline"
+              >
+                {property.agent.phone}
+              </a>
+            ) : (
+              '—'
+            )}
+          </DetailRow>
+          <DetailRow label="Mis à jour le" value={updatedAtLabel} />
         </DetailCard>
       </DetailSection>
 

@@ -100,6 +100,10 @@ export function mapPublicProperty(api: PublicProperty): Property {
         ? api.visitType
         : null,
     visitPrice: api.visitPrice ?? null,
+    updatedAt: api.updatedAt,
+    depositMonths: api.depositMonths ?? null,
+    agencyFeeAmount: api.agencyFeeAmount ?? null,
+    favoriteCount: api.favoriteCount ?? 0,
     lat: api.lat ?? 0,
     lng: api.lng ?? 0,
   };

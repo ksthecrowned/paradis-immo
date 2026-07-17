@@ -41,6 +41,8 @@ export interface PublicProperty {
   visitType: string | null;
   visitPrice: number | null;
   visitDuration: number | null;
+  depositMonths: number | null;
+  agencyFeeAmount: number | null;
   features: string[];
   listingStatus: ListingStatusValue;
   availableFrom: string | null;
@@ -67,6 +69,7 @@ export interface PublicProperty {
   ownerOrg: { id: string; name: string; type: string };
   agent: { id: string; name: string; phone: string | null } | null;
   ownerId: string;
+  favoriteCount: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -160,6 +163,11 @@ export class PropertiesService {
             ? new Prisma.Decimal(dto.visitPrice)
             : null,
         visitDuration: dto.visitDuration ?? null,
+        depositMonths: dto.depositMonths ?? null,
+        agencyFeeAmount:
+          dto.agencyFeeAmount !== undefined
+            ? new Prisma.Decimal(dto.agencyFeeAmount)
+            : null,
       },
       include: this.publicInclude(),
     });
@@ -363,6 +371,17 @@ export class PropertiesService {
         ...(dto.visitDuration !== undefined
           ? { visitDuration: dto.visitDuration }
           : {}),
+        ...(dto.depositMonths !== undefined
+          ? { depositMonths: dto.depositMonths }
+          : {}),
+        ...(dto.agencyFeeAmount !== undefined
+          ? {
+              agencyFeeAmount:
+                dto.agencyFeeAmount === null
+                  ? null
+                  : new Prisma.Decimal(dto.agencyFeeAmount),
+            }
+          : {}),
         ...(nextListingStatus !== undefined
           ? { listingStatus: nextListingStatus }
           : {}),
@@ -520,6 +539,7 @@ export class PropertiesService {
         take: 1,
         select: { endDate: true },
       },
+      _count: { select: { favorites: true } },
     };
   }
 
@@ -567,6 +587,7 @@ export class PropertiesService {
       orientation?: string | null;
       landTitle?: string | null;
       leases?: Array<{ endDate: Date }>;
+      _count?: { favorites: number };
     },
   ): PublicProperty {
     const arr = p.quartier.arrondissement;
@@ -633,6 +654,9 @@ export class PropertiesService {
       visitType: p.visitType,
       visitPrice: p.visitPrice !== null ? Number(p.visitPrice) : null,
       visitDuration: p.visitDuration,
+      depositMonths: p.depositMonths ?? null,
+      agencyFeeAmount:
+        p.agencyFeeAmount !== null ? Number(p.agencyFeeAmount) : null,
       features: this.jsonStringArray(p.features),
       listingStatus: resolved.listingStatus,
       availableFrom: resolved.availableFrom,
@@ -662,6 +686,7 @@ export class PropertiesService {
       ownerOrg: org,
       agent,
       ownerId: p.ownerId,
+      favoriteCount: p._count?.favorites ?? 0,
       createdAt: p.createdAt.toISOString(),
       updatedAt: p.updatedAt.toISOString(),
     };

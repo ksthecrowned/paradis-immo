@@ -457,6 +457,10 @@ model Property {
   visitType      VisitType?
   visitPrice     Decimal?            @db.Decimal(12, 2)
   visitDuration  Int?
+  /** Rent deposit expressed in months of rent (when applicable). */
+  depositMonths  Int?
+  /** One-time agency fee amount in listing currency (when applicable). */
+  agencyFeeAmount Decimal?           @db.Decimal(12, 2)
   bedrooms       Int?
   bathrooms      Int?
   surface        Float?

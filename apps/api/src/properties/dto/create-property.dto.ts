@@ -12,6 +12,7 @@ import {
   MaxLength,
   Min,
   MinLength,
+  ValidateIf,
   ValidateNested,
 } from 'class-validator';
 import {
@@ -146,6 +147,19 @@ export class CreatePropertyDto {
   visitPrice?: number;
   @IsOptional()
   visitDuration?: number;
+
+  /** Rent deposit in months (location). */
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(24)
+  depositMonths?: number;
+
+  /** Agency fee in listing currency. */
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  agencyFeeAmount?: number;
 }
 
 export class UpdatePropertyDto {
@@ -206,6 +220,19 @@ export class UpdatePropertyDto {
   @IsOptional() @IsEnum(VisitType) visitType?: VisitType;
   @IsOptional() visitPrice?: number;
   @IsOptional() visitDuration?: number;
+
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null)
+  @IsInt()
+  @Min(0)
+  @Max(24)
+  depositMonths?: number | null;
+
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null)
+  @IsNumber()
+  @Min(0)
+  agencyFeeAmount?: number | null;
 
   @IsOptional()
   @ValidateNested()
