@@ -84,7 +84,6 @@ enum PropertyFeatureId {
 
 enum MapViewId {
   neighborhood
-  streetView
   tour360
 }
 
