@@ -5,9 +5,9 @@
 **Priorité** : P0 · P1 · P2  
 **Accessibilité** : 🟢 facile · 🟡 moyen · 🔴 lourd
 
-**Focus actif** : aucune (V2 solvabilité livré en local).  
-**Plus tard (fin de fil)** : vente par paliers (V3).  
-**Zappé** : Vue Reels · « historique portable » riche (remplacé par solvabilité 3 loyers).  
+**Focus actif** : Vente V3 — paliers (spec S0).  
+**Plus tard** : S4 preuve acheteur · P2 marketplace · suivis médias.  
+**Zappé** : Vue Reels · « historique portable » riche.  
 **Principe** : on ne livre **pas** tout d’un coup — phases ci-dessous.
 
 ---
