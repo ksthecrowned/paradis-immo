@@ -111,6 +111,19 @@ export default function LocationsScreen(): React.JSX.Element {
           <Text style={styles.cahierCtaText}>Mon cahier de loyer</Text>
           <Ionicons name="chevron-forward" size={18} color={colors.muted} />
         </Pressable>
+        <Pressable
+          style={({ pressed }) => [
+            styles.cahierCta,
+            pressed && styles.cahierCtaPressed,
+          ]}
+          onPress={() => router.push('/achats')}
+          accessibilityRole="button"
+          accessibilityLabel="Ouvrir mes achats"
+        >
+          <Ionicons name="home-outline" size={18} color={colors.primary} />
+          <Text style={styles.cahierCtaText}>Mes achats (paliers)</Text>
+          <Ionicons name="chevron-forward" size={18} color={colors.muted} />
+        </Pressable>
       </View>
 
       {loading && items.length === 0 ? (

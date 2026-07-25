@@ -17,6 +17,9 @@ import {
   type SaleInquiryStatus,
 } from '@/lib/agent/sales';
 import { useRequireSession } from '@/hooks/use-require-session';
+import { ROUTES } from '@/lib/routes';
+import Link from 'next/link';
+
 
 const NEXT_STATUS: Partial<Record<SaleInquiryStatus, SaleInquiryStatus>> = {
   NEW: 'CONTACTED',
@@ -137,7 +140,17 @@ export function AgentSalesPage(): React.JSX.Element {
 
   return (
     <section className="space-y-6">
-      <DashboardPageHeader title="Demandes de vente" />
+      <DashboardPageHeader
+        title="Demandes de vente"
+        actions={
+          <Link
+            href={ROUTES.agent.salesAgreements}
+            className="text-sm font-medium text-accent hover:underline"
+          >
+            Dossiers vente
+          </Link>
+        }
+      />
 
       {error ? (
         <div className="rounded-xl border border-danger/40 bg-danger/10 px-4 py-3 text-base text-danger">
@@ -156,16 +169,28 @@ export function AgentSalesPage(): React.JSX.Element {
         tableId="agent-sales-table"
         actions={(row) => {
           const next = NEXT_STATUS[row.status];
-          if (!next) return null;
+          const openHref = `${ROUTES.agent.salesAgreementsAdd}?saleInquiryId=${encodeURIComponent(row.id)}&propertyId=${encodeURIComponent(row.propertyId)}`;
           return (
-            <button
-              type="button"
-              disabled={actionId === row.id}
-              onClick={() => void handleAdvance(row)}
-              className="rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-white hover:bg-accent/90 disabled:opacity-50"
-            >
-              → {saleStatusLabel(next)}
-            </button>
+            <div className="flex flex-wrap items-center gap-2">
+              {row.status !== 'CLOSED' ? (
+                <Link
+                  href={openHref}
+                  className="rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground hover:bg-card-hover"
+                >
+                  Ouvrir un dossier
+                </Link>
+              ) : null}
+              {next ? (
+                <button
+                  type="button"
+                  disabled={actionId === row.id}
+                  onClick={() => void handleAdvance(row)}
+                  className="rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-white hover:bg-accent/90 disabled:opacity-50"
+                >
+                  → {saleStatusLabel(next)}
+                </button>
+              ) : null}
+            </div>
           );
         }}
       />

@@ -29,6 +29,7 @@ export interface InitiatePaymentInput {
   phone?: string;
   idempotencyKey: string;
   rentScheduleId?: string;
+  saleInstallmentId?: string;
   metadata?: Record<string, unknown>;
 }
 
@@ -106,10 +107,45 @@ export class PaymentsService {
       }
     }
 
-    const debt = await this.messaging.openBalanceXaf(
-      MessagePayerType.USER,
-      input.userId,
-    );
+    if (input.saleInstallmentId) {
+      const installment = await this.prisma.saleInstallment.findUnique({
+        where: { id: input.saleInstallmentId },
+        include: {
+          agreement: { select: { buyerId: true, status: true } },
+        },
+      });
+      if (!installment) {
+        throw new NotFoundException({
+          code: 'SALE_INSTALLMENT_NOT_FOUND',
+          message: 'Sale installment does not exist',
+        });
+      }
+      if (installment.agreement.buyerId !== input.userId) {
+        throw new ForbiddenException({
+          code: 'NOT_SALE_BUYER',
+          message: 'Only the buyer can pay this installment',
+        });
+      }
+      if (installment.agreement.status !== 'ACTIVE') {
+        throw new BadRequestException({
+          code: 'SALE_AGREEMENT_NOT_ACTIVE',
+          message: 'Sale agreement is not active',
+        });
+      }
+      if (installment.status === 'PAID') {
+        throw new BadRequestException({
+          code: 'SALE_INSTALLMENT_ALREADY_PAID',
+          message: 'This installment is already paid',
+        });
+      }
+    }
+
+    const debt = input.saleInstallmentId
+      ? 0
+      : await this.messaging.openBalanceXaf(
+          MessagePayerType.USER,
+          input.userId,
+        );
     const open =
       debt > 0
         ? await this.messaging.listOpenCharges(
@@ -123,6 +159,9 @@ export class PaymentsService {
       ...(input.metadata ?? {}),
       ...(input.rentScheduleId
         ? { rentScheduleId: input.rentScheduleId }
+        : {}),
+      ...(input.saleInstallmentId
+        ? { saleInstallmentId: input.saleInstallmentId }
         : {}),
       ...(debt > 0
         ? {
@@ -206,23 +245,39 @@ export class PaymentsService {
     const hasRentAlloc = finalAllocations.some(
       (a) => a.type === 'RENT_SCHEDULE' && a.rentScheduleId,
     );
-    if (!hasRentAlloc) {
+    const hasSaleAlloc = finalAllocations.some(
+      (a) => a.type === 'SALE_INSTALLMENT',
+    );
+    const metaSaleId =
+      typeof meta.saleInstallmentId === 'string'
+        ? meta.saleInstallmentId
+        : null;
+
+    if (!hasRentAlloc && !hasSaleAlloc) {
       const scheduleId =
         typeof meta.rentScheduleId === 'string' ? meta.rentScheduleId : null;
-      if (!scheduleId) {
+      if (metaSaleId) {
+        const rentAmount = Number(payment.amount) - messagingDebt;
+        finalAllocations.push({
+          type: AllocatableType.SALE_INSTALLMENT,
+          refId: metaSaleId,
+          amount: rentAmount,
+        });
+      } else if (scheduleId) {
+        const rentAmount = Number(payment.amount) - messagingDebt;
+        finalAllocations.push({
+          type: AllocatableType.RENT_SCHEDULE,
+          refId: scheduleId,
+          rentScheduleId: scheduleId,
+          amount: rentAmount,
+        });
+      } else {
         throw new BadRequestException({
           code: 'PAYMENT_ALLOCATION_REQUIRED',
           message:
-            'Rent schedule allocation is required (body or payment metadata)',
+            'Rent schedule or sale installment allocation is required (body or payment metadata)',
         });
       }
-      const rentAmount = Number(payment.amount) - messagingDebt;
-      finalAllocations.push({
-        type: AllocatableType.RENT_SCHEDULE,
-        refId: scheduleId,
-        rentScheduleId: scheduleId,
-        amount: rentAmount,
-      });
     }
 
     if (
@@ -236,13 +291,16 @@ export class PaymentsService {
       });
     }
 
-    const firstAlloc = finalAllocations.find(
+    const firstRentAlloc = finalAllocations.find(
       (a) => a.type === 'RENT_SCHEDULE' && a.rentScheduleId,
     );
+    const firstSaleAlloc = finalAllocations.find(
+      (a) => a.type === 'SALE_INSTALLMENT',
+    );
     let property: { ownerId: string; organizationId: string } | null = null;
-    if (firstAlloc?.rentScheduleId) {
+    if (firstRentAlloc?.rentScheduleId) {
       const sched = await this.prisma.rentSchedule.findUnique({
-        where: { id: firstAlloc.rentScheduleId },
+        where: { id: firstRentAlloc.rentScheduleId },
         include: {
           lease: {
             select: {
@@ -254,6 +312,20 @@ export class PaymentsService {
         },
       });
       property = sched?.lease?.property ?? null;
+    } else if (firstSaleAlloc) {
+      const installment = await this.prisma.saleInstallment.findUnique({
+        where: { id: firstSaleAlloc.refId },
+        include: {
+          agreement: {
+            select: {
+              property: {
+                select: { ownerId: true, organizationId: true },
+              },
+            },
+          },
+        },
+      });
+      property = installment?.agreement?.property ?? null;
     }
     if (!property) {
       const user = await this.prisma.user.findUnique({
@@ -313,6 +385,12 @@ export class PaymentsService {
           .map((a) => a.rentScheduleId as string);
         for (const scheduleId of rentScheduleIds) {
           await this.maybeMarkRentSchedulePaid(tx, scheduleId);
+        }
+        const saleInstallmentIds = finalAllocations
+          .filter((a) => a.type === 'SALE_INSTALLMENT')
+          .map((a) => a.refId);
+        for (const installmentId of saleInstallmentIds) {
+          await this.maybeMarkSaleInstallmentPaid(tx, installmentId);
         }
       }
       return tx.payment.findUniqueOrThrow({
@@ -596,6 +674,27 @@ export class PaymentsService {
       await tx.rentSchedule.update({
         where: { id: scheduleId },
         data: { status: RentScheduleStatus.PAID },
+      });
+    }
+  }
+
+  private async maybeMarkSaleInstallmentPaid(
+    tx: Prisma.TransactionClient,
+    installmentId: string,
+  ): Promise<void> {
+    const installment = await tx.saleInstallment.findUnique({
+      where: { id: installmentId },
+    });
+    if (!installment) return;
+    const totalAllocated = await tx.paymentAllocation.aggregate({
+      where: { type: 'SALE_INSTALLMENT', refId: installmentId },
+      _sum: { amount: true },
+    });
+    const allocated = totalAllocated._sum.amount ?? new Prisma.Decimal(0);
+    if (allocated.gte(installment.amount)) {
+      await tx.saleInstallment.update({
+        where: { id: installmentId },
+        data: { status: 'PAID' },
       });
     }
   }

@@ -36,11 +36,12 @@ class InitiatePaymentDto {
   @IsOptional() @IsString() phone?: string;
   @IsString() idempotencyKey!: string;
   @IsOptional() @IsString() rentScheduleId?: string;
+  @IsOptional() @IsString() saleInstallmentId?: string;
 }
 
 class AllocationDto {
-  @IsIn(['RENT_SCHEDULE', 'BOOKING', 'VISIT_BOOKING'])
-  type!: 'RENT_SCHEDULE' | 'BOOKING' | 'VISIT_BOOKING';
+  @IsIn(['RENT_SCHEDULE', 'BOOKING', 'VISIT_BOOKING', 'SALE_INSTALLMENT'])
+  type!: 'RENT_SCHEDULE' | 'BOOKING' | 'VISIT_BOOKING' | 'SALE_INSTALLMENT';
   @IsString() refId!: string;
   @Type(() => Number) @IsNumber() amount!: number;
   @IsOptional() @IsString() rentScheduleId?: string;

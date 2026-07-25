@@ -33,6 +33,8 @@ export interface InitiatePaymentInput {
   provider?: MobileProvider;
   phone?: string;
   idempotencyKey: string;
+  rentScheduleId?: string;
+  saleInstallmentId?: string;
 }
 
 export async function initiatePayment(

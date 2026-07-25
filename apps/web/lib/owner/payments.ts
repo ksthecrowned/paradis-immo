@@ -44,7 +44,7 @@ export async function getPayment(id: string): Promise<PublicPayment> {
 export async function validatePayment(
   id: string,
   allocations: Array<{
-    type: 'RENT_SCHEDULE' | 'BOOKING' | 'VISIT_BOOKING';
+    type: 'RENT_SCHEDULE' | 'BOOKING' | 'VISIT_BOOKING' | 'SALE_INSTALLMENT';
     refId: string;
     amount: string | number;
     rentScheduleId?: string;

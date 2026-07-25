@@ -36,6 +36,7 @@ export default function PaymentScreen(): React.JSX.Element {
     amount?: string;
     messagingDebtXaf?: string;
     rentScheduleId?: string;
+    saleInstallmentId?: string;
     title?: string;
   }>();
 
@@ -48,6 +49,7 @@ export default function PaymentScreen(): React.JSX.Element {
     paramValue(params.propertyId) || mockSession?.propertyId || '';
   const visitBookingId = paramValue(params.visitBookingId) || undefined;
   const rentScheduleId = paramValue(params.rentScheduleId) || undefined;
+  const saleInstallmentId = paramValue(params.saleInstallmentId) || undefined;
   const titleParam = paramValue(params.title);
   const amount = Number(paramValue(params.amount) || 0);
   const messagingDebtXaf = Math.max(
@@ -98,6 +100,7 @@ export default function PaymentScreen(): React.JSX.Element {
     }
     if (visitBookingId) qs.set('visitBookingId', visitBookingId);
     if (rentScheduleId) qs.set('rentScheduleId', rentScheduleId);
+    if (saleInstallmentId) qs.set('saleInstallmentId', saleInstallmentId);
     if (titleParam) qs.set('title', titleParam);
     const q = qs.toString();
     return `/payment/${paymentId}${q ? `?${q}` : ''}`;
@@ -108,6 +111,7 @@ export default function PaymentScreen(): React.JSX.Element {
     messagingDebtXaf,
     visitBookingId,
     rentScheduleId,
+    saleInstallmentId,
     titleParam,
   ]);
 

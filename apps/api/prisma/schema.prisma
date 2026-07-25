@@ -145,6 +145,20 @@ enum SaleInquiryStatus {
   CLOSED
 }
 
+enum SaleAgreementStatus {
+  DRAFT
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum SaleInstallmentStatus {
+  PENDING
+  PAID
+  OVERDUE
+  PARTIAL
+}
+
 enum MandateStatus {
   ACTIVE
   REVOKED
@@ -186,6 +200,7 @@ enum AllocatableType {
   BOOKING
   VISIT_BOOKING
   MESSAGING_DEBT
+  SALE_INSTALLMENT
 }
 
 enum MessageChannel {
@@ -350,6 +365,7 @@ model User {
   bookings               Booking[]
   leases                 Lease[]              @relation("LeaseTenant")
   saleInquiries          SaleInquiry[]
+  saleAgreementsBought   SaleAgreement[]      @relation("SaleAgreementBuyer")
   payments               Payment[]
   tickets                MaintenanceTicket[]  @relation("TicketReporter")
   assignedTickets        MaintenanceTicket[]  @relation("TicketAssignee")
@@ -386,6 +402,7 @@ model Organization {
   mandates           Mandate[]
   messageCharges     MessageCharge[]
   solvencyChecks     SolvencyCheck[]
+  saleAgreements     SaleAgreement[]
   createdAt          DateTime             @default(now())
 }
 
@@ -525,6 +542,7 @@ model Property {
   bookings       Booking[]
   leases         Lease[]
   saleInquiries  SaleInquiry[]
+  saleAgreements SaleAgreement[]
   mandates       Mandate[]
   maintenance    MaintenanceTicket[]
   createdAt      DateTime            @default(now())
@@ -765,8 +783,48 @@ model SaleInquiry {
   user       User              @relation(fields: [userId], references: [id])
   message    String?
   status     SaleInquiryStatus @default(NEW)
+  agreement  SaleAgreement?
   createdAt  DateTime          @default(now())
   updatedAt  DateTime          @updatedAt
+}
+
+model SaleAgreement {
+  id             String              @id @default(uuid())
+  propertyId     String
+  property       Property            @relation(fields: [propertyId], references: [id])
+  buyerId        String
+  buyer          User                @relation("SaleAgreementBuyer", fields: [buyerId], references: [id])
+  organizationId String
+  organization   Organization        @relation(fields: [organizationId], references: [id])
+  saleInquiryId  String?             @unique
+  saleInquiry    SaleInquiry?        @relation(fields: [saleInquiryId], references: [id])
+  agreedPrice    Decimal             @db.Decimal(12, 2)
+  currency       String
+  status         SaleAgreementStatus @default(DRAFT)
+  installments   SaleInstallment[]
+  activatedAt    DateTime?
+  completedAt    DateTime?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  @@index([buyerId, status])
+  @@index([propertyId, status])
+  @@index([organizationId])
+}
+
+model SaleInstallment {
+  id          String                 @id @default(uuid())
+  agreementId String
+  agreement   SaleAgreement          @relation(fields: [agreementId], references: [id])
+  label       String?
+  dueDate     DateTime
+  amount      Decimal                @db.Decimal(12, 2)
+  currency    String
+  status      SaleInstallmentStatus  @default(PENDING)
+  position    Int
+  createdAt   DateTime               @default(now())
+
+  @@index([agreementId, position])
 }
 
 // =====================================================================

@@ -138,6 +138,20 @@ export default function RootLayout(): React.JSX.Element {
                 }}
               />
               <Stack.Screen
+                name="achats/index"
+                options={{
+                  headerShown: false,
+                  animation: 'slide_from_right',
+                }}
+              />
+              <Stack.Screen
+                name="achats/[id]"
+                options={{
+                  headerShown: false,
+                  animation: 'slide_from_right',
+                }}
+              />
+              <Stack.Screen
                 name="stays/[id]"
                 options={{
                   headerShown: false,
