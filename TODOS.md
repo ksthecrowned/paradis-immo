@@ -95,15 +95,17 @@ Ordre V1 : **L0** → L1 → L2 → L3 → L4 → L5.
 
 ---
 
-### Phase Vente V3 — achat par paliers *(fin de vision paiements)*
+### Phase Vente V3 — achat par paliers
+
+> Spec : `docs/superpowers/specs/2026-07-25-sale-installments-design.md`
 
 | # | Item | Accès | Statut |
 |---|------|-------|--------|
-| S0 | Spec échéancier de vente (paliers, montants, dates, statut) | 🟡 | ⬜ |
-| S1 | Owner configure les paliers sur un bien / dossier vente | 🔴 | ⬜ |
+| S0 | Spec échéancier de vente (paliers, montants, dates, statut) | 🟡 | ✅ |
+| S1 | Owner configure les paliers sur un dossier vente (bien + acheteur) | 🔴 | ⬜ |
 | S2 | Paiement par palier (MoMo / autre) + **validation manuelle** owner | 🔴 | ⬜ |
 | S3 | Acheteur (mobile) : suivi de ses paliers (miroir du cahier de loyer) | 🔴 | ⬜ |
-| S4 | (Plus tard) preuve de paiements acheteur — hors V2 locative | 🔴 | ⬜ |
+| S4 | (Plus tard) preuve de paiements acheteur | 🔴 | ⬜ |
 
 ---
 
@@ -134,4 +136,4 @@ Test boundary 20 Mo + `video/quicktime` · migration mapViews legacy · `Propert
 
 ## État
 
-Vision **paiements & dossiers** : V1 ✅ → V1.1 docs ✅ → **V2 solvabilité** ✅ (local) → V3 vente paliers *(en fin)*. Reels retiré.
+Vision **paiements & dossiers** : V1 ✅ → V1.1 docs ✅ → V2 solvabilité ✅ → **V3 paliers** (spec) · S4 plus tard. Reels retiré.
