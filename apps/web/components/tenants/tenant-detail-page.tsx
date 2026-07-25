@@ -21,6 +21,11 @@ import {
   type ManagedTenantDetail,
 } from '@/lib/owner/tenants';
 import {
+  getLatestSolvencyCheck,
+  requestSolvencyCheck,
+  type PublicSolvencyCheck,
+} from '@/lib/owner/solvency';
+import {
   deleteTenantDocument,
   listTenantDocuments,
   TENANT_DOCUMENT_TYPE_LABELS,
@@ -48,6 +53,14 @@ function formatMoney(amount: string, currency: string): string {
   }).format(Number(amount));
 }
 
+function errorCode(err: unknown): string | null {
+  if (!(err instanceof ApiError) || !err.body || typeof err.body !== 'object') {
+    return null;
+  }
+  const code = (err.body as { code?: unknown }).code;
+  return typeof code === 'string' ? code : null;
+}
+
 export type TenantDetailPageProps = {
   tenantId: string;
   leaseHref: (id: string) => string;
@@ -68,6 +81,9 @@ export function TenantDetailPage({
   const [validatingId, setValidatingId] = useState<string | null>(null);
   const [idDocs, setIdDocs] = useState<TenantDocumentItem[]>([]);
   const [docsBusy, setDocsBusy] = useState(false);
+  const [solvency, setSolvency] = useState<PublicSolvencyCheck | null>(null);
+  const [solvencyBusy, setSolvencyBusy] = useState(false);
+  const [solvencyHint, setSolvencyHint] = useState<string | null>(null);
 
   const loadDocs = useCallback(async () => {
     try {
@@ -78,13 +94,22 @@ export function TenantDetailPage({
     }
   }, [tenantId]);
 
+  const loadSolvency = useCallback(async () => {
+    try {
+      const latest = await getLatestSolvencyCheck(tenantId);
+      setSolvency(latest);
+    } catch {
+      setSolvency(null);
+    }
+  }, [tenantId]);
+
   const load = useCallback(async () => {
     setLoading(true);
     try {
       const data = await getManagedTenant(tenantId);
       setDetail(data);
       setError(null);
-      await loadDocs();
+      await Promise.all([loadDocs(), loadSolvency()]);
     } catch (err) {
       setDetail(null);
       setError(
@@ -95,12 +120,35 @@ export function TenantDetailPage({
     } finally {
       setLoading(false);
     }
-  }, [tenantId, loadDocs]);
+  }, [tenantId, loadDocs, loadSolvency]);
 
   useEffect(() => {
     if (!ready) return;
     void load();
   }, [load, ready]);
+
+  const handleRequestSolvency = useCallback(async () => {
+    setSolvencyBusy(true);
+    setSolvencyHint(null);
+    try {
+      const created = await requestSolvencyCheck(tenantId);
+      setSolvency(created);
+    } catch (err) {
+      if (errorCode(err) === 'NO_PAID_RENTS') {
+        setSolvencyHint(
+          'Aucun loyer payé sur la plateforme pour ce locataire.',
+        );
+      } else {
+        setError(
+          err instanceof ApiError
+            ? err.message
+            : 'Impossible de demander la solvabilité.',
+        );
+      }
+    } finally {
+      setSolvencyBusy(false);
+    }
+  }, [tenantId]);
 
   const handleValidate = useCallback(
     async (paymentId: string, amount: string, currency: string) => {
@@ -216,6 +264,80 @@ export function TenantDetailPage({
           }
         }}
       />
+
+      <div className="space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-base font-semibold text-heading">Solvabilité</h2>
+          {!solvency ||
+          solvency.status === 'DENIED' ||
+          solvency.status === 'EXPIRED' ? (
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={solvencyBusy}
+              onClick={() => void handleRequestSolvency()}
+            >
+              Demander la solvabilité
+            </Button>
+          ) : null}
+        </div>
+        {solvencyHint ? (
+          <p className="text-sm text-muted">{solvencyHint}</p>
+        ) : null}
+        {!solvency ? (
+          <p className="text-sm text-muted">
+            Demandez l’accès aux 3 derniers loyers payés (valable 7 jours après
+            acceptation).
+          </p>
+        ) : null}
+        {solvency?.status === 'PENDING' ? (
+          <p className="text-sm text-muted">
+            En attente de la réponse du locataire.
+          </p>
+        ) : null}
+        {solvency?.status === 'DENIED' ? (
+          <p className="text-sm text-muted">
+            Le locataire a refusé la dernière demande.
+          </p>
+        ) : null}
+        {solvency?.status === 'EXPIRED' ? (
+          <p className="text-sm text-muted">
+            L’accès précédent a expiré. Vous pouvez redemander.
+          </p>
+        ) : null}
+        {solvency?.status === 'GRANTED' && solvency.snapshot ? (
+          <div className="space-y-2">
+            {solvency.expiresAt ? (
+              <p className="text-sm text-muted">
+                Expire le {formatDate(solvency.expiresAt)}
+              </p>
+            ) : null}
+            <ul className="divide-y divide-border rounded-lg border border-border bg-card">
+              {solvency.snapshot.map((row) => (
+                <li
+                  key={`${row.dueDate}-${row.paidAt}`}
+                  className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 text-sm"
+                >
+                  <div>
+                    <p className="font-medium text-foreground">
+                      Échéance {formatDate(row.dueDate)}
+                    </p>
+                    <p className="text-muted">
+                      Payé le {formatDate(row.paidAt)}
+                      {row.daysLate > 0
+                        ? ` · ${row.daysLate} j de retard`
+                        : ' · à temps'}
+                    </p>
+                  </div>
+                  <p className="font-medium">
+                    {formatMoney(row.amount, row.currency)}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+      </div>
 
       <div className="space-y-3">
         <h2 className="text-base font-semibold text-heading">Baux</h2>

@@ -289,6 +289,13 @@ enum PropertyReportStatus {
   ACTIONED
 }
 
+enum SolvencyCheckStatus {
+  PENDING
+  GRANTED
+  DENIED
+  EXPIRED
+}
+
 enum AvailabilityReason {
   BOOKING
   MAINTENANCE
@@ -350,6 +357,7 @@ model User {
   messageCharges         MessageCharge[]      @relation("MessageChargeUser")
   assignedMandates       Mandate[]            @relation("MandateAssignedAgent")
   tenantDocuments        TenantDocument[]
+  solvencyChecks         SolvencyCheck[]      @relation("SolvencyCheckTenant")
 
   @@unique([phone, countryId])
 }
@@ -377,6 +385,7 @@ model Organization {
   properties         Property[]
   mandates           Mandate[]
   messageCharges     MessageCharge[]
+  solvencyChecks     SolvencyCheck[]
   createdAt          DateTime             @default(now())
 }
 
@@ -706,6 +715,29 @@ model LeaseDocument {
 
   @@index([leaseId])
 }
+
+/// Consent-based share of last paid rents for a prospective landlord.
+model SolvencyCheck {
+  id              String              @id @default(uuid())
+  tenantUserId    String
+  tenant          User                @relation("SolvencyCheckTenant", fields: [tenantUserId], references: [id])
+  requesterUserId String
+  requesterOrgId  String
+  organization    Organization        @relation(fields: [requesterOrgId], references: [id])
+  status          SolvencyCheckStatus @default(PENDING)
+  snapshot        Json?
+  respondedAt     DateTime?
+  expiresAt       DateTime?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  @@index([tenantUserId, status])
+  @@index([requesterOrgId, tenantUserId])
+}
+
+// =====================================================================
+// Payments / rent schedules continuation
+// =====================================================================
 
 model RentSchedule {
   id        String            @id @default(uuid())

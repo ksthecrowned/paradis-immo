@@ -5,7 +5,7 @@
 **Priorité** : P0 · P1 · P2  
 **Accessibilité** : 🟢 facile · 🟡 moyen · 🔴 lourd
 
-**Focus actif** : Locative V2 — vérification de solvabilité (spec).  
+**Focus actif** : aucune (V2 solvabilité livré en local).  
 **Plus tard (fin de fil)** : vente par paliers (V3).  
 **Zappé** : Vue Reels · « historique portable » riche (remplacé par solvabilité 3 loyers).  
 **Principe** : on ne livre **pas** tout d’un coup — phases ci-dessous.
@@ -89,9 +89,9 @@ Ordre V1 : **L0** → L1 → L2 → L3 → L4 → L5.
 | # | Item | Accès | Statut |
 |---|------|-------|--------|
 | H0 | Spec design (demande owner, consentement, 3 loyers, 7 j) | 🟡 | ✅ |
-| H1 | API `SolvencyCheck` + droits + snapshot | 🔴 | ⬜ |
-| H2 | Locataire (mobile) : accepter / refuser la demande | 🔴 | ⬜ |
-| H3 | Owner web : bloc Solvabilité sur fiche locataire | 🔴 | ⬜ |
+| H1 | API `SolvencyCheck` + droits + snapshot | 🔴 | ✅ |
+| H2 | Locataire (mobile) : accepter / refuser la demande | 🔴 | ✅ |
+| H3 | Owner web : bloc Solvabilité sur fiche locataire | 🔴 | ✅ |
 
 ---
 
@@ -134,4 +134,4 @@ Test boundary 20 Mo + `video/quicktime` · migration mapViews legacy · `Propert
 
 ## État
 
-Vision **paiements & dossiers** : V1 ✅ → V1.1 docs ✅ → **V2 solvabilité** (spec) → V3 vente paliers *(en fin)*. Reels retiré.
+Vision **paiements & dossiers** : V1 ✅ → V1.1 docs ✅ → **V2 solvabilité** ✅ (local) → V3 vente paliers *(en fin)*. Reels retiré.

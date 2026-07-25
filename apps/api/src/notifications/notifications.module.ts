@@ -7,6 +7,7 @@ import { InfobipService } from './infobip.service';
 import { FcmService } from './fcm.service';
 import { PaymentValidatedProcessor } from './processors/payment-validated.processor';
 import { RentReminderProcessor } from './processors/rent-reminder.processor';
+import { SolvencyCheckProcessor } from './processors/solvency-check.processor';
 
 @Module({
   imports: [PrismaModule, PaymentsModule, MessagingModule],
@@ -16,6 +17,7 @@ import { RentReminderProcessor } from './processors/rent-reminder.processor';
     FcmService,
     PaymentValidatedProcessor,
     RentReminderProcessor,
+    SolvencyCheckProcessor,
   ],
   exports: [NotificationsService],
 })

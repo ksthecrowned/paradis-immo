@@ -10,6 +10,7 @@ export const DOMAIN_EVENTS = {
   MAINTENANCE_OPENED: 'maintenance.opened',
   RENT_DUE_SOON: 'rent.due.soon',
   RENT_OVERDUE: 'rent.overdue',
+  SOLVENCY_CHECK_REQUESTED: 'solvency_check.requested',
   /**
    * Internal scheduler event — fired daily at 8am Africa/Brazzaville
    * by `RentReminderProcessor`. No module emits this directly.
@@ -41,4 +42,11 @@ export type EventPayloadOf<E extends DomainEventName> = E extends
             ? { rentScheduleId: string; dueDate: string }
             : E extends typeof DOMAIN_EVENTS.RENT_OVERDUE
               ? { rentScheduleId: string; daysOverdue: number }
-              : Record<string, unknown>;
+              : E extends typeof DOMAIN_EVENTS.SOLVENCY_CHECK_REQUESTED
+                ? {
+                    checkId: string;
+                    tenantUserId: string;
+                    requesterOrgId: string;
+                    organizationName: string;
+                  }
+                : Record<string, unknown>;

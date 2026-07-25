@@ -4,6 +4,7 @@ import { ensureAuthenticated } from '@/lib/auth-guard';
 import { fetchCatalogProperty } from '@/lib/catalog';
 import { getErrorMessage } from '@/lib/feedback';
 import { listMyLeases, type PublicLease } from '@/lib/leases';
+import { listMySolvencyChecks } from '@/lib/solvency';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
@@ -28,18 +29,24 @@ export default function CahierLoyerHubScreen(): React.JSX.Element {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [rows, setRows] = useState<HubRow[]>([]);
+  const [pendingSolvency, setPendingSolvency] = useState(0);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const leases = (await listMyLeases()).filter((l) => l.status === 'ACTIVE');
-      if (leases.length === 1) {
-        router.replace(`/portfolio/${leases[0]!.propertyId}/rent`);
+      const [leases, checks] = await Promise.all([
+        listMyLeases(),
+        listMySolvencyChecks().catch(() => []),
+      ]);
+      setPendingSolvency(checks.filter((c) => c.status === 'PENDING').length);
+      const active = leases.filter((l) => l.status === 'ACTIVE');
+      if (active.length === 1) {
+        router.replace(`/portfolio/${active[0]!.propertyId}/rent`);
         return;
       }
       const withTitles = await Promise.all(
-        leases.map(async (lease) => {
+        active.map(async (lease) => {
           try {
             const property = await fetchCatalogProperty(lease.propertyId);
             return { lease, title: property.title };
@@ -96,6 +103,24 @@ export default function CahierLoyerHubScreen(): React.JSX.Element {
           Suivez vos échéances et paiements par bien.
         </Text>
 
+        <Pressable
+          style={styles.solvencyLink}
+          onPress={() => router.push('/cahier-loyer/solvency')}
+        >
+          <Ionicons
+            name="shield-checkmark-outline"
+            size={20}
+            color={colors.primary}
+          />
+          <Text style={styles.solvencyLinkText}>Demandes de solvabilité</Text>
+          {pendingSolvency > 0 ? (
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>{pendingSolvency}</Text>
+            </View>
+          ) : null}
+          <Ionicons name="chevron-forward" size={18} color={colors.muted} />
+        </Pressable>
+
         {loading ? (
           <ActivityIndicator color={colors.primary} style={{ marginTop: 24 }} />
         ) : error ? (
@@ -145,6 +170,32 @@ const styles = StyleSheet.create({
     letterSpacing: -0.4,
   },
   subtitle: { fontSize: 14, fontWeight: '500', color: colors.muted },
+  solvencyLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    padding: spacing.md,
+    borderRadius: radii.lg,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  solvencyLinkText: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.ink,
+  },
+  badge: {
+    minWidth: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: colors.danger,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 6,
+  },
+  badgeText: { color: '#fff', fontSize: 12, fontWeight: '700' },
   error: { color: colors.danger, fontSize: 14 },
   empty: {
     marginTop: spacing.md,

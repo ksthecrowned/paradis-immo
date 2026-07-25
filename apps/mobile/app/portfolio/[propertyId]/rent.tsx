@@ -196,6 +196,19 @@ export default function PortfolioRentHubScreen(): React.JSX.Element {
           agencyName={property.agencyName}
         />
 
+        <Pressable
+          style={styles.solvencyLink}
+          onPress={() => router.push('/cahier-loyer/solvency')}
+        >
+          <Ionicons
+            name="shield-checkmark-outline"
+            size={18}
+            color={colors.primary}
+          />
+          <Text style={styles.solvencyLinkText}>Demandes de solvabilité</Text>
+          <Ionicons name="chevron-forward" size={18} color={colors.muted} />
+        </Pressable>
+
         {nextDue ? (
           <TenantRentCard
             line={nextDue}
@@ -384,6 +397,22 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
+  },
+  solvencyLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    padding: spacing.md,
+    borderRadius: radii.lg,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  solvencyLinkText: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.ink,
   },
   infoTitle: {
     fontSize: 15,
