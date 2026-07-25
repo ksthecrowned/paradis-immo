@@ -21,6 +21,7 @@ import { OrganizationsModule } from './organizations/organizations.module';
 import { OwnerModule } from './owner/owner.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { PropertiesModule } from './properties/properties.module';
+import { ReportsModule } from './reports/reports.module';
 import { TenantsModule } from './tenants/tenants.module';
 import { UsersModule } from './users/users.module';
 import { VisitSlotsModule } from './visit-slots/visit-slots.module';
@@ -39,6 +40,7 @@ import { VisitSlotsModule } from './visit-slots/visit-slots.module';
     HealthModule,
     LocationsModule,
     PropertiesModule,
+    ReportsModule,
     VisitSlotsModule,
     BookingsModule,
     FavoritesModule,

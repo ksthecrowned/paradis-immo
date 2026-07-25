@@ -85,5 +85,6 @@ export const NAV_ROUTE_ICONS: Record<string, DashIconName> = {
   '/admin/dashboard': DASH_ICONS.dashboard,
   '/admin/users': DASH_ICONS.users,
   '/admin/moderation': DASH_ICONS.shield,
+  '/admin/reports': DASH_ICONS.shield,
   '/admin/config': DASH_ICONS.settings,
 };

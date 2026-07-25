@@ -29,6 +29,7 @@ export interface PublicProperty {
   depositMonths?: number | null;
   agencyFeeAmount?: number | null;
   favoriteCount?: number;
+  viewCount?: number;
   features?: string[];
   listingStatus?: ListingStatus;
   availableFrom?: string | null;

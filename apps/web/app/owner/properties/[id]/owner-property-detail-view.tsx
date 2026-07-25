@@ -287,6 +287,14 @@ export function OwnerPropertyDetailView({
                         ]
                       : []),
                     {
+                      label: 'Vues',
+                      value: String(property.viewCount ?? 0),
+                    },
+                    {
+                      label: 'Favoris',
+                      value: String(property.favoriteCount ?? 0),
+                    },
+                    {
                       label: 'Caution',
                       value:
                         property.depositMonths != null

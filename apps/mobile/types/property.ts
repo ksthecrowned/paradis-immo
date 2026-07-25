@@ -102,6 +102,8 @@ export type Property = {
   agencyFeeAmount?: number | null;
   /** Active favorites count from API. */
   favoriteCount?: number;
+  /** Unique daily views count from API. */
+  viewCount?: number;
   /** @deprecated Prefer `mode`. Kept for older call sites. */
   status?: 'sale' | 'rent';
   lat: number;

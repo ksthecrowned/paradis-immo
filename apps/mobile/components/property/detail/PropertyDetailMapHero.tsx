@@ -151,6 +151,15 @@ export function PropertyDetailMapHero({
               </Text>
             </View>
           ) : null}
+          {property.viewCount != null ? (
+            <View style={styles.favoriteBadge}>
+              <Ionicons name="eye-outline" size={13} color={colors.muted} />
+              <Text style={styles.favoriteBadgeText}>
+                {property.viewCount}{' '}
+                {property.viewCount === 1 ? 'vue' : 'vues'}
+              </Text>
+            </View>
+          ) : null}
         </View>
 
         {amenities.length > 0 ? (

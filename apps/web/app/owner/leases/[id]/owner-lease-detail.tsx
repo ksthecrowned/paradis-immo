@@ -283,7 +283,7 @@ export function OwnerLeaseDetail({
             <p className="text-sm text-muted">Aucune échéance générée.</p>
           ) : (
             <div className="overflow-x-auto rounded-md border border-border">
-              <table className="w-full min-w-[28rem] text-left text-sm">
+              <table className="w-full min-w-md text-left text-sm">
                 <thead>
                   <tr className="border-b border-border bg-card text-muted">
                     <th className="px-3 py-2 font-medium">Échéance</th>

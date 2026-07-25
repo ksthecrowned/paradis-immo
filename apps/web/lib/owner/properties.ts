@@ -79,6 +79,8 @@ export interface PublicProperty {
   visitDuration: number | null;
   depositMonths?: number | null;
   agencyFeeAmount?: number | null;
+  favoriteCount?: number;
+  viewCount?: number;
   features?: PropertyFeatureId[];
   mapViews?: MapViewId[];
   listingStatus?: ListingStatus;

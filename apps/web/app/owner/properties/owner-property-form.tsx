@@ -662,7 +662,7 @@ export function OwnerPropertyForm({
         <div className="flex items-start gap-3">
           <Icon
             icon="mdi:information-outline"
-            className="mt-0.5 h-5 w-5 flex-shrink-0 text-muted"
+            className="mt-0.5 h-5 w-5 shrink-0 text-muted"
           />
           <div className="text-sm text-muted">
             Le statut marketplace est calculé automatiquement pour les
@@ -1200,7 +1200,7 @@ export function OwnerPropertyForm({
             <div className="flex items-start gap-3">
               <Icon
                 icon="mdi:information-outline"
-                className="mt-0.5 h-5 w-5 flex-shrink-0 text-muted"
+                className="mt-0.5 h-5 w-5 shrink-0 text-muted"
               />
               <div className="text-sm text-muted">
                 Le statut marketplace est calculé automatiquement pour les

@@ -273,6 +273,22 @@ enum LeaseDocumentType {
   OTHER_LEASE
 }
 
+enum PropertyReportReason {
+  ALREADY_SOLD_OR_RENTED
+  FRAUDULENT
+  DUPLICATE
+  INCORRECT_INFO
+  INAPPROPRIATE
+  OTHER
+}
+
+enum PropertyReportStatus {
+  OPEN
+  REVIEWED
+  DISMISSED
+  ACTIONED
+}
+
 enum AvailabilityReason {
   BOOKING
   MAINTENANCE
@@ -492,6 +508,7 @@ model Property {
   documents      PropertyDocument[]
   favorites      Favorite[]
   views          PropertyView[]
+  reports        PropertyReport[]
   visitTemplates VisitSlotTemplate[]
   visitSlots     VisitSlot[]
   visitBookings  VisitBooking[]
@@ -547,6 +564,23 @@ model PropertyView {
   createdAt  DateTime @default(now())
 
   @@unique([propertyId, viewerKey, viewDate])
+}
+
+/// Visitor report of a public listing (marketplace moderation queue).
+model PropertyReport {
+  id          String               @id @default(uuid())
+  propertyId  String
+  property    Property             @relation(fields: [propertyId], references: [id])
+  reporterKey String
+  reason      PropertyReportReason
+  description String?
+  status      PropertyReportStatus @default(OPEN)
+  adminNote   String?
+  reviewedAt  DateTime?
+  createdAt   DateTime             @default(now())
+
+  @@index([status, createdAt])
+  @@index([propertyId])
 }
 
 // =====================================================================

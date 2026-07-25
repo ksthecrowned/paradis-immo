@@ -47,6 +47,7 @@ export const ROUTES = {
     dashboard: '/admin/dashboard',
     users: '/admin/users',
     moderation: '/admin/moderation',
+    reports: '/admin/reports',
     config: '/admin/config',
   },
 } as const;
@@ -102,6 +103,7 @@ export const ADMIN_NAV: NavItem[] = [
   { href: ROUTES.admin.dashboard, label: 'Tableau de bord', exact: true },
   { href: ROUTES.admin.users, label: 'Utilisateurs' },
   { href: ROUTES.admin.moderation, label: 'Modération' },
+  { href: ROUTES.admin.reports, label: 'Signalements' },
   { href: ROUTES.admin.config, label: 'Configuration' },
 ];
 
@@ -185,6 +187,7 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
     items: [
       { href: ROUTES.admin.dashboard, label: 'Tableau de bord', exact: true },
       { href: ROUTES.admin.moderation, label: 'Modération' },
+      { href: ROUTES.admin.reports, label: 'Signalements' },
     ],
   },
   {
@@ -225,6 +228,7 @@ const BREADCRUMB_LABELS: Record<string, string> = {
   bookings: 'Réservations',
   users: 'Utilisateurs',
   moderation: 'Modération',
+  reports: 'Signalements',
   config: 'Configuration',
 };
 

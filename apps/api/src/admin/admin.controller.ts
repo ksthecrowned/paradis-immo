@@ -10,7 +10,10 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { PropertyStatus } from '@prisma/client';
+import {
+  PropertyReportStatus,
+  PropertyStatus,
+} from '@prisma/client';
 import { IsEnum, IsOptional, IsString, MaxLength } from 'class-validator';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AppAuthGuard } from '../common/guards/auth.guard';
@@ -26,6 +29,16 @@ class ModeratePropertyDto {
   @IsString()
   @MaxLength(500)
   reason?: string;
+}
+
+class UpdateReportDto {
+  @IsEnum(PropertyReportStatus)
+  status!: PropertyReportStatus;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  adminNote?: string;
 }
 
 @ApiTags('Admin')
@@ -54,6 +67,32 @@ export class AdminController {
     const safeSize = Math.min(100, Math.max(1, pageSize));
     const result = await this.admin.listUsers(safePage, safeSize);
     return { statusCode: 200, ...result };
+  }
+
+  @Get('reports')
+  @ApiOperation({ summary: 'List property reports for moderation' })
+  async listReports(
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
+    @Query('pageSize', new DefaultValuePipe(20), ParseIntPipe)
+    pageSize: number,
+    @Query('status') status?: PropertyReportStatus,
+  ) {
+    const safePage = Math.max(1, page);
+    const safeSize = Math.min(100, Math.max(1, pageSize));
+    const result = await this.admin.listReports(
+      safePage,
+      safeSize,
+      status,
+    );
+    return { statusCode: 200, ...result };
+  }
+
+  @Patch('reports/:id')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Update a property report status' })
+  async updateReport(@Param('id') id: string, @Body() dto: UpdateReportDto) {
+    const data = await this.admin.updateReport(id, dto.status, dto.adminNote);
+    return { statusCode: 200, data };
   }
 
   @Patch('properties/:id/moderate')

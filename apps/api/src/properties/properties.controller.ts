@@ -10,14 +10,19 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { AppAuthGuard } from '../common/guards/auth.guard';
-import { CurrentUser } from '../common/decorators/current-user.decorator';
+import {
+  CurrentUser,
+  OptionalUser,
+} from '../common/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../common/decorators/current-user.decorator';
+import { AppAuthGuard } from '../common/guards/auth.guard';
+import { OptionalAuthGuard } from '../common/guards/optional-auth.guard';
 import {
   CreatePropertyDto,
   UpdatePropertyDto,
 } from './dto/create-property.dto';
 import { FilterPropertiesDto } from './dto/filter-properties.dto';
+import { RecordPropertyViewDto } from './dto/record-view.dto';
 import { PropertiesService } from './properties.service';
 
 /**
@@ -56,6 +61,20 @@ export class PropertiesController {
   @ApiOperation({ summary: 'Get a single property by id' })
   getOne(@Param('id') id: string) {
     return this.properties.getOne(id);
+  }
+
+  @Post(':id/views')
+  @UseGuards(OptionalAuthGuard)
+  @HttpCode(201)
+  @ApiOperation({
+    summary: 'Record a unique daily view (account or device fingerprint)',
+  })
+  recordView(
+    @OptionalUser() current: AuthenticatedUser | null,
+    @Param('id') id: string,
+    @Body() dto: RecordPropertyViewDto,
+  ) {
+    return this.properties.recordView(current?.userId ?? null, id, dto.deviceId);
   }
 
   // Authenticated writes -------------------------------------------

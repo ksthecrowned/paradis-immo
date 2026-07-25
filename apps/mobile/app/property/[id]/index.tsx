@@ -15,6 +15,7 @@ import { fetchCatalogProperty } from '@/lib/catalog';
 import { isFavorite, toggleFavorite } from '@/lib/favorites';
 import { getErrorMessage } from '@/lib/feedback';
 import { getPropertyGallery } from '@/lib/mock-properties';
+import { recordPropertyView } from '@/lib/property-views';
 import {
   buildPropertyDetailRows,
   getNeighborhoodPlaces,
@@ -69,7 +70,10 @@ export default function PropertyScreen(): React.JSX.Element {
         setLoadError(null);
         try {
           const row = await fetchCatalogProperty(propertyId);
-          if (active) setProperty(row);
+          if (active) {
+            setProperty(row);
+            void recordPropertyView(propertyId);
+          }
         } catch (err) {
           if (active) {
             setProperty(null);

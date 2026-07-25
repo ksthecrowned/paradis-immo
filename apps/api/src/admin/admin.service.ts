@@ -1,5 +1,8 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { PropertyStatus } from '@prisma/client';
+import {
+  PropertyReportStatus,
+  PropertyStatus,
+} from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
 export interface AdminStats {
@@ -9,6 +12,7 @@ export interface AdminStats {
   overdueSchedules: number;
   pendingRentSchedules: number;
   totalOrganizations: number;
+  openReports: number;
 }
 
 export interface AdminUserRow {
@@ -22,6 +26,24 @@ export interface AdminUserRow {
 
 export interface AdminUserListResult {
   data: AdminUserRow[];
+  meta: { total: number; page: number; pageSize: number };
+}
+
+export interface AdminReportRow {
+  id: string;
+  propertyId: string;
+  propertyTitle: string;
+  reason: string;
+  description: string | null;
+  status: PropertyReportStatus;
+  reporterKey: string;
+  adminNote: string | null;
+  reviewedAt: string | null;
+  createdAt: string;
+}
+
+export interface AdminReportListResult {
+  data: AdminReportRow[];
   meta: { total: number; page: number; pageSize: number };
 }
 
@@ -47,6 +69,7 @@ export class AdminService {
       overdueSchedules,
       pendingRentSchedules,
       totalOrganizations,
+      openReports,
     ] = await Promise.all([
       this.prisma.user.count(),
       this.prisma.property.count(),
@@ -54,6 +77,7 @@ export class AdminService {
       this.prisma.rentSchedule.count({ where: { status: 'OVERDUE' } }),
       this.prisma.rentSchedule.count({ where: { status: 'PENDING' } }),
       this.prisma.organization.count(),
+      this.prisma.propertyReport.count({ where: { status: 'OPEN' } }),
     ]);
     return {
       totalUsers,
@@ -62,6 +86,7 @@ export class AdminService {
       overdueSchedules,
       pendingRentSchedules,
       totalOrganizations,
+      openReports,
     };
   }
 
@@ -125,5 +150,76 @@ export class AdminService {
       data: { status: target },
     });
     return updated;
+  }
+
+  async listReports(
+    page: number,
+    pageSize: number,
+    status?: PropertyReportStatus,
+  ): Promise<AdminReportListResult> {
+    const skip = (page - 1) * pageSize;
+    const where = status ? { status } : {};
+    const [total, rows] = await Promise.all([
+      this.prisma.propertyReport.count({ where }),
+      this.prisma.propertyReport.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: pageSize,
+        include: { property: { select: { title: true } } },
+      }),
+    ]);
+    return {
+      data: rows.map((r) => ({
+        id: r.id,
+        propertyId: r.propertyId,
+        propertyTitle: r.property.title,
+        reason: r.reason,
+        description: r.description,
+        status: r.status,
+        reporterKey: r.reporterKey,
+        adminNote: r.adminNote,
+        reviewedAt: r.reviewedAt?.toISOString() ?? null,
+        createdAt: r.createdAt.toISOString(),
+      })),
+      meta: { total, page, pageSize },
+    };
+  }
+
+  async updateReport(
+    id: string,
+    status: PropertyReportStatus,
+    adminNote?: string,
+  ) {
+    const existing = await this.prisma.propertyReport.findUnique({
+      where: { id },
+    });
+    if (!existing) {
+      throw new NotFoundException({
+        code: 'REPORT_NOT_FOUND',
+        message: `Report ${id} not found`,
+      });
+    }
+    const updated = await this.prisma.propertyReport.update({
+      where: { id },
+      data: {
+        status,
+        adminNote: adminNote?.trim() || existing.adminNote,
+        reviewedAt: status === 'OPEN' ? null : new Date(),
+      },
+      include: { property: { select: { title: true } } },
+    });
+    return {
+      id: updated.id,
+      propertyId: updated.propertyId,
+      propertyTitle: updated.property.title,
+      reason: updated.reason,
+      description: updated.description,
+      status: updated.status,
+      reporterKey: updated.reporterKey,
+      adminNote: updated.adminNote,
+      reviewedAt: updated.reviewedAt?.toISOString() ?? null,
+      createdAt: updated.createdAt.toISOString(),
+    };
   }
 }

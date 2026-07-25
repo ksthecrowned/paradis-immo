@@ -135,4 +135,9 @@ describe('mapPublicProperty', () => {
     expect(p.agencyFeeAmount).toBe(75000);
     expect(p.favoriteCount).toBe(3);
   });
+
+  test('maps view count', () => {
+    const p = mapPublicProperty({ ...base, viewCount: 12 });
+    expect(p.viewCount).toBe(12);
+  });
 });

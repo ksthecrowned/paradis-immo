@@ -7,6 +7,7 @@ export interface AdminStats {
   overdueSchedules: number;
   pendingRentSchedules: number;
   totalOrganizations: number;
+  openReports: number;
 }
 
 export async function getAdminStats(): Promise<AdminStats> {

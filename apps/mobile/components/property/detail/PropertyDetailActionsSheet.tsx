@@ -151,6 +151,24 @@ export function PropertyDetailActionsSheet({
           </Pressable>
 
           <Pressable
+            style={styles.actionRow}
+            onPress={() => {
+              onClose();
+              router.push(`/property/${property.id}/report`);
+            }}
+            accessibilityRole="button"
+          >
+            <View style={styles.actionIcon}>
+              <Ionicons
+                name="flag-outline"
+                size={20}
+                color={colors.danger}
+              />
+            </View>
+            <Text style={styles.actionLabel}>Signaler l’annonce</Text>
+          </Pressable>
+
+          <Pressable
             style={styles.actionsCancel}
             onPress={onClose}
             accessibilityRole="button"

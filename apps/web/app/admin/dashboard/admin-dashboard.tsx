@@ -79,6 +79,13 @@ export function AdminDashboard({ stats }: AdminDashboardProps): React.JSX.Elemen
           icon={DASH_STAT_ICONS.shield}
           sparklineColor={DASH_CHART_COLORS.amber}
         />
+        <StatCard
+          label="Signalements ouverts"
+          value={formatCount(stats.openReports ?? 0)}
+          href={ROUTES.admin.reports}
+          icon={DASH_STAT_ICONS.shield}
+          sparklineColor={DASH_CHART_COLORS.amber}
+        />
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
