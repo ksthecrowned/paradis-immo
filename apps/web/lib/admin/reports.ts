@@ -1,4 +1,4 @@
-import { apiFetch } from '@/lib/api';
+import { apiFetch, apiFetchPaginated } from '@/lib/api';
 
 export type PropertyReportStatus =
   | 'OPEN'
@@ -52,7 +52,13 @@ export async function listAdminReports(options?: {
   if (options?.status) params.set('status', options.status);
   params.set('page', String(options?.page ?? 1));
   params.set('pageSize', String(options?.pageSize ?? 50));
-  return apiFetch(`/admin/reports?${params.toString()}`);
+  const result = await apiFetchPaginated<AdminReportRow>(
+    `/admin/reports?${params.toString()}`,
+  );
+  return {
+    data: result.data,
+    meta: { total: result.meta.total },
+  };
 }
 
 export async function updateAdminReport(

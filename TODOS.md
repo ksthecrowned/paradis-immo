@@ -5,8 +5,7 @@
 **Priorité** : P0 · P1 · P2  
 **Accessibilité** : 🟢 facile · 🟡 moyen · 🔴 lourd
 
-**Focus actif** : aucune (V1 + V1.1 docs livrés en local).  
-**En pause** : marketplace P1-7 (vues) et P1-8 (signalement).  
+**Focus actif** : aucune (P1-7 vues + P1-8 signalement livrés en local).  
 **Plus tard (fin de fil)** : historique portable (V2) · vente par paliers (V3).  
 **Zappé** : Vue Reels.  
 **Principe** : on ne livre **pas** tout d’un coup — phases ci-dessous.
@@ -30,15 +29,15 @@
 |---|------|-------|--------|
 | 5 | **Frais listing** : caution (mois), frais d’agence | 🟡 | ✅ fait |
 | 6 | **Nombre de favoris actifs** (fiche publique) | 🟡 | ✅ fait |
-| 7 | Nombre de vues (empreinte device) | 🔴 | ⏸ pause |
-| 8 | Signalement (6 motifs + modération) | 🔴 | ⏸ pause |
+| 7 | Nombre de vues (empreinte device) | 🔴 | ✅ fait (local) |
+| 8 | Signalement (6 motifs + modération) | 🔴 | ✅ fait (local) |
 | 9 | Refonte UI owner (layout hybride) | 🟡 | ✅ fait |
 | 10 | Saisie `lat`/`lng` form owner | 🟢 | ✅ fait |
 | 11 | Agent / agence sur détail owner web | 🟡 | ✅ fait |
 
-### Détail P1-8 (Signalement) — en pause
+### Détail P1-8 (Signalement) — fait
 Motifs : Déjà vendu/loué · Annonce frauduleuse · Doublon · Informations incorrectes · Contenu inapproprié · Autre (à préciser)
-Description optionnelle · API + stockage · vue modération admin
+Description optionnelle (requise si Autre) · API + stockage · vue modération admin `/admin/reports`
 
 ### Détail P1-9 (Refonte UI owner) — fait
 Header compact (titre, type·mode, prix, badges) → bandeau médias → 2 colonnes (contenu / sidebar sticky Actions·Marché·Visite·Gestionnaire).
