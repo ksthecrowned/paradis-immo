@@ -110,6 +110,30 @@ export class R2Service {
     return { url, key };
   }
 
+  async uploadTenantFile(params: {
+    userId: string;
+    filename: string;
+    contentType: string;
+    body: Buffer;
+  }): Promise<{ url: string; key: string }> {
+    const safeFilename = sanitizeFilename(params.filename);
+    const key = `tenants/${params.userId}/${Date.now()}-${randomToken(6)}-${safeFilename}`;
+    const { url } = await this.uploadBuffer(key, params.body, params.contentType);
+    return { url, key };
+  }
+
+  async uploadLeaseFile(params: {
+    leaseId: string;
+    filename: string;
+    contentType: string;
+    body: Buffer;
+  }): Promise<{ url: string; key: string }> {
+    const safeFilename = sanitizeFilename(params.filename);
+    const key = `leases/${params.leaseId}/${Date.now()}-${randomToken(6)}-${safeFilename}`;
+    const { url } = await this.uploadBuffer(key, params.body, params.contentType);
+    return { url, key };
+  }
+
   /**
    * Check that a URL the client claims was just uploaded actually belongs to
    * our configured R2 public host. Prevents someone from pointing a
@@ -121,6 +145,26 @@ export class R2Service {
         `URL must start with "${this.publicUrl}/" — got "${url}"`,
       );
     }
+  }
+
+  /**
+   * Server-side object delete. Best-effort: missing keys are ignored by S3/R2.
+   */
+  async deleteObject(key: string): Promise<void> {
+    if (!this.bucket) return;
+    await this.client.send(
+      new DeleteObjectCommand({ Bucket: this.bucket, Key: key }),
+    );
+  }
+
+  /**
+   * Extract the object key from a public CDN URL previously issued by this
+   * service. Returns null when the URL is not under our public host.
+   */
+  keyFromPublicUrl(url: string): string | null {
+    const prefix = `${this.publicUrl}/`;
+    if (!this.publicUrl || !url.startsWith(prefix)) return null;
+    return decodeURIComponent(url.slice(prefix.length));
   }
 
   /**

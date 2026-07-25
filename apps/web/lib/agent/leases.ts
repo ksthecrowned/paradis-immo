@@ -16,7 +16,9 @@ export type PublicLease = {
 
 export type CreateLeaseInput = {
   propertyId: string;
-  tenantId: string;
+  tenantPhone?: string;
+  tenantName?: string;
+  tenantId?: string;
   startDate: string;
   endDate: string;
   monthlyRent: number;

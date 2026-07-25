@@ -6,6 +6,7 @@ import { ApiError } from '@/lib/api';
 import {
   listMedia,
   uploadMedia,
+  deleteMedia,
   type MediaItem,
 } from '@/lib/owner/media';
 import { DropZone } from '@/components/forms/DropZone';
@@ -221,6 +222,20 @@ export function PropertyMediaUploader({
       <MediaGallery
         items={galleryItems}
         emptyLabel="Ajoutez des photos ou une vidéo pour valoriser le bien."
+        onRemove={(id) => {
+          void (async () => {
+            try {
+              await deleteMedia(propertyId, id);
+              await refreshMedia();
+            } catch (err) {
+              setGlobalError(
+                err instanceof ApiError
+                  ? err.message
+                  : 'Impossible de supprimer ce média.',
+              );
+            }
+          })();
+        }}
       />
     </div>
   );

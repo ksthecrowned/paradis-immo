@@ -16,6 +16,15 @@ import {
 } from '@/lib/agent/leases';
 import { ApiError } from '@/lib/api';
 import { leaseStatusLabel, leaseStatusTone } from '@/lib/owner/leases';
+import {
+    PhoneInput,
+    getPhoneE164,
+    isPhoneComplete,
+} from '@/components/forms';
+import {
+    DEFAULT_PHONE_COUNTRY,
+    type PhoneCountrySelection,
+} from '@/lib/phone';
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 
 function formatDate(iso: string): string {
@@ -29,7 +38,11 @@ function formatDate(iso: string): string {
 export function AgentLeasesPage(): React.JSX.Element {
   const { ready } = useRequireSession();
   const [propertyId, setPropertyId] = useState('');
-  const [tenantId, setTenantId] = useState('');
+  const [tenantPhoneNational, setTenantPhoneNational] = useState('');
+  const [tenantName, setTenantName] = useState('');
+  const [phoneCountry, setPhoneCountry] = useState<PhoneCountrySelection>(
+    DEFAULT_PHONE_COUNTRY,
+  );
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [monthlyRent, setMonthlyRent] = useState('');
@@ -66,9 +79,22 @@ export function AgentLeasesPage(): React.JSX.Element {
     setError(null);
     setCreated(null);
     try {
+      const e164 = getPhoneE164(tenantPhoneNational, phoneCountry);
+      if (!e164 || !isPhoneComplete(tenantPhoneNational, phoneCountry)) {
+        setError('Numéro de téléphone du locataire invalide.');
+        setSubmitting(false);
+        return;
+      }
+      const name = tenantName.trim();
+      if (!name || name.length < 2) {
+        setError('Indiquez le nom du locataire (requis si pas de compte).');
+        setSubmitting(false);
+        return;
+      }
       const lease = await createLease({
         propertyId: propertyId.trim(),
-        tenantId: tenantId.trim(),
+        tenantPhone: e164,
+        tenantName: name,
         startDate,
         endDate,
         monthlyRent: Number(monthlyRent),
@@ -215,13 +241,28 @@ export function AgentLeasesPage(): React.JSX.Element {
             />
           </label>
           <label className="block text-base sm:col-span-2">
-            <span className="mb-1 block text-muted">ID du locataire</span>
-            <input
-              value={tenantId}
-              onChange={(e) => setTenantId(e.target.value)}
+            <span className="mb-1 block text-muted">Téléphone du locataire</span>
+            <PhoneInput
+              label=""
+              value={tenantPhoneNational}
+              country={phoneCountry}
+              onCountryChange={setPhoneCountry}
+              onChange={setTenantPhoneNational}
               required
-              placeholder="user_…"
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 font-mono text-base"
+            />
+            <span className="mt-1 block text-xs text-muted">
+              Compte existant ou non : un profil minimal sera créé si besoin.
+            </span>
+          </label>
+          <label className="block text-base sm:col-span-2">
+            <span className="mb-1 block text-muted">Nom du locataire</span>
+            <input
+              value={tenantName}
+              onChange={(e) => setTenantName(e.target.value)}
+              required
+              minLength={2}
+              placeholder="Prénom et nom"
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-base"
             />
           </label>
           <label className="block text-base">

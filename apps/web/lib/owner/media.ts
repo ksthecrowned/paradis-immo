@@ -58,3 +58,12 @@ export async function uploadMedia(
     body: form,
   });
 }
+
+export async function deleteMedia(
+  propertyId: string,
+  mediaId: string,
+): Promise<void> {
+  await apiFetch<void>(`/properties/${propertyId}/media/${mediaId}`, {
+    method: 'DELETE',
+  });
+}

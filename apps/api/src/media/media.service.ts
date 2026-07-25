@@ -176,6 +176,34 @@ export class MediaService {
     }));
   }
 
+  async remove(
+    userId: string,
+    propertyId: string,
+    mediaId: string,
+  ): Promise<void> {
+    await this.assertCanWrite(userId, propertyId);
+    const media = await this.prisma.propertyMedia.findFirst({
+      where: { id: mediaId, propertyId },
+    });
+    if (!media) {
+      throw new NotFoundException({
+        code: 'MEDIA_NOT_FOUND',
+        message: 'Media does not exist on this property',
+      });
+    }
+
+    await this.prisma.propertyMedia.delete({ where: { id: mediaId } });
+
+    const key = this.r2.keyFromPublicUrl(media.url);
+    if (key) {
+      try {
+        await this.r2.deleteObject(key);
+      } catch {
+        // DB row is already gone; orphan R2 objects are acceptable for V1.
+      }
+    }
+  }
+
   // ------------------------------------------------------------------
   // Internals
   // ------------------------------------------------------------------

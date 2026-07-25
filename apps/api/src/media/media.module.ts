@@ -3,6 +3,8 @@ import { S3Client } from '@aws-sdk/client-s3';
 import { PrismaModule } from '../prisma/prisma.module';
 import { MediaController } from './media.controller';
 import { MediaService } from './media.service';
+import { DocumentsController } from './documents.controller';
+import { DocumentsService } from './documents.service';
 import { R2Service, R2_KEY } from './r2.service';
 
 /**
@@ -33,9 +35,10 @@ function makeR2Client(): S3Client {
 
 @Module({
   imports: [PrismaModule],
-  controllers: [MediaController],
+  controllers: [MediaController, DocumentsController],
   providers: [
     MediaService,
+    DocumentsService,
     R2Service,
     {
       provide: R2_KEY,

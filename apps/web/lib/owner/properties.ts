@@ -175,7 +175,6 @@ export type UpdatePropertyInput = Partial<
   Omit<
     CreatePropertyInput,
     | 'countryId'
-    | 'quartierId'
     | 'floor'
     | 'yearBuilt'
     | 'condition'
@@ -188,6 +187,9 @@ export type UpdatePropertyInput = Partial<
     | 'lng'
     | 'depositMonths'
     | 'agencyFeeAmount'
+    | 'bedrooms'
+    | 'bathrooms'
+    | 'surface'
   >
 > & {
   // Nullable to support clearing fields on update.
@@ -203,6 +205,9 @@ export type UpdatePropertyInput = Partial<
   lng?: number | null;
   depositMonths?: number | null;
   agencyFeeAmount?: number | null;
+  bedrooms?: number | null;
+  bathrooms?: number | null;
+  surface?: number | null;
 };
 
 export async function updateProperty(

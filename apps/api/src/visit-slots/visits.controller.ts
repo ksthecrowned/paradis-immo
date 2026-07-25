@@ -8,7 +8,7 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
-import { IsString } from 'class-validator';
+import { IsOptional, IsString, Length, Matches } from 'class-validator';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AppAuthGuard } from '../common/guards/auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
@@ -18,6 +18,17 @@ import { VisitSlotsService } from './visit-slots.service';
 class BookVisitDto {
   @IsString() slotId!: string;
   @IsString() propertyId!: string;
+  /** When set by an owner/agent, book on behalf of this guest (E.164). */
+  @IsOptional()
+  @IsString()
+  @Matches(/^\+\d{7,15}$/)
+  guestPhone?: string;
+
+  /** Required when creating a guest that has no Paradis Immo account yet. */
+  @IsOptional()
+  @IsString()
+  @Length(2, 120)
+  guestName?: string;
 }
 
 /**

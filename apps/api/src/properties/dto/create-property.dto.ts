@@ -166,19 +166,35 @@ export class UpdatePropertyDto {
   @IsOptional() @IsString() @MinLength(3) title?: string;
   @IsOptional() @IsString() @MinLength(10) description?: string;
 
+  @IsOptional() @IsEnum(PropertyType) type?: PropertyType;
   @IsOptional() @IsEnum(PropertyMode) mode?: PropertyMode;
 
   @IsOptional() @IsNumber() price?: number;
   @IsOptional() @IsString() currency?: string;
   @IsOptional() @IsEnum(PriceUnit) priceUnit?: PriceUnit;
 
+  @IsOptional() @IsString() quartierId?: string;
   @IsOptional() @IsString() address?: string;
   @IsOptional() lat?: number;
   @IsOptional() lng?: number;
 
-  @IsOptional() bedrooms?: number;
-  @IsOptional() bathrooms?: number;
-  @IsOptional() surface?: number;
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null)
+  @IsInt()
+  @Min(0)
+  bedrooms?: number | null;
+
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null)
+  @IsInt()
+  @Min(0)
+  bathrooms?: number | null;
+
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null)
+  @IsNumber()
+  @Min(0)
+  surface?: number | null;
 
   // -------- Building / lot details --------
   @IsOptional() @IsString() @MaxLength(50) floor?: string;

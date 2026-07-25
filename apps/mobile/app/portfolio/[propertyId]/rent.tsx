@@ -22,6 +22,14 @@ import {
   type RentLineView,
 } from '@/lib/leases';
 import { initiatePayment } from '@/lib/payments';
+import {
+  leaseDocTypeLabel,
+  listLeaseDocuments,
+  listMyDocuments,
+  tenantDocTypeLabel,
+  type LeaseDocumentItem,
+  type TenantDocumentItem,
+} from '@/lib/documents';
 import { fetchActiveLeaseForProperty } from '@/lib/portfolio';
 import type { Property } from '@/types/property';
 import { Ionicons } from '@expo/vector-icons';
@@ -55,6 +63,8 @@ export default function PortfolioRentHubScreen(): React.JSX.Element {
   const [property, setProperty] = useState<Property | null>(null);
   const [schedule, setSchedule] = useState<RentLineView[]>([]);
   const [nextDue, setNextDue] = useState<RentLineView | undefined>();
+  const [idDocs, setIdDocs] = useState<TenantDocumentItem[]>([]);
+  const [leaseDocs, setLeaseDocs] = useState<LeaseDocumentItem[]>([]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -66,17 +76,23 @@ export default function PortfolioRentHubScreen(): React.JSX.Element {
         setProperty(null);
         setSchedule([]);
         setNextDue(undefined);
+        setIdDocs([]);
+        setLeaseDocs([]);
         return;
       }
-      const [prop, rawSchedule] = await Promise.all([
+      const [prop, rawSchedule, mine, contracts] = await Promise.all([
         fetchCatalogProperty(active.propertyId),
         getLeaseSchedule(active.id),
+        listMyDocuments().catch(() => [] as TenantDocumentItem[]),
+        listLeaseDocuments(active.id).catch(() => [] as LeaseDocumentItem[]),
       ]);
       const lines = rawSchedule.map(mapScheduleEntry);
       setLease(active);
       setProperty(prop);
       setSchedule(lines.slice(0, 6));
       setNextDue(nextPendingDue(lines));
+      setIdDocs(mine);
+      setLeaseDocs(contracts);
     } catch (err) {
       setError(getErrorMessage(err, 'Impossible de charger le bail'));
       setLease(null);
@@ -216,7 +232,7 @@ export default function PortfolioRentHubScreen(): React.JSX.Element {
         />
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Échéances</Text>
+          <Text style={styles.sectionTitle}>Cahier de loyer</Text>
           {schedule.length === 0 ? (
             <Text style={styles.emptyHint}>Aucune échéance</Text>
           ) : (
@@ -233,6 +249,48 @@ export default function PortfolioRentHubScreen(): React.JSX.Element {
                   tone={rentScheduleStatusTone(line.status)}
                 />
               </View>
+            ))
+          )}
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Mes documents</Text>
+          {idDocs.length === 0 ? (
+            <Text style={styles.emptyHint}>Aucun document pour l’instant</Text>
+          ) : (
+            idDocs.map((d) => (
+              <Pressable
+                key={d.id}
+                style={styles.rowCard}
+                onPress={() => void Linking.openURL(d.url)}
+              >
+                <View style={styles.rowBody}>
+                  <Text style={styles.rowTitle}>{d.name}</Text>
+                  <Text style={styles.rowMeta}>{tenantDocTypeLabel(d.type)}</Text>
+                </View>
+                <Ionicons name="open-outline" size={18} color={colors.primary} />
+              </Pressable>
+            ))
+          )}
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Contrat</Text>
+          {leaseDocs.length === 0 ? (
+            <Text style={styles.emptyHint}>Aucun contrat pour l’instant</Text>
+          ) : (
+            leaseDocs.map((d) => (
+              <Pressable
+                key={d.id}
+                style={styles.rowCard}
+                onPress={() => void Linking.openURL(d.url)}
+              >
+                <View style={styles.rowBody}>
+                  <Text style={styles.rowTitle}>{d.name}</Text>
+                  <Text style={styles.rowMeta}>{leaseDocTypeLabel(d.type)}</Text>
+                </View>
+                <Ionicons name="open-outline" size={18} color={colors.primary} />
+              </Pressable>
             ))
           )}
         </View>

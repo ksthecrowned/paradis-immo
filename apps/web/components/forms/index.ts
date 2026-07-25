@@ -24,6 +24,12 @@ export {
 } from './FeatureChips';
 export { DropZone, type DropZoneProps } from './DropZone';
 export { FileUpload, type FileUploadItem, type FileUploadProps } from './FileUpload';
+export {
+  PhoneInput,
+  getPhoneE164,
+  isPhoneComplete,
+  type PhoneInputProps,
+} from './PhoneInput';
 export { FormLayout, type FormLayoutProps } from './FormLayout';
 export {
   FormSidebar,

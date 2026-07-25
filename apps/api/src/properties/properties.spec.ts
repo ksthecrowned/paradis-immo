@@ -221,6 +221,39 @@ describe('Properties (e2e)', () => {
     expect(Number(body.price)).toBe(175000);
   });
 
+  it('PATCH /properties/:id persists type, mode (when not ACTIVE), rooms and quartier', async () => {
+    await prisma.property.update({
+      where: { id: createdPropertyId },
+      data: { status: 'DRAFT' },
+    });
+    const res = await request(app.getHttpServer())
+      .patch(`/api/v1/properties/${createdPropertyId}`)
+      .set('x-test-user', ownerUserId)
+      .send({
+        type: 'HOUSE',
+        mode: 'RENT_LONG',
+        bedrooms: 4,
+        bathrooms: 2,
+        surface: 120,
+        currency: 'XAF',
+        priceUnit: 'MONTH',
+        quartierId: bzvQuartierId,
+      })
+      .expect(200);
+    const body = res.body as {
+      type: string;
+      bedrooms: number;
+      bathrooms: number;
+      surface: number;
+      quartier: { id: string };
+    };
+    expect(body.type).toBe('HOUSE');
+    expect(body.bedrooms).toBe(4);
+    expect(body.bathrooms).toBe(2);
+    expect(Number(body.surface)).toBe(120);
+    expect(body.quartier.id).toBe(bzvQuartierId);
+  });
+
   it('POST /properties/:id/archive archives the property', async () => {
     await request(app.getHttpServer())
       .post(`/api/v1/properties/${createdPropertyId}/archive`)

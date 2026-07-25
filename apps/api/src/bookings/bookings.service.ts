@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -9,6 +10,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { EventPublisher } from '../events/event.publisher';
 import { DOMAIN_EVENTS } from '../events/event.types';
 import { AvailabilityService } from './availability.service';
+import { UsersService } from '../users/users.service';
 
 export interface PublicBooking {
   id: string;
@@ -26,6 +28,8 @@ export interface CreateBookingInput {
   propertyId: string;
   startDate: Date;
   endDate: Date;
+  guestPhone?: string;
+  guestName?: string;
 }
 
 @Injectable()
@@ -34,6 +38,7 @@ export class BookingsService {
     private readonly prisma: PrismaService,
     private readonly availability: AvailabilityService,
     private readonly events: EventPublisher,
+    private readonly users: UsersService,
   ) {}
 
   async createBooking(
@@ -55,6 +60,8 @@ export class BookingsService {
         price: true,
         currency: true,
         priceUnit: true,
+        ownerId: true,
+        organizationId: true,
       },
     });
     if (!property) {
@@ -74,6 +81,32 @@ export class BookingsService {
         code: 'BOOKING_INVALID_PRICE_UNIT',
         message: 'RENT_SHORT properties must use NIGHT as priceUnit',
       });
+    }
+
+    let guestUserId = userId;
+    if (input.guestPhone) {
+      if (property.ownerId !== userId) {
+        const membership = await this.prisma.organizationMember.findUnique({
+          where: {
+            userId_organizationId: {
+              userId,
+              organizationId: property.organizationId,
+            },
+          },
+        });
+        if (!membership) {
+          throw new ForbiddenException({
+            code: 'NOT_PROPERTY_OWNER',
+            message:
+              'Only the owner or a member of the managing org can book on behalf of a guest',
+          });
+        }
+      }
+      const guest = await this.users.resolveOrCreateByPhone(
+        input.guestPhone,
+        input.guestName,
+      );
+      guestUserId = guest.id;
     }
 
     // Check for overlapping non-cancelled bookings.
@@ -104,7 +137,7 @@ export class BookingsService {
       const b = await tx.booking.create({
         data: {
           propertyId: input.propertyId,
-          userId,
+          userId: guestUserId,
           startDate: input.startDate,
           endDate: input.endDate,
           totalPrice,
@@ -126,7 +159,7 @@ export class BookingsService {
 
     await this.events.emit(DOMAIN_EVENTS.PAYMENT_INITIATED, {
       paymentId: booking.id, // placeholder until Task 16
-      userId,
+      userId: guestUserId,
       amount: totalPrice.toString(),
       currency,
     });

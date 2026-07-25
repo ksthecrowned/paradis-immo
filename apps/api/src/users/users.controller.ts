@@ -1,15 +1,31 @@
-import { Body, Controller, Get, Patch, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Patch,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { IsString, Matches } from 'class-validator';
+import { AppAuthGuard } from '../common/guards/auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { UpdateMeDto } from './dto/update-me.dto';
 import { UsersService } from './users.service';
 
+class LookupUserQueryDto {
+  @IsString()
+  @Matches(/^\+\d{7,15}$/, {
+    message: 'phone must be E.164 (+country…)',
+  })
+  phone!: string;
+}
+
 @ApiTags('Users')
 @ApiBearerAuth()
 @Controller('users')
-@UseGuards(JwtAuthGuard)
+@UseGuards(AppAuthGuard)
 export class UsersController {
   constructor(private readonly users: UsersService) {}
 
@@ -32,5 +48,13 @@ export class UsersController {
   @ApiOperation({ summary: 'List organizations the user belongs to' })
   async myOrganizations(@CurrentUser() current: AuthenticatedUser) {
     return this.users.listMyOrganizations(current.userId);
+  }
+
+  @Get('lookup')
+  @ApiOperation({
+    summary: 'Lookup a registered user by E.164 phone (owner/agent flows)',
+  })
+  async lookup(@Query() query: LookupUserQueryDto) {
+    return this.users.lookupByPhone(query.phone);
   }
 }

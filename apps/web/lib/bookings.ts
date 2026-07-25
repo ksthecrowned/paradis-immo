@@ -16,6 +16,19 @@ export async function listManagedBookings(): Promise<PublicBooking[]> {
   return apiFetch<PublicBooking[]>('/bookings/managed');
 }
 
+export async function createBooking(input: {
+  propertyId: string;
+  startDate: string;
+  endDate: string;
+  guestPhone?: string;
+  guestName?: string;
+}): Promise<PublicBooking> {
+  return apiFetch<PublicBooking>('/bookings', {
+    method: 'POST',
+    body: input,
+  });
+}
+
 export async function cancelBooking(id: string): Promise<PublicBooking> {
   return apiFetch<PublicBooking>(`/bookings/${id}/cancel`, {
     method: 'PATCH',

@@ -13,11 +13,14 @@ import { ListLeasesDto } from './dto/list-leases.dto';
 import { MandateApprovalService } from '../mandates/mandate-approval.service';
 import type { PublicMandateApproval } from '../mandates/mandate-approval.service';
 import { AgencyAccessService } from '../mandates/agency-access.service';
+import { UsersService } from '../users/users.service';
 
 export interface PublicLease {
   id: string;
   propertyId: string;
   tenantId: string;
+  tenantPhone?: string | null;
+  tenantName?: string | null;
   startDate: string;
   endDate: string;
   monthlyRent: string;
@@ -38,12 +41,25 @@ export interface PublicRentScheduleEntry {
 
 export interface CreateLeaseInput {
   propertyId: string;
-  tenantId: string;
+  tenantId?: string;
+  tenantPhone?: string;
+  tenantName?: string;
   startDate: Date;
   endDate: Date;
   monthlyRent: string | number;
   deposit: string | number;
   currency: string;
+}
+
+export interface UpdateLeaseInput {
+  tenantId?: string;
+  tenantPhone?: string;
+  tenantName?: string;
+  startDate?: Date;
+  endDate?: Date;
+  monthlyRent?: string | number;
+  deposit?: string | number;
+  currency?: string;
 }
 
 @Injectable()
@@ -54,6 +70,7 @@ export class LeasesService {
     private readonly scheduleGen: RentScheduleGenerator,
     private readonly approvals: MandateApprovalService,
     private readonly agencyAccess: AgencyAccessService,
+    private readonly users: UsersService,
   ) {}
 
   async createLease(
@@ -94,21 +111,16 @@ export class LeasesService {
       }
     }
 
-    const tenant = await this.prisma.user.findUnique({
-      where: { id: input.tenantId },
-      select: { id: true },
-    });
-    if (!tenant) {
-      throw new NotFoundException({
-        code: 'TENANT_NOT_FOUND',
-        message: 'Tenant user does not exist',
-      });
-    }
+    const tenantId = await this.resolveTenantId(
+      input.tenantId,
+      input.tenantPhone,
+      input.tenantName,
+    );
 
     const lease = await this.prisma.lease.create({
       data: {
         propertyId: input.propertyId,
-        tenantId: input.tenantId,
+        tenantId,
         startDate: input.startDate,
         endDate: input.endDate,
         monthlyRent: new Prisma.Decimal(input.monthlyRent),
@@ -118,6 +130,128 @@ export class LeasesService {
       },
     });
     return this.toPublic(lease);
+  }
+
+  /**
+   * Update a DRAFT lease. ACTIVE / TERMINATED / CANCELLED leases are
+   * immutable (activate already generated the rent schedule).
+   */
+  async updateLease(
+    userId: string,
+    leaseId: string,
+    input: UpdateLeaseInput,
+  ): Promise<PublicLease> {
+    const existing = await this.prisma.lease.findUnique({
+      where: { id: leaseId },
+      include: {
+        property: {
+          select: { ownerId: true, organizationId: true },
+        },
+      },
+    });
+    if (!existing) {
+      throw new NotFoundException({
+        code: 'LEASE_NOT_FOUND',
+        message: 'Lease does not exist',
+      });
+    }
+    await this.assertCanManage(
+      userId,
+      existing.property.ownerId,
+      existing.property.organizationId,
+    );
+    if (existing.status !== LeaseStatus.DRAFT) {
+      throw new BadRequestException({
+        code: 'LEASE_NOT_EDITABLE',
+        message: 'Only DRAFT leases can be edited',
+      });
+    }
+
+    const startDate = input.startDate ?? existing.startDate;
+    const endDate = input.endDate ?? existing.endDate;
+    if (endDate <= startDate) {
+      throw new BadRequestException({
+        code: 'INVALID_LEASE_DATES',
+        message: 'endDate must be after startDate',
+      });
+    }
+
+    let tenantId = existing.tenantId;
+    if (input.tenantId !== undefined || input.tenantPhone !== undefined) {
+      tenantId = await this.resolveTenantId(
+        input.tenantId,
+        input.tenantPhone,
+        input.tenantName,
+      );
+    }
+
+    const updated = await this.prisma.lease.update({
+      where: { id: leaseId },
+      data: {
+        tenantId,
+        startDate,
+        endDate,
+        ...(input.monthlyRent !== undefined
+          ? { monthlyRent: new Prisma.Decimal(input.monthlyRent) }
+          : {}),
+        ...(input.deposit !== undefined
+          ? { deposit: new Prisma.Decimal(input.deposit) }
+          : {}),
+        ...(input.currency !== undefined ? { currency: input.currency } : {}),
+      },
+    });
+    return this.toPublic(updated);
+  }
+
+  private async resolveTenantId(
+    tenantId: string | undefined,
+    tenantPhone: string | undefined,
+    tenantName?: string | null,
+  ): Promise<string> {
+    if (tenantPhone) {
+      const resolved = await this.users.resolveOrCreateByPhone(
+        tenantPhone,
+        tenantName,
+      );
+      return resolved.id;
+    }
+    if (!tenantId) {
+      throw new BadRequestException({
+        code: 'TENANT_REQUIRED',
+        message: 'tenantPhone or tenantId is required',
+      });
+    }
+    const tenant = await this.prisma.user.findUnique({
+      where: { id: tenantId },
+      select: { id: true },
+    });
+    if (!tenant) {
+      throw new NotFoundException({
+        code: 'TENANT_NOT_FOUND',
+        message: 'Tenant user does not exist',
+      });
+    }
+    return tenant.id;
+  }
+
+  private async assertCanManage(
+    userId: string,
+    ownerId: string,
+    organizationId: string,
+  ): Promise<void> {
+    if (ownerId === userId) return;
+    const membership = await this.prisma.organizationMember.findUnique({
+      where: {
+        userId_organizationId: { userId, organizationId },
+      },
+    });
+    if (!membership) {
+      throw new ForbiddenException({
+        code: 'NOT_PROPERTY_OWNER',
+        message:
+          'Only the owner or a member of the managing org can manage this lease',
+      });
+    }
   }
 
   async listManaged(
@@ -265,7 +399,10 @@ export class LeasesService {
   }
 
   async getOne(userId: string, leaseId: string): Promise<PublicLease> {
-    const lease = await this.prisma.lease.findUnique({ where: { id: leaseId } });
+    const lease = await this.prisma.lease.findUnique({
+      where: { id: leaseId },
+      include: { tenant: { select: { phone: true, name: true } } },
+    });
     if (!lease) {
       throw new NotFoundException({
         code: 'LEASE_NOT_FOUND',
@@ -273,7 +410,7 @@ export class LeasesService {
       });
     }
     await this.assertCanReadLease(userId, lease);
-    return this.toPublic(lease);
+    return this.toPublic(lease, lease.tenant);
   }
 
   async getSchedule(
@@ -302,11 +439,16 @@ export class LeasesService {
     }));
   }
 
-  private toPublic(lease: Lease): PublicLease {
+  private toPublic(
+    lease: Lease,
+    tenant?: { phone: string | null; name: string | null } | null,
+  ): PublicLease {
     return {
       id: lease.id,
       propertyId: lease.propertyId,
       tenantId: lease.tenantId,
+      tenantPhone: tenant?.phone ?? null,
+      tenantName: tenant?.name ?? null,
       startDate: lease.startDate.toISOString(),
       endDate: lease.endDate.toISOString(),
       monthlyRent: lease.monthlyRent.toString(),

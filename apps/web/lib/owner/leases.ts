@@ -4,6 +4,8 @@ export interface PublicLease {
   id: string;
   propertyId: string;
   tenantId: string;
+  tenantPhone?: string | null;
+  tenantName?: string | null;
   startDate: string;
   endDate: string;
   monthlyRent: string;
@@ -24,12 +26,32 @@ export interface PublicRentScheduleEntry {
 
 export interface CreateLeaseInput {
   propertyId: string;
-  tenantId: string;
+  tenantPhone?: string;
+  tenantName?: string;
+  tenantId?: string;
   startDate: string;
   endDate: string;
   monthlyRent: number;
   deposit: number;
   currency: string;
+}
+
+export type UpdateLeaseInput = Partial<
+  Omit<CreateLeaseInput, 'propertyId'>
+>;
+
+export interface UserLookupResult {
+  id: string;
+  name: string | null;
+  phone: string;
+}
+
+export async function lookupUserByPhone(
+  phone: string,
+): Promise<UserLookupResult> {
+  return apiFetch<UserLookupResult>(
+    `/users/lookup?phone=${encodeURIComponent(phone)}`,
+  );
 }
 
 export async function listManagedLeases(): Promise<PublicLease[]> {
@@ -40,6 +62,16 @@ export async function createLease(
   input: CreateLeaseInput,
 ): Promise<PublicLease> {
   return apiFetch<PublicLease>('/leases', { method: 'POST', body: input });
+}
+
+export async function updateLease(
+  id: string,
+  input: UpdateLeaseInput,
+): Promise<PublicLease> {
+  return apiFetch<PublicLease>(`/leases/${id}`, {
+    method: 'PATCH',
+    body: input,
+  });
 }
 
 export async function getLease(id: string): Promise<PublicLease> {
@@ -68,9 +100,9 @@ export function leaseStatusLabel(status: string): string {
 
 export function leaseStatusTone(
   status: string,
-): 'success' | 'warning' | 'danger' | 'neutral' {
+): 'success' | 'warning' | 'danger' | 'neutral' | 'accent' {
   if (status === 'ACTIVE') return 'success';
   if (status === 'DRAFT') return 'warning';
-  if (status === 'TERMINATED' || status === 'CANCELLED') return 'neutral';
+  if (status === 'CANCELLED' || status === 'TERMINATED') return 'danger';
   return 'neutral';
 }

@@ -7,6 +7,7 @@ import { RentScheduleGenerator } from './rent-schedule.generator.service';
 import { MandateApprovalService } from '../mandates/mandate-approval.service';
 import { AgencyAccessService } from '../mandates/agency-access.service';
 import { generateRentSchedule } from './rent-schedule.generator';
+import { UsersService } from '../users/users.service';
 
 describe('RentScheduleGenerator (unit)', () => {
   it('generates one entry per month from startDate to endDate', () => {
@@ -59,6 +60,7 @@ describe('LeasesService — schedule generation', () => {
         LeasesService,
         RentScheduleGenerator,
         PrismaService,
+        UsersService,
         {
           provide: MandateApprovalService,
           useValue: {

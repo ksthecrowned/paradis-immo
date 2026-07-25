@@ -15,7 +15,7 @@ import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { LeasesService } from './leases.service';
 import { ListLeasesDto } from './dto/list-leases.dto';
-import { CreateLeaseDto } from './dto/create-lease.dto';
+import { CreateLeaseDto, UpdateLeaseDto } from './dto/create-lease.dto';
 
 @ApiTags('Leases')
 @ApiBearerAuth()
@@ -32,6 +32,16 @@ export class LeasesController {
     @Body() dto: CreateLeaseDto,
   ) {
     return this.leases.createLease(current.userId, dto);
+  }
+
+  @Patch(':id')
+  @ApiOperation({ summary: 'Update a draft lease' })
+  update(
+    @CurrentUser() current: AuthenticatedUser,
+    @Param('id') id: string,
+    @Body() dto: UpdateLeaseDto,
+  ) {
+    return this.leases.updateLease(current.userId, id, dto);
   }
 
   @Get('managed')

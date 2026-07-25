@@ -15,6 +15,15 @@ import {
     type PublicLease,
     type PublicRentScheduleEntry,
 } from '@/lib/owner/leases';
+import {
+  deleteLeaseDocument,
+  LEASE_DOCUMENT_TYPE_LABELS,
+  listLeaseDocuments,
+  uploadLeaseDocument,
+  type LeaseDocumentItem,
+  type LeaseDocumentType,
+} from '@/lib/owner/lease-documents';
+import { ManagedDocumentsSection } from '@/components/tenants/managed-documents-section';
 import { ROUTES } from '@/lib/routes';
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
@@ -48,6 +57,17 @@ export function OwnerLeaseDetail({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activating, setActivating] = useState(false);
+  const [leaseDocs, setLeaseDocs] = useState<LeaseDocumentItem[]>([]);
+  const [docsBusy, setDocsBusy] = useState(false);
+
+  const loadDocs = useCallback(async () => {
+    try {
+      const rows = await listLeaseDocuments(leaseId);
+      setLeaseDocs(rows);
+    } catch {
+      setLeaseDocs([]);
+    }
+  }, [leaseId]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -61,6 +81,7 @@ export function OwnerLeaseDetail({
         setSchedule([]);
       }
       setError(null);
+      await loadDocs();
     } catch (err) {
       setLease(null);
       setSchedule([]);
@@ -72,7 +93,7 @@ export function OwnerLeaseDetail({
     } finally {
       setLoading(false);
     }
-  }, [leaseId]);
+  }, [leaseId, loadDocs]);
 
   useEffect(() => {
     if (!ready) return;
@@ -139,14 +160,22 @@ export function OwnerLeaseDetail({
               tone={leaseStatusTone(lease.status)}
             />
             {lease.status === 'DRAFT' ? (
-              <button
-                type="button"
-                disabled={activating}
-                onClick={() => void handleActivate()}
-                className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent/90 disabled:opacity-50"
-              >
-                {activating ? 'Activation…' : 'Activer'}
-              </button>
+              <>
+                <Link
+                  href={ROUTES.owner.leaseEdit(lease.id)}
+                  className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-card-hover"
+                >
+                  Modifier
+                </Link>
+                <button
+                  type="button"
+                  disabled={activating}
+                  onClick={() => void handleActivate()}
+                  className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent/90 disabled:opacity-50"
+                >
+                  {activating ? 'Activation…' : 'Activer'}
+                </button>
+              </>
             ) : null}
             <Link
               href={ROUTES.owner.leases}
@@ -183,8 +212,11 @@ export function OwnerLeaseDetail({
           <p className="text-xs font-medium uppercase tracking-wide text-muted">
             Locataire
           </p>
-          <p className="mt-1 font-mono text-sm text-foreground">
-            {lease.tenantId}
+          <p className="mt-1 text-sm text-foreground">
+            {lease.tenantName ?? 'Sans nom'}
+          </p>
+          <p className="mt-0.5 font-mono text-xs text-muted">
+            {lease.tenantPhone ?? lease.tenantId}
           </p>
         </div>
         <div>
@@ -205,6 +237,42 @@ export function OwnerLeaseDetail({
           </p>
         </div>
       </div>
+
+      <ManagedDocumentsSection
+        title="Contrats"
+        emptyHint="Aucun contrat ou avenant déposé."
+        typeOptions={(
+          Object.keys(LEASE_DOCUMENT_TYPE_LABELS) as LeaseDocumentType[]
+        ).map((value) => ({
+          value,
+          label: LEASE_DOCUMENT_TYPE_LABELS[value],
+        }))}
+        typeLabels={LEASE_DOCUMENT_TYPE_LABELS}
+        items={leaseDocs}
+        busy={docsBusy}
+        onUpload={async (file, type) => {
+          setDocsBusy(true);
+          try {
+            await uploadLeaseDocument(
+              leaseId,
+              file,
+              type as LeaseDocumentType,
+            );
+            await loadDocs();
+          } finally {
+            setDocsBusy(false);
+          }
+        }}
+        onDelete={async (id) => {
+          setDocsBusy(true);
+          try {
+            await deleteLeaseDocument(leaseId, id);
+            await loadDocs();
+          } finally {
+            setDocsBusy(false);
+          }
+        }}
+      />
 
       {lease.status === 'ACTIVE' ? (
         <div className="space-y-3">

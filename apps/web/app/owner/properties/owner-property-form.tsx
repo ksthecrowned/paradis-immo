@@ -36,7 +36,16 @@ import {
   type PublicCity,
   type PublicQuartier,
 } from '@/lib/owner/locations';
-import { uploadMedia, type MediaItem } from '@/lib/owner/media';
+import { uploadMedia, listMedia, type MediaItem } from '@/lib/owner/media';
+import {
+  DOCUMENT_TYPE_LABELS,
+  deleteDocument,
+  listDocuments,
+  uploadDocument,
+  type DocumentType,
+  type PropertyDocumentItem,
+} from '@/lib/owner/documents';
+import { PropertyMediaUploader } from '@/components/owner/property-media-uploader';
 import { MediaGallery, type MediaGalleryItem } from '@/components/detail/MediaGallery';
 import {
   archiveProperty,
@@ -278,6 +287,9 @@ const toCreateInput = (v: FormValues): CreatePropertyInput => {
 };
 
 const toUpdateInput = (v: FormValues): UpdatePropertyInput => {
+  const bedrooms = parseNumeric(v.bedrooms);
+  const bathrooms = parseNumeric(v.bathrooms);
+  const surface = parseNumeric(v.surface);
   const lat = parseNumeric(v.lat);
   const lng = parseNumeric(v.lng);
   const yearBuilt = parseNumeric(v.yearBuilt);
@@ -289,10 +301,18 @@ const toUpdateInput = (v: FormValues): UpdatePropertyInput => {
   return {
     title: v.title.trim(),
     description: v.description.trim(),
+    type: v.type,
+    mode: v.mode,
     price: parseCurrency(v.price),
+    currency: v.currency.trim().toUpperCase(),
+    priceUnit: v.priceUnit,
+    quartierId: v.quartierId,
     address: v.address.trim(),
     lat,
     lng,
+    bedrooms,
+    bathrooms,
+    surface,
     depositMonths,
     agencyFeeAmount:
       agencyFeeAmount !== null && agencyFeeAmount > 0 ? agencyFeeAmount : null,
@@ -352,6 +372,9 @@ export function OwnerPropertyForm({
   const [existingMedia, setExistingMedia] = useState<MediaItem[]>(
     initial && 'media' in initial ? ((initial as { media?: MediaItem[] }).media ?? []) : [],
   );
+  const [documents, setDocuments] = useState<PropertyDocumentItem[]>([]);
+  const [docError, setDocError] = useState<string | null>(null);
+  const [docType, setDocType] = useState<DocumentType>('TITLE_DEED');
   const [mediaError, setMediaError] = useState<string | null>(null);
   const [status, setStatus] = useState<PropertyStatus>(initialStatus ?? 'DRAFT');
   const [updatedAt, setUpdatedAt] = useState<string | undefined>(initialUpdatedAt);
@@ -361,24 +384,28 @@ export function OwnerPropertyForm({
   const videoInputRef = useRef<HTMLInputElement | null>(null);
   const titleInputRef = useRef<HTMLInputElement | null>(null);
 
-  // On edit, fetch the existing media for the gallery tab.
+  // On edit, fetch the existing media + documents.
   useEffect(() => {
     if (!ready || !propertyId) return;
     let cancelled = false;
-    import('@/lib/owner/media')
-      .then(({ listMedia }) => listMedia(propertyId))
-      .then((items) => {
+    void (async () => {
+      try {
+        const [items, docs] = await Promise.all([
+          listMedia(propertyId),
+          listDocuments(propertyId),
+        ]);
         if (cancelled) return;
         setExistingMedia(items);
-      })
-      .catch((err) => {
+        setDocuments(docs);
+      } catch (err) {
         if (cancelled) return;
         setMediaError(
           err instanceof ApiError
             ? err.message
             : 'Impossible de charger les médias.',
         );
-      });
+      }
+    })();
     return () => {
       cancelled = true;
     };
@@ -629,7 +656,7 @@ export function OwnerPropertyForm({
             placeholder="ex. 50000"
           />
         </FormField>
-      </div>
+        </div>
 
       <div className="rounded-lg border border-border bg-card-hover p-4">
         <div className="flex items-start gap-3">
@@ -676,7 +703,7 @@ export function OwnerPropertyForm({
             <FormField
               name="visitDuration"
               label="Durée (min)"
-              required
+            required
               error={form.errors.visitDuration}
             >
               <NumberInput
@@ -688,7 +715,7 @@ export function OwnerPropertyForm({
                 invalid={!!form.errors.visitDuration}
               />
             </FormField>
-          </div>
+        </div>
           {form.values.visitType === 'PAID' ? (
             <FormField
               name="visitPrice"
@@ -736,42 +763,48 @@ export function OwnerPropertyForm({
           >
             <Textarea
               id="description"
-              rows={4}
+            rows={4}
               value={form.values.description}
               onChange={(e) => form.setField('description', e.target.value)}
-              placeholder="Décrivez le bien, les équipements, l'accès…"
+            placeholder="Décrivez le bien, les équipements, l'accès…"
               invalid={!!form.errors.description}
-            />
+          />
           </FormField>
-          <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-2">
             <FormField name="mode" label="Mode" required>
               <Select
-                id="mode"
+              id="mode"
                 value={form.values.mode}
+                disabled={initialStatus === 'ACTIVE'}
                 onChange={(e) => form.setField('mode', e.target.value as PropertyMode)}
-              >
-                {PROPERTY_MODES.map((m) => (
-                  <option key={m} value={m}>
-                    {propertyModeLabel(m)}
-                  </option>
-                ))}
+            >
+              {PROPERTY_MODES.map((m) => (
+                <option key={m} value={m}>
+                  {propertyModeLabel(m)}
+                </option>
+              ))}
               </Select>
+              {initialStatus === 'ACTIVE' ? (
+                <p className="mt-1 text-xs text-muted">
+                  Archiver le bien pour changer de mode.
+                </p>
+              ) : null}
             </FormField>
             <FormField name="type" label="Type de bien" required>
               <Select
-                id="type"
+              id="type"
                 value={form.values.type}
                 onChange={(e) => form.setField('type', e.target.value as PropertyType)}
-              >
-                {PROPERTY_TYPES.map((t) => (
-                  <option key={t} value={t}>
-                    {propertyTypeLabel(t)}
-                  </option>
-                ))}
+            >
+              {PROPERTY_TYPES.map((t) => (
+                <option key={t} value={t}>
+                  {propertyTypeLabel(t)}
+                </option>
+              ))}
               </Select>
             </FormField>
           </div>
-          <div className="grid gap-4 sm:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-3">
             <FormField
               name="price"
               label="Prix"
@@ -781,7 +814,7 @@ export function OwnerPropertyForm({
             >
               <NumberInput
                 name="price"
-                min={0}
+              min={0}
                 value={form.values.price}
                 onChange={(v) => form.setField('price', v)}
                 invalid={!!form.errors.price}
@@ -789,12 +822,12 @@ export function OwnerPropertyForm({
             </FormField>
             <FormField name="currency" label="Devise">
               <Input
-                id="currency"
+              id="currency"
                 value={form.values.currency}
                 onChange={(e) => form.setField('currency', e.target.value)}
                 placeholder="XAF"
-                maxLength={3}
-              />
+              maxLength={3}
+            />
             </FormField>
           </div>
           <FormField name="priceUnit" label="Unité de prix">
@@ -809,7 +842,7 @@ export function OwnerPropertyForm({
               ))}
             </Select>
           </FormField>
-        </div>
+          </div>
       ),
     },
     {
@@ -820,7 +853,7 @@ export function OwnerPropertyForm({
         <div className="space-y-4">
           <FormField name="address" label="Adresse" required error={form.errors.address}>
             <Input
-              id="address"
+            id="address"
               value={form.values.address}
               onChange={(e) => form.setField('address', e.target.value)}
               placeholder="Rue, numéro, repère"
@@ -899,7 +932,7 @@ export function OwnerPropertyForm({
                 invalid={!!form.errors.lng}
               />
             </FormField>
-          </div>
+        </div>
         </div>
       ),
     },
@@ -909,7 +942,7 @@ export function OwnerPropertyForm({
       icon: 'mdi:format-list-bulleted',
       content: (
         <div className="space-y-6">
-          <div className="grid gap-4 sm:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-3">
             <FormField name="bedrooms" label="Chambres" error={form.errors.bedrooms}>
               <NumberInput
                 name="bedrooms"
@@ -941,7 +974,7 @@ export function OwnerPropertyForm({
                 invalid={!!form.errors.surface}
               />
             </FormField>
-          </div>
+              </div>
 
           <div className="border-t border-border pt-4">
             <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-foreground">
@@ -1031,7 +1064,7 @@ export function OwnerPropertyForm({
                   maxLength={80}
                 />
               </FormField>
-            </div>
+              </div>
           </div>
         </div>
       ),
@@ -1074,8 +1107,8 @@ export function OwnerPropertyForm({
                 onChange={(v) => form.setField('mapViews', v as MapViewId[])}
               />
             </FormField>
-          </div>
-        </div>
+              </div>
+            </div>
       ),
     },
     {
@@ -1136,7 +1169,7 @@ export function OwnerPropertyForm({
             >
               <NumberInput
                 name="depositMonths"
-                min={0}
+              min={0}
                 max={24}
                 allowDecimals={false}
                 value={form.values.depositMonths}
@@ -1153,7 +1186,7 @@ export function OwnerPropertyForm({
             >
               <NumberInput
                 name="agencyFeeAmount"
-                min={0}
+              min={0}
                 allowDecimals={false}
                 value={form.values.agencyFeeAmount}
                 onChange={(v) => form.setField('agencyFeeAmount', v)}
@@ -1174,8 +1207,8 @@ export function OwnerPropertyForm({
                 locations courtes et les locations longues. Les valeurs que
                 vous saisissez ici sont indicatives et peuvent être
                 ajustées par le système.
-              </div>
-            </div>
+          </div>
+        </div>
           </div>
         </div>
       ),
@@ -1202,9 +1235,9 @@ export function OwnerPropertyForm({
                     onChange={(e) =>
                       form.setField('visitType', e.target.value as VisitType)
                     }
-                  >
-                    <option value="FREE">Gratuite</option>
-                    <option value="PAID">Payante</option>
+                >
+                  <option value="FREE">Gratuite</option>
+                  <option value="PAID">Payante</option>
                   </Select>
                 </FormField>
                 <FormField
@@ -1248,12 +1281,16 @@ export function OwnerPropertyForm({
       id: 'media',
       label: 'Médias',
       icon: 'mdi:image-multiple',
-      content: (
+      content: propertyId ? (
+        <PropertyMediaUploader
+          propertyId={propertyId}
+          initialMedia={existingMedia}
+          onMediaChange={setExistingMedia}
+        />
+      ) : (
         <div className="space-y-4">
           <p className="text-sm text-muted">
-            {propertyId
-              ? 'Les fichiers ajoutés sont envoyés immédiatement.'
-              : 'Les fichiers ajoutés seront envoyés après la création du bien.'}
+            Les fichiers ajoutés seront envoyés après la création du bien.
           </p>
           <DropZone
             onFiles={(files) => void ingestMediaFiles(files)}
@@ -1280,8 +1317,7 @@ export function OwnerPropertyForm({
               <Icon icon="mdi:video-plus" className="h-4 w-4" />
               Ajouter une vidéo
             </button>
-          </div>
-
+              </div>
           <input
             ref={fileInputRef}
             type="file"
@@ -1305,35 +1341,19 @@ export function OwnerPropertyForm({
               void ingestMediaFiles(files);
             }}
           />
-
           {mediaError ? (
             <p role="alert" className="text-sm text-danger">
               {mediaError}
             </p>
           ) : null}
-
-          {propertyId && existingMedia.length > 0 ? (
-            <MediaGallery
-              items={existingMedia
-                .slice()
-                .sort((a, b) => a.position - b.position)
-                .map<MediaGalleryItem>((m) => ({
-                  id: m.id,
-                  url: m.url,
-                  type: m.type,
-                }))}
-              emptyLabel="Ajoutez des photos ou une vidéo pour valoriser le bien."
-            />
-          ) : null}
-
-          {!propertyId && pendingPreviews.length > 0 ? (
+          {pendingPreviews.length > 0 ? (
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <p className="text-xs font-medium text-muted">
                   {pendingPreviews.length} fichier(s) — envoi à la création du
                   bien
                 </p>
-                <button
+          <button
                   type="button"
                   onClick={() => {
                     pendingPreviews.forEach((p) => URL.revokeObjectURL(p.url));
@@ -1342,7 +1362,7 @@ export function OwnerPropertyForm({
                   className="text-xs text-muted hover:text-danger"
                 >
                   Tout retirer
-                </button>
+          </button>
               </div>
               <MediaGallery
                 items={pendingPreviews}
@@ -1354,22 +1374,137 @@ export function OwnerPropertyForm({
                 }}
               />
             </div>
-          ) : null}
-
-          {!propertyId && pendingFiles.length === 0 ? (
+          ) : (
             <p className="rounded-lg border border-dashed border-border bg-card-hover p-6 text-center text-sm text-muted">
               Ajoutez des photos ou une vidéo pour valoriser le bien.
             </p>
-          ) : null}
-
-          {propertyId && existingMedia.length === 0 ? (
-            <p className="rounded-lg border border-dashed border-border bg-card-hover p-6 text-center text-sm text-muted">
-              Ajoutez des photos ou une vidéo pour valoriser le bien.
-            </p>
-          ) : null}
+          )}
         </div>
       ),
     },
+    ...(propertyId
+      ? ([
+          {
+            id: 'documents',
+            label: 'Documents',
+            icon: 'mdi:file-document-outline',
+            content: (
+              <div className="space-y-4">
+                <p className="text-sm text-muted">
+                  Titre foncier, plan ou autre pièce (PDF ou image, max 15 Mo).
+                </p>
+                <div className="flex flex-wrap items-end gap-3">
+                  <FormField name="docType" label="Type">
+                    <Select
+                      id="docType"
+                      value={docType}
+                      onChange={(e) =>
+                        setDocType(e.target.value as DocumentType)
+                      }
+                    >
+                      {(
+                        Object.keys(DOCUMENT_TYPE_LABELS) as DocumentType[]
+                      ).map((t) => (
+                        <option key={t} value={t}>
+                          {DOCUMENT_TYPE_LABELS[t]}
+                        </option>
+                      ))}
+                    </Select>
+                  </FormField>
+                  <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-input-border bg-card px-4 py-2.5 text-sm font-medium text-foreground hover:bg-card-hover">
+                    <Icon icon="mdi:upload" className="h-4 w-4" />
+                    Ajouter un document
+                    <input
+                      type="file"
+                      accept="application/pdf,image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        e.target.value = '';
+                        if (!file || !propertyId) return;
+                        void (async () => {
+                          setDocError(null);
+                          try {
+                            await uploadDocument(propertyId, file, docType);
+                            setDocuments(await listDocuments(propertyId));
+                          } catch (err) {
+                            setDocError(
+                              err instanceof ApiError
+                                ? err.message
+                                : 'Échec de l’upload du document.',
+                            );
+                          }
+                        })();
+                      }}
+                    />
+                  </label>
+                </div>
+                {docError ? (
+                  <p role="alert" className="text-sm text-danger">
+                    {docError}
+                  </p>
+                ) : null}
+                {documents.length === 0 ? (
+                  <p className="rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted">
+                    Aucun document.
+                  </p>
+                ) : (
+                  <ul className="divide-y divide-border rounded-lg border border-border">
+                    {documents.map((d) => (
+                      <li
+                        key={d.id}
+                        className="flex items-center justify-between gap-3 px-4 py-3 text-sm"
+                      >
+                        <div className="min-w-0">
+                          <p className="truncate font-medium text-foreground">
+                            {d.name}
+                          </p>
+                          <p className="text-xs text-muted">
+                            {DOCUMENT_TYPE_LABELS[d.type as DocumentType] ??
+                              d.type}
+                          </p>
+                        </div>
+                        <div className="flex shrink-0 items-center gap-2">
+                          <a
+                            href={d.url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-accent hover:underline"
+                          >
+                            Ouvrir
+                          </a>
+          <button
+            type="button"
+                            className="text-danger hover:underline"
+                            onClick={() => {
+                              void (async () => {
+                                try {
+                                  await deleteDocument(propertyId, d.id);
+                                  setDocuments((prev) =>
+                                    prev.filter((x) => x.id !== d.id),
+                                  );
+                                } catch (err) {
+                                  setDocError(
+                                    err instanceof ApiError
+                                      ? err.message
+                                      : 'Suppression impossible.',
+                                  );
+                                }
+                              })();
+                            }}
+                          >
+                            Retirer
+          </button>
+        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            ),
+          },
+        ] as FormTab[])
+      : []),
   ].filter(
     (tab) => tab.id !== 'marketplace' && tab.id !== 'visit',
   ) as FormTab[];
@@ -1664,7 +1799,7 @@ export function OwnerPropertyForm({
         >
           <form onSubmit={handleSubmit} className="space-y-2">
             <FormTabs tabs={tabs} />
-          </form>
+      </form>
         </FormCard>
       </FormLayout>
     </div>

@@ -261,6 +261,18 @@ enum DocumentType {
   OTHER
 }
 
+enum TenantDocumentType {
+  ID_CARD
+  PASSPORT
+  OTHER_ID
+}
+
+enum LeaseDocumentType {
+  SIGNED_LEASE
+  AMENDMENT
+  OTHER_LEASE
+}
+
 enum AvailabilityReason {
   BOOKING
   MAINTENANCE
@@ -321,6 +333,7 @@ model User {
   notifications          Notification[]
   messageCharges         MessageCharge[]      @relation("MessageChargeUser")
   assignedMandates       Mandate[]            @relation("MandateAssignedAgent")
+  tenantDocuments        TenantDocument[]
 
   @@unique([phone, countryId])
 }
@@ -478,6 +491,7 @@ model Property {
   media          PropertyMedia[]
   documents      PropertyDocument[]
   favorites      Favorite[]
+  views          PropertyView[]
   visitTemplates VisitSlotTemplate[]
   visitSlots     VisitSlot[]
   visitBookings  VisitBooking[]
@@ -520,6 +534,19 @@ model Favorite {
   createdAt  DateTime @default(now())
 
   @@unique([userId, propertyId])
+}
+
+/// One unique view of a public listing per identity per UTC day.
+/// `viewerKey` is `user:<userId>` (authenticated) or `device:<installId>`.
+model PropertyView {
+  id         String   @id @default(uuid())
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id])
+  viewerKey  String
+  viewDate   DateTime @db.Date
+  createdAt  DateTime @default(now())
+
+  @@unique([propertyId, viewerKey, viewDate])
 }
 
 // =====================================================================
@@ -615,8 +642,35 @@ model Lease {
   mandateId      String?
   mandate        Mandate?       @relation(fields: [mandateId], references: [id])
   schedule       RentSchedule[]
+  documents      LeaseDocument[]
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
+}
+
+model TenantDocument {
+  id         String             @id @default(uuid())
+  userId     String
+  user       User               @relation(fields: [userId], references: [id])
+  type       TenantDocumentType
+  url        String
+  name       String
+  uploadedBy String
+  createdAt  DateTime           @default(now())
+
+  @@index([userId])
+}
+
+model LeaseDocument {
+  id         String            @id @default(uuid())
+  leaseId    String
+  lease      Lease             @relation(fields: [leaseId], references: [id])
+  type       LeaseDocumentType
+  url        String
+  name       String
+  uploadedBy String
+  createdAt  DateTime          @default(now())
+
+  @@index([leaseId])
 }
 
 model RentSchedule {

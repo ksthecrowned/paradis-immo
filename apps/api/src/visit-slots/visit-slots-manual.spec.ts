@@ -4,6 +4,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { EventPublisher } from '../events/event.publisher';
 import { AgencyAccessService } from '../mandates/agency-access.service';
 import { VisitSlotsService } from './visit-slots.service';
+import { UsersService } from '../users/users.service';
 
 describe('VisitSlotsService — manual open/unblock', () => {
   let slots: VisitSlotsService;
@@ -20,6 +21,7 @@ describe('VisitSlotsService — manual open/unblock', () => {
         VisitSlotsService,
         AgencyAccessService,
         PrismaService,
+        UsersService,
         { provide: EventPublisher, useValue: { emit: jest.fn() } },
       ],
     }).compile();

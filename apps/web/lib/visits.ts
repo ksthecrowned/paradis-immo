@@ -19,6 +19,18 @@ export async function listManagedVisits(): Promise<PublicVisitBooking[]> {
   return apiFetch<PublicVisitBooking[]>('/visits/managed');
 }
 
+export async function bookVisit(input: {
+  slotId: string;
+  propertyId: string;
+  guestPhone?: string;
+  guestName?: string;
+}): Promise<PublicVisitBooking> {
+  return apiFetch<PublicVisitBooking>('/visits', {
+    method: 'POST',
+    body: input,
+  });
+}
+
 export async function confirmVisit(id: string): Promise<PublicVisitBooking> {
   return apiFetch<PublicVisitBooking>(`/visits/${id}/confirm`, {
     method: 'PATCH',

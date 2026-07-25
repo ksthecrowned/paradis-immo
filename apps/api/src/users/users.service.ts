@@ -30,6 +30,13 @@ export interface PublicUser {
   seekerSetupCompletedAt: string | null;
 }
 
+/** Minimal public profile for owner/agent tenant resolution. */
+export interface UserLookupResult {
+  id: string;
+  name: string | null;
+  phone: string;
+}
+
 export interface PublicOrganization {
   id: string;
   name: string;
@@ -69,6 +76,122 @@ export class UsersService {
       });
     }
     return this.toPublic(user);
+  }
+
+  /**
+   * Resolve a registered user by E.164 phone. Used by owners/agents when
+   * creating leases (or booking on behalf of a guest). Returns a minimal
+   * profile — never throws PII beyond id/name/phone.
+   */
+  async lookupByPhone(phone: string): Promise<UserLookupResult> {
+    const normalized = this.requireE164(phone);
+    const user = await this.prisma.user.findFirst({
+      where: { phone: normalized },
+      select: { id: true, name: true, phone: true },
+    });
+    if (!user?.phone) {
+      throw new NotFoundException({
+        code: 'USER_NOT_FOUND',
+        message: 'Aucun compte trouvé pour ce numéro',
+      });
+    }
+    return { id: user.id, name: user.name, phone: user.phone };
+  }
+
+  /**
+   * Find a user by phone, or create a minimal TENANT profile when missing.
+   * `name` is required for creation so owners can identify non-app tenants.
+   * The user can later sign in via OTP on that same phone.
+   */
+  async resolveOrCreateByPhone(
+    phone: string,
+    name?: string | null,
+  ): Promise<UserLookupResult & { created: boolean }> {
+    const normalized = this.requireE164(phone);
+    const existing = await this.prisma.user.findFirst({
+      where: { phone: normalized },
+      select: { id: true, name: true, phone: true },
+    });
+    if (existing?.phone) {
+      if (name?.trim() && !existing.name) {
+        const updated = await this.prisma.user.update({
+          where: { id: existing.id },
+          data: { name: name.trim() },
+          select: { id: true, name: true, phone: true },
+        });
+        return {
+          id: updated.id,
+          name: updated.name,
+          phone: updated.phone!,
+          created: false,
+        };
+      }
+      return {
+        id: existing.id,
+        name: existing.name,
+        phone: existing.phone,
+        created: false,
+      };
+    }
+
+    const trimmedName = name?.trim();
+    if (!trimmedName) {
+      throw new BadRequestException({
+        code: 'USER_NAME_REQUIRED',
+        message:
+          'Nom requis pour créer un profil sans compte Paradis Immo',
+      });
+    }
+
+    const country = await this.resolveCountryForPhone(normalized);
+    const created = await this.prisma.user.create({
+      data: {
+        phone: normalized,
+        name: trimmedName,
+        countryId: country.id,
+        roles: { create: { role: GlobalRole.TENANT } },
+      },
+      select: { id: true, name: true, phone: true },
+    });
+    return {
+      id: created.id,
+      name: created.name,
+      phone: created.phone!,
+      created: true,
+    };
+  }
+
+  private requireE164(phone: string): string {
+    const normalized = phone.trim();
+    if (!/^\+\d{7,15}$/.test(normalized)) {
+      throw new BadRequestException({
+        code: 'PHONE_FORMAT',
+        message: 'phone must be E.164 (+country…)',
+      });
+    }
+    return normalized;
+  }
+
+  /** Prefer the longest matching `Country.phonePrefix` for an E.164 number. */
+  private async resolveCountryForPhone(phone: string) {
+    const countries = await this.prisma.country.findMany({
+      select: { id: true, phonePrefix: true },
+    });
+    const match = countries
+      .filter((c) => phone.startsWith(c.phonePrefix))
+      .sort((a, b) => b.phonePrefix.length - a.phonePrefix.length)[0];
+    if (match) return match;
+
+    const fallback =
+      (await this.prisma.country.findUnique({ where: { code: 'CG' } })) ??
+      (await this.prisma.country.findFirst());
+    if (!fallback) {
+      throw new BadRequestException({
+        code: 'COUNTRY_REQUIRED',
+        message: 'No country configured to attach the new tenant',
+      });
+    }
+    return fallback;
   }
 
   async updateMe(userId: string, patch: UpdateMePatch): Promise<PublicUser> {

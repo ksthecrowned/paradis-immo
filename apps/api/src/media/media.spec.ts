@@ -23,6 +23,8 @@ describe('Media (e2e)', () => {
     validateFileUrl: jest.Mock;
     createPresignedDelete: jest.Mock;
     uploadPropertyFile: jest.Mock;
+    deleteObject: jest.Mock;
+    keyFromPublicUrl: jest.Mock;
   };
 
   beforeAll(async () => {
@@ -39,6 +41,11 @@ describe('Media (e2e)', () => {
       validateFileUrl: jest.fn(),
       createPresignedDelete: jest.fn(),
       uploadPropertyFile: jest.fn(),
+      deleteObject: jest.fn().mockResolvedValue(undefined),
+      keyFromPublicUrl: jest.fn((url: string) => {
+        const prefix = 'https://cdn.example.com/';
+        return url.startsWith(prefix) ? url.slice(prefix.length) : null;
+      }),
     };
 
     const moduleRef = await Test.createTestingModule({
@@ -335,5 +342,49 @@ describe('Media (e2e)', () => {
     expect(body.type).toBe('VIDEO');
     expect(body.propertyId).toBe(propertyId);
     createdMediaIds.push(body.id);
+  });
+
+  it('deletes media owned by the property', async () => {
+    const createRes = await request(app.getHttpServer())
+      .post(`/api/v1/properties/${propertyId}/media/confirm`)
+      .set('x-test-user', ownerUserId)
+      .send({
+        url: 'https://cdn.example.com/properties/to-delete.jpg',
+        type: 'PHOTO',
+        position: 99,
+      })
+      .expect(201);
+    const mediaId = (createRes.body as { id: string }).id;
+    createdMediaIds.push(mediaId);
+
+    await request(app.getHttpServer())
+      .delete(`/api/v1/properties/${propertyId}/media/${mediaId}`)
+      .set('x-test-user', ownerUserId)
+      .expect(204);
+
+    const remaining = await prisma.propertyMedia.findUnique({
+      where: { id: mediaId },
+    });
+    expect(remaining).toBeNull();
+    expect(fakeR2.deleteObject).toHaveBeenCalled();
+  });
+
+  it('delete rejects non-owner (403)', async () => {
+    const createRes = await request(app.getHttpServer())
+      .post(`/api/v1/properties/${propertyId}/media/confirm`)
+      .set('x-test-user', ownerUserId)
+      .send({
+        url: 'https://cdn.example.com/properties/keep.jpg',
+        type: 'PHOTO',
+        position: 100,
+      })
+      .expect(201);
+    const mediaId = (createRes.body as { id: string }).id;
+    createdMediaIds.push(mediaId);
+
+    await request(app.getHttpServer())
+      .delete(`/api/v1/properties/${propertyId}/media/${mediaId}`)
+      .set('x-test-user', outsiderUserId)
+      .expect(403);
   });
 });

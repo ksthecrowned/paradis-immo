@@ -131,6 +131,13 @@ export default function RootLayout(): React.JSX.Element {
                 }}
               />
               <Stack.Screen
+                name="cahier-loyer/index"
+                options={{
+                  headerShown: false,
+                  animation: 'slide_from_right',
+                }}
+              />
+              <Stack.Screen
                 name="stays/[id]"
                 options={{
                   headerShown: false,

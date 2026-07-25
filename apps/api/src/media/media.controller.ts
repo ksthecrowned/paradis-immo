@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   Param,
@@ -122,5 +123,18 @@ export class MediaController {
     @Body() dto: ConfirmMediaDto,
   ) {
     return this.media.confirm(current.userId, id, dto);
+  }
+
+  @Delete(':mediaId')
+  @UseGuards(AppAuthGuard)
+  @HttpCode(204)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Delete a media item from a property' })
+  async remove(
+    @CurrentUser() current: AuthenticatedUser,
+    @Param('id') id: string,
+    @Param('mediaId') mediaId: string,
+  ): Promise<void> {
+    await this.media.remove(current.userId, id, mediaId);
   }
 }

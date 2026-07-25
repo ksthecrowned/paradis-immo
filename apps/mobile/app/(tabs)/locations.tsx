@@ -98,6 +98,19 @@ export default function LocationsScreen(): React.JSX.Element {
       <View style={[styles.header, { paddingTop: insets.top + spacing.md }]}>
         <Text style={styles.title}>Mes biens</Text>
         <Text style={styles.subtitle}>{subtitle}</Text>
+        <Pressable
+          style={({ pressed }) => [
+            styles.cahierCta,
+            pressed && styles.cahierCtaPressed,
+          ]}
+          onPress={() => router.push('/cahier-loyer')}
+          accessibilityRole="button"
+          accessibilityLabel="Ouvrir mon cahier de loyer"
+        >
+          <Ionicons name="book-outline" size={18} color={colors.primary} />
+          <Text style={styles.cahierCtaText}>Mon cahier de loyer</Text>
+          <Ionicons name="chevron-forward" size={18} color={colors.muted} />
+        </Pressable>
       </View>
 
       {loading && items.length === 0 ? (
@@ -215,6 +228,25 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     color: colors.muted,
+  },
+  cahierCta: {
+    marginTop: spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: radii.lg,
+    backgroundColor: colors.surface,
+  },
+  cahierCtaPressed: {
+    opacity: 0.85,
+  },
+  cahierCtaText: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.ink,
   },
   list: {
     flex: 1,

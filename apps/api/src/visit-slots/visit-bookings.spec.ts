@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { EventPublisher } from '../events/event.publisher';
 import { AgencyAccessService } from '../mandates/agency-access.service';
 import { VisitSlotsService } from './visit-slots.service';
+import { UsersService } from '../users/users.service';
 
 describe('VisitSlotsService — booking flow', () => {
   let slots: VisitSlotsService;
@@ -22,6 +23,7 @@ describe('VisitSlotsService — booking flow', () => {
         VisitSlotsService,
         AgencyAccessService,
         PrismaService,
+        UsersService,
         { provide: EventPublisher, useValue: { emit: jest.fn() } },
       ],
     }).compile();
@@ -39,8 +41,23 @@ describe('VisitSlotsService — booking flow', () => {
     if (!quartier) throw new Error('Run seed first');
     bzvQuartierId = quartier.id;
 
-    await prisma.user.deleteMany({ where: { phone: '+242071000001' } });
-    await prisma.user.deleteMany({ where: { phone: '+242071000002' } });
+    const stale = await prisma.user.findMany({
+      where: { phone: { in: ['+242071000001', '+242071000002'] } },
+      select: { id: true },
+    });
+    const staleIds = stale.map((u) => u.id);
+    if (staleIds.length) {
+      await prisma.visitBooking.deleteMany({
+        where: { userId: { in: staleIds } },
+      });
+      await prisma.refreshToken.deleteMany({
+        where: { userId: { in: staleIds } },
+      });
+      await prisma.userRole.deleteMany({
+        where: { userId: { in: staleIds } },
+      });
+      await prisma.user.deleteMany({ where: { id: { in: staleIds } } });
+    }
     const owner = await prisma.user.create({
       data: {
         phone: '+242071000001',
@@ -144,6 +161,9 @@ describe('VisitSlotsService — booking flow', () => {
       .catch(() => undefined);
     await prisma.userRole.deleteMany({ where: { userId: ownerUserId } });
     await prisma.userRole.deleteMany({ where: { userId: tenantUserId } });
+    await prisma.refreshToken.deleteMany({
+      where: { userId: { in: [ownerUserId, tenantUserId] } },
+    });
     await prisma.user.deleteMany({ where: { id: ownerUserId } });
     await prisma.user.deleteMany({ where: { id: tenantUserId } });
     await prisma.onModuleDestroy();

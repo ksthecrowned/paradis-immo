@@ -11,6 +11,9 @@ import {
   FormSidebar,
   Input,
   NumberInput,
+  PhoneInput,
+  getPhoneE164,
+  isPhoneComplete,
   SelectSearch,
   TipBox,
 } from '@/components/forms';
@@ -18,14 +21,19 @@ import { useRequireSession } from '@/hooks/use-require-session';
 import { useResourceForm } from '@/hooks/use-resource-form';
 import { ApiError } from '@/lib/api';
 import {
-  leaseStatusLabel,
-  leaseStatusTone,
+  DEFAULT_PHONE_COUNTRY,
+  type PhoneCountrySelection,
+} from '@/lib/phone';
+import {
+  createLease,
+  lookupUserByPhone,
+  updateLease,
+  type PublicLease,
 } from '@/lib/owner/leases';
 import { listMyProperties } from '@/lib/owner/properties';
 import { ROUTES } from '@/lib/routes';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { StatusPill } from '@/components/forms/FormSidebar';
 import {
   parseNumeric,
   validateRequired,
@@ -33,7 +41,8 @@ import {
 
 type FormValues = {
   propertyId: string;
-  tenantId: string;
+  tenantPhoneNational: string;
+  tenantName: string;
   startDate: string;
   endDate: string;
   monthlyRent: string;
@@ -43,7 +52,8 @@ type FormValues = {
 
 const defaultValues = (): FormValues => ({
   propertyId: '',
-  tenantId: '',
+  tenantPhoneNational: '',
+  tenantName: '',
   startDate: '',
   endDate: '',
   monthlyRent: '',
@@ -51,10 +61,19 @@ const defaultValues = (): FormValues => ({
   currency: 'XAF',
 });
 
-const validate = (v: FormValues): Record<string, string> => {
+const validate = (
+  v: FormValues,
+  country: PhoneCountrySelection,
+): Record<string, string> => {
   const e: Record<string, string> = {};
   e.propertyId = validateRequired(v.propertyId, 'Le bien') ?? '';
-  e.tenantId = validateRequired(v.tenantId, 'Le locataire') ?? '';
+  if (!isPhoneComplete(v.tenantPhoneNational, country)) {
+    e.tenantPhoneNational = 'Numéro de téléphone invalide.';
+  }
+  const name = v.tenantName.trim();
+  if (!name || name.length < 2) {
+    e.tenantName = 'Indiquez le nom du locataire (2 caractères min.).';
+  }
   e.startDate = validateRequired(v.startDate, 'La date de début') ?? '';
   e.endDate = validateRequired(v.endDate, 'La date de fin') ?? '';
   if (!e.startDate && !e.endDate && v.startDate >= v.endDate) {
@@ -74,31 +93,18 @@ const validate = (v: FormValues): Record<string, string> => {
   return e;
 };
 
-const toCreateInput = (v: FormValues) => ({
-  propertyId: v.propertyId,
-  tenantId: v.tenantId.trim(),
-  startDate: v.startDate,
-  endDate: v.endDate,
-  monthlyRent: Number(v.monthlyRent),
-  deposit: Number(v.deposit),
-  currency: v.currency.trim().toUpperCase(),
-});
-
 export type OwnerLeaseFormProps = {
-  initial?: Partial<FormValues>;
-  /** When provided, the form edits an existing lease. */
+  initial?: Partial<FormValues> & { tenantPhoneE164?: string };
+  initialPhoneCountry?: PhoneCountrySelection;
   leaseId?: string;
-  initialStatus?: string;
-  initialCreatedAt?: string;
   submitLabel: string;
   onCancel?: () => void;
 };
 
 export function OwnerLeaseForm({
   initial,
+  initialPhoneCountry,
   leaseId,
-  initialStatus,
-  initialCreatedAt,
   submitLabel,
   onCancel,
 }: OwnerLeaseFormProps): React.JSX.Element {
@@ -107,15 +113,48 @@ export function OwnerLeaseForm({
   const [properties, setProperties] = useState<
     Array<{ id: string; title: string }>
   >([]);
-  const [status] = useState<string>(initialStatus ?? 'DRAFT');
-  const [createdAt] = useState<string | undefined>(initialCreatedAt);
+  const [phoneCountry, setPhoneCountry] = useState<PhoneCountrySelection>(
+    initialPhoneCountry ?? DEFAULT_PHONE_COUNTRY,
+  );
+  const [tenantPreview, setTenantPreview] = useState<{
+    name: string | null;
+    phone: string;
+  } | null>(null);
+  /** null = not checked yet; true/false = lookup result */
+  const [accountFound, setAccountFound] = useState<boolean | null>(
+    initial?.tenantName ? true : null,
+  );
+  const [lookupHint, setLookupHint] = useState<string | null>(null);
 
   const form = useResourceForm<FormValues>({
-    initial: { ...defaultValues(), ...initial },
-    validate,
+    initial: {
+      ...defaultValues(),
+      ...initial,
+      tenantPhoneNational: initial?.tenantPhoneNational ?? '',
+      tenantName: initial?.tenantName ?? '',
+    },
+    validate: (v) => validate(v, phoneCountry),
     onSubmit: async (values) => {
-      const { createLease } = await import('@/lib/owner/leases');
-      const lease = await createLease(toCreateInput(values));
+      const e164 = getPhoneE164(values.tenantPhoneNational, phoneCountry);
+      if (!e164) throw new Error('Numéro invalide');
+      const tenantName = values.tenantName.trim();
+      const payload = {
+        propertyId: values.propertyId,
+        tenantPhone: e164,
+        ...(tenantName ? { tenantName } : {}),
+        startDate: values.startDate,
+        endDate: values.endDate,
+        monthlyRent: Number(values.monthlyRent),
+        deposit: Number(values.deposit),
+        currency: values.currency.trim().toUpperCase(),
+      };
+      if (leaseId) {
+        const { propertyId: _p, ...update } = payload;
+        const lease = await updateLease(leaseId, update);
+        router.push(ROUTES.owner.lease(lease.id));
+        return;
+      }
+      const lease = await createLease(payload);
       router.push(ROUTES.owner.lease(lease.id));
     },
   });
@@ -125,88 +164,57 @@ export function OwnerLeaseForm({
     let cancelled = false;
     void (async () => {
       try {
-        const props = await listMyProperties();
-        if (cancelled) return;
-        const list = props.map((p) => ({ id: p.id, title: p.title }));
-        setProperties(list);
-        if (!form.values.propertyId && list[0]) {
-          form.setField('propertyId', list[0].id);
+        const rows = await listMyProperties();
+        if (!cancelled) {
+          setProperties(rows.map((p) => ({ id: p.id, title: p.title })));
         }
       } catch {
-        // optional prefill
+        if (!cancelled) setProperties([]);
       }
     })();
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready]);
 
+  const resolveTenant = async (): Promise<void> => {
+    setLookupHint(null);
+    setTenantPreview(null);
+    setAccountFound(null);
+    if (!isPhoneComplete(form.values.tenantPhoneNational, phoneCountry)) return;
+    const e164 = getPhoneE164(form.values.tenantPhoneNational, phoneCountry);
+    if (!e164) return;
+    try {
+      const user = await lookupUserByPhone(e164);
+      setAccountFound(true);
+      setTenantPreview({ name: user.name, phone: user.phone });
+      if (user.name && !form.values.tenantName.trim()) {
+        form.setField('tenantName', user.name);
+      }
+      setLookupHint(null);
+    } catch (err) {
+      setTenantPreview(null);
+      if (err instanceof ApiError && err.status === 404) {
+        setAccountFound(false);
+        setLookupHint(
+          'Pas de compte Paradis Immo : un profil locataire sera créé avec le nom indiqué.',
+        );
+        return;
+      }
+      setAccountFound(null);
+      setLookupHint(
+        err instanceof ApiError
+          ? err.message
+          : 'Impossible de vérifier ce numéro.',
+      );
+    }
+  };
+
   if (!ready) {
-    return <p className="text-sm text-muted">Chargement de la session…</p>;
+    return <p className="text-sm text-muted">Chargement…</p>;
   }
 
-  const statusTone = leaseStatusTone(status);
-  const statusIcon =
-    status === 'ACTIVE'
-      ? 'mdi:check-circle'
-      : status === 'TERMINATED'
-        ? 'mdi:archive'
-        : status === 'CANCELLED'
-          ? 'mdi:close-circle'
-          : 'mdi:pencil-circle';
-
-  const sidebar = leaseId ? (
-    <FormSidebar
-      sections={[
-        {
-          title: 'Statut',
-          icon: 'mdi:flag-variant-outline',
-          children: (
-            <div className="flex flex-col gap-2">
-              <StatusPill
-                label={leaseStatusLabel(status)}
-                tone={statusTone}
-                icon={statusIcon}
-              />
-              <p className="text-xs text-muted">
-                {status === 'DRAFT' &&
-                  'Ce bail n’est pas encore actif. Activez-le une fois les deux parties d’accord.'}
-                {status === 'ACTIVE' &&
-                  'Le bail est en cours d’exécution. Les paiements sont planifiés.'}
-                {status === 'TERMINATED' &&
-                  'Le bail s’est terminé à la date de fin prévue.'}
-                {status === 'CANCELLED' &&
-                  'Le bail a été annulé avant son terme.'}
-              </p>
-            </div>
-          ),
-        },
-        {
-          title: 'Métadonnées',
-          icon: 'mdi:information-outline',
-          children: (
-            <div className="space-y-2 text-sm">
-              <div className="flex items-start justify-between gap-3">
-                <span className="text-muted">Référence</span>
-                <span className="font-mono text-xs text-foreground">
-                  {leaseId.slice(0, 8)}
-                </span>
-              </div>
-              <div className="flex items-start justify-between gap-3">
-                <span className="text-muted">Créé le</span>
-                <span className="text-foreground">
-                  {createdAt
-                    ? new Date(createdAt).toLocaleDateString('fr-FR')
-                    : '—'}
-                </span>
-              </div>
-            </div>
-          ),
-        },
-      ]}
-    />
-  ) : (
+  const sidebar = (
     <FormSidebar
       sections={[
         {
@@ -214,9 +222,9 @@ export function OwnerLeaseForm({
           icon: 'mdi:information-outline',
           children: (
             <p className="text-sm text-muted">
-              Vous allez créer un bail en <strong>brouillon</strong>. Il
-              pourra être activé depuis la page du bail une fois les deux
-              parties d’accord.
+              {leaseId
+                ? 'Modifiez ce bail brouillon. Une fois activé, les montants et dates ne pourront plus être changés.'
+                : 'Vous allez créer un bail en brouillon. Il pourra être activé depuis la page du bail.'}
             </p>
           ),
         },
@@ -227,6 +235,11 @@ export function OwnerLeaseForm({
             <TipBox
               tips={[
                 {
+                  icon: 'mdi:cellphone',
+                  title: 'Locataire inscrit ou non',
+                  body: 'Avec un compte existant, le profil est reconnu. Sinon, indiquez le nom : un profil minimal sera créé (connexion OTP possible plus tard).',
+                },
+                {
                   icon: 'mdi:calendar-range',
                   title: 'Dates cohérentes',
                   body: 'La date de fin doit toujours suivre la date de début.',
@@ -235,11 +248,6 @@ export function OwnerLeaseForm({
                   icon: 'mdi:shield-check-outline',
                   title: 'Caution raisonnable',
                   body: 'Une caution équivalente à 1 à 3 mois de loyer est la norme.',
-                },
-                {
-                  icon: 'mdi:account-multiple-outline',
-                  title: 'Locataire inscrit',
-                  body: 'Le locataire doit avoir un compte Paradis Immo. Demandez-lui son identifiant.',
                 },
               ]}
             />
@@ -269,36 +277,91 @@ export function OwnerLeaseForm({
           }
         >
           <form onSubmit={(e) => void form.handleSubmit(e)} className="space-y-4">
-            <FormField name="propertyId" label="Bien" required error={form.errors.propertyId}>
+            <FormField
+              name="propertyId"
+              label="Bien"
+              required
+              error={form.errors.propertyId}
+            >
               <SelectSearch
                 name="propertyId"
                 value={form.values.propertyId}
                 onChange={(v) => form.setField('propertyId', v)}
-                options={properties.map((p) => ({ value: p.id, label: p.title }))}
+                options={properties.map((p) => ({
+                  value: p.id,
+                  label: p.title,
+                }))}
                 placeholder={
                   properties.length === 0
                     ? 'Aucun bien disponible'
                     : 'Sélectionner un bien'
                 }
-                disabled={properties.length === 0}
+                disabled={properties.length === 0 || Boolean(leaseId)}
                 invalid={!!form.errors.propertyId}
               />
             </FormField>
 
             <FormField
-              name="tenantId"
-              label="Identifiant du locataire"
+              name="tenantPhoneNational"
+              label="Téléphone du locataire"
               required
-              error={form.errors.tenantId}
-              hint="Le locataire doit déjà avoir un compte sur Paradis Immo."
+              error={form.errors.tenantPhoneNational}
+            >
+              <PhoneInput
+                name="tenantPhoneNational"
+                label=""
+                value={form.values.tenantPhoneNational}
+                country={phoneCountry}
+                onCountryChange={setPhoneCountry}
+                onChange={(v) => {
+                  form.setField('tenantPhoneNational', v);
+                  setTenantPreview(null);
+                  setAccountFound(null);
+                  setLookupHint(null);
+                }}
+                required
+                invalid={!!form.errors.tenantPhoneNational}
+                hint="Indicatif pays + numéro national"
+              />
+              <button
+                type="button"
+                onClick={() => void resolveTenant()}
+                className="mt-2 text-sm font-medium text-accent hover:underline"
+              >
+                Vérifier le compte
+              </button>
+              {tenantPreview ? (
+                <p className="mt-2 rounded-md border border-success/30 bg-success/10 px-3 py-2 text-sm text-foreground">
+                  Compte trouvé :{' '}
+                  <strong>{tenantPreview.name ?? 'Sans nom'}</strong> (
+                  {tenantPreview.phone})
+                </p>
+              ) : null}
+              {lookupHint ? (
+                <p
+                  className={`mt-2 rounded-md border px-3 py-2 text-sm ${
+                    accountFound === false
+                      ? 'border-accent/30 bg-accent/10 text-foreground'
+                      : 'border-danger/30 bg-danger/10 text-danger'
+                  }`}
+                >
+                  {lookupHint}
+                </p>
+              ) : null}
+            </FormField>
+
+            <FormField
+              name="tenantName"
+              label="Nom du locataire"
+              required
+              error={form.errors.tenantName}
             >
               <Input
-                id="tenantId"
-                value={form.values.tenantId}
-                onChange={(e) => form.setField('tenantId', e.target.value)}
-                placeholder="UUID du compte locataire"
-                className="font-mono text-sm"
-                invalid={!!form.errors.tenantId}
+                id="tenantName"
+                value={form.values.tenantName}
+                onChange={(e) => form.setField('tenantName', e.target.value)}
+                placeholder="Prénom et nom"
+                invalid={!!form.errors.tenantName}
               />
             </FormField>
 
@@ -360,7 +423,12 @@ export function OwnerLeaseForm({
                   invalid={!!form.errors.deposit}
                 />
               </FormField>
-              <FormField name="currency" label="Devise" required error={form.errors.currency}>
+              <FormField
+                name="currency"
+                label="Devise"
+                required
+                error={form.errors.currency}
+              >
                 <Input
                   id="currency"
                   value={form.values.currency}
@@ -375,4 +443,25 @@ export function OwnerLeaseForm({
       </FormLayout>
     </div>
   );
+}
+
+/** Prefill helper for edit page from an existing lease. */
+export function leaseToFormInitial(lease: PublicLease): Partial<{
+  propertyId: string;
+  tenantName: string;
+  startDate: string;
+  endDate: string;
+  monthlyRent: string;
+  deposit: string;
+  currency: string;
+}> {
+  return {
+    propertyId: lease.propertyId,
+    tenantName: lease.tenantName ?? '',
+    startDate: lease.startDate.slice(0, 10),
+    endDate: lease.endDate.slice(0, 10),
+    monthlyRent: String(Number(lease.monthlyRent)),
+    deposit: String(Number(lease.deposit)),
+    currency: lease.currency,
+  };
 }

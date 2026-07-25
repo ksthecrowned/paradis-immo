@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -16,6 +17,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { EventPublisher } from '../events/event.publisher';
 import { DOMAIN_EVENTS } from '../events/event.types';
 import { AgencyAccessService } from '../mandates/agency-access.service';
+import { UsersService } from '../users/users.service';
 
 export interface PublicVisitSlotTemplate {
   id: string;
@@ -56,6 +58,7 @@ export class VisitSlotsService {
     private readonly prisma: PrismaService,
     private readonly events: EventPublisher,
     private readonly agencyAccess: AgencyAccessService,
+    private readonly users: UsersService,
   ) {}
 
   // ------------------------------------------------------------------
@@ -298,11 +301,22 @@ export class VisitSlotsService {
    */
   async bookVisit(
     userId: string,
-    input: { slotId: string; propertyId: string },
+    input: {
+      slotId: string;
+      propertyId: string;
+      guestPhone?: string;
+      guestName?: string;
+    },
   ): Promise<PublicVisitBooking> {
     const property = await this.prisma.property.findUnique({
       where: { id: input.propertyId },
-      select: { id: true, visitType: true, visitEnabled: true },
+      select: {
+        id: true,
+        visitType: true,
+        visitEnabled: true,
+        ownerId: true,
+        organizationId: true,
+      },
     });
     if (!property || !property.visitEnabled) {
       throw new NotFoundException({
@@ -315,6 +329,20 @@ export class VisitSlotsService {
         code: 'VISITS_DISABLED',
         message: 'This property does not accept visit bookings',
       });
+    }
+
+    let guestUserId = userId;
+    if (input.guestPhone) {
+      await this.assertCanManageProperty(
+        userId,
+        property.ownerId,
+        property.organizationId,
+      );
+      const guest = await this.users.resolveOrCreateByPhone(
+        input.guestPhone,
+        input.guestName,
+      );
+      guestUserId = guest.id;
     }
 
     const isFree = property.visitType === 'FREE';
@@ -345,7 +373,7 @@ export class VisitSlotsService {
         data: {
           slotId: input.slotId,
           propertyId: input.propertyId,
-          userId,
+          userId: guestUserId,
           status: isFree
             ? VisitBookingStatus.CONFIRMED
             : VisitBookingStatus.PENDING,
@@ -365,6 +393,26 @@ export class VisitSlotsService {
         });
       }
       throw err;
+    }
+  }
+
+  private async assertCanManageProperty(
+    userId: string,
+    ownerId: string,
+    organizationId: string,
+  ): Promise<void> {
+    if (ownerId === userId) return;
+    const membership = await this.prisma.organizationMember.findUnique({
+      where: {
+        userId_organizationId: { userId, organizationId },
+      },
+    });
+    if (!membership) {
+      throw new ForbiddenException({
+        code: 'NOT_PROPERTY_OWNER',
+        message:
+          'Only the owner or a member of the managing org can book on behalf of a guest',
+      });
     }
   }
 

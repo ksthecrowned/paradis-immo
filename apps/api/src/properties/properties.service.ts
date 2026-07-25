@@ -71,6 +71,7 @@ export interface PublicProperty {
   agent: { id: string; name: string; phone: string | null } | null;
   ownerId: string;
   favoriteCount: number;
+  viewCount: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -314,6 +315,25 @@ export class PropertiesService {
       existing.organizationId,
     );
 
+    if (dto.quartierId !== undefined) {
+      const quartier = await this.prisma.quartier.findUnique({
+        where: { id: dto.quartierId },
+        include: { arrondissement: { include: { city: true } } },
+      });
+      if (!quartier) {
+        throw new NotFoundException({
+          code: 'QUARTIER_NOT_FOUND',
+          message: 'Quartier does not exist',
+        });
+      }
+      if (quartier.arrondissement.city.countryId !== existing.countryId) {
+        throw new BadRequestException({
+          code: 'QUARTIER_COUNTRY_MISMATCH',
+          message: 'Quartier does not belong to the property country',
+        });
+      }
+    }
+
     const nextMode = dto.mode ?? existing.mode;
     let nextListingStatus: ListingStatusValue | undefined;
     if (dto.listingStatus !== undefined) {
@@ -333,12 +353,14 @@ export class PropertiesService {
         ...(dto.description !== undefined
           ? { description: dto.description }
           : {}),
+        ...(dto.type !== undefined ? { type: dto.type } : {}),
         ...(dto.mode !== undefined ? { mode: dto.mode } : {}),
         ...(dto.price !== undefined
           ? { price: new Prisma.Decimal(dto.price) }
           : {}),
         ...(dto.currency !== undefined ? { currency: dto.currency } : {}),
         ...(dto.priceUnit !== undefined ? { priceUnit: dto.priceUnit } : {}),
+        ...(dto.quartierId !== undefined ? { quartierId: dto.quartierId } : {}),
         ...(dto.address !== undefined ? { address: dto.address } : {}),
         ...(dto.lat !== undefined ? { lat: dto.lat } : {}),
         ...(dto.lng !== undefined ? { lng: dto.lng } : {}),
@@ -492,6 +514,62 @@ export class PropertiesService {
   }
 
   // ------------------------------------------------------------------
+  // Views
+  // ------------------------------------------------------------------
+
+  /**
+   * Record a unique daily view of a listing. Deduplicated by the
+   * `(propertyId, viewerKey, viewDate)` unique constraint: one view per
+   * identity (account first, install id otherwise) per UTC day. Views from
+   * the owner or members of the managing organization are not counted, nor
+   * are views of non-ACTIVE listings.
+   */
+  async recordView(
+    userId: string | null,
+    propertyId: string,
+    deviceId?: string,
+  ): Promise<{ counted: boolean }> {
+    if (!userId && !deviceId) {
+      throw new BadRequestException({
+        code: 'DEVICE_ID_REQUIRED',
+        message: 'Anonymous view requests must include a deviceId',
+      });
+    }
+    const property = await this.prisma.property.findUnique({
+      where: { id: propertyId },
+      select: { id: true, ownerId: true, organizationId: true, status: true },
+    });
+    if (!property) {
+      throw new NotFoundException({
+        code: 'PROPERTY_NOT_FOUND',
+        message: 'Property does not exist',
+      });
+    }
+    if (property.status !== 'ACTIVE') return { counted: false };
+
+    if (userId) {
+      if (userId === property.ownerId) return { counted: false };
+      const membership = await this.prisma.organizationMember.findUnique({
+        where: {
+          userId_organizationId: {
+            userId,
+            organizationId: property.organizationId,
+          },
+        },
+      });
+      if (membership) return { counted: false };
+    }
+
+    const viewerKey = userId ? `user:${userId}` : `device:${deviceId}`;
+    const viewDate = new Date(new Date().toISOString().slice(0, 10));
+    const result = await this.prisma.propertyView.createMany({
+      data: [{ propertyId, viewerKey, viewDate }],
+      skipDuplicates: true,
+    });
+    return { counted: result.count > 0 };
+  }
+
+  // ------------------------------------------------------------------
   // Internals
   // ------------------------------------------------------------------
 
@@ -540,7 +618,7 @@ export class PropertiesService {
         take: 1,
         select: { endDate: true },
       },
-      _count: { select: { favorites: true } },
+      _count: { select: { favorites: true, views: true } },
     };
   }
 
@@ -588,7 +666,7 @@ export class PropertiesService {
       orientation?: string | null;
       landTitle?: string | null;
       leases?: Array<{ endDate: Date }>;
-      _count?: { favorites: number };
+      _count?: { favorites: number; views?: number };
     },
   ): PublicProperty {
     const arr = p.quartier.arrondissement;
@@ -688,6 +766,7 @@ export class PropertiesService {
       agent,
       ownerId: p.ownerId,
       favoriteCount: p._count?.favorites ?? 0,
+      viewCount: p._count?.views ?? 0,
       createdAt: p.createdAt.toISOString(),
       updatedAt: p.updatedAt.toISOString(),
     };
