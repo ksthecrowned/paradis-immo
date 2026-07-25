@@ -5,9 +5,9 @@
 **Priorité** : P0 · P1 · P2  
 **Accessibilité** : 🟢 facile · 🟡 moyen · 🔴 lourd
 
-**Focus actif** : aucune (P1-7 vues + P1-8 signalement livrés en local).  
-**Plus tard (fin de fil)** : historique portable (V2) · vente par paliers (V3).  
-**Zappé** : Vue Reels.  
+**Focus actif** : Locative V2 — vérification de solvabilité (spec).  
+**Plus tard (fin de fil)** : vente par paliers (V3).  
+**Zappé** : Vue Reels · « historique portable » riche (remplacé par solvabilité 3 loyers).  
 **Principe** : on ne livre **pas** tout d’un coup — phases ci-dessous.
 
 ---
@@ -51,8 +51,7 @@ Header compact (titre, type·mode, prix, badges) → bandeau médias → 2 colon
 - Owner/agent voit les paiements **MoMo (ou autre provider)** **et** peut **valider manuellement** un paiement depuis le dashboard.
 - Locataire (mobile) : espace **« Mon cahier de loyer »** — suivi de ses échéances / paiements.
 - Owner/agent voit la **date de création** du compte locataire.
-- **Historique portable (location)** : quand un locataire change de bien, le owner de la **nouvelle** propriété peut **demander** l’historique ; le locataire **soumet / partage** ce qu’il accepte de montrer.
-- **Historique portable (achat)** : même idée si un acheteur enchaîne / change de vendeur — le nouveau owner peut demander l’historique des paliers déjà réglés.
+- **Solvabilité locataire** : le nouveau logeur **demande** l’accès aux **3 derniers loyers payés** ; le locataire **valide** ; accès **7 jours** (snapshot figé).
 - **Vente par paliers** : owner configure l’échéancier des acomptes ; **chaque palier** = paiement (MoMo ou validation manuelle), même moteur que le loyer.
 
 Prérequis déjà en place : bail pour locataire avec **ou sans** compte Paradis Immo · brouillon · échéancier loyer · paiements owner de base.
@@ -83,18 +82,20 @@ Ordre V1 : **L0** → L1 → L2 → L3 → L4 → L5.
 
 ---
 
-### Phase Locative V2 — historique portable *(fin de fil locatif)*
+### Phase Locative V2 — vérification de solvabilité
+
+> Spec : `docs/superpowers/specs/2026-07-25-tenant-solvency-check-design.md`
 
 | # | Item | Accès | Statut |
 |---|------|-------|--------|
-| H0 | Spec partage d’historique (consentement, périmètre visible, durée) | 🟡 | ⬜ |
-| H1 | Owner nouveau bien : **demander** l’historique au locataire | 🔴 | ⬜ |
-| H2 | Locataire (mobile) : **soumettre / accepter** le partage d’historique | 🔴 | ⬜ |
-| H3 | Owner : consulter l’historique partagé (loyers validés, retards, régularité) | 🔴 | ⬜ |
+| H0 | Spec design (demande owner, consentement, 3 loyers, 7 j) | 🟡 | ✅ |
+| H1 | API `SolvencyCheck` + droits + snapshot | 🔴 | ⬜ |
+| H2 | Locataire (mobile) : accepter / refuser la demande | 🔴 | ⬜ |
+| H3 | Owner web : bloc Solvabilité sur fiche locataire | 🔴 | ⬜ |
 
 ---
 
-### Phase Vente V3 — achat par paliers (+ historique acheteur) *(fin de vision paiements)*
+### Phase Vente V3 — achat par paliers *(fin de vision paiements)*
 
 | # | Item | Accès | Statut |
 |---|------|-------|--------|
@@ -102,7 +103,7 @@ Ordre V1 : **L0** → L1 → L2 → L3 → L4 → L5.
 | S1 | Owner configure les paliers sur un bien / dossier vente | 🔴 | ⬜ |
 | S2 | Paiement par palier (MoMo / autre) + **validation manuelle** owner | 🔴 | ⬜ |
 | S3 | Acheteur (mobile) : suivi de ses paliers (miroir du cahier de loyer) | 🔴 | ⬜ |
-| S4 | Historique portable acheteur (demande par nouveau vendeur / owner) | 🔴 | ⬜ |
+| S4 | (Plus tard) preuve de paiements acheteur — hors V2 locative | 🔴 | ⬜ |
 
 ---
 
@@ -133,4 +134,4 @@ Test boundary 20 Mo + `video/quicktime` · migration mapViews legacy · `Propert
 
 ## État
 
-Vision **paiements & dossiers** : V1 ✅ → **V1.1 docs** ✅ (local) → V2 historique portable → V3 vente paliers *(en fin)*. Reels retiré.
+Vision **paiements & dossiers** : V1 ✅ → V1.1 docs ✅ → **V2 solvabilité** (spec) → V3 vente paliers *(en fin)*. Reels retiré.
