@@ -5,7 +5,7 @@
 **Priorité** : P0 · P1 · P2  
 **Accessibilité** : 🟢 facile · 🟡 moyen · 🔴 lourd
 
-**Focus actif** : S4 preuve acheteur (livré local).  
+**Focus actif** : (libre) — S4 livré ; prochain = P2 marketplace ou suivis médias.  
 **Plus tard** : P2 marketplace · suivis médias.  
 **Zappé** : Vue Reels · « historique portable » riche.  
 **Principe** : on ne livre **pas** tout d’un coup — phases ci-dessous.
@@ -109,6 +109,14 @@ Ordre V1 : **L0** → L1 → L2 → L3 → L4 → L5.
 | S4.1 | API create/respond/latest + notif | 🔴 | ✅ |
 | S4.2 | Mobile acheteur accept/refuse | 🔴 | ✅ |
 | S4.3 | Web bloc dossier vente | 🔴 | ✅ |
+| S4.4 | Reliquats : eligibility UI · notif copy/deep-link · HTTP routes | 🟢 | ✅ |
+
+### Smoke S4 (manuel)
+
+1. Owner : dossier ACTIVE, acheteur **sans** PAID → bouton « Demander la preuve » **désactivé** + texte d’aide.
+2. Seed/créer ≥1 loyer ou palier `PAID` pour l’acheteur → bouton actif → demander → PENDING.
+3. Mobile acheteur : notif / hub **Mes achats** → **Preuves de paiements** → Accepter.
+4. Owner recharge → tableau LOYER/PALIER + « Expire le … ».
 
 ---
 

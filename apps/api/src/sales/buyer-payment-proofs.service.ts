@@ -137,6 +137,23 @@ export class BuyerPaymentProofsService {
     return this.serialize(updated, { includeSnapshot: accept });
   }
 
+  async eligibility(
+    managerUserId: string,
+    saleAgreementId: string,
+  ): Promise<{ eligible: boolean; reason: string | null }> {
+    const agreement = await this.loadOperableAgreement(
+      managerUserId,
+      saleAgreementId,
+    );
+    if (agreement.status === 'CANCELLED') {
+      return { eligible: false, reason: 'AGREEMENT_CANCELLED' };
+    }
+    if ((await this.countPaidPayments(agreement.buyerId)) < 1) {
+      return { eligible: false, reason: 'NO_PAID_PAYMENTS' };
+    }
+    return { eligible: true, reason: null };
+  }
+
   async latestForAgreement(managerUserId: string, saleAgreementId: string): Promise<PublicBuyerPaymentProof | null> {
     await this.loadOperableAgreement(managerUserId, saleAgreementId);
     let row = await this.prisma.buyerPaymentProof.findFirst({

@@ -183,6 +183,18 @@ export class NotificationsService {
         )}).`;
       case 'APPROVAL_PENDING':
         return `Paradis Immo — une action requiert votre approbation.`;
+      case 'BUYER_PAYMENT_PROOF_REQUESTED':
+        return `Paradis Immo — ${this.stringField(
+          payload,
+          'organizationName',
+          'un vendeur',
+        )} demande l’accès à vos preuves de paiements. Ouvrez l’app pour répondre.`;
+      case 'SOLVENCY_CHECK_REQUESTED':
+        return `Paradis Immo — ${this.stringField(
+          payload,
+          'organizationName',
+          'un logeur',
+        )} demande à consulter vos 3 derniers loyers. Ouvrez l’app pour répondre.`;
       default:
         return `Paradis Immo — ${type}`;
     }
@@ -198,10 +210,21 @@ export class NotificationsService {
   }
 
   private renderPushTitle(type: string): string {
-    return `Paradis Immo · ${type}`;
+    switch (type) {
+      case 'BUYER_PAYMENT_PROOF_REQUESTED':
+        return 'Demande de preuve de paiements';
+      case 'SOLVENCY_CHECK_REQUESTED':
+        return 'Demande de solvabilité';
+      default:
+        return `Paradis Immo · ${type}`;
+    }
   }
 
   private renderPushBody(payload: Record<string, unknown>): string {
+    const org = this.stringField(payload, 'organizationName');
+    if (org) {
+      return `${org} vous demande une réponse.`;
+    }
     const entries = Object.entries(payload).slice(0, 3);
     return entries
       .map(([k, v]) => `${k}: ${typeof v === 'string' ? v : JSON.stringify(v)}`)
@@ -219,6 +242,9 @@ export class NotificationsService {
       'visitBookingId',
       'bookingId',
       'leaseId',
+      'proofId',
+      'saleAgreementId',
+      'checkId',
     ]) {
       const value = payload[key];
       if (typeof value === 'string' && value.length > 0) {
@@ -227,6 +253,12 @@ export class NotificationsService {
     }
     if (!data.propertyId && typeof payload.receiptUrl === 'string') {
       data.screen = 'activity';
+    }
+    if (type === 'BUYER_PAYMENT_PROOF_REQUESTED') {
+      data.screen = 'achats/preuves';
+    }
+    if (type === 'SOLVENCY_CHECK_REQUESTED') {
+      data.screen = 'cahier-loyer/solvency';
     }
     return data;
   }

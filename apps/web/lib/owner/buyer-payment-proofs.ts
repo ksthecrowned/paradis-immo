@@ -45,6 +45,19 @@ export async function requestBuyerPaymentProof(
   );
 }
 
+export type BuyerPaymentProofEligibility = {
+  eligible: boolean;
+  reason: string | null;
+};
+
+export async function getBuyerPaymentProofEligibility(
+  agreementId: string,
+): Promise<BuyerPaymentProofEligibility> {
+  return apiFetch<BuyerPaymentProofEligibility>(
+    `/sale-agreements/${agreementId}/payment-proofs/eligibility`,
+  );
+}
+
 export function proofKindLabel(
   kind: 'RENT' | 'SALE_INSTALLMENT',
 ): string {

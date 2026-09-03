@@ -87,6 +87,31 @@ describe('BuyerPaymentProofsService', () => {
     });
   });
 
+  it('eligibility reflects paid history and cancelled dossiers', async () => {
+    prisma.rentSchedule.count.mockResolvedValue(1);
+    prisma.saleInstallment.count.mockResolvedValue(0);
+    await expect(service.eligibility('manager-1', 'agreement-1')).resolves.toEqual({
+      eligible: true,
+      reason: null,
+    });
+
+    prisma.rentSchedule.count.mockResolvedValue(0);
+    prisma.saleInstallment.count.mockResolvedValue(0);
+    await expect(service.eligibility('manager-1', 'agreement-1')).resolves.toEqual({
+      eligible: false,
+      reason: 'NO_PAID_PAYMENTS',
+    });
+
+    prisma.saleAgreement.findUnique.mockResolvedValueOnce({
+      ...agreement,
+      status: 'CANCELLED',
+    });
+    await expect(service.eligibility('manager-1', 'agreement-1')).resolves.toEqual({
+      eligible: false,
+      reason: 'AGREEMENT_CANCELLED',
+    });
+  });
+
   it('rejects a second pending proof', async () => {
     prisma.buyerPaymentProof.findFirst.mockResolvedValue(row());
     await expect(service.create('manager-1', 'agreement-1')).rejects.toBeInstanceOf(

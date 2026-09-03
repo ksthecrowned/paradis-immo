@@ -9,6 +9,7 @@ import { Button } from '@/components/primitives';
 import { useRequireSession } from '@/hooks/use-require-session';
 import { ApiError } from '@/lib/api';
 import {
+  getBuyerPaymentProofEligibility,
   getLatestBuyerPaymentProof,
   proofKindLabel,
   requestBuyerPaymentProof,
@@ -67,6 +68,7 @@ export function SaleAgreementDetailPage({
     useState<PublicBuyerPaymentProof | null>(null);
   const [paymentProofBusy, setPaymentProofBusy] = useState(false);
   const [paymentProofHint, setPaymentProofHint] = useState<string | null>(null);
+  const [canRequestProof, setCanRequestProof] = useState(true);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -74,9 +76,25 @@ export function SaleAgreementDetailPage({
       const agreement = await getSaleAgreement(agreementId);
       setRow(agreement);
       try {
-        setPaymentProof(await getLatestBuyerPaymentProof(agreementId));
+        const [latest, eligibility] = await Promise.all([
+          getLatestBuyerPaymentProof(agreementId),
+          getBuyerPaymentProofEligibility(agreementId),
+        ]);
+        setPaymentProof(latest);
+        setCanRequestProof(eligibility.eligible);
+        if (
+          !eligibility.eligible &&
+          eligibility.reason === 'NO_PAID_PAYMENTS'
+        ) {
+          setPaymentProofHint(
+            'Aucun paiement effectué sur la plateforme pour cet acheteur.',
+          );
+        } else {
+          setPaymentProofHint(null);
+        }
       } catch {
         setPaymentProof(null);
+        setCanRequestProof(true);
       }
       setError(null);
     } catch (err) {
@@ -96,8 +114,10 @@ export function SaleAgreementDetailPage({
     setPaymentProofHint(null);
     try {
       setPaymentProof(await requestBuyerPaymentProof(agreementId));
+      setCanRequestProof(true);
     } catch (err) {
       if (errorCode(err) === 'NO_PAID_PAYMENTS') {
+        setCanRequestProof(false);
         setPaymentProofHint(
           'Aucun paiement effectué sur la plateforme pour cet acheteur.',
         );
@@ -266,7 +286,7 @@ export function SaleAgreementDetailPage({
               <Button
                 type="button"
                 variant="secondary"
-                disabled={paymentProofBusy}
+                disabled={paymentProofBusy || !canRequestProof}
                 onClick={() => void handleRequestPaymentProof()}
               >
                 Demander la preuve de paiements

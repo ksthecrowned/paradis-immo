@@ -39,6 +39,17 @@ export class SaleAgreementPaymentProofsController {
   ) {
     return this.proofs.latestForAgreement(current.userId, id);
   }
+
+  @Get('eligibility')
+  @ApiOperation({
+    summary: 'Whether the manager can request a payment proof',
+  })
+  eligibility(
+    @CurrentUser() current: AuthenticatedUser,
+    @Param('id') id: string,
+  ) {
+    return this.proofs.eligibility(current.userId, id);
+  }
 }
 
 @ApiTags('Buyer payment proofs')
