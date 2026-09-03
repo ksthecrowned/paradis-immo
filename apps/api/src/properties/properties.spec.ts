@@ -137,6 +137,116 @@ describe('Properties (e2e)', () => {
     createdPropertyId = body.id;
   });
 
+  const shortStayPayload = (overrides: Record<string, unknown> = {}) => ({
+    title: 'Maison court séjour',
+    description: 'Une maison adaptée aux séjours de courte durée',
+    type: 'HOUSE',
+    mode: 'RENT_SHORT',
+    price: 50000,
+    currency: 'XAF',
+    priceUnit: 'NIGHT',
+    quartierId: bzvQuartierId,
+    address: 'Rue Court Séjour 1',
+    countryId,
+    ...overrides,
+  });
+
+  it('POST /properties rejects RENT_SHORT without minNights', async () => {
+    const res = await request(app.getHttpServer())
+      .post('/api/v1/properties')
+      .set('x-test-user', ownerUserId)
+      .send(shortStayPayload())
+      .expect(400);
+    expect(res.body.code).toBe('MIN_NIGHTS_REQUIRED');
+  });
+
+  it('POST /properties rejects maxNights below minNights', async () => {
+    const res = await request(app.getHttpServer())
+      .post('/api/v1/properties')
+      .set('x-test-user', ownerUserId)
+      .send(shortStayPayload({ minNights: 2, maxNights: 1 }))
+      .expect(400);
+    expect(res.body.code).toBe('INVALID_MAX_NIGHTS');
+  });
+
+  it('POST /properties rejects invalid short-stay check-in time', async () => {
+    const res = await request(app.getHttpServer())
+      .post('/api/v1/properties')
+      .set('x-test-user', ownerUserId)
+      .send(shortStayPayload({ minNights: 1, checkInTime: '25:00' }))
+      .expect(400);
+    expect(res.body.code).toBe('INVALID_CHECK_TIME');
+  });
+
+  it('POST /properties persists and serializes valid short-stay fields', async () => {
+    const res = await request(app.getHttpServer())
+      .post('/api/v1/properties')
+      .set('x-test-user', ownerUserId)
+      .send(
+        shortStayPayload({
+          minNights: 2,
+          maxNights: 7,
+          checkInTime: '14:00',
+          checkOutTime: '11:00',
+        }),
+      )
+      .expect(201);
+    expect(res.body.minNights).toBe(2);
+    expect(res.body.maxNights).toBe(7);
+    expect(res.body.checkInTime).toBe('14:00');
+    expect(res.body.checkOutTime).toBe('11:00');
+    const stored = await prisma.property.findUnique({
+      where: { id: res.body.id },
+    });
+    expect(stored).toMatchObject({
+      minNights: 2,
+      maxNights: 7,
+      checkInTime: '14:00',
+      checkOutTime: '11:00',
+    });
+    await prisma.property.delete({ where: { id: res.body.id } });
+  });
+
+  it('POST /properties clears short-stay fields for RENT_LONG', async () => {
+    const res = await request(app.getHttpServer())
+      .post('/api/v1/properties')
+      .set('x-test-user', ownerUserId)
+      .send(
+        shortStayPayload({
+          mode: 'RENT_LONG',
+          priceUnit: 'MONTH',
+          minNights: 2,
+          maxNights: 7,
+          checkInTime: '14:00',
+          checkOutTime: '11:00',
+        }),
+      )
+      .expect(201);
+    expect(res.body.minNights).toBeNull();
+    expect(res.body.maxNights).toBeNull();
+    expect(res.body.checkInTime).toBeNull();
+    expect(res.body.checkOutTime).toBeNull();
+    await prisma.property.delete({ where: { id: res.body.id } });
+  });
+
+  it('PATCH /properties clears short-stay fields when changing to SALE', async () => {
+    const created = await request(app.getHttpServer())
+      .post('/api/v1/properties')
+      .set('x-test-user', ownerUserId)
+      .send(shortStayPayload({ minNights: 2, maxNights: 7 }))
+      .expect(201);
+    const res = await request(app.getHttpServer())
+      .patch(`/api/v1/properties/${created.body.id}`)
+      .set('x-test-user', ownerUserId)
+      .send({ mode: 'SALE', priceUnit: 'TOTAL' })
+      .expect(200);
+    expect(res.body.minNights).toBeNull();
+    expect(res.body.maxNights).toBeNull();
+    expect(res.body.checkInTime).toBeNull();
+    expect(res.body.checkOutTime).toBeNull();
+    await prisma.property.delete({ where: { id: created.body.id } });
+  });
+
   it('GET /properties/:id returns the property', async () => {
     const res = await request(app.getHttpServer())
       .get(`/api/v1/properties/${createdPropertyId}`)

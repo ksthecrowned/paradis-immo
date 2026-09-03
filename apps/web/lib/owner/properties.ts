@@ -67,6 +67,10 @@ export interface PublicProperty {
   price: number;
   currency: string;
   priceUnit: PriceUnit;
+  minNights?: number | null;
+  maxNights?: number | null;
+  checkInTime?: string | null;
+  checkOutTime?: string | null;
   address: string;
   lat: number | null;
   lng: number | null;
@@ -153,6 +157,10 @@ export interface CreatePropertyInput {
   visitDuration?: number;
   depositMonths?: number;
   agencyFeeAmount?: number;
+  minNights?: number;
+  maxNights?: number | null;
+  checkInTime?: string | null;
+  checkOutTime?: string | null;
 }
 
 export async function listMyProperties(): Promise<PublicProperty[]> {
@@ -207,6 +215,10 @@ export type UpdatePropertyInput = Partial<
   lng?: number | null;
   depositMonths?: number | null;
   agencyFeeAmount?: number | null;
+  minNights?: number | null;
+  maxNights?: number | null;
+  checkInTime?: string | null;
+  checkOutTime?: string | null;
   bedrooms?: number | null;
   bathrooms?: number | null;
   surface?: number | null;

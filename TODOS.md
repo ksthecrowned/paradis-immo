@@ -1,12 +1,12 @@
 # TODOS — classé par priorité & accessibilité
 
-> Dernière mise à jour : 25 juil. 2026. Specs dans `docs/superpowers/specs/`.
+> Dernière mise à jour : 3 sept. 2026. Specs dans `docs/superpowers/specs/`.
 
 **Priorité** : P0 · P1 · P2  
 **Accessibilité** : 🟢 facile · 🟡 moyen · 🔴 lourd
 
-**Focus actif** : (libre) — S4 livré ; prochain = P2 marketplace ou suivis médias.  
-**Plus tard** : P2 marketplace · suivis médias.  
+**Focus actif** : (libre) — P2-12 court séjour V1 livré ; prochain = P2 marketplace ou suivis médias.  
+**Plus tard** : P2 marketplace (check-in ops / couchages court séjour si besoin) · suivis médias.  
 **Zappé** : Vue Reels · « historique portable » riche.  
 **Principe** : on ne livre **pas** tout d’un coup — phases ci-dessous.
 
@@ -124,10 +124,21 @@ Ordre V1 : **L0** → L1 → L2 → L3 → L4 → L5.
 
 | # | Item | Accès |
 |---|------|-------|
-| 12 | Court séjour (`RENT_SHORT` règles, check-in, couchages) | 🔴 |
 | 13 | Profil agent riche (API) : spécialité, années d’exp., délai de réponse | 🔴 |
 | 14 | Quartier réel (POI) | 🔴 |
 | 15 | Preuve sociale (avis / notes) | 🔴 |
+
+### P2-12 — Court séjour (`RENT_SHORT`)
+
+> Spec : `docs/superpowers/specs/2026-09-03-short-stay-rules-design.md`  
+> Focus : **V1 livré** ; plus tard check-in ops / couchages si besoin.
+
+| # | Item | Accès | Statut |
+|---|------|-------|--------|
+| 12.0 | Spec règles séjour RENT_SHORT | 🟡 | ✅ |
+| 12.1 | Property fields + booking bounds | 🔴 | ✅ |
+| 12.2 | Web owner + Conditions | 🟡 | ✅ |
+| 12.3 | Mobile Conditions + book errors | 🟡 | ✅ |
 
 ---
 
@@ -147,4 +158,4 @@ Test boundary 20 Mo + `video/quicktime` · migration mapViews legacy · `Propert
 
 ## État
 
-Vision **paiements & dossiers** : V1 ✅ → V1.1 docs ✅ → V2 solvabilité ✅ → **V3 paliers ✅ · S4 preuve acheteur ✅ (local)**. Reels retiré.
+Vision **paiements & dossiers** : V1 ✅ → V1.1 docs ✅ → V2 solvabilité ✅ → **V3 paliers ✅ · S4 preuve acheteur ✅ (local)**. **P2-12 court séjour V1 ✅ (local)**. Reels retiré.

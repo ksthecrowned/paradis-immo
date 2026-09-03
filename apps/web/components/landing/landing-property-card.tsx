@@ -156,6 +156,28 @@ export function LandingPropertyCard({
               />
             </span>
           </div>
+          {property.mode === 'RENT_SHORT' ? (
+            <div className="mt-3 border-t border-[var(--lp-border)] pt-3">
+              <p className="text-xs font-bold text-[var(--lp-ink)]">
+                Conditions
+              </p>
+              <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-[var(--lp-muted)]">
+                <span>
+                  Séjour min. {property.minNights ?? 1}{' '}
+                  {property.minNights === 1 ? 'nuit' : 'nuits'}
+                </span>
+                {property.maxNights != null ? (
+                  <span>max. {property.maxNights} nuits</span>
+                ) : null}
+                {property.checkInTime ? (
+                  <span>Arrivée à partir de {property.checkInTime}</span>
+                ) : null}
+                {property.checkOutTime ? (
+                  <span>Départ avant {property.checkOutTime}</span>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
         </div>
       </a>
 

@@ -62,6 +62,8 @@ export class BookingsService {
         priceUnit: true,
         ownerId: true,
         organizationId: true,
+        minNights: true,
+        maxNights: true,
       },
     });
     if (!property) {
@@ -80,6 +82,23 @@ export class BookingsService {
       throw new BadRequestException({
         code: 'BOOKING_INVALID_PRICE_UNIT',
         message: 'RENT_SHORT properties must use NIGHT as priceUnit',
+      });
+    }
+
+    const minNights = property.minNights ?? 1;
+    const nights = this.computeNights(input.startDate, input.endDate);
+    if (nights < minNights) {
+      throw new BadRequestException({
+        code: 'STAY_TOO_SHORT',
+        message: `Séjour trop court (minimum ${minNights} nuit(s))`,
+        minNights,
+      });
+    }
+    if (property.maxNights != null && nights > property.maxNights) {
+      throw new BadRequestException({
+        code: 'STAY_TOO_LONG',
+        message: `Séjour trop long (maximum ${property.maxNights} nuit(s))`,
+        maxNights: property.maxNights,
       });
     }
 
@@ -128,7 +147,6 @@ export class BookingsService {
       });
     }
 
-    const nights = this.computeNights(input.startDate, input.endDate);
     const totalPrice = new Prisma.Decimal(property.price).mul(nights);
     const currency = property.currency;
 

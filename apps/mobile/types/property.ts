@@ -98,6 +98,11 @@ export type Property = {
   updatedAt?: string;
   /** Months of rent as deposit (when applicable). */
   depositMonths?: number | null;
+  /** Short-stay booking constraints and arrival/departure guidance. */
+  minNights?: number | null;
+  maxNights?: number | null;
+  checkInTime?: string | null;
+  checkOutTime?: string | null;
   /** Agency fee in listing currency (when applicable). */
   agencyFeeAmount?: number | null;
   /** Active favorites count from API. */

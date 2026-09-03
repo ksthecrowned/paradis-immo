@@ -121,6 +121,10 @@ type FormValues = {
   visitDuration: string;
   depositMonths: string;
   agencyFeeAmount: string;
+  minNights: string;
+  maxNights: string;
+  checkInTime: string;
+  checkOutTime: string;
   countryId: string;
   cityId: string;
   arrondissementId: string;
@@ -168,6 +172,10 @@ const defaultValues = (): FormValues => ({
   visitDuration: '30',
   depositMonths: '',
   agencyFeeAmount: '',
+  minNights: '',
+  maxNights: '',
+  checkInTime: '',
+  checkOutTime: '',
   countryId: '',
   cityId: '',
   arrondissementId: '',
@@ -220,6 +228,42 @@ const validate = (v: FormValues): Record<string, string> => {
       : (validateCurrency(v.agencyFeeAmount) ??
         validateNumeric(v.agencyFeeAmount, { min: 0 }) ??
         '');
+  if (v.mode === 'RENT_SHORT') {
+    e.minNights =
+      validateRequired(v.minNights, 'Le nombre minimum de nuits') ??
+      validateNumeric(v.minNights, { min: 1 }) ??
+      (Number.isInteger(Number(v.minNights))
+        ? ''
+        : 'Le nombre de nuits doit être un entier.');
+    e.maxNights =
+      v.maxNights === ''
+        ? ''
+        : validateNumeric(v.maxNights, { min: 1 }) ??
+          (Number.isInteger(Number(v.maxNights))
+            ? ''
+            : 'Le nombre de nuits doit être un entier.');
+    if (
+      !e.maxNights &&
+      v.maxNights !== '' &&
+      Number(v.maxNights) < Number(v.minNights)
+    ) {
+      e.maxNights = 'Le maximum doit être supérieur ou égal au minimum.';
+    }
+    const timePattern = /^([01]\d|2[0-3]):[0-5]\d$/;
+    e.checkInTime =
+      v.checkInTime === '' || timePattern.test(v.checkInTime)
+        ? ''
+        : 'Format attendu : HH:mm.';
+    e.checkOutTime =
+      v.checkOutTime === '' || timePattern.test(v.checkOutTime)
+        ? ''
+        : 'Format attendu : HH:mm.';
+  } else {
+    e.minNights = '';
+    e.maxNights = '';
+    e.checkInTime = '';
+    e.checkOutTime = '';
+  }
   e.visitPrice =
     v.visitEnabled && v.visitType === 'PAID'
       ? validateRequired(v.visitPrice, 'Le tarif de visite') ??
@@ -241,6 +285,7 @@ const toCreateInput = (v: FormValues): CreatePropertyInput => {
   const depositMonths = parseNumeric(v.depositMonths);
   const agencyFeeAmount =
     v.agencyFeeAmount.trim() === '' ? null : parseCurrency(v.agencyFeeAmount);
+  const shortStay = v.mode === 'RENT_SHORT';
   return {
     title: v.title.trim(),
     description: v.description.trim(),
@@ -249,6 +294,14 @@ const toCreateInput = (v: FormValues): CreatePropertyInput => {
     price: parseCurrency(v.price),
     currency: v.currency.trim().toUpperCase(),
     priceUnit: v.priceUnit,
+    ...(shortStay
+      ? {
+          minNights: parseNumeric(v.minNights) as number,
+          maxNights: parseNumeric(v.maxNights),
+          checkInTime: v.checkInTime || null,
+          checkOutTime: v.checkOutTime || null,
+        }
+      : {}),
     quartierId: v.quartierId,
     address: v.address.trim(),
     countryId: v.countryId,
@@ -298,6 +351,7 @@ const toUpdateInput = (v: FormValues): UpdatePropertyInput => {
   const depositMonths = parseNumeric(v.depositMonths);
   const agencyFeeAmount =
     v.agencyFeeAmount.trim() === '' ? null : parseCurrency(v.agencyFeeAmount);
+  const shortStay = v.mode === 'RENT_SHORT';
   return {
     title: v.title.trim(),
     description: v.description.trim(),
@@ -306,6 +360,10 @@ const toUpdateInput = (v: FormValues): UpdatePropertyInput => {
     price: parseCurrency(v.price),
     currency: v.currency.trim().toUpperCase(),
     priceUnit: v.priceUnit,
+    minNights: shortStay ? (parseNumeric(v.minNights) as number) : undefined,
+    maxNights: shortStay ? parseNumeric(v.maxNights) : null,
+    checkInTime: shortStay ? v.checkInTime || null : null,
+    checkOutTime: shortStay ? v.checkOutTime || null : null,
     quartierId: v.quartierId,
     address: v.address.trim(),
     lat,
@@ -574,6 +632,12 @@ export function OwnerPropertyForm({
 
   useEffect(() => {
     form.setField('priceUnit', defaultPriceUnit(form.values.mode));
+    if (form.values.mode !== 'RENT_SHORT') {
+      form.setField('minNights', '');
+      form.setField('maxNights', '');
+      form.setField('checkInTime', '');
+      form.setField('checkOutTime', '');
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.values.mode]);
 
@@ -842,6 +906,81 @@ export function OwnerPropertyForm({
               ))}
             </Select>
           </FormField>
+          {form.values.mode === 'RENT_SHORT' ? (
+            <div className="space-y-4 rounded-lg border border-border bg-card-hover p-4">
+              <div>
+                <h3 className="text-sm font-semibold text-foreground">
+                  Conditions de séjour
+                </h3>
+                <p className="mt-1 text-xs text-muted">
+                  Ces informations seront affichées sur la fiche publique.
+                </p>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <FormField
+                  name="minNights"
+                  label="Nuits min."
+                  required
+                  error={form.errors.minNights}
+                >
+                  <NumberInput
+                    name="minNights"
+                    min={1}
+                    allowDecimals={false}
+                    value={form.values.minNights}
+                    onChange={(v) => form.setField('minNights', v)}
+                    invalid={!!form.errors.minNights}
+                    placeholder="ex. 2"
+                  />
+                </FormField>
+                <FormField
+                  name="maxNights"
+                  label="Nuits max."
+                  error={form.errors.maxNights}
+                >
+                  <NumberInput
+                    name="maxNights"
+                    min={1}
+                    allowDecimals={false}
+                    value={form.values.maxNights}
+                    onChange={(v) => form.setField('maxNights', v)}
+                    invalid={!!form.errors.maxNights}
+                    placeholder="Optionnel"
+                  />
+                </FormField>
+                <FormField
+                  name="checkInTime"
+                  label="Check-in"
+                  hint="Format HH:mm, à titre informatif."
+                  error={form.errors.checkInTime}
+                >
+                  <Input
+                    id="checkInTime"
+                    type="time"
+                    value={form.values.checkInTime}
+                    onChange={(e) => form.setField('checkInTime', e.target.value)}
+                    invalid={!!form.errors.checkInTime}
+                  />
+                </FormField>
+                <FormField
+                  name="checkOutTime"
+                  label="Check-out"
+                  hint="Format HH:mm, à titre informatif."
+                  error={form.errors.checkOutTime}
+                >
+                  <Input
+                    id="checkOutTime"
+                    type="time"
+                    value={form.values.checkOutTime}
+                    onChange={(e) =>
+                      form.setField('checkOutTime', e.target.value)
+                    }
+                    invalid={!!form.errors.checkOutTime}
+                  />
+                </FormField>
+              </div>
+            </div>
+          ) : null}
           </div>
       ),
     },

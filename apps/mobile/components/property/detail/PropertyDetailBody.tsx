@@ -79,6 +79,42 @@ export function PropertyDetailBody({
         </View>
       ) : null}
 
+      {property.mode === 'RENT_SHORT' &&
+      (property.minNights != null ||
+        property.maxNights != null ||
+        property.checkInTime ||
+        property.checkOutTime) ? (
+        <View style={styles.sectionBlock}>
+          <Text style={styles.sectionTitle}>Conditions</Text>
+          <View style={styles.conditionsCard}>
+            {property.minNights != null ? (
+              <ConditionRow
+                icon="moon-outline"
+                label={`Séjour min. ${property.minNights} nuit(s)`}
+              />
+            ) : null}
+            {property.maxNights != null ? (
+              <ConditionRow
+                icon="moon-outline"
+                label={`Séjour max. ${property.maxNights} nuit(s)`}
+              />
+            ) : null}
+            {property.checkInTime ? (
+              <ConditionRow
+                icon="log-in-outline"
+                label={`Arrivée à partir de ${property.checkInTime}`}
+              />
+            ) : null}
+            {property.checkOutTime ? (
+              <ConditionRow
+                icon="log-out-outline"
+                label={`Départ avant ${property.checkOutTime}`}
+              />
+            ) : null}
+          </View>
+        </View>
+      ) : null}
+
       {features.length > 0 ? (
         <View style={styles.sectionBlock}>
           <Text style={styles.sectionTitle}>Équipements</Text>
@@ -176,6 +212,21 @@ export function PropertyDetailBody({
   );
 }
 
+function ConditionRow({
+  icon,
+  label,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+}): React.JSX.Element {
+  return (
+    <View style={styles.conditionRow}>
+      <Ionicons name={icon} size={17} color={colors.primary} />
+      <Text style={styles.conditionLabel}>{label}</Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   belowContent: {
     paddingHorizontal: spacing.md,
@@ -209,6 +260,25 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: colors.primary,
+  },
+  conditionsCard: {
+    gap: 12,
+    padding: spacing.md,
+    borderRadius: radii.lg,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  conditionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  conditionLabel: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.ink,
   },
   featuresGrid: {
     flexDirection: 'row',

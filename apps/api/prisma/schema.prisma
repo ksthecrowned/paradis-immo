@@ -525,6 +525,10 @@ model Property {
   /** One-time agency fee amount in listing currency (when applicable). */
   agencyFeeAmount Decimal?           @db.Decimal(12, 2)
   bedrooms       Int?
+  minNights      Int?
+  maxNights      Int?
+  checkInTime    String? // "HH:mm"
+  checkOutTime   String?
   bathrooms      Int?
   surface        Float?
   features            Json?

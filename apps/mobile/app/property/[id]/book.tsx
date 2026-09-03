@@ -12,6 +12,8 @@ import {
   createMockPaymentSession,
   quoteShortStay,
 } from '@/lib/mock-conversion';
+import { createBooking } from '@/lib/bookings';
+import { getErrorMessage } from '@/lib/feedback';
 import { useCatalogProperty } from '@/hooks/use-catalog-property';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
@@ -37,6 +39,7 @@ export default function BookScreen(): React.JSX.Element {
   const [endIso, setEndIso] = useState(() => addDays(today, 2));
   const [submitting, setSubmitting] = useState(false);
   const [ready, setReady] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const quoteId = property?.id ?? propertyId;
   const quote = useMemo(
@@ -62,6 +65,7 @@ export default function BookScreen(): React.JSX.Element {
   );
 
   const onSelectDate = (iso: string): void => {
+    setSubmitError(null);
     // First tap / reset → start; second tap after start → end
     if (!startIso || (startIso && endIso)) {
       setStartIso(iso);
@@ -76,10 +80,16 @@ export default function BookScreen(): React.JSX.Element {
     setEndIso(iso);
   };
 
-  const handleConfirm = (): void => {
+  const handleConfirm = async (): Promise<void> => {
     if (!property || !canConfirm) return;
     setSubmitting(true);
+    setSubmitError(null);
     try {
+      await createBooking({
+        propertyId: property.id,
+        startDate: new Date(`${startIso}T00:00:00.000Z`),
+        endDate: new Date(`${endIso}T00:00:00.000Z`),
+      });
       const session = createMockPaymentSession({
         kind: 'stay',
         propertyId: property.id,
@@ -89,6 +99,8 @@ export default function BookScreen(): React.JSX.Element {
       router.push(
         `/payment/${session.id}?propertyId=${encodeURIComponent(property.id)}&amount=${quote.totalAmount}&title=${encodeURIComponent(`Séjour · ${property.title}`)}`,
       );
+    } catch (err) {
+      setSubmitError(getErrorMessage(err, 'Impossible de réserver ce séjour'));
     } finally {
       setSubmitting(false);
     }
@@ -174,6 +186,11 @@ export default function BookScreen(): React.JSX.Element {
             <Text style={styles.recapTotal}>{quote.totalLabel}</Text>
           ) : null}
         </View>
+        {submitError ? (
+          <Text style={styles.error} accessibilityRole="alert">
+            {submitError}
+          </Text>
+        ) : null}
       </ScrollView>
 
       <View
@@ -189,7 +206,7 @@ export default function BookScreen(): React.JSX.Element {
             pressed && canConfirm && styles.ctaPressed,
           ]}
           disabled={!canConfirm || submitting}
-          onPress={handleConfirm}
+          onPress={() => void handleConfirm()}
           accessibilityRole="button"
           accessibilityLabel="Continuer vers le paiement"
         >
@@ -257,6 +274,12 @@ const styles = StyleSheet.create({
   recapLabel: { fontSize: 13, fontWeight: '600', color: colors.muted },
   recapLine: { fontSize: 15, fontWeight: '700', color: colors.ink },
   recapTotal: { fontSize: 18, fontWeight: '800', color: colors.primary },
+  error: {
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '600',
+    color: colors.danger,
+  },
   footer: {
     position: 'absolute',
     left: 0,

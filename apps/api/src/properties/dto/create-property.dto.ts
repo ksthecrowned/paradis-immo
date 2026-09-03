@@ -71,6 +71,24 @@ export class CreatePropertyDto {
   @IsOptional()
   surface?: number;
 
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  minNights?: number | null;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  maxNights?: number | null;
+
+  @IsOptional()
+  @IsString()
+  checkInTime?: string | null;
+
+  @IsOptional()
+  @IsString()
+  checkOutTime?: string | null;
+
   // -------- Building / lot details --------
   // floor, condition, orientation, landTitle stay as free strings —
   // values are documented but not strictly enumerated (mobile keeps
@@ -195,6 +213,28 @@ export class UpdatePropertyDto {
   @IsNumber()
   @Min(0)
   surface?: number | null;
+
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null)
+  @IsInt()
+  @Min(1)
+  minNights?: number | null;
+
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null)
+  @IsInt()
+  @Min(1)
+  maxNights?: number | null;
+
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null)
+  @IsString()
+  checkInTime?: string | null;
+
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null)
+  @IsString()
+  checkOutTime?: string | null;
 
   // -------- Building / lot details --------
   @IsOptional() @IsString() @MaxLength(50) floor?: string;

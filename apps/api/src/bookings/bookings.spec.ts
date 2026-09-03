@@ -179,6 +179,68 @@ describe('BookingsService — short-term', () => {
     expect(blocks[0].refId).toBe(result.id);
   });
 
+  it('rejects a stay shorter than minNights', async () => {
+    await prisma.property.update({
+      where: { id: shortPropertyId },
+      data: { minNights: 2 },
+    });
+
+    await expect(
+      bookings.createBooking(tenantUserId, {
+        propertyId: shortPropertyId,
+        startDate: new Date('2026-07-20T00:00:00Z'),
+        endDate: new Date('2026-07-21T00:00:00Z'),
+      }),
+    ).rejects.toMatchObject({
+      response: {
+        code: 'STAY_TOO_SHORT',
+        minNights: 2,
+      },
+    });
+  });
+
+  it('rejects a stay longer than maxNights', async () => {
+    await prisma.property.update({
+      where: { id: shortPropertyId },
+      data: { minNights: 1, maxNights: 7 },
+    });
+
+    await expect(
+      bookings.createBooking(tenantUserId, {
+        propertyId: shortPropertyId,
+        startDate: new Date('2026-07-20T00:00:00Z'),
+        endDate: new Date('2026-07-30T00:00:00Z'),
+      }),
+    ).rejects.toMatchObject({
+      response: {
+        code: 'STAY_TOO_LONG',
+        maxNights: 7,
+      },
+    });
+  });
+
+  it('books a stay within bounds regardless of check-in and check-out times', async () => {
+    await prisma.property.update({
+      where: { id: shortPropertyId },
+      data: {
+        minNights: 2,
+        maxNights: 7,
+        checkInTime: '15:00',
+        checkOutTime: '11:00',
+      },
+    });
+
+    const result = await bookings.createBooking(tenantUserId, {
+      propertyId: shortPropertyId,
+      startDate: new Date('2026-07-20T09:30:00Z'),
+      endDate: new Date('2026-07-22T08:00:00Z'),
+    });
+    createdBookingIds.push(result.id);
+
+    expect(result.status).toBe('CONFIRMED');
+    expect(Number(result.totalPrice)).toBe(50000);
+  });
+
   it('rejects an overlapping booking on RENT_SHORT', async () => {
     const start = new Date('2026-08-01T00:00:00Z');
     const end = new Date('2026-08-05T00:00:00Z');

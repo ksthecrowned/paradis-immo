@@ -22,6 +22,67 @@ import {
 } from './listing-status';
 import { filterMapViews } from './map-views.util';
 
+const HH_MM = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+function assertShortStayFields(input: {
+  mode: string;
+  minNights?: number | null;
+  maxNights?: number | null;
+  checkInTime?: string | null;
+  checkOutTime?: string | null;
+}): {
+  minNights: number | null;
+  maxNights: number | null;
+  checkInTime: string | null;
+  checkOutTime: string | null;
+} {
+  if (input.mode !== 'RENT_SHORT') {
+    return {
+      minNights: null,
+      maxNights: null,
+      checkInTime: null,
+      checkOutTime: null,
+    };
+  }
+  if (
+    input.minNights == null ||
+    !Number.isInteger(input.minNights) ||
+    input.minNights < 1
+  ) {
+    throw new BadRequestException({
+      code: 'MIN_NIGHTS_REQUIRED',
+      message: 'minNights (≥ 1) is required for RENT_SHORT',
+    });
+  }
+  if (
+    input.maxNights != null &&
+    (!Number.isInteger(input.maxNights) ||
+      input.maxNights < input.minNights)
+  ) {
+    throw new BadRequestException({
+      code: 'INVALID_MAX_NIGHTS',
+      message: 'maxNights must be ≥ minNights',
+    });
+  }
+  for (const [key, value] of [
+    ['checkInTime', input.checkInTime],
+    ['checkOutTime', input.checkOutTime],
+  ] as const) {
+    if (value != null && !HH_MM.test(value)) {
+      throw new BadRequestException({
+        code: 'INVALID_CHECK_TIME',
+        message: `${key} must be HH:mm`,
+      });
+    }
+  }
+  return {
+    minNights: input.minNights,
+    maxNights: input.maxNights ?? null,
+    checkInTime: input.checkInTime ?? null,
+    checkOutTime: input.checkOutTime ?? null,
+  };
+}
+
 export interface PublicProperty {
   id: string;
   title: string;
@@ -36,6 +97,10 @@ export interface PublicProperty {
   lat: number | null;
   lng: number | null;
   bedrooms: number | null;
+  minNights: number | null;
+  maxNights: number | null;
+  checkInTime: string | null;
+  checkOutTime: string | null;
   bathrooms: number | null;
   surface: number | null;
   visitEnabled: boolean;
@@ -121,6 +186,7 @@ export class PropertiesService {
       dto.listingStatus,
     );
     assertListingStatusForMode(dto.mode, coercedListingStatus);
+    const shortStayFields = assertShortStayFields(dto);
 
     // Auto-create / reuse the user's personal OWNER org
     const ownerOrg = await this.orgs.ensureOwnerOrg(userId, dto.countryId);
@@ -142,6 +208,7 @@ export class PropertiesService {
         ownerId: userId,
         organizationId: ownerOrg.id,
         bedrooms: dto.bedrooms ?? null,
+        ...shortStayFields,
         bathrooms: dto.bathrooms ?? null,
         surface: dto.surface ?? null,
         floor: dto.floor ?? null,
@@ -335,6 +402,15 @@ export class PropertiesService {
     }
 
     const nextMode = dto.mode ?? existing.mode;
+    const shortStayFields = assertShortStayFields({
+      mode: nextMode,
+      minNights: dto.minNights !== undefined ? dto.minNights : existing.minNights,
+      maxNights: dto.maxNights !== undefined ? dto.maxNights : existing.maxNights,
+      checkInTime:
+        dto.checkInTime !== undefined ? dto.checkInTime : existing.checkInTime,
+      checkOutTime:
+        dto.checkOutTime !== undefined ? dto.checkOutTime : existing.checkOutTime,
+    });
     let nextListingStatus: ListingStatusValue | undefined;
     if (dto.listingStatus !== undefined) {
       nextListingStatus = coerceListingStatusForWrite(
@@ -365,6 +441,7 @@ export class PropertiesService {
         ...(dto.lat !== undefined ? { lat: dto.lat } : {}),
         ...(dto.lng !== undefined ? { lng: dto.lng } : {}),
         ...(dto.bedrooms !== undefined ? { bedrooms: dto.bedrooms } : {}),
+        ...shortStayFields,
         ...(dto.bathrooms !== undefined ? { bathrooms: dto.bathrooms } : {}),
         ...(dto.surface !== undefined ? { surface: dto.surface } : {}),
         ...(dto.floor !== undefined ? { floor: dto.floor } : {}),
@@ -727,6 +804,10 @@ export class PropertiesService {
       lat: p.lat,
       lng: p.lng,
       bedrooms: p.bedrooms,
+      minNights: p.minNights ?? null,
+      maxNights: p.maxNights ?? null,
+      checkInTime: p.checkInTime ?? null,
+      checkOutTime: p.checkOutTime ?? null,
       bathrooms: p.bathrooms,
       surface: p.surface,
       visitEnabled: p.visitEnabled,
