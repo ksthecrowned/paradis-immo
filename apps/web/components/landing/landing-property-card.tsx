@@ -76,9 +76,9 @@ export function LandingPropertyCard({
     <div className="relative">
       <a
         href={href}
-        className="block rounded-[20px] border border-[var(--lp-border)] bg-[var(--lp-surface)] p-2 transition-[opacity,transform] hover:opacity-[0.98] active:scale-[0.995]"
+        className="block rounded-[20px] border border-(--lp-border) bg-(--lp-surface) p-2 transition-[opacity,transform] hover:opacity-[0.98] active:scale-[0.995]"
       >
-        <div className="relative h-[210px] overflow-hidden rounded-2xl border border-[var(--lp-border)]">
+        <div className="relative h-52.5 overflow-hidden rounded-2xl border border-(--lp-border)">
           <Image
             src={cover}
             alt=""
@@ -87,29 +87,29 @@ export function LandingPropertyCard({
             className={`object-cover ${grayscale ? 'grayscale' : ''}`}
           />
           <span
-            className={`absolute start-4 top-4 rounded-full px-4 py-1.5 text-sm font-bold text-white ${
-              grayscale ? 'bg-[#6B7280]/opacity-75' : 'bg-[var(--lp-primary)]'
+            className={`absolute inset-s-4 top-4 rounded-full px-4 py-1.5 text-sm font-bold text-white ${
+              grayscale ? 'bg-[#6B7280]/opacity-75' : 'bg-(--lp-primary)'
             }`}
           >
             {badge}
           </span>
           <span
-            className="absolute end-4 top-4 flex size-10 items-center justify-center rounded-full border border-[var(--lp-border)] bg-[var(--lp-surface)] shadow-md"
+            className="absolute inset-e-4 top-4 flex size-10 items-center justify-center rounded-full border border-(--lp-border) bg-(--lp-surface) shadow-md"
             aria-hidden
           >
             <DashIcon
               icon="solar:heart-linear"
-              className={`size-5 ${grayscale ? 'text-[#6B7280]' : 'text-[var(--lp-ink)]'}`}
+              className={`size-5 ${grayscale ? 'text-[#6B7280]' : 'text-(--lp-ink)'}`}
             />
           </span>
         </div>
 
         <div className="flex flex-col gap-2 px-2 pb-2 pt-4">
           <div className="flex items-start justify-between gap-2">
-            <p className="flex min-w-0 flex-1 items-center gap-1 text-[13px] font-medium text-[var(--lp-muted)]">
+            <p className="flex min-w-0 flex-1 items-center gap-1 text-[13px] font-medium text-(--lp-muted)">
               <DashIcon
                 icon="solar:map-point-bold"
-                className="size-3.5 shrink-0 text-[var(--lp-muted)]"
+                className="size-3.5 shrink-0 text-(--lp-muted)"
               />
               <span className="truncate">
                 {propertyLocationLabel(property)}
@@ -135,7 +135,7 @@ export function LandingPropertyCard({
               {amenities.map((item) => (
                 <span
                   key={item.label}
-                  className="inline-flex items-center gap-1 rounded-full border border-[var(--lp-border)] bg-[var(--lp-bg)] px-2.5 py-1.5 text-[11px] font-semibold text-[var(--lp-muted)]"
+                  className="inline-flex items-center gap-1 rounded-full border border-(--lp-border) bg-(--lp-bg) px-2.5 py-1.5 text-[11px] font-semibold text-(--lp-muted)"
                 >
                   <DashIcon icon={item.icon} className="size-3" />
                   {item.label}
@@ -143,10 +143,10 @@ export function LandingPropertyCard({
               ))}
             </div>
             <span
-              className={`-mt-5 flex size-[50px] shrink-0 items-center justify-center rounded-full ${
+              className={`-mt-5 flex size-12.5 shrink-0 items-center justify-center rounded-full ${
                 grayscale
                   ? 'bg-[#6B7280] opacity-50'
-                  : 'bg-[var(--lp-primary)]'
+                  : 'bg-(--lp-primary)'
               }`}
               aria-hidden
             >
@@ -157,11 +157,11 @@ export function LandingPropertyCard({
             </span>
           </div>
           {property.mode === 'RENT_SHORT' ? (
-            <div className="mt-3 border-t border-[var(--lp-border)] pt-3">
-              <p className="text-xs font-bold text-[var(--lp-ink)]">
+            <div className="mt-3 border-t border-(--lp-border) pt-3">
+              <p className="text-xs font-bold text-(--lp-ink)">
                 Conditions
               </p>
-              <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-[var(--lp-muted)]">
+              <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-(--lp-muted)">
                 <span>
                   Séjour min. {property.minNights ?? 1}{' '}
                   {property.minNights === 1 ? 'nuit' : 'nuits'}
@@ -182,10 +182,10 @@ export function LandingPropertyCard({
       </a>
 
       {property.isFeatured ? (
-        <div className="pointer-events-none absolute -start-2.5 top-[185px] z-10">
+        <div className="pointer-events-none absolute -inset-s-2.5 top-46.25 z-10">
           <div
             className={`flex items-center gap-1 rounded-lg rounded-bl-none px-4 py-1.5 ${
-              grayscale ? 'bg-[#6B7280]' : 'bg-[var(--lp-primary)]'
+              grayscale ? 'bg-[#6B7280]' : 'bg-(--lp-primary)'
             }`}
           >
             <DashIcon
@@ -195,7 +195,7 @@ export function LandingPropertyCard({
             <span className="text-sm font-bold text-white">Coup de cœur</span>
           </div>
           <div
-            className="h-0 w-0 border-l-[10px] border-t-[10px] border-l-transparent"
+            className="h-0 w-0 border-l-2.5 border-t-2.5 border-l-transparent"
             style={{
               borderTopColor: grayscale ? '#4B5563' : '#4338CA',
             }}
@@ -208,14 +208,14 @@ export function LandingPropertyCard({
 
 export function LandingPropertyCardSkeleton(): React.JSX.Element {
   return (
-    <div className="rounded-[20px] border border-[var(--lp-border)] bg-[var(--lp-surface)] p-2">
-      <div className="h-[210px] animate-pulse rounded-2xl bg-[var(--lp-border)]" />
+    <div className="rounded-[20px] border border-(--lp-border) bg-(--lp-surface) p-2">
+      <div className="h-52.5 animate-pulse rounded-2xl bg-(--lp-border)" />
       <div className="space-y-3 px-2 pb-2 pt-4">
-        <div className="h-3 w-2/5 animate-pulse rounded bg-[var(--lp-border)]" />
-        <div className="h-5 w-3/4 animate-pulse rounded bg-[var(--lp-border)]" />
+        <div className="h-3 w-2/5 animate-pulse rounded bg-(--lp-border)" />
+        <div className="h-5 w-3/4 animate-pulse rounded bg-(--lp-border)" />
         <div className="flex gap-2">
-          <div className="h-7 w-16 animate-pulse rounded-full bg-[var(--lp-border)]" />
-          <div className="h-7 w-16 animate-pulse rounded-full bg-[var(--lp-border)]" />
+          <div className="h-7 w-16 animate-pulse rounded-full bg-(--lp-border)" />
+          <div className="h-7 w-16 animate-pulse rounded-full bg-(--lp-border)" />
         </div>
       </div>
     </div>
