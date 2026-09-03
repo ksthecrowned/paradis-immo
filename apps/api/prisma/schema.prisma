@@ -311,6 +311,13 @@ enum SolvencyCheckStatus {
   EXPIRED
 }
 
+enum BuyerPaymentProofStatus {
+  PENDING
+  GRANTED
+  DENIED
+  EXPIRED
+}
+
 enum AvailabilityReason {
   BOOKING
   MAINTENANCE
@@ -374,6 +381,7 @@ model User {
   assignedMandates       Mandate[]            @relation("MandateAssignedAgent")
   tenantDocuments        TenantDocument[]
   solvencyChecks         SolvencyCheck[]      @relation("SolvencyCheckTenant")
+  buyerPaymentProofs     BuyerPaymentProof[]  @relation("BuyerPaymentProofBuyer")
 
   @@unique([phone, countryId])
 }
@@ -403,6 +411,7 @@ model Organization {
   messageCharges     MessageCharge[]
   solvencyChecks     SolvencyCheck[]
   saleAgreements     SaleAgreement[]
+  buyerPaymentProofs BuyerPaymentProof[]
   createdAt          DateTime             @default(now())
 }
 
@@ -753,6 +762,28 @@ model SolvencyCheck {
   @@index([requesterOrgId, tenantUserId])
 }
 
+model BuyerPaymentProof {
+  id              String                  @id @default(uuid())
+  saleAgreementId String
+  saleAgreement   SaleAgreement           @relation(fields: [saleAgreementId], references: [id])
+  buyerUserId     String
+  buyer           User                    @relation("BuyerPaymentProofBuyer", fields: [buyerUserId], references: [id])
+  requesterUserId String
+  requesterOrgId  String
+  organization    Organization            @relation(fields: [requesterOrgId], references: [id])
+  status          BuyerPaymentProofStatus @default(PENDING)
+  snapshot        Json?
+  respondedAt     DateTime?
+  expiresAt       DateTime?
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
+
+  // Prisma does not support partial unique indexes; the PENDING-only
+  // uniqueness constraint is maintained by a SQL migration.
+  @@index([saleAgreementId, status])
+  @@index([buyerUserId, status])
+}
+
 // =====================================================================
 // Payments / rent schedules continuation
 // =====================================================================
@@ -802,6 +833,7 @@ model SaleAgreement {
   currency       String
   status         SaleAgreementStatus @default(DRAFT)
   installments   SaleInstallment[]
+  paymentProofs  BuyerPaymentProof[]
   activatedAt    DateTime?
   completedAt    DateTime?
   createdAt      DateTime            @default(now())

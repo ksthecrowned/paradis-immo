@@ -8,6 +8,7 @@ import { FcmService } from './fcm.service';
 import { PaymentValidatedProcessor } from './processors/payment-validated.processor';
 import { RentReminderProcessor } from './processors/rent-reminder.processor';
 import { SolvencyCheckProcessor } from './processors/solvency-check.processor';
+import { BuyerPaymentProofProcessor } from './processors/buyer-payment-proof.processor';
 
 @Module({
   imports: [PrismaModule, PaymentsModule, MessagingModule],
@@ -18,6 +19,7 @@ import { SolvencyCheckProcessor } from './processors/solvency-check.processor';
     PaymentValidatedProcessor,
     RentReminderProcessor,
     SolvencyCheckProcessor,
+    BuyerPaymentProofProcessor,
   ],
   exports: [NotificationsService],
 })

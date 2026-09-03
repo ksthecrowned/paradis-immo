@@ -5,8 +5,8 @@
 **Priorité** : P0 · P1 · P2  
 **Accessibilité** : 🟢 facile · 🟡 moyen · 🔴 lourd
 
-**Focus actif** : V3 paliers livré (local) — S4 preuve acheteur plus tard.  
-**Plus tard** : S4 preuve acheteur · P2 marketplace · suivis médias.  
+**Focus actif** : S4 preuve acheteur (livré local).  
+**Plus tard** : P2 marketplace · suivis médias.  
 **Zappé** : Vue Reels · « historique portable » riche.  
 **Principe** : on ne livre **pas** tout d’un coup — phases ci-dessous.
 
@@ -105,7 +105,10 @@ Ordre V1 : **L0** → L1 → L2 → L3 → L4 → L5.
 | S1 | Owner configure les paliers sur un dossier vente (bien + acheteur) | 🔴 | ✅ |
 | S2 | Paiement par palier (MoMo / autre) + **validation manuelle** owner | 🔴 | ✅ |
 | S3 | Acheteur (mobile) : suivi de ses paliers (miroir du cahier de loyer) | 🔴 | ✅ |
-| S4 | (Plus tard) preuve de paiements acheteur | 🔴 | ⬜ |
+| S4.0 | Spec design BuyerPaymentProof | 🟡 | ✅ |
+| S4.1 | API create/respond/latest + notif | 🔴 | ✅ |
+| S4.2 | Mobile acheteur accept/refuse | 🔴 | ✅ |
+| S4.3 | Web bloc dossier vente | 🔴 | ✅ |
 
 ---
 
@@ -136,4 +139,4 @@ Test boundary 20 Mo + `video/quicktime` · migration mapViews legacy · `Propert
 
 ## État
 
-Vision **paiements & dossiers** : V1 ✅ → V1.1 docs ✅ → V2 solvabilité ✅ → **V3 paliers ✅ (local)** · S4 plus tard. Reels retiré.
+Vision **paiements & dossiers** : V1 ✅ → V1.1 docs ✅ → V2 solvabilité ✅ → **V3 paliers ✅ · S4 preuve acheteur ✅ (local)**. Reels retiré.

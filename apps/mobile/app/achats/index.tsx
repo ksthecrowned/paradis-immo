@@ -9,6 +9,10 @@ import {
   saleAgreementStatusLabel,
   type PublicSaleAgreement,
 } from '@/lib/sale-agreements';
+import {
+  listMyBuyerPaymentProofs,
+  type PublicBuyerPaymentProof,
+} from '@/lib/buyer-payment-proofs';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
@@ -34,17 +38,27 @@ export default function AchatsHubScreen(): React.JSX.Element {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [rows, setRows] = useState<PublicSaleAgreement[]>([]);
+  const [pendingProofs, setPendingProofs] = useState(0);
 
   const load = useCallback(async (opts?: { soft?: boolean }) => {
     if (!opts?.soft) setLoading(true);
     setError(null);
     try {
-      const all = await listMySaleAgreements();
+      const [all, proofs] = await Promise.all([
+        listMySaleAgreements(),
+        listMyBuyerPaymentProofs(),
+      ]);
       const visible = all.filter((a) => a.status !== 'DRAFT');
       setRows(visible);
+      setPendingProofs(
+        proofs.filter(
+          (proof: PublicBuyerPaymentProof) => proof.status === 'PENDING',
+        ).length,
+      );
     } catch (err) {
       setError(getErrorMessage(err, 'Impossible de charger vos achats'));
       setRows([]);
+      setPendingProofs(0);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -80,7 +94,17 @@ export default function AchatsHubScreen(): React.JSX.Element {
           <Ionicons name="chevron-back" size={24} color={colors.ink} />
         </CircleIconButton>
         <Text style={styles.title}>Mes achats</Text>
-        <View style={styles.spacer} />
+        <Pressable
+          style={styles.proofLink}
+          onPress={() => router.push('/achats/preuves')}
+          accessibilityRole="button"
+          accessibilityLabel="Preuves de paiements"
+        >
+          <Text style={styles.proofLinkText}>Preuves de paiements</Text>
+          {pendingProofs > 0 ? (
+            <StatusBadge label={String(pendingProofs)} tone="warning" />
+          ) : null}
+        </Pressable>
       </View>
 
       {loading && rows.length === 0 ? (
@@ -184,7 +208,12 @@ const styles = StyleSheet.create({
     color: colors.ink,
     letterSpacing: -0.3,
   },
-  spacer: { width: 40 },
+  proofLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  proofLinkText: { color: colors.primary, fontSize: 13, fontWeight: '700' },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   list: { paddingHorizontal: spacing.md, paddingTop: spacing.sm },
   listEmpty: { flexGrow: 1, justifyContent: 'center' },

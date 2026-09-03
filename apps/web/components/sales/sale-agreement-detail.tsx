@@ -9,6 +9,12 @@ import { Button } from '@/components/primitives';
 import { useRequireSession } from '@/hooks/use-require-session';
 import { ApiError } from '@/lib/api';
 import {
+  getLatestBuyerPaymentProof,
+  proofKindLabel,
+  requestBuyerPaymentProof,
+  type PublicBuyerPaymentProof,
+} from '@/lib/owner/buyer-payment-proofs';
+import {
   activateSaleAgreement,
   cancelSaleAgreement,
   completeSaleAgreement,
@@ -35,6 +41,14 @@ function formatMoney(amount: string, currency: string): string {
   }).format(Number(amount));
 }
 
+function errorCode(err: unknown): string | null {
+  if (!(err instanceof ApiError) || !err.body || typeof err.body !== 'object') {
+    return null;
+  }
+  const code = (err.body as { code?: unknown }).code;
+  return typeof code === 'string' ? code : null;
+}
+
 export function SaleAgreementDetailPage({
   agreementId,
   listHref,
@@ -49,11 +63,21 @@ export function SaleAgreementDetailPage({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [paymentProof, setPaymentProof] =
+    useState<PublicBuyerPaymentProof | null>(null);
+  const [paymentProofBusy, setPaymentProofBusy] = useState(false);
+  const [paymentProofHint, setPaymentProofHint] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      setRow(await getSaleAgreement(agreementId));
+      const agreement = await getSaleAgreement(agreementId);
+      setRow(agreement);
+      try {
+        setPaymentProof(await getLatestBuyerPaymentProof(agreementId));
+      } catch {
+        setPaymentProof(null);
+      }
       setError(null);
     } catch (err) {
       setRow(null);
@@ -64,6 +88,28 @@ export function SaleAgreementDetailPage({
       );
     } finally {
       setLoading(false);
+    }
+  }, [agreementId]);
+
+  const handleRequestPaymentProof = useCallback(async () => {
+    setPaymentProofBusy(true);
+    setPaymentProofHint(null);
+    try {
+      setPaymentProof(await requestBuyerPaymentProof(agreementId));
+    } catch (err) {
+      if (errorCode(err) === 'NO_PAID_PAYMENTS') {
+        setPaymentProofHint(
+          'Aucun paiement effectué sur la plateforme pour cet acheteur.',
+        );
+      } else {
+        setError(
+          err instanceof ApiError
+            ? err.message
+            : 'Impossible de demander la preuve de paiements.',
+        );
+      }
+    } finally {
+      setPaymentProofBusy(false);
     }
   }, [agreementId]);
 
@@ -204,6 +250,92 @@ export function SaleAgreementDetailPage({
           .
         </p>
       </div>
+
+      {row.status !== 'CANCELLED' ? (
+        <div className="space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-base font-semibold">
+              Preuve sur dossier vente
+            </h2>
+            {!paymentProof ||
+            paymentProof.status === 'DENIED' ||
+            paymentProof.status === 'EXPIRED' ||
+            (paymentProof.status === 'GRANTED' &&
+              (!paymentProof.expiresAt ||
+                new Date(paymentProof.expiresAt).getTime() <= Date.now())) ? (
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={paymentProofBusy}
+                onClick={() => void handleRequestPaymentProof()}
+              >
+                Demander la preuve de paiements
+              </Button>
+            ) : null}
+          </div>
+          {paymentProofHint ? (
+            <p className="text-sm text-muted">{paymentProofHint}</p>
+          ) : null}
+          {!paymentProof ? (
+            <p className="text-sm text-muted">
+              Demandez l’accès aux paiements de l’acheteur pour ce dossier.
+            </p>
+          ) : null}
+          {paymentProof?.status === 'PENDING' ? (
+            <p className="text-sm text-muted">
+              En attente de la réponse de l’acheteur
+            </p>
+          ) : null}
+          {paymentProof?.status === 'DENIED' ? (
+            <p className="text-sm text-muted">
+              L’acheteur a refusé la dernière demande.
+            </p>
+          ) : null}
+          {paymentProof?.status === 'EXPIRED' ? (
+            <p className="text-sm text-muted">
+              L’accès précédent a expiré. Vous pouvez redemander.
+            </p>
+          ) : null}
+          {paymentProof?.status === 'GRANTED' &&
+          paymentProof.snapshot &&
+          paymentProof.expiresAt &&
+          new Date(paymentProof.expiresAt).getTime() > Date.now() ? (
+            <div className="space-y-2">
+              <p className="text-sm text-muted">
+                Expire le {formatDate(paymentProof.expiresAt)}
+              </p>
+              <div className="overflow-x-auto rounded-lg border border-border bg-card">
+                <table className="w-full text-left text-sm">
+                  <thead className="border-b border-border text-xs text-muted">
+                    <tr>
+                      <th className="px-4 py-3 font-medium">Type</th>
+                      <th className="px-4 py-3 font-medium">Échéance</th>
+                      <th className="px-4 py-3 font-medium">Montant</th>
+                      <th className="px-4 py-3 font-medium">Retard (jours)</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {paymentProof.snapshot.map((item) => (
+                      <tr key={`${item.kind}-${item.dueDate}-${item.paidAt}`}>
+                        <td className="px-4 py-3 font-medium">
+                          {proofKindLabel(item.kind)}
+                        </td>
+                        <td className="px-4 py-3">
+                          {formatDate(item.dueDate)}
+                        </td>
+                        <td className="px-4 py-3">
+                          {formatMoney(item.amount, item.currency)}
+                        </td>
+                        <td className="px-4 py-3">{item.daysLate}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
     </section>
   );
 }
