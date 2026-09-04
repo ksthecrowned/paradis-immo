@@ -17,7 +17,7 @@ export type FcmSendResult = {
 
 /**
  * Firebase Cloud Messaging sender (firebase-admin).
- * Requires `FCM_CREDENTIALS` = path to service-account JSON or raw JSON.
+ * Requires `FCM_CREDENTIALS` = raw service-account JSON (or path to JSON file).
  * No silent success when unconfigured.
  */
 @Injectable()

@@ -14,7 +14,7 @@ Push uses **native FCM/APNs tokens** via `expo-notifications` (`getDevicePushTok
 
 ## API
 
-Set `FCM_CREDENTIALS` on the Nest API to a Firebase **service account** JSON path (or raw JSON). Server sends with `firebase-admin`; missing credentials → push marked failed (`NOT_CONFIGURED`), never a fake success.
+Set `FCM_CREDENTIALS` on the Nest API to the Firebase **service account** JSON as a single-line string (preferred; file path also works). Server sends with `firebase-admin`; missing credentials → push marked failed (`NOT_CONFIGURED`), never a fake success.
 
 ## Platform notes
 
