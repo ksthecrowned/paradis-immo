@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "510995022976",
+    "project_id": "paradis-immo",
+    "storage_bucket": "paradis-immo.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:510995022976:android:40aa5933895c482c191265",
+        "android_client_info": {
+          "package_name": "com.paradis.immo"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "510995022976-ilfd732rqrpgdas9di169tbt700m7og7.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCaHALJtzGEeRO-jS4d6GCdnnQkGgcJCCY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "510995022976-ilfd732rqrpgdas9di169tbt700m7og7.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
