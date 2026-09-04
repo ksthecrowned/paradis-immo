@@ -1,4 +1,4 @@
-import { ValidationPipe } from '@nestjs/common';
+import { RequestMethod, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
@@ -14,7 +14,9 @@ async function bootstrap() {
 
   const app = await NestFactory.create(AppModule);
 
-  app.setGlobalPrefix('api/v1');
+  app.setGlobalPrefix('api/v1', {
+    exclude: [{ path: 'health', method: RequestMethod.GET }],
+  });
   app.use(helmet());
   const allowedOrigins =
     process.env.NODE_ENV === 'production' && process.env.ALLOWED_ORIGINS
@@ -57,9 +59,11 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api/docs', app, document);
 
-  const port = process.env.PORT ?? 3001;
-  await app.listen(port);
-  console.log(`Paradis Immo API running on http://localhost:${port}/api/v1`);
-  console.log(`Swagger docs at http://localhost:${port}/api/docs`);
+  const port = Number(process.env.PORT) || 3001;
+  const host =
+    process.env.NODE_ENV === 'production' ? '0.0.0.0' : 'localhost';
+  await app.listen(port, host);
+  console.log(`Paradis Immo API running on http://${host}:${port}/api/v1`);
+  console.log(`Swagger docs at http://${host}:${port}/api/docs`);
 }
 bootstrap();
