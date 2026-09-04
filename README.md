@@ -104,7 +104,7 @@ pnpm --filter web dev
 | Login         | http://localhost:3000/login         |
 | API           | http://localhost:3001/api/v1        |
 | Health        | http://localhost:3001/api/v1/health |
-| Swagger       | http://localhost:3001/api/docs      |
+| Swagger       | http://localhost:3001/api/v1/docs   |
 
 La page d’accueil (`/`) est la **landing Estatery** (kit Figma), brandée Paradis Immo. Login / Sign up mènent à `/login`.
 
