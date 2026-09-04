@@ -137,6 +137,68 @@ describe('Properties (e2e)', () => {
     createdPropertyId = body.id;
   });
 
+  it('POST /properties ignores isFeatured from the owner (always false)', async () => {
+    const res = await request(app.getHttpServer())
+      .post('/api/v1/properties')
+      .set('x-test-user', ownerUserId)
+      .send({
+        title: 'Featured attempt Brazzaville',
+        description: 'Owner must not self-feature a listing',
+        type: 'APARTMENT',
+        mode: 'RENT_LONG',
+        price: 150000,
+        currency: 'XAF',
+        priceUnit: 'MONTH',
+        quartierId: bzvQuartierId,
+        address: 'Rue Featured 1',
+        countryId,
+        isFeatured: true,
+      })
+      .expect(201);
+    expect(res.body.isFeatured).toBe(false);
+    const stored = await prisma.property.findUnique({
+      where: { id: res.body.id },
+    });
+    expect(stored?.isFeatured).toBe(false);
+    await prisma.property.delete({ where: { id: res.body.id } });
+  });
+
+  it('PATCH /properties ignores isFeatured from the owner', async () => {
+    const created = await request(app.getHttpServer())
+      .post('/api/v1/properties')
+      .set('x-test-user', ownerUserId)
+      .send({
+        title: 'Featured patch attempt',
+        description: 'Owner must not self-feature via update',
+        type: 'APARTMENT',
+        mode: 'RENT_LONG',
+        price: 150000,
+        currency: 'XAF',
+        priceUnit: 'MONTH',
+        quartierId: bzvQuartierId,
+        address: 'Rue Featured 2',
+        countryId,
+      })
+      .expect(201);
+    await prisma.property.update({
+      where: { id: created.body.id },
+      data: { isFeatured: false },
+    });
+    await request(app.getHttpServer())
+      .patch(`/api/v1/properties/${created.body.id}`)
+      .set('x-test-user', ownerUserId)
+      .send({ isFeatured: true, title: 'Featured patch attempt updated' })
+      .expect(200);
+    const stored = await prisma.property.findUnique({
+      where: { id: created.body.id },
+    });
+    expect(stored?.isFeatured).toBe(false);
+    await prisma.property.delete({ where: { id: created.body.id } });
+  });
+
+  // ------------------------------------------------------------------
+  // Short-stay validation
+  // ------------------------------------------------------------------
   const shortStayPayload = (overrides: Record<string, unknown> = {}) => ({
     title: 'Maison court séjour',
     description: 'Une maison adaptée aux séjours de courte durée',

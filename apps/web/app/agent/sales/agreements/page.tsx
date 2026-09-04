@@ -6,6 +6,7 @@ export default function AgentSaleAgreementsPage(): React.JSX.Element {
     <SaleAgreementsListPage
       addHref={ROUTES.agent.salesAgreementsAdd}
       detailHref={ROUTES.agent.saleAgreement}
+      inquiriesHref={ROUTES.agent.sales}
     />
   );
 }

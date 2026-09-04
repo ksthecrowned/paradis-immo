@@ -1,5 +1,5 @@
-import { OwnerPropertyForm } from '../owner-property-form';
+import { PropertyForm } from '@/components/properties/property-form';
 
 export default function OwnerNouveauBienPage(): React.JSX.Element {
-  return <OwnerPropertyForm submitLabel="Enregistrer" />;
+  return <PropertyForm submitLabel="Enregistrer" />;
 }

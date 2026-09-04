@@ -27,9 +27,12 @@ function formatMoney(amount: string, currency: string): string {
 export function SaleAgreementsListPage({
   addHref,
   detailHref,
+  inquiriesHref,
 }: {
   addHref: string;
   detailHref: (id: string) => string;
+  /** Optional link back to sale inquiries (agent). */
+  inquiriesHref?: string;
 }): React.JSX.Element {
   const { ready } = useRequireSession();
   const [rows, setRows] = useState<PublicSaleAgreement[]>([]);
@@ -62,9 +65,19 @@ export function SaleAgreementsListPage({
       <DashboardPageHeader
         title="Dossiers vente"
         actions={
-          <Link href={addHref}>
-            <Button type="button">Nouveau dossier</Button>
-          </Link>
+          <div className="flex flex-wrap items-center gap-3">
+            {inquiriesHref ? (
+              <Link
+                href={inquiriesHref}
+                className="text-sm font-medium text-accent hover:underline"
+              >
+                Demandes
+              </Link>
+            ) : null}
+            <Link href={addHref}>
+              <Button type="button">Nouveau dossier</Button>
+            </Link>
+          </div>
         }
       />
       {error ? (

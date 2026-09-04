@@ -47,7 +47,7 @@ export function useRequireAuth(): {
           if (!cancelled) setStatus('authenticated');
           return;
         }
-        await clearSession();
+        await clearSession('expired');
         if (!cancelled) setStatus('unauthenticated');
       }
     })();

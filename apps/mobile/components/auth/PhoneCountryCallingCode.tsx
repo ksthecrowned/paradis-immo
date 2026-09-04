@@ -140,7 +140,7 @@ export function PhoneCountryCallingCode({
           visible={visible}
           filterProps={{
             placeholder: 'Rechercher un pays',
-            placeholderTextColor: colors.muted,
+            placeholderTextColor: "#4B5563",
             autoFocus: true,
             selectionColor: colors.primary,
             autoCorrect: false,
@@ -194,7 +194,7 @@ const styles = StyleSheet.create({
     fontVariant: ['tabular-nums'],
   },
   dialDisabled: {
-    color: colors.muted,
+    color: "#4B5563",
   },
   chevron: {
     marginLeft: -2,

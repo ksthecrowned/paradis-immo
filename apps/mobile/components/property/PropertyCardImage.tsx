@@ -17,7 +17,7 @@ type Props = {
   compact: boolean;
   favorited: boolean;
   onToggleFavorite: () => void;
-  imageSource: ImageSourcePropType;
+  imageSource: ImageSourcePropType | null;
 };
 
 export function PropertyCardImage({
@@ -31,14 +31,25 @@ export function PropertyCardImage({
 
   return (
     <View style={[styles.imageWrap, compact && styles.imageWrapCompact]}>
-      <Image
-        source={imageSource}
-        style={[
-          compact ? styles.imageCompact : styles.image,
-          grayscale ? ({ filter: 'grayscale(100%)' } as ImageStyle) : undefined,
-        ]}
-        resizeMode="cover"
-      />
+      {imageSource ? (
+        <Image
+          source={imageSource}
+          style={[
+            compact ? styles.imageCompact : styles.image,
+            grayscale
+              ? ({ filter: 'grayscale(100%)' } as ImageStyle)
+              : undefined,
+          ]}
+          resizeMode="cover"
+        />
+      ) : (
+        <View
+          style={[
+            compact ? styles.imageCompact : styles.image,
+            styles.imageEmpty,
+          ]}
+        />
+      )}
 
       {!compact ? (
         <PropertyCardBadges.Overlay property={property} />
@@ -88,6 +99,9 @@ const styles = StyleSheet.create({
   imageCompact: {
     width: 120,
     height: 120,
+  },
+  imageEmpty: {
+    backgroundColor: colors.primaryMuted,
   },
   favoriteBtn: {
     position: 'absolute',

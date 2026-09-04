@@ -32,3 +32,9 @@ export async function validatePayment(
     body: { allocations },
   });
 }
+
+export {
+  recordCashPayment,
+  type RecordCashPaymentInput,
+} from '@/lib/owner/payments';
+

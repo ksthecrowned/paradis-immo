@@ -8,7 +8,7 @@ import {
 } from '@/context/LocationContext';
 import { fetchCatalogProperties } from '@/lib/catalog';
 import { getCityByName, propertyMatchesCity } from '@/lib/cities';
-import { POINTE_NOIRE_REGION } from '@/lib/mock-properties';
+import { POINTE_NOIRE_REGION } from '@/lib/map-regions';
 import {
   passesAvailableOnlyFilter,
   type Property,

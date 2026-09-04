@@ -179,27 +179,10 @@ export function SidebarUserMenu({
         ) : null}
       </button>
 
-      {menuOpen && collapsed ? (
-        // Popover flottant à droite (mode collapsed)
+      {menuOpen ? (
         <div
           role="menu"
-          className="absolute bottom-0 start-full ms-2 z-50 min-w-[240px] rounded-xl border border-border bg-sidebar p-2 shadow-xl"
-        >
-          <UserMenuItems
-            name={name}
-            email={email}
-            onClose={() => setMenuOpen(false)}
-            onAction={onNavigate}
-            onLogout={handleLogout}
-          />
-        </div>
-      ) : null}
-
-      {menuOpen && !collapsed ? (
-        // Dropdown inline en dessous (mode expanded)
-        <div
-          role="menu"
-          className="absolute bottom-full start-0 end-0 mb-2 z-50 rounded-xl border border-border bg-sidebar p-2 shadow-xl"
+          className="absolute bottom-0 inset-s-full ms-2 mb-2 z-50 min-w-60 rounded-xl border border-border bg-sidebar p-2 shadow-xl"
         >
           <UserMenuItems
             name={name}
@@ -261,7 +244,7 @@ function UserMenuItems({
           type="button"
           role="menuitem"
           onClick={onLogout}
-          className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-base font-medium text-muted transition-colors hover:bg-card-hover hover:text-active"
+          className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-base font-medium text-danger transition-colors hover:bg-card-hover hover:text-danger"
         >
           <DashIcon
             icon={DASH_ICONS.logout}

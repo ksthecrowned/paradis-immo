@@ -2,19 +2,25 @@ import { CircleIconButton } from '@/components/ui/CircleIconButton';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { colors, radii, spacing } from '@/constants/theme';
 import { ensureAuthenticated } from '@/lib/auth-guard';
+import { fetchCatalogProperty } from '@/lib/catalog';
+import { getErrorMessage } from '@/lib/feedback';
 import {
+  getLeaseSchedule,
   leaseStatusLabel,
   leaseStatusTone,
-  listMockLeases,
-  nextDueForLease,
-  rentLineStatusLabel,
-  type MockLease,
-} from '@/lib/mock-leases';
-import { getPropertyById } from '@/lib/mock-properties';
+  listMyLeases,
+  mapScheduleEntry,
+  nextPendingDue,
+  rentScheduleStatusLabel,
+  type PublicLease,
+  type RentLineView,
+} from '@/lib/leases';
+import type { Property } from '@/types/property';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useState } from 'react';
 import {
+  ActivityIndicator,
   FlatList,
   Pressable,
   RefreshControl,
@@ -24,39 +30,78 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-function formatFcfa(amount: number): string {
-  return `${amount.toLocaleString('fr-FR').replace(/\u202f/g, ' ')} FCFA`;
+function formatFcfa(amount: number | string): string {
+  const n = typeof amount === 'string' ? Number(amount) : amount;
+  const safe = Number.isFinite(n) ? n : 0;
+  return `${safe.toLocaleString('fr-FR').replace(/\u202f/g, ' ')} FCFA`;
 }
+
+type LeaseListRow = {
+  lease: PublicLease;
+  property: Property | null;
+  next: RentLineView | undefined;
+};
 
 export default function LeasesListScreen(): React.JSX.Element {
   const insets = useSafeAreaInsets();
   const [ready, setReady] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [tick, setTick] = useState(0);
+  const [rows, setRows] = useState<LeaseListRow[]>([]);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setError(null);
+    try {
+      const leases = await listMyLeases();
+      const next: LeaseListRow[] = await Promise.all(
+        leases.map(async (lease) => {
+          const [property, schedule] = await Promise.all([
+            fetchCatalogProperty(lease.propertyId).catch(() => null),
+            getLeaseSchedule(lease.id)
+              .then((raw) => nextPendingDue(raw.map(mapScheduleEntry)))
+              .catch(() => undefined),
+          ]);
+          return { lease, property, next: schedule };
+        }),
+      );
+      setRows(next);
+    } catch (err) {
+      setError(getErrorMessage(err, 'Impossible de charger vos baux'));
+      setRows([]);
+    }
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
       let active = true;
       void (async () => {
         const ok = await ensureAuthenticated(router, '/leases');
-        if (active) setReady(ok);
+        if (!active) return;
+        setReady(ok);
+        if (!ok) return;
+        setLoading(true);
+        await load();
+        if (active) setLoading(false);
       })();
       return () => {
         active = false;
       };
-    }, []),
+    }, [load]),
   );
 
-  const data = useMemo(() => listMockLeases(), [tick]);
-
-  const onRefresh = useCallback(() => {
+  const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    setTick((n) => n + 1);
-    setTimeout(() => setRefreshing(false), 400);
-  }, []);
+    await load();
+    setRefreshing(false);
+  }, [load]);
 
-  if (!ready) {
-    return <View style={styles.screen} />;
+  if (!ready || loading) {
+    return (
+      <View style={[styles.screen, styles.centered]}>
+        <ActivityIndicator color={colors.primary} />
+      </View>
+    );
   }
 
   return (
@@ -72,20 +117,29 @@ export default function LeasesListScreen(): React.JSX.Element {
         <View style={styles.spacer} />
       </View>
 
+      {error ? (
+        <View style={styles.errorBanner}>
+          <Text style={styles.errorText}>{error}</Text>
+          <Pressable onPress={() => void onRefresh()} accessibilityRole="button">
+            <Text style={styles.errorRetry}>Réessayer</Text>
+          </Pressable>
+        </View>
+      ) : null}
+
       <FlatList
-        data={data}
-        keyExtractor={(item) => item.id}
+        data={rows}
+        keyExtractor={(item) => item.lease.id}
         contentContainerStyle={[
           styles.list,
           { paddingBottom: insets.bottom + spacing.lg },
-          data.length === 0 && styles.listEmpty,
+          rows.length === 0 && styles.listEmpty,
         ]}
         showsVerticalScrollIndicator={false}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
-            onRefresh={onRefresh}
+            onRefresh={() => void onRefresh()}
             tintColor={colors.primary}
             colors={[colors.primary]}
           />
@@ -108,42 +162,45 @@ export default function LeasesListScreen(): React.JSX.Element {
             </Pressable>
           </View>
         }
-        renderItem={({ item }) => <LeaseCard lease={item} />}
+        renderItem={({ item }) => <LeaseCard row={item} />}
       />
     </View>
   );
 }
 
-function LeaseCard({ lease }: { lease: MockLease }): React.JSX.Element {
-  const property = getPropertyById(lease.propertyId);
-  const next = nextDueForLease(lease.id);
+function LeaseCard({ row }: { row: LeaseListRow }): React.JSX.Element {
+  const { lease, property, next } = row;
+  const title = property?.title ?? 'Bien';
+  const location = property?.location ?? property?.cityName ?? 'Pointe-Noire';
 
   return (
     <Pressable
       style={styles.card}
       onPress={() => router.push(`/leases/${lease.id}`)}
       accessibilityRole="button"
-      accessibilityLabel={property?.title ?? 'Bail'}
+      accessibilityLabel={title}
     >
       <View style={styles.cardTop}>
         <StatusBadge
           label={leaseStatusLabel(lease.status)}
           tone={leaseStatusTone(lease.status)}
         />
-        <Text style={styles.rent}>{formatFcfa(lease.monthlyRent)} / mois</Text>
+        <Text style={styles.rent}>
+          {formatFcfa(lease.monthlyRent)} / mois
+        </Text>
       </View>
       <Text style={styles.cardTitle} numberOfLines={1}>
-        {property?.title ?? 'Bien'}
+        {title}
       </Text>
       <View style={styles.locationRow}>
         <Ionicons name="location" size={13} color={colors.muted} />
         <Text style={styles.location} numberOfLines={1}>
-          {property?.location ?? 'Pointe-Noire'}
+          {location}
         </Text>
       </View>
       <Text style={styles.nextDue}>
         {next
-          ? `Prochaine échéance · ${next.label} · ${rentLineStatusLabel(next.status)}`
+          ? `Prochaine échéance · ${next.label} · ${rentScheduleStatusLabel(next.status)}`
           : 'Aucune échéance'}
       </Text>
     </Pressable>
@@ -154,6 +211,10 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: colors.bg,
+  },
+  centered: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   header: {
     flexDirection: 'row',
@@ -170,6 +231,26 @@ const styles = StyleSheet.create({
   },
   spacer: {
     width: 44,
+  },
+  errorBanner: {
+    marginHorizontal: spacing.md,
+    marginBottom: spacing.sm,
+    padding: 12,
+    borderRadius: radii.lg,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    gap: 6,
+  },
+  errorText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.ink,
+  },
+  errorRetry: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.primary,
   },
   list: {
     paddingHorizontal: spacing.md,

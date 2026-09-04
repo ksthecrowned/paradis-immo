@@ -3,9 +3,8 @@ import { JwtService } from '@nestjs/jwt';
 import { Test } from '@nestjs/testing';
 import {
   GlobalRole,
-  MessageChannel,
-  MessageChargeStatus,
-  MessagePayerType,
+  OrgMemberRole,
+  OrganizationType,
 } from '@prisma/client';
 import { AuthService } from './auth.service';
 import { EmailService } from './email.service';
@@ -13,8 +12,8 @@ import { InfobipOtpService } from './infobip-otp.service';
 import { MagicLinkStore } from './magic-link.store';
 import { OtpStore } from './otp.store';
 import { PrismaService } from '../prisma/prisma.service';
-import { MessagingBillingService } from '../messaging/messaging-billing.service';
-import { phonePayerId } from '../messaging/messaging.config';
+import { PARADIS_IMMO_ORG_ID } from '../common/constants/seed-ids';
+import { hashPassword } from './password.util';
 
 describe('AuthService', () => {
   let service: AuthService;
@@ -23,25 +22,16 @@ describe('AuthService', () => {
   const phone = '+242061234567';
 
   async function cleanupPhone() {
-    await prisma.messageCharge.deleteMany({ where: { recipientPhone: phone } });
     const users = await prisma.user.findMany({ where: { phone } });
     for (const u of users) {
       await prisma.refreshToken.deleteMany({ where: { userId: u.id } });
       await prisma.userRole.deleteMany({ where: { userId: u.id } });
-      await prisma.messageCharge.updateMany({
-        where: { userId: u.id },
-        data: { userId: null, settledPaymentId: null },
-      });
       await prisma.user.delete({ where: { id: u.id } });
     }
     await prisma.otpChallenge.deleteMany({ where: { phone } });
   }
 
   beforeAll(async () => {
-    process.env.USD_TO_XAF = process.env.USD_TO_XAF || '600';
-    process.env.OTP_FREE_PER_MONTH = process.env.OTP_FREE_PER_MONTH || '10';
-    process.env.OTP_UNIT_USD = process.env.OTP_UNIT_USD || '0.006';
-
     const moduleRef = await Test.createTestingModule({
       providers: [
         AuthService,
@@ -50,7 +40,6 @@ describe('AuthService', () => {
         EmailService,
         PrismaService,
         InfobipOtpService,
-        MessagingBillingService,
         {
           provide: JwtService,
           useValue: {
@@ -92,21 +81,6 @@ describe('AuthService', () => {
     await service.requestOtp({ phone, purpose: 'REGISTER' });
     const code = await otpStore.peek(phone);
     expect(code).toMatch(/^\d{6}$/);
-  });
-
-  it('requestOtp records a MessageCharge after successful send', async () => {
-    await cleanupPhone();
-    await service.requestOtp({ phone, purpose: 'REGISTER' });
-    const charge = await prisma.messageCharge.findFirst({
-      where: {
-        recipientPhone: phone,
-        channel: MessageChannel.WHATSAPP_OTP,
-      },
-      orderBy: { createdAt: 'desc' },
-    });
-    expect(charge).not.toBeNull();
-    expect(charge!.payerId).toBe(phonePayerId(phone));
-    expect(charge!.status).toBe(MessageChargeStatus.FREE);
   });
 
   it('verifyOtp returns tokens for valid code', async () => {
@@ -173,39 +147,6 @@ describe('AuthService', () => {
     expect(result.user.phone).toBe(phone);
   });
 
-  it('verifyOtp attaches phone:{e164} charges to user', async () => {
-    await cleanupPhone();
-
-    await prisma.messageCharge.create({
-      data: {
-        channel: MessageChannel.WHATSAPP_OTP,
-        payerType: MessagePayerType.USER,
-        payerId: phonePayerId(phone),
-        recipientPhone: phone,
-        billingMonth: '2099-01',
-        unitUsd: 0.006,
-        fxRate: 600,
-        amountXaf: 4,
-        status: MessageChargeStatus.OPEN,
-        idempotencyKey: `otp-attach-test:${phone}`,
-      },
-    });
-
-    await otpStore.put(phone, '654321', 'REGISTER');
-    const result = await service.verifyOtp({
-      phone,
-      code: '654321',
-      purpose: 'REGISTER',
-    });
-
-    const charge = await prisma.messageCharge.findFirst({
-      where: { idempotencyKey: `otp-attach-test:${phone}` },
-    });
-    expect(charge).not.toBeNull();
-    expect(charge!.payerId).toBe(result.user.id);
-    expect(charge!.userId).toBe(result.user.id);
-  });
-
   it('verifyOtp rejects an incorrect code', async () => {
     const badPhone = '+242061234568';
     await prisma.otpChallenge.deleteMany({ where: { phone: badPhone } });
@@ -238,5 +179,237 @@ describe('AuthService', () => {
       err = e;
     }
     expect(err).toBeInstanceOf(UnauthorizedException);
+  });
+
+  describe('setWebRole', () => {
+    const webEmail = 'web-role-onboarding@example.com';
+
+    async function cleanupWebUser(): Promise<string | null> {
+      const existing = await prisma.user.findUnique({ where: { email: webEmail } });
+      if (!existing) return null;
+      await prisma.refreshToken.deleteMany({ where: { userId: existing.id } });
+      await prisma.organizationMember.deleteMany({ where: { userId: existing.id } });
+      await prisma.organization.deleteMany({
+        where: {
+          type: OrganizationType.OWNER,
+          members: { none: {} },
+          name: { contains: 'web-role' },
+        },
+      });
+      // Owner orgs created for this user (by membership)
+      const owned = await prisma.organization.findMany({
+        where: { members: { some: { userId: existing.id } } },
+        select: { id: true },
+      });
+      await prisma.organizationMember.deleteMany({ where: { userId: existing.id } });
+      if (owned.length) {
+        await prisma.organization.deleteMany({
+          where: { id: { in: owned.map((o) => o.id) } },
+        });
+      }
+      await prisma.user.delete({ where: { id: existing.id } });
+      return existing.id;
+    }
+
+    async function createWebUser() {
+      const country = await prisma.country.findUniqueOrThrow({
+        where: { code: 'CG' },
+      });
+      return prisma.user.create({
+        data: {
+          email: webEmail,
+          name: 'Web Role Test',
+          countryId: country.id,
+          phone: null,
+          emailVerifiedAt: new Date(),
+        },
+      });
+    }
+
+    beforeEach(async () => {
+      await cleanupWebUser();
+    });
+
+    afterAll(async () => {
+      await cleanupWebUser();
+    });
+
+    it('persists OWNER membership so a second call returns the same org role', async () => {
+      const user = await createWebUser();
+      const first = await service.setWebRole(user.id, 'OWNER');
+      expect(first.user.orgRoles).toContain(OrgMemberRole.OWNER);
+
+      const second = await service.setWebRole(user.id, 'OWNER');
+      expect(second.user.orgRoles).toContain(OrgMemberRole.OWNER);
+      expect(second.user.id).toBe(user.id);
+
+      const members = await prisma.organizationMember.findMany({
+        where: { userId: user.id },
+      });
+      expect(members).toHaveLength(1);
+      expect(members[0]!.role).toBe(OrgMemberRole.OWNER);
+    });
+
+    it('persists AGENT membership against the platform org', async () => {
+      const user = await createWebUser();
+      const first = await service.setWebRole(user.id, 'AGENT');
+      expect(first.user.orgRoles).toContain(OrgMemberRole.AGENT);
+
+      const second = await service.setWebRole(user.id, 'AGENT');
+      expect(second.user.orgRoles).toContain(OrgMemberRole.AGENT);
+
+      const members = await prisma.organizationMember.findMany({
+        where: { userId: user.id, organizationId: PARADIS_IMMO_ORG_ID },
+      });
+      expect(members).toHaveLength(1);
+    });
+  });
+
+  describe('email + Google account linking', () => {
+    const linkEmail = 'link-google-email@example.com';
+    const googleSub = 'google-sub-link-test-001';
+
+    async function cleanupLinkUser(): Promise<void> {
+      const users = await prisma.user.findMany({
+        where: {
+          OR: [{ email: linkEmail }, { googleId: googleSub }],
+        },
+      });
+      for (const u of users) {
+        await prisma.refreshToken.deleteMany({ where: { userId: u.id } });
+        const ownerOrgs = await prisma.organization.findMany({
+          where: {
+            type: OrganizationType.OWNER,
+            members: { some: { userId: u.id } },
+          },
+          select: { id: true },
+        });
+        await prisma.organizationMember.deleteMany({ where: { userId: u.id } });
+        if (ownerOrgs.length) {
+          await prisma.organization.deleteMany({
+            where: { id: { in: ownerOrgs.map((o) => o.id) } },
+          });
+        }
+        await prisma.user.delete({ where: { id: u.id } });
+      }
+    }
+
+    function mockGoogleIdToken(payload: {
+      sub: string;
+      email: string;
+      email_verified?: boolean;
+      name?: string;
+    }): void {
+      process.env.GOOGLE_CLIENT_ID = 'test-google-client';
+      (
+        service as unknown as {
+          googleClient: {
+            verifyIdToken: (args: unknown) => Promise<{
+              getPayload: () => typeof payload;
+            }>;
+          };
+        }
+      ).googleClient = {
+        verifyIdToken: async () => ({
+          getPayload: () => payload,
+        }),
+      };
+    }
+
+    beforeEach(async () => {
+      await cleanupLinkUser();
+    });
+
+    afterAll(async () => {
+      await cleanupLinkUser();
+    });
+
+    it('Google login attaches to existing email user and keeps org role', async () => {
+      const country = await prisma.country.findUniqueOrThrow({
+        where: { code: 'CG' },
+      });
+      const emailUser = await prisma.user.create({
+        data: {
+          email: linkEmail,
+          name: 'Email First',
+          countryId: country.id,
+          phone: null,
+          emailVerifiedAt: new Date(),
+          passwordHash: 'salt:hash',
+        },
+      });
+      await service.setWebRole(emailUser.id, 'OWNER');
+
+      mockGoogleIdToken({
+        sub: googleSub,
+        email: linkEmail,
+        email_verified: true,
+        name: 'Google Name',
+      });
+
+      const googleSession = await service.loginGoogleWeb({
+        idToken: 'fake-id-token',
+      });
+
+      expect(googleSession.user.id).toBe(emailUser.id);
+      expect(googleSession.user.orgRoles).toContain(OrgMemberRole.OWNER);
+
+      const refreshed = await prisma.user.findUniqueOrThrow({
+        where: { id: emailUser.id },
+      });
+      expect(refreshed.googleId).toBe(googleSub);
+    });
+
+    it('password login after Google signup uses the same user id', async () => {
+      mockGoogleIdToken({
+        sub: googleSub,
+        email: linkEmail,
+        email_verified: true,
+        name: 'Google First',
+      });
+
+      const googleSession = await service.loginGoogleWeb({
+        idToken: 'fake-id-token',
+      });
+      await service.setWebRole(googleSession.user.id, 'AGENT');
+
+      const passwordHash = await hashPassword('Password123!');
+      await prisma.user.update({
+        where: { id: googleSession.user.id },
+        data: { passwordHash, emailVerifiedAt: new Date() },
+      });
+
+      const passwordSession = await service.loginWeb({
+        email: linkEmail,
+        password: 'Password123!',
+      });
+
+      expect(passwordSession.user.id).toBe(googleSession.user.id);
+      expect(passwordSession.user.orgRoles).toContain(OrgMemberRole.AGENT);
+    });
+
+    it('registerWeb rejects when a Google account already exists for the email', async () => {
+      mockGoogleIdToken({
+        sub: googleSub,
+        email: linkEmail,
+        email_verified: true,
+        name: 'Google First',
+      });
+      await service.loginGoogleWeb({ idToken: 'fake-id-token' });
+
+      await expect(service.registerWeb({ email: linkEmail })).rejects.toMatchObject({
+        response: {
+          code: 'GOOGLE_ACCOUNT_EXISTS',
+        },
+      });
+    });
+
+    it('registerWeb still works for a new email (no Google account)', async () => {
+      const result = await service.registerWeb({ email: linkEmail });
+      expect(result.message).toMatch(/lien/i);
+      const user = await prisma.user.findUnique({ where: { email: linkEmail } });
+      expect(user).not.toBeNull();
+      expect(user!.googleId).toBeNull();
+    });
   });
 });

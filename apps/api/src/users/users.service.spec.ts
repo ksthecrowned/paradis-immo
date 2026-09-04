@@ -4,8 +4,9 @@ import { NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { OtpStore } from '../auth/otp.store';
 import { AuthService } from '../auth/auth.service';
+import { EmailService } from '../auth/email.service';
 import { InfobipOtpService } from '../auth/infobip-otp.service';
-import { MessagingBillingService } from '../messaging/messaging-billing.service';
+import { MagicLinkStore } from '../auth/magic-link.store';
 import { UsersService } from './users.service';
 
 describe('UsersService', () => {
@@ -17,15 +18,14 @@ describe('UsersService', () => {
   const phone = '+242067777777';
 
   beforeAll(async () => {
-    process.env.USD_TO_XAF = process.env.USD_TO_XAF || '600';
-
     const moduleRef = await Test.createTestingModule({
       providers: [
         AuthService,
         OtpStore,
+        MagicLinkStore,
+        EmailService,
         PrismaService,
         InfobipOtpService,
-        MessagingBillingService,
         UsersService,
         {
           provide: JwtService,
@@ -47,9 +47,6 @@ describe('UsersService', () => {
     auth = moduleRef.get(AuthService);
     await prisma.onModuleInit();
 
-    await prisma.messageCharge
-      .deleteMany({ where: { recipientPhone: phone } })
-      .catch(() => undefined);
     await prisma.user.deleteMany({ where: { phone } }).catch(() => undefined);
     await auth.requestOtp({ phone, purpose: 'REGISTER' });
     const code = await otpStore.peek(phone);
@@ -63,11 +60,6 @@ describe('UsersService', () => {
 
   afterAll(async () => {
     if (userId) {
-      await prisma.messageCharge
-        .deleteMany({
-          where: { OR: [{ userId }, { payerId: userId }] },
-        })
-        .catch(() => undefined);
       await prisma.refreshToken.deleteMany({ where: { userId } });
       await prisma.userRole.deleteMany({ where: { userId } });
       await prisma.user.deleteMany({ where: { id: userId } });

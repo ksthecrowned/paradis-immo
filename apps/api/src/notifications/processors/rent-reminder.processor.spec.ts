@@ -2,7 +2,6 @@ import { Test } from '@nestjs/testing';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { EventPublisher } from '../../events/event.publisher';
-import { MessagingBillingService } from '../../messaging/messaging-billing.service';
 import { InfobipSmsService } from '../../messaging/infobip-sms.service';
 import { InfobipService } from '../infobip.service';
 import { FcmService } from '../fcm.service';
@@ -26,8 +25,6 @@ describe('RentReminderProcessor', () => {
   const sentPush: Array<{ token: string; title: string }> = [];
 
   beforeAll(async () => {
-    process.env.USD_TO_XAF = process.env.USD_TO_XAF || '600';
-
     const infobip: Pick<InfobipService, 'sendWhatsApp'> = {
       sendWhatsApp: jest.fn(async () => ({ ok: false, reason: 'NOT_USED' })),
     };
@@ -45,7 +42,6 @@ describe('RentReminderProcessor', () => {
       providers: [
         RentReminderProcessor,
         NotificationsService,
-        MessagingBillingService,
         PrismaService,
         { provide: EventPublisher, useValue: { emit: jest.fn() } },
         { provide: InfobipService, useValue: infobip },

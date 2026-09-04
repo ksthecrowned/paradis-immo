@@ -1,20 +1,20 @@
 import { ScreenHeader } from '@/components/ui/ScreenHeader';
-import { StatusBadge } from '@/components/ui/StatusBadge';
-import type { StatusTone } from '@/components/ui/StatusBadge';
 import { colors, radii, spacing } from '@/constants/theme';
-import { useFeedback } from '@/context/FeedbackContext';
 import { ensureAuthenticated } from '@/lib/auth-guard';
 import {
-  documentStatusLabel,
-  listMockDocuments,
-  type DocumentStatus,
-  type MockTenantDocument,
-} from '@/lib/mock-documents';
+  listMyDocuments,
+  tenantDocTypeLabel,
+  type TenantDocumentItem,
+} from '@/lib/documents';
+import { getErrorMessage } from '@/lib/feedback';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useState } from 'react';
 import {
+  ActivityIndicator,
+  Linking,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -22,41 +22,58 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-function toneFor(status: DocumentStatus): StatusTone {
-  if (status === 'VALIDATED') return 'success';
-  if (status === 'PENDING') return 'warning';
-  return 'danger';
-}
-
 export default function ProfileDocumentsScreen(): React.JSX.Element {
   const insets = useSafeAreaInsets();
-  const { showFeedback } = useFeedback();
   const [ready, setReady] = useState(false);
-  const docs = useMemo(() => listMockDocuments(), []);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [docs, setDocs] = useState<TenantDocumentItem[]>([]);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setError(null);
+    try {
+      setDocs(await listMyDocuments());
+    } catch (err) {
+      setError(getErrorMessage(err, 'Impossible de charger les documents'));
+      setDocs([]);
+    }
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
       let active = true;
       void (async () => {
         const ok = await ensureAuthenticated(router, '/profile/documents');
-        if (active) setReady(ok);
+        if (!active) return;
+        setReady(ok);
+        if (!ok) return;
+        setLoading(true);
+        await load();
+        if (active) setLoading(false);
       })();
       return () => {
         active = false;
       };
-    }, []),
+    }, [load]),
   );
 
-  const openPreview = (doc: MockTenantDocument): void => {
-    showFeedback({
-      type: 'info',
-      title: doc.title,
-      message: doc.previewHint,
-    });
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await load();
+    setRefreshing(false);
+  }, [load]);
+
+  const openPreview = (doc: TenantDocumentItem): void => {
+    void Linking.openURL(doc.url);
   };
 
-  if (!ready) {
-    return <View style={styles.screen} />;
+  if (!ready || loading) {
+    return (
+      <View style={[styles.screen, styles.centered]}>
+        <ActivityIndicator color={colors.primary} />
+      </View>
+    );
   }
 
   return (
@@ -69,61 +86,122 @@ export default function ProfileDocumentsScreen(): React.JSX.Element {
           { paddingBottom: insets.bottom + spacing.lg },
         ]}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => void onRefresh()}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
+          />
+        }
       >
-        <View style={styles.card}>
-          {docs.map((doc, index) => (
+        {error ? (
+          <View style={styles.errorBanner}>
+            <Text style={styles.errorText}>{error}</Text>
             <Pressable
-              key={doc.id}
-              style={[
-                styles.row,
-                index < docs.length - 1 && styles.rowBorder,
-              ]}
-              onPress={() => openPreview(doc)}
+              onPress={() => void onRefresh()}
               accessibilityRole="button"
             >
-              <View style={styles.icon}>
-                <Ionicons
-                  name="document-text-outline"
-                  size={18}
-                  color={colors.primary}
-                />
-              </View>
-              <View style={styles.main}>
-                <Text style={styles.title}>{doc.title}</Text>
-                <StatusBadge
-                  label={documentStatusLabel(doc.status)}
-                  tone={toneFor(doc.status)}
-                />
-              </View>
-              <Ionicons name="chevron-forward" size={18} color={colors.muted} />
+              <Text style={styles.errorRetry}>Réessayer</Text>
             </Pressable>
-          ))}
-        </View>
+          </View>
+        ) : null}
 
-        <Pressable
-          style={styles.addBtn}
-          onPress={() =>
-            showFeedback({
-              type: 'info',
-              title: 'Bientôt',
-              message: 'L’ajout de documents sera disponible prochainement.',
-            })
-          }
-          accessibilityRole="button"
-        >
-          <Ionicons name="add-circle-outline" size={20} color={colors.primary} />
-          <Text style={styles.addText}>Ajouter un document</Text>
-        </Pressable>
+        {docs.length === 0 && !error ? (
+          <View style={styles.empty}>
+            <Text style={styles.emptyTitle}>Aucun document</Text>
+            <Text style={styles.emptySubtitle}>
+              Vos pièces d’identité et justificatifs apparaîtront ici.
+            </Text>
+          </View>
+        ) : (
+          <View style={styles.card}>
+            {docs.map((doc, index) => (
+              <Pressable
+                key={doc.id}
+                style={[
+                  styles.row,
+                  index < docs.length - 1 && styles.rowBorder,
+                ]}
+                onPress={() => openPreview(doc)}
+                accessibilityRole="button"
+                accessibilityLabel={doc.name || tenantDocTypeLabel(doc.type)}
+              >
+                <View style={styles.iconWrap}>
+                  <Ionicons
+                    name="document-outline"
+                    size={20}
+                    color={colors.primary}
+                  />
+                </View>
+                <View style={styles.rowBody}>
+                  <Text style={styles.docTitle} numberOfLines={1}>
+                    {doc.name || tenantDocTypeLabel(doc.type)}
+                  </Text>
+                  <Text style={styles.docMeta} numberOfLines={1}>
+                    {tenantDocTypeLabel(doc.type)}
+                  </Text>
+                </View>
+                <Ionicons
+                  name="open-outline"
+                  size={18}
+                  color={colors.muted}
+                />
+              </Pressable>
+            ))}
+          </View>
+        )}
       </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.bg },
+  screen: {
+    flex: 1,
+    backgroundColor: colors.bg,
+  },
+  centered: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   content: {
     paddingHorizontal: spacing.md,
-    gap: spacing.md,
+    gap: 12,
+  },
+  errorBanner: {
+    padding: 12,
+    borderRadius: radii.lg,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    gap: 6,
+  },
+  errorText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.ink,
+  },
+  errorRetry: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.primary,
+  },
+  empty: {
+    paddingVertical: 40,
+    alignItems: 'center',
+    gap: 8,
+  },
+  emptyTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: colors.ink,
+  },
+  emptySubtitle: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: colors.muted,
+    textAlign: 'center',
   },
   card: {
     backgroundColor: colors.surface,
@@ -143,37 +221,27 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
-  icon: {
-    width: 36,
-    height: 36,
-    borderRadius: radii.md,
+  iconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: radii.full,
     backgroundColor: colors.primaryMuted,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  main: {
+  rowBody: {
     flex: 1,
-    gap: 6,
+    minWidth: 0,
+    gap: 2,
   },
-  title: {
+  docTitle: {
     fontSize: 15,
     fontWeight: '700',
     color: colors.ink,
   },
-  addBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    minHeight: 52,
-    borderRadius: radii.full,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  addText: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: colors.primary,
+  docMeta: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: colors.muted,
   },
 });

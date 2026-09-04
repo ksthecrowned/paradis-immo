@@ -6,17 +6,16 @@ import {
 } from '@nestjs/common';
 import {
   AllocatableType,
-  MessagePayerType,
   Payment,
   PaymentAllocation,
   PaymentStatus,
   Prisma,
   RentScheduleStatus,
 } from '@prisma/client';
+import { AgencyAccessService } from '../mandates/agency-access.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { EventPublisher } from '../events/event.publisher';
 import { DOMAIN_EVENTS } from '../events/event.types';
-import { MessagingBillingService } from '../messaging/messaging-billing.service';
 import { CashProvider } from './providers/cash.provider';
 import { MobileMoneyProvider } from './providers/mobile-money.provider';
 
@@ -30,7 +29,18 @@ export interface InitiatePaymentInput {
   idempotencyKey: string;
   rentScheduleId?: string;
   saleInstallmentId?: string;
+  visitBookingId?: string;
   metadata?: Record<string, unknown>;
+}
+
+export interface RecordCashPaymentInput {
+  /** Exactly one of rentScheduleId / saleInstallmentId is required. */
+  rentScheduleId?: string;
+  saleInstallmentId?: string;
+  idempotencyKey: string;
+  amount?: string | number;
+  currency?: string;
+  note?: string;
 }
 
 export interface PaymentAllocationInput {
@@ -52,7 +62,6 @@ export interface PublicPayment {
   idempotencyKey: string;
   validatedBy: string | null;
   validatedAt: string | null;
-  messagingDebtXaf: number;
   allocations: PublicAllocation[];
   createdAt: string;
 }
@@ -66,8 +75,6 @@ export interface PublicAllocation {
 }
 
 type PaymentMetadata = {
-  messagingDebtXaf?: number;
-  messagingChargeIds?: string[];
   baseAmountXaf?: number;
   [key: string]: unknown;
 };
@@ -76,16 +83,15 @@ type PaymentMetadata = {
 export class PaymentsService {
   constructor(
     private readonly prisma: PrismaService,
+    private readonly agencyAccess: AgencyAccessService,
     private readonly events: EventPublisher,
     private readonly cashProvider: CashProvider,
     private readonly mobileMoneyProvider: MobileMoneyProvider,
-    private readonly messaging: MessagingBillingService,
   ) {}
 
   /**
    * Create a payment record idempotently. If a payment with the same
    * `idempotencyKey` already exists, return it without creating a new row.
-   * Open user messaging debt is added to the charged amount.
    */
   async initiatePayment(input: InitiatePaymentInput): Promise<PublicPayment> {
     const existing = await this.prisma.payment.findUnique({
@@ -140,21 +146,7 @@ export class PaymentsService {
       }
     }
 
-    const debt = input.saleInstallmentId
-      ? 0
-      : await this.messaging.openBalanceXaf(
-          MessagePayerType.USER,
-          input.userId,
-        );
-    const open =
-      debt > 0
-        ? await this.messaging.listOpenCharges(
-            MessagePayerType.USER,
-            input.userId,
-          )
-        : [];
-    const base = Number(input.amount);
-    const total = base + debt;
+    const amount = Number(input.amount);
     const metadata: PaymentMetadata = {
       ...(input.metadata ?? {}),
       ...(input.rentScheduleId
@@ -163,21 +155,17 @@ export class PaymentsService {
       ...(input.saleInstallmentId
         ? { saleInstallmentId: input.saleInstallmentId }
         : {}),
-      ...(debt > 0
-        ? {
-            messagingDebtXaf: debt,
-            messagingChargeIds: open.map((c) => c.id),
-            baseAmountXaf: base,
-          }
+      ...(input.visitBookingId
+        ? { visitBookingId: input.visitBookingId }
         : {}),
     };
 
     const session =
       input.method === 'CASH'
-        ? await this.cashProvider.initiate({ ...input, amount: total })
+        ? await this.cashProvider.initiate({ ...input, amount })
         : await this.mobileMoneyProvider.initiate({
             ...input,
-            amount: total,
+            amount,
             provider: input.provider ?? 'AIRTEL',
             phone: input.phone ?? '',
           });
@@ -185,7 +173,7 @@ export class PaymentsService {
     const created = await this.prisma.payment.create({
       data: {
         userId: input.userId,
-        amount: new Prisma.Decimal(total),
+        amount: new Prisma.Decimal(amount),
         currency: input.currency,
         method: input.method,
         ...(input.provider ? { provider: input.provider } : {}),
@@ -197,6 +185,252 @@ export class PaymentsService {
       include: { allocations: true },
     });
     return this.toPublic(created);
+  }
+
+  /**
+   * Agent/owner records cash received in person: create CASH payment for the
+   * lease tenant or sale buyer and validate+allocate in one transaction.
+   */
+  async recordCashPayment(
+    agentUserId: string,
+    input: RecordCashPaymentInput,
+  ): Promise<PublicPayment> {
+    const existing = await this.prisma.payment.findUnique({
+      where: { idempotencyKey: input.idempotencyKey },
+      include: { allocations: true },
+    });
+    if (existing) return this.toPublic(existing);
+
+    const hasRent = Boolean(input.rentScheduleId);
+    const hasSale = Boolean(input.saleInstallmentId);
+    if (hasRent === hasSale) {
+      throw new BadRequestException({
+        code: 'RECORD_CASH_TARGET_REQUIRED',
+        message: 'Provide exactly one of rentScheduleId or saleInstallmentId',
+      });
+    }
+
+    if (input.saleInstallmentId) {
+      return this.recordCashForSaleInstallment(agentUserId, {
+        ...input,
+        saleInstallmentId: input.saleInstallmentId,
+      });
+    }
+
+    return this.recordCashForRentSchedule(agentUserId, {
+      ...input,
+      rentScheduleId: input.rentScheduleId as string,
+    });
+  }
+
+  private async recordCashForRentSchedule(
+    agentUserId: string,
+    input: RecordCashPaymentInput & { rentScheduleId: string },
+  ): Promise<PublicPayment> {
+    const schedule = await this.prisma.rentSchedule.findUnique({
+      where: { id: input.rentScheduleId },
+      include: {
+        lease: {
+          select: {
+            id: true,
+            tenantId: true,
+            status: true,
+            property: {
+              select: { id: true, ownerId: true, organizationId: true },
+            },
+          },
+        },
+      },
+    });
+    if (!schedule) {
+      throw new NotFoundException({
+        code: 'RENT_SCHEDULE_NOT_FOUND',
+        message: 'Rent schedule does not exist',
+      });
+    }
+    if (schedule.status === RentScheduleStatus.PAID) {
+      throw new BadRequestException({
+        code: 'RENT_SCHEDULE_ALREADY_PAID',
+        message: 'This rent schedule is already paid',
+      });
+    }
+    if (schedule.lease.status !== 'ACTIVE') {
+      throw new BadRequestException({
+        code: 'LEASE_NOT_ACTIVE',
+        message: 'Cash can only be recorded on an active lease',
+      });
+    }
+
+    await this.agencyAccess.assertCanOperateOnProperty(
+      agentUserId,
+      schedule.lease.property.id,
+    );
+
+    const amount = Number(input.amount ?? schedule.amount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      throw new BadRequestException({
+        code: 'INVALID_AMOUNT',
+        message: 'Amount must be a positive number',
+      });
+    }
+    const currency = input.currency ?? schedule.currency;
+    const session = await this.cashProvider.initiate({
+      userId: schedule.lease.tenantId,
+      amount,
+      currency,
+      idempotencyKey: input.idempotencyKey,
+    });
+
+    const metadata: PaymentMetadata = {
+      rentScheduleId: schedule.id,
+      recordedByAgent: true,
+      ...(input.note ? { note: input.note } : {}),
+    };
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.payment.create({
+        data: {
+          userId: schedule.lease.tenantId,
+          amount: new Prisma.Decimal(amount),
+          currency,
+          method: 'CASH',
+          status: PaymentStatus.VALIDATED,
+          reference: session.reference,
+          idempotencyKey: input.idempotencyKey,
+          validatedBy: agentUserId,
+          validatedAt: new Date(),
+          metadata: metadata as Prisma.InputJsonValue,
+        },
+      });
+      await tx.paymentAllocation.create({
+        data: {
+          paymentId: created.id,
+          type: AllocatableType.RENT_SCHEDULE,
+          refId: schedule.id,
+          amount: new Prisma.Decimal(amount),
+          rentScheduleId: schedule.id,
+        },
+      });
+      await this.maybeMarkRentSchedulePaid(tx, schedule.id);
+      return tx.payment.findUniqueOrThrow({
+        where: { id: created.id },
+        include: { allocations: true },
+      });
+    });
+
+    await this.events.emit(DOMAIN_EVENTS.PAYMENT_VALIDATED, {
+      paymentId: updated.id,
+      userId: updated.userId,
+      amount: updated.amount.toString(),
+      currency: updated.currency,
+    });
+
+    return this.toPublic(updated);
+  }
+
+  private async recordCashForSaleInstallment(
+    agentUserId: string,
+    input: RecordCashPaymentInput & { saleInstallmentId: string },
+  ): Promise<PublicPayment> {
+    const installment = await this.prisma.saleInstallment.findUnique({
+      where: { id: input.saleInstallmentId },
+      include: {
+        agreement: {
+          select: {
+            id: true,
+            buyerId: true,
+            status: true,
+            property: {
+              select: { id: true, ownerId: true, organizationId: true },
+            },
+          },
+        },
+      },
+    });
+    if (!installment) {
+      throw new NotFoundException({
+        code: 'SALE_INSTALLMENT_NOT_FOUND',
+        message: 'Sale installment does not exist',
+      });
+    }
+    if (installment.status === 'PAID') {
+      throw new BadRequestException({
+        code: 'SALE_INSTALLMENT_ALREADY_PAID',
+        message: 'This installment is already paid',
+      });
+    }
+    if (installment.agreement.status !== 'ACTIVE') {
+      throw new BadRequestException({
+        code: 'SALE_AGREEMENT_NOT_ACTIVE',
+        message: 'Cash can only be recorded on an active sale agreement',
+      });
+    }
+
+    await this.agencyAccess.assertCanOperateOnProperty(
+      agentUserId,
+      installment.agreement.property.id,
+    );
+
+    const amount = Number(input.amount ?? installment.amount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      throw new BadRequestException({
+        code: 'INVALID_AMOUNT',
+        message: 'Amount must be a positive number',
+      });
+    }
+    const currency = input.currency ?? installment.currency;
+    const buyerId = installment.agreement.buyerId;
+    const session = await this.cashProvider.initiate({
+      userId: buyerId,
+      amount,
+      currency,
+      idempotencyKey: input.idempotencyKey,
+    });
+
+    const metadata: PaymentMetadata = {
+      saleInstallmentId: installment.id,
+      recordedByAgent: true,
+      ...(input.note ? { note: input.note } : {}),
+    };
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.payment.create({
+        data: {
+          userId: buyerId,
+          amount: new Prisma.Decimal(amount),
+          currency,
+          method: 'CASH',
+          status: PaymentStatus.VALIDATED,
+          reference: session.reference,
+          idempotencyKey: input.idempotencyKey,
+          validatedBy: agentUserId,
+          validatedAt: new Date(),
+          metadata: metadata as Prisma.InputJsonValue,
+        },
+      });
+      await tx.paymentAllocation.create({
+        data: {
+          paymentId: created.id,
+          type: AllocatableType.SALE_INSTALLMENT,
+          refId: installment.id,
+          amount: new Prisma.Decimal(amount),
+        },
+      });
+      await this.maybeMarkSaleInstallmentPaid(tx, installment.id);
+      return tx.payment.findUniqueOrThrow({
+        where: { id: created.id },
+        include: { allocations: true },
+      });
+    });
+
+    await this.events.emit(DOMAIN_EVENTS.PAYMENT_VALIDATED, {
+      paymentId: updated.id,
+      userId: updated.userId,
+      amount: updated.amount.toString(),
+      currency: updated.currency,
+    });
+
+    return this.toPublic(updated);
   }
 
   /**
@@ -236,10 +470,6 @@ export class PaymentsService {
     }
 
     const meta = (payment.metadata ?? {}) as PaymentMetadata;
-    const messagingDebt = Number(meta.messagingDebtXaf ?? 0);
-    const messagingChargeIds = Array.isArray(meta.messagingChargeIds)
-      ? meta.messagingChargeIds
-      : [];
 
     const finalAllocations: PaymentAllocationInput[] = [...allocations];
     const hasRentAlloc = finalAllocations.some(
@@ -257,19 +487,17 @@ export class PaymentsService {
       const scheduleId =
         typeof meta.rentScheduleId === 'string' ? meta.rentScheduleId : null;
       if (metaSaleId) {
-        const rentAmount = Number(payment.amount) - messagingDebt;
         finalAllocations.push({
           type: AllocatableType.SALE_INSTALLMENT,
           refId: metaSaleId,
-          amount: rentAmount,
+          amount: Number(payment.amount),
         });
       } else if (scheduleId) {
-        const rentAmount = Number(payment.amount) - messagingDebt;
         finalAllocations.push({
           type: AllocatableType.RENT_SCHEDULE,
           refId: scheduleId,
           rentScheduleId: scheduleId,
-          amount: rentAmount,
+          amount: Number(payment.amount),
         });
       } else {
         throw new BadRequestException({
@@ -280,24 +508,17 @@ export class PaymentsService {
       }
     }
 
-    if (
-      messagingDebt > 0 &&
-      !finalAllocations.some((a) => a.type === AllocatableType.MESSAGING_DEBT)
-    ) {
-      finalAllocations.push({
-        type: AllocatableType.MESSAGING_DEBT,
-        refId: payment.userId,
-        amount: messagingDebt,
-      });
-    }
-
     const firstRentAlloc = finalAllocations.find(
       (a) => a.type === 'RENT_SCHEDULE' && a.rentScheduleId,
     );
     const firstSaleAlloc = finalAllocations.find(
       (a) => a.type === 'SALE_INSTALLMENT',
     );
-    let property: { ownerId: string; organizationId: string } | null = null;
+    let property: {
+      id: string;
+      ownerId: string;
+      organizationId: string;
+    } | null = null;
     if (firstRentAlloc?.rentScheduleId) {
       const sched = await this.prisma.rentSchedule.findUnique({
         where: { id: firstRentAlloc.rentScheduleId },
@@ -305,7 +526,7 @@ export class PaymentsService {
           lease: {
             select: {
               property: {
-                select: { ownerId: true, organizationId: true },
+                select: { id: true, ownerId: true, organizationId: true },
               },
             },
           },
@@ -319,7 +540,7 @@ export class PaymentsService {
           agreement: {
             select: {
               property: {
-                select: { ownerId: true, organizationId: true },
+                select: { id: true, ownerId: true, organizationId: true },
               },
             },
           },
@@ -342,22 +563,10 @@ export class PaymentsService {
         });
       }
     } else {
-      const isOwner = property.ownerId === agentUserId;
-      const membership = await this.prisma.organizationMember.findUnique({
-        where: {
-          userId_organizationId: {
-            userId: agentUserId,
-            organizationId: property.organizationId,
-          },
-        },
-      });
-      if (!isOwner && !membership) {
-        throw new ForbiddenException({
-          code: 'NOT_VALIDATION_AGENT',
-          message:
-            'Only the property owner or an agent of the managing org can validate this payment',
-        });
-      }
+      await this.agencyAccess.assertCanOperateOnProperty(
+        agentUserId,
+        property.id,
+      );
     }
 
     const updated = await this.prisma.$transaction(async (tx) => {
@@ -398,8 +607,6 @@ export class PaymentsService {
         include: { allocations: true },
       });
     });
-
-    await this.messaging.settleCharges(updated.id, messagingChargeIds);
 
     await this.events.emit(DOMAIN_EVENTS.PAYMENT_VALIDATED, {
       paymentId: updated.id,
@@ -454,11 +661,6 @@ export class PaymentsService {
       include: { allocations: true },
     });
     if (newStatus === PaymentStatus.VALIDATED) {
-      const meta = (updated.metadata ?? {}) as PaymentMetadata;
-      const chargeIds = Array.isArray(meta.messagingChargeIds)
-        ? meta.messagingChargeIds
-        : [];
-      await this.messaging.settleCharges(updated.id, chargeIds);
       await this.events.emit(DOMAIN_EVENTS.PAYMENT_VALIDATED, {
         paymentId: updated.id,
         userId: updated.userId,
@@ -479,25 +681,20 @@ export class PaymentsService {
   }
 
   /**
-   * Cash payments awaiting manual validation — shown in the agent
-   * validation queue (Task 26).
+   * Cash payments awaiting manual validation on the caller's operable
+   * portfolio (owner / gérant / assigned agent).
    */
-  async listPendingValidation(): Promise<PublicPayment[]> {
-    const rows = await this.prisma.payment.findMany({
-      where: {
-        method: 'CASH',
-        status: PaymentStatus.PENDING_VALIDATION,
-      },
-      include: { allocations: true },
-      orderBy: { createdAt: 'desc' },
-    });
-    return rows.map((p) => this.toPublic(p));
+  async listPendingValidation(userId: string): Promise<PublicPayment[]> {
+    const managed = await this.listManaged(userId);
+    return managed.filter(
+      (p) => p.method === 'CASH' && p.status === 'PENDING_VALIDATION',
+    );
   }
 
   /**
-   * Payments on properties the user owns or manages (via an organization
-   * membership). Union of allocated payments and pending cash linked to the
-   * portfolio (metadata.rentScheduleId or payer ACTIVE lease).
+   * Payments on properties the user can operate on (owner, gérant, or
+   * assigned agent). Union of allocated payments and pending cash linked to
+   * the portfolio (metadata.rentScheduleId or payer ACTIVE lease).
    */
   async listManaged(userId: string): Promise<PublicPayment[]> {
     const propertyIds = await this.accessiblePropertyIds(userId);
@@ -589,21 +786,7 @@ export class PaymentsService {
   }
 
   private async accessiblePropertyIds(userId: string): Promise<string[]> {
-    const accessible = await this.prisma.property.findMany({
-      where: {
-        OR: [
-          { ownerId: userId },
-          {
-            organization: {
-              members: { some: { userId } },
-            },
-          },
-        ],
-      },
-      select: { id: true },
-      take: 500,
-    });
-    return accessible.map((p) => p.id);
+    return this.agencyAccess.listOperablePropertyIds(userId);
   }
 
   private async assertCanReadPayment(
@@ -702,7 +885,6 @@ export class PaymentsService {
   private toPublic(
     p: Payment & { allocations: PaymentAllocation[] },
   ): PublicPayment {
-    const meta = (p.metadata ?? {}) as PaymentMetadata;
     return {
       id: p.id,
       userId: p.userId,
@@ -715,7 +897,6 @@ export class PaymentsService {
       idempotencyKey: p.idempotencyKey,
       validatedBy: p.validatedBy,
       validatedAt: p.validatedAt?.toISOString() ?? null,
-      messagingDebtXaf: Number(meta.messagingDebtXaf ?? 0),
       allocations: p.allocations.map((a) => ({
         id: a.id,
         type: a.type,

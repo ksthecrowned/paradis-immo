@@ -36,13 +36,23 @@ export const ROUTES = {
   agent: {
     dashboard: '/agent/dashboard',
     portfolio: '/agent/portfolio',
+    portfolioAdd: '/agent/portfolio/add',
+    property: (id: string) => `/agent/portfolio/${id}`,
+    propertyEdit: (id: string) => `/agent/portfolio/${id}/edit`,
+    visitSlots: (id: string) => `/agent/portfolio/${id}/visit-slots`,
     visits: '/agent/visits',
     leases: '/agent/leases',
+    leasesAdd: '/agent/leases/add',
+    lease: (id: string) => `/agent/leases/${id}`,
+    leaseEdit: (id: string) => `/agent/leases/${id}/edit`,
     tenants: '/agent/tenants',
     tenant: (id: string) => `/agent/tenants/${id}`,
     paymentsValidation: '/agent/payments/validation',
-    messaging: '/agent/messaging',
+    payment: (id: string) => `/agent/payments/${id}`,
     maintenance: '/agent/maintenance',
+    maintenanceAdd: '/agent/maintenance/add',
+    maintenanceTicket: (id: string) => `/agent/maintenance/${id}`,
+    maintenanceEdit: (id: string) => `/agent/maintenance/${id}/edit`,
     sales: '/agent/sales',
     salesAgreements: '/agent/sales/agreements',
     salesAgreementsAdd: '/agent/sales/agreements/add',
@@ -83,28 +93,33 @@ export interface NavGroup {
 export const OWNER_NAV: NavItem[] = [
   { href: ROUTES.owner.dashboard, label: 'Tableau de bord', exact: true },
   { href: ROUTES.owner.properties, label: 'Biens' },
-  { href: ROUTES.owner.bookings, label: 'Réservations' },
-  { href: ROUTES.owner.visits, label: 'Visites' },
-  { href: ROUTES.owner.leases, label: 'Baux' },
-  { href: ROUTES.owner.sales, label: 'Dossiers vente' },
-  { href: ROUTES.owner.tenants, label: 'Locataires' },
-  { href: ROUTES.owner.payments, label: 'Paiements' },
+  { href: ROUTES.owner.mandate, label: 'Mandats' },
   { href: ROUTES.owner.maintenance, label: 'Maintenance' },
-  { href: ROUTES.owner.mandate, label: 'Mes mandats' },
+  { href: ROUTES.owner.bookings, label: 'Réservations' },
+  { href: ROUTES.owner.leases, label: 'Baux' },
+  { href: ROUTES.owner.tenants, label: 'Locataires' },
+  { href: ROUTES.owner.sales, label: 'Dossiers de vente' },
+  { href: ROUTES.owner.visits, label: 'Visites' },
+  { href: ROUTES.owner.payments, label: 'Paiements' },
 ];
 
 export const AGENT_NAV: NavItem[] = [
   { href: ROUTES.agent.dashboard, label: 'Tableau de bord', exact: true },
-  { href: ROUTES.agent.portfolio, label: 'Portefeuille' },
+  { href: ROUTES.agent.portfolio, label: 'Biens' },
+  { href: ROUTES.agent.maintenance, label: 'Maintenance' },
   { href: ROUTES.agent.bookings, label: 'Réservations' },
-  { href: ROUTES.agent.visits, label: 'Visites' },
   { href: ROUTES.agent.leases, label: 'Baux' },
   { href: ROUTES.agent.tenants, label: 'Locataires' },
-  { href: ROUTES.agent.sales, label: 'Demandes vente' },
-  { href: ROUTES.agent.salesAgreements, label: 'Dossiers vente' },
-  { href: ROUTES.agent.paymentsValidation, label: 'Validation paiements' },
-  { href: ROUTES.agent.messaging, label: 'Messaging SMS' },
-  { href: ROUTES.agent.maintenance, label: 'Maintenance' },
+  {
+    href: ROUTES.agent.sales,
+    label: 'Vente',
+    children: [
+      { href: ROUTES.agent.sales, label: 'Demandes', exact: true },
+      { href: ROUTES.agent.salesAgreements, label: 'Dossiers' },
+    ],
+  },
+  { href: ROUTES.agent.visits, label: 'Visites' },
+  { href: ROUTES.agent.paymentsValidation, label: 'Paiements' },
 ];
 
 export const ADMIN_NAV: NavItem[] = [
@@ -115,100 +130,82 @@ export const ADMIN_NAV: NavItem[] = [
   { href: ROUTES.admin.config, label: 'Configuration' },
 ];
 
-/** Grouped sidebar nav per role — Activité / Patrimoine / Compte. */
+/** Grouped sidebar nav per role. */
 export const OWNER_NAV_GROUPS: NavGroup[] = [
   {
-    label: 'Activité',
+    label: 'Vue d’ensemble',
     items: [
       { href: ROUTES.owner.dashboard, label: 'Tableau de bord', exact: true },
-      { href: ROUTES.owner.bookings, label: 'Réservations' },
-      {
-        href: ROUTES.owner.visits,
-        label: 'Visites',
-        children: [
-          { href: ROUTES.owner.visits, label: 'Demandes' },
-          { href: ROUTES.owner.visitSlotsIndex, label: 'Créneaux' },
-        ],
-      },
-      {
-        href: ROUTES.owner.leases,
-        label: 'Baux',
-        children: [
-          { href: ROUTES.owner.leases, label: 'Mes baux' },
-          { href: ROUTES.owner.leasesAdd, label: 'Ajouter un bail' },
-        ],
-      },
-      {
-        href: ROUTES.owner.sales,
-        label: 'Dossiers vente',
-        children: [
-          { href: ROUTES.owner.sales, label: 'Mes dossiers' },
-          { href: ROUTES.owner.salesAdd, label: 'Nouveau dossier' },
-        ],
-      },
-      { href: ROUTES.owner.tenants, label: 'Locataires' },
-      { href: ROUTES.owner.payments, label: 'Paiements' },
     ],
   },
   {
     label: 'Patrimoine',
     items: [
-      {
-        href: ROUTES.owner.properties,
-        label: 'Biens',
-        children: [
-          { href: ROUTES.owner.properties, label: 'Mes biens' },
-          { href: ROUTES.owner.propertiesAdd, label: 'Ajouter un bien' },
-        ],
-      },
+      { href: ROUTES.owner.properties, label: 'Biens' },
+      { href: ROUTES.owner.mandate, label: 'Mandats' },
       { href: ROUTES.owner.maintenance, label: 'Maintenance' },
-      { href: ROUTES.owner.mandate, label: 'Mes mandats' },
+    ],
+  },
+  {
+    label: 'Location & Vente',
+    items: [
+      { href: ROUTES.owner.bookings, label: 'Réservations' },
+      { href: ROUTES.owner.leases, label: 'Baux' },
+      { href: ROUTES.owner.tenants, label: 'Locataires' },
+      { href: ROUTES.owner.sales, label: 'Dossiers de vente' },
+    ],
+  },
+  {
+    label: 'Activité & Finance',
+    items: [
+      { href: ROUTES.owner.visits, label: 'Visites' },
+      { href: ROUTES.owner.payments, label: 'Paiements' },
     ],
   },
 ];
 
 export const AGENT_NAV_GROUPS: NavGroup[] = [
   {
-    label: 'Activité',
+    label: 'Vue d’ensemble',
     items: [
       { href: ROUTES.agent.dashboard, label: 'Tableau de bord', exact: true },
+    ],
+  },
+  {
+    label: 'Patrimoine',
+    items: [
+      { href: ROUTES.agent.portfolio, label: 'Biens' },
+      { href: ROUTES.agent.maintenance, label: 'Maintenance' },
+    ],
+  },
+  {
+    label: 'Location & Vente',
+    items: [
       { href: ROUTES.agent.bookings, label: 'Réservations' },
-      { href: ROUTES.agent.visits, label: 'Visites' },
       { href: ROUTES.agent.leases, label: 'Baux' },
       { href: ROUTES.agent.tenants, label: 'Locataires' },
       {
         href: ROUTES.agent.sales,
         label: 'Vente',
         children: [
-          { href: ROUTES.agent.sales, label: 'Demandes' },
+          { href: ROUTES.agent.sales, label: 'Demandes', exact: true },
           { href: ROUTES.agent.salesAgreements, label: 'Dossiers' },
-          { href: ROUTES.agent.salesAgreementsAdd, label: 'Nouveau dossier' },
         ],
       },
-      { href: ROUTES.agent.paymentsValidation, label: 'Validation paiements' },
-      { href: ROUTES.agent.messaging, label: 'Messaging SMS' },
     ],
   },
   {
-    label: 'Patrimoine',
+    label: 'Activité & Finance',
     items: [
-      {
-        href: ROUTES.agent.portfolio,
-        label: 'Portefeuille',
-        children: [
-          { href: ROUTES.agent.portfolio, label: 'Mes biens' },
-          { href: ROUTES.agent.sales, label: 'Demandes de vente' },
-          { href: ROUTES.agent.salesAgreements, label: 'Dossiers vente' },
-        ],
-      },
-      { href: ROUTES.agent.maintenance, label: 'Maintenance' },
+      { href: ROUTES.agent.visits, label: 'Visites' },
+      { href: ROUTES.agent.paymentsValidation, label: 'Paiements' },
     ],
   },
 ];
 
 export const ADMIN_NAV_GROUPS: NavGroup[] = [
   {
-    label: 'Activité',
+    label: 'Général',
     items: [
       { href: ROUTES.admin.dashboard, label: 'Tableau de bord', exact: true },
       { href: ROUTES.admin.moderation, label: 'Modération' },
@@ -239,18 +236,18 @@ const BREADCRUMB_LABELS: Record<string, string> = {
   dashboard: 'Tableau de bord',
   properties: 'Biens',
   add: 'Ajouter',
+  edit: 'Modifier',
   'visit-slots': 'Créneaux de visite',
   visits: 'Visites',
   leases: 'Baux',
   tenants: 'Locataires',
   payments: 'Paiements',
   validation: 'Validation paiements',
-  messaging: 'Messaging SMS',
   maintenance: 'Maintenance',
-  mandate: 'Mes mandats',
-  portfolio: 'Portefeuille',
+  mandate: 'Mandats',
+  portfolio: 'Biens',
   sales: 'Vente',
-  agreements: 'Dossiers vente',
+  agreements: 'Dossiers',
   bookings: 'Réservations',
   users: 'Utilisateurs',
   moderation: 'Modération',

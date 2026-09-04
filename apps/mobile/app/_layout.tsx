@@ -3,6 +3,7 @@ import { colors, getBootColorScheme } from '@/constants/theme';
 import { FeedbackProvider } from '@/context/FeedbackContext';
 import { LocationProvider } from '@/context/LocationContext';
 import { NotificationBootstrap } from '@/components/NotificationBootstrap';
+import { SessionExpiredGate } from '@/components/SessionExpiredGate';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
@@ -24,6 +25,7 @@ export default function RootLayout(): React.JSX.Element {
         <LocationProvider requestOnMount={false}>
           <FeedbackProvider>
             <NotificationBootstrap />
+            <SessionExpiredGate />
             <StatusBar style={statusBarStyle} />
             <Stack
               screenOptions={{

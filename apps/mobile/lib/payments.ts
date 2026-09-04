@@ -15,7 +15,6 @@ export interface PublicPayment {
   idempotencyKey: string;
   validatedBy: string | null;
   validatedAt: string | null;
-  messagingDebtXaf: number;
   allocations: Array<{
     id: string;
     type: string;
@@ -35,6 +34,7 @@ export interface InitiatePaymentInput {
   idempotencyKey: string;
   rentScheduleId?: string;
   saleInstallmentId?: string;
+  visitBookingId?: string;
 }
 
 export async function initiatePayment(
@@ -46,12 +46,17 @@ export async function initiatePayment(
   });
 }
 
+export async function getPayment(id: string): Promise<PublicPayment> {
+  return apiFetch<PublicPayment>(`/payments/${id}`);
+}
+
 export async function listMyPayments(): Promise<PublicPayment[]> {
   return apiFetch<PublicPayment[]>('/payments/my');
 }
 
 export function paymentStatusLabel(status: string): string {
   const map: Record<string, string> = {
+    INITIATED: 'Initié',
     PENDING_VALIDATION: 'En attente de validation',
     VALIDATED: 'Validé',
     FAILED: 'Échoué',
@@ -65,7 +70,13 @@ export function paymentStatusTone(
 ): 'success' | 'warning' | 'danger' | 'neutral' {
   if (status === 'VALIDATED') return 'success';
   if (status === 'FAILED') return 'danger';
-  if (status === 'PENDING_VALIDATION' || status === 'PENDING') return 'warning';
+  if (
+    status === 'PENDING_VALIDATION' ||
+    status === 'PENDING' ||
+    status === 'INITIATED'
+  ) {
+    return 'warning';
+  }
   return 'neutral';
 }
 

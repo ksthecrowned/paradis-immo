@@ -92,7 +92,8 @@ export class AgencyAccessService {
 
   /**
    * Property IDs the user may operate on: owned, assigned/gérant under
-   * active mandate, or org member on properties without an active mandate.
+   * active mandate, or gérant/owner on org properties without an active
+   * mandate. Field agents (AGENT) only see properties they are assigned to.
    */
   async listOperablePropertyIds(userId: string): Promise<string[]> {
     const [owned, mandated, orgUnmanaged] = await Promise.all([
@@ -119,7 +120,16 @@ export class AgencyAccessService {
       }),
       this.prisma.property.findMany({
         where: {
-          organization: { members: { some: { userId } } },
+          organization: {
+            members: {
+              some: {
+                userId,
+                role: {
+                  in: [OrgMemberRole.ADMIN, OrgMemberRole.OWNER],
+                },
+              },
+            },
+          },
           NOT: { mandates: { some: { status: MandateStatus.ACTIVE } } },
         },
         select: { id: true },

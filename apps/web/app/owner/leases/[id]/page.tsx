@@ -1,4 +1,4 @@
-import { OwnerLeaseDetail } from './owner-lease-detail';
+import { LeaseDetail } from '@/components/leases/lease-detail';
 
 export default async function OwnerLeaseDetailPage({
   params,
@@ -6,5 +6,5 @@ export default async function OwnerLeaseDetailPage({
   params: Promise<{ id: string }>;
 }): Promise<React.JSX.Element> {
   const { id } = await params;
-  return <OwnerLeaseDetail leaseId={id} />;
+  return <LeaseDetail leaseId={id} />;
 }

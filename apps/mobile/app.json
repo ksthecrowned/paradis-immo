@@ -11,7 +11,7 @@
       "googleServicesFile": "./google-services.json",
       "config": {
         "googleMaps": {
-          "apiKey": "AIzaSyDrMnIhSgl6Zx-mUMQjubE4rD1EE89FjUo"
+          "apiKey": "AIzaSyCsb3FRcL6KnO_--sm6N45ctcPOdfdDwCU"
         }
       },
       "adaptiveIcon": {
@@ -26,16 +26,14 @@
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION"
       ],
-      "package": "com.paradisimmo.mobile"
+      "package": "com.paradis.immo"
     },
     "ios": {
       "supportsTablet": true,
       "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "Paradis Immo utilise votre position pour afficher les biens près de chez vous.",
-        "UIBackgroundModes": [
-          "remote-notification"
-        ]
+        "UIBackgroundModes": ["remote-notification"]
       },
       "config": {
         "googleMapsApiKey": "AIzaSyDrMnIhSgl6Zx-mUMQjubE4rD1EE89FjUo"

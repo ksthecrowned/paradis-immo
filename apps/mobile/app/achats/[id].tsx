@@ -3,7 +3,6 @@ import { StatusBadge } from '@/components/ui/StatusBadge';
 import { colors, radii, spacing } from '@/constants/theme';
 import { ensureAuthenticated } from '@/lib/auth-guard';
 import { getErrorMessage } from '@/lib/feedback';
-import { initiatePayment } from '@/lib/payments';
 import {
   canPayInstallment,
   getMySaleAgreement,
@@ -12,7 +11,6 @@ import {
   type PublicSaleAgreement,
   type PublicSaleInstallment,
 } from '@/lib/sale-agreements';
-import { useFeedback } from '@/context/FeedbackContext';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useState } from 'react';
@@ -40,14 +38,12 @@ function formatDate(iso: string): string {
 
 export default function AchatDetailScreen(): React.JSX.Element {
   const insets = useSafeAreaInsets();
-  const { showFeedback } = useFeedback();
   const { id } = useLocalSearchParams<{ id: string }>();
   const agreementId = String(id ?? '');
   const [ready, setReady] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [row, setRow] = useState<PublicSaleAgreement | null>(null);
-  const [payingId, setPayingId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -79,32 +75,14 @@ export default function AchatDetailScreen(): React.JSX.Element {
 
   const onPay = async (installment: PublicSaleInstallment): Promise<void> => {
     if (!row) return;
-    setPayingId(installment.id);
-    try {
-      const payment = await initiatePayment({
-        amount: Number(installment.amount),
-        currency: installment.currency || 'XAF',
-        method: 'CASH',
-        idempotencyKey: `sale-${installment.id}-${Date.now()}`,
-        saleInstallmentId: installment.id,
-      });
-      const total = Number(payment.amount);
-      const qs = new URLSearchParams({
-        propertyId: row.propertyId,
-        amount: String(total),
-        saleInstallmentId: installment.id,
-        title: installment.label || `Palier · ${formatDate(installment.dueDate)}`,
-      });
-      router.push(`/payment/${payment.id}?${qs.toString()}`);
-    } catch (err) {
-      showFeedback({
-        type: 'error',
-        title: 'Paiement',
-        message: getErrorMessage(err, 'Impossible d’initier le paiement'),
-      });
-    } finally {
-      setPayingId(null);
-    }
+    const qs = new URLSearchParams({
+      propertyId: row.propertyId,
+      amount: String(Number(installment.amount)),
+      currency: installment.currency || 'XAF',
+      saleInstallmentId: installment.id,
+      title: installment.label || `Palier · ${formatDate(installment.dueDate)}`,
+    });
+    router.push(`/payment/checkout?${qs.toString()}`);
   };
 
   if (!ready || loading) {
@@ -167,10 +145,7 @@ export default function AchatDetailScreen(): React.JSX.Element {
 
         <Text style={styles.sectionTitle}>Paliers</Text>
         {row.installments.map((installment) => {
-          const payable =
-            canAct &&
-            canPayInstallment(installment.status) &&
-            payingId !== installment.id;
+          const payable = canAct && canPayInstallment(installment.status);
           return (
             <View key={installment.id} style={styles.line}>
               <View style={styles.lineBody}>
@@ -193,8 +168,6 @@ export default function AchatDetailScreen(): React.JSX.Element {
                 >
                   <Text style={styles.payBtnText}>Payer</Text>
                 </Pressable>
-              ) : payingId === installment.id ? (
-                <ActivityIndicator color={colors.primary} />
               ) : null}
             </View>
           );

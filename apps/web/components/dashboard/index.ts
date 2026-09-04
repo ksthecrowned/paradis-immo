@@ -16,7 +16,6 @@ export {
 export {
   PropertyModeChart,
   RevenueChart,
-  SessionsMapCard
 } from './revenue-chart';
 export { RoleSwitcher } from './role-switcher';
 export { DashboardShell, type DashboardShellProps } from './shell';
@@ -37,6 +36,9 @@ export {
   type BookingSummary,
   type BookingsCalendarProps,
 } from './bookings-calendar';
+export {
+  DashboardMarketProperties,
+} from './market-properties';
 export {
   VisitsCalendar,
   type VisitBookingSummary,

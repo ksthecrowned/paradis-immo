@@ -4,15 +4,10 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import {
-  MessageChannel,
-  MessageChargeStatus,
-  MessagePayerType,
-  Prisma,
-} from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { EventPublisher } from '../events/event.publisher';
-import { MessagingBillingService } from '../messaging/messaging-billing.service';
+import { AgencyAccessService } from '../mandates/agency-access.service';
 import { PaymentsService } from './payments.service';
 import { CashProvider } from './providers/cash.provider';
 import { MobileMoneyProvider } from './providers/mobile-money.provider';
@@ -34,19 +29,16 @@ describe('PaymentsService', () => {
   let rentScheduleId: string;
   let ownerOrgId: string;
   let agentOrgId: string;
+  let mandateId: string;
   const createdPaymentIds: string[] = [];
 
   beforeAll(async () => {
-    process.env.USD_TO_XAF = process.env.USD_TO_XAF || '600';
-    process.env.OTP_FREE_PER_MONTH = process.env.OTP_FREE_PER_MONTH || '10';
-    process.env.OTP_UNIT_USD = process.env.OTP_UNIT_USD || '0.006';
-
     const moduleRef = await Test.createTestingModule({
       providers: [
         PaymentsService,
+        AgencyAccessService,
         CashProvider,
         MobileMoneyProvider,
-        MessagingBillingService,
         PrismaService,
         { provide: EventPublisher, useValue: { emit: jest.fn() } },
       ],
@@ -78,9 +70,6 @@ describe('PaymentsService', () => {
       })
     ).map((u) => u.id);
     if (userIds.length > 0) {
-      await prisma.messageCharge.deleteMany({
-        where: { OR: [{ userId: { in: userIds } }, { payerId: { in: userIds } }] },
-      });
       await prisma.paymentAllocation.deleteMany({
         where: { payment: { userId: { in: userIds } } },
       });
@@ -149,6 +138,16 @@ describe('PaymentsService', () => {
     });
     propertyId = prop.id;
 
+    const mandate = await prisma.mandate.create({
+      data: {
+        propertyId,
+        organizationId: agentOrgId,
+        assignedAgentId: agentUserId,
+        status: 'ACTIVE',
+      },
+    });
+    mandateId = mandate.id;
+
     const lease = await prisma.lease.create({
       data: {
         propertyId,
@@ -183,16 +182,6 @@ describe('PaymentsService', () => {
       (x): x is string => Boolean(x),
     );
     if (cleanupUserIds.length > 0) {
-      await prisma.messageCharge
-        .deleteMany({
-          where: {
-            OR: [
-              { userId: { in: cleanupUserIds } },
-              { payerId: { in: cleanupUserIds } },
-            ],
-          },
-        })
-        .catch(() => undefined);
       await prisma.paymentAllocation
         .deleteMany({ where: { payment: { userId: { in: cleanupUserIds } } } })
         .catch(() => undefined);
@@ -220,6 +209,11 @@ describe('PaymentsService', () => {
         .catch(() => undefined);
       await prisma.lease
         .delete({ where: { id: leaseId } })
+        .catch(() => undefined);
+    }
+    if (mandateId) {
+      await prisma.mandate
+        .delete({ where: { id: mandateId } })
         .catch(() => undefined);
     }
     if (propertyId) {
@@ -380,22 +374,29 @@ describe('PaymentsService', () => {
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
-  it('lists cash payments awaiting manual validation', async () => {
+  it('lists cash payments awaiting validation scoped to operable portfolio', async () => {
     const payment = await payments.initiatePayment({
       userId: tenantUserId,
       amount: '50000',
       currency: 'XAF',
       method: 'CASH',
       idempotencyKey: `cash-${Date.now()}-pending-list`,
+      rentScheduleId,
     });
     createdPaymentIds.push(payment.id);
 
-    const pending = await payments.listPendingValidation();
-    expect(pending.some((p) => p.id === payment.id)).toBe(true);
-    pending.forEach((p) => {
+    const agentPending = await payments.listPendingValidation(agentUserId);
+    expect(agentPending.some((p) => p.id === payment.id)).toBe(true);
+    agentPending.forEach((p) => {
       expect(p.method).toBe('CASH');
       expect(p.status).toBe('PENDING_VALIDATION');
     });
+
+    const ownerPending = await payments.listPendingValidation(ownerUserId);
+    expect(ownerPending.some((p) => p.id === payment.id)).toBe(true);
+
+    const tenantPending = await payments.listPendingValidation(tenantUserId);
+    expect(tenantPending.some((p) => p.id === payment.id)).toBe(false);
   });
 
   it('idempotency: same key returns the original payment (no duplicate)', async () => {
@@ -581,137 +582,154 @@ describe('PaymentsService', () => {
       .catch(() => undefined);
   });
 
-  it('initiatePayment adds OPEN messaging debt to amount and allocation metadata', async () => {
-    await prisma.messageCharge.deleteMany({
-      where: {
-        OR: [{ userId: tenantUserId }, { payerId: tenantUserId }],
-      },
-    });
-    const charge = await prisma.messageCharge.create({
-      data: {
-        channel: MessageChannel.WHATSAPP_OTP,
-        payerType: MessagePayerType.USER,
-        payerId: tenantUserId,
-        userId: tenantUserId,
-        recipientPhone: '+242073333334',
-        billingMonth: '2099-06',
-        unitUsd: 0.006,
-        fxRate: 600,
-        amountXaf: 4,
-        status: MessageChargeStatus.OPEN,
-        idempotencyKey: `pay-debt-init:${tenantUserId}:${Date.now()}`,
-      },
-    });
+  describe('recordCashPayment', () => {
+    let recordScheduleId: string;
 
-    const payment = await payments.initiatePayment({
-      userId: tenantUserId,
-      amount: '10000',
-      currency: 'XAF',
-      method: 'CASH',
-      idempotencyKey: `cash-debt-${Date.now()}`,
-    });
-    createdPaymentIds.push(payment.id);
-
-    expect(payment.messagingDebtXaf).toBe(4);
-    expect(payment.amount).toBe('10004');
-    const row = await prisma.payment.findUniqueOrThrow({
-      where: { id: payment.id },
-    });
-    const meta = row.metadata as { messagingChargeIds?: string[] };
-    expect(meta.messagingChargeIds).toContain(charge.id);
-  });
-
-  it('validateCashPayment marks messaging charges SETTLED', async () => {
-    await prisma.messageCharge.deleteMany({
-      where: {
-        OR: [{ userId: tenantUserId }, { payerId: tenantUserId }],
-      },
-    });
-    const charge = await prisma.messageCharge.create({
-      data: {
-        channel: MessageChannel.WHATSAPP_OTP,
-        payerType: MessagePayerType.USER,
-        payerId: tenantUserId,
-        userId: tenantUserId,
-        recipientPhone: '+242073333334',
-        billingMonth: '2099-07',
-        unitUsd: 0.006,
-        fxRate: 600,
-        amountXaf: 4,
-        status: MessageChargeStatus.OPEN,
-        idempotencyKey: `pay-debt-settle:${tenantUserId}:${Date.now()}`,
-      },
-    });
-
-    const payment = await payments.initiatePayment({
-      userId: tenantUserId,
-      amount: '20000',
-      currency: 'XAF',
-      method: 'CASH',
-      idempotencyKey: `cash-settle-${Date.now()}`,
-    });
-    createdPaymentIds.push(payment.id);
-
-    const validated = await payments.validateCashPayment(
-      agentUserId,
-      payment.id,
-      [
-        {
-          type: 'RENT_SCHEDULE',
-          refId: rentScheduleId,
-          amount: '20000',
-          rentScheduleId,
+    beforeEach(async () => {
+      const row = await prisma.rentSchedule.create({
+        data: {
+          leaseId,
+          dueDate: new Date(Date.now() + Math.floor(Math.random() * 1e9)),
+          amount: new Prisma.Decimal(150000),
+          currency: 'XAF',
+          status: 'PENDING',
         },
-      ],
-    );
-    expect(validated.status).toBe('VALIDATED');
-    expect(
-      validated.allocations.some((a) => a.type === 'MESSAGING_DEBT'),
-    ).toBe(true);
-
-    const settled = await prisma.messageCharge.findUniqueOrThrow({
-      where: { id: charge.id },
+      });
+      recordScheduleId = row.id;
     });
-    expect(settled.status).toBe(MessageChargeStatus.SETTLED);
-    expect(settled.settledPaymentId).toBe(payment.id);
+
+    it('creates VALIDATED cash for tenant and marks schedule PAID', async () => {
+      const payment = await payments.recordCashPayment(agentUserId, {
+        rentScheduleId: recordScheduleId,
+        idempotencyKey: `record-cash-${Date.now()}-ok`,
+      });
+      createdPaymentIds.push(payment.id);
+
+      expect(payment.status).toBe('VALIDATED');
+      expect(payment.method).toBe('CASH');
+      expect(payment.userId).toBe(tenantUserId);
+      expect(payment.validatedBy).toBe(agentUserId);
+      expect(payment.validatedAt).toBeTruthy();
+      expect(payment.allocations).toHaveLength(1);
+      expect(payment.allocations[0].rentScheduleId).toBe(recordScheduleId);
+      expect(Number(payment.amount)).toBe(150000);
+
+      const schedule = await prisma.rentSchedule.findUniqueOrThrow({
+        where: { id: recordScheduleId },
+      });
+      expect(schedule.status).toBe('PAID');
+    });
+
+    it('is idempotent on idempotencyKey', async () => {
+      const key = `record-cash-idem-${Date.now()}`;
+      const first = await payments.recordCashPayment(agentUserId, {
+        rentScheduleId: recordScheduleId,
+        idempotencyKey: key,
+      });
+      createdPaymentIds.push(first.id);
+      const second = await payments.recordCashPayment(agentUserId, {
+        rentScheduleId: recordScheduleId,
+        idempotencyKey: key,
+      });
+      expect(second.id).toBe(first.id);
+    });
+
+    it('rejects already PAID schedule', async () => {
+      await prisma.rentSchedule.update({
+        where: { id: recordScheduleId },
+        data: { status: 'PAID' },
+      });
+      await expect(
+        payments.recordCashPayment(agentUserId, {
+          rentScheduleId: recordScheduleId,
+          idempotencyKey: `record-cash-${Date.now()}-paid`,
+        }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('rejects unknown rentScheduleId', async () => {
+      await expect(
+        payments.recordCashPayment(agentUserId, {
+          rentScheduleId: '00000000-0000-4000-8000-000000000099',
+          idempotencyKey: `record-cash-${Date.now()}-missing`,
+        }),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('rejects unrelated user', async () => {
+      await expect(
+        payments.recordCashPayment(tenantUserId, {
+          rentScheduleId: recordScheduleId,
+          idempotencyKey: `record-cash-${Date.now()}-forbid`,
+        }),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+
+    it('allows owner to record cash', async () => {
+      const payment = await payments.recordCashPayment(ownerUserId, {
+        rentScheduleId: recordScheduleId,
+        amount: 150000,
+        idempotencyKey: `record-cash-${Date.now()}-owner`,
+      });
+      createdPaymentIds.push(payment.id);
+      expect(payment.status).toBe('VALIDATED');
+      expect(payment.validatedBy).toBe(ownerUserId);
+    });
+
+    it('records cash for a sale installment as buyer payment', async () => {
+      const agreement = await prisma.saleAgreement.create({
+        data: {
+          propertyId,
+          buyerId: tenantUserId,
+          organizationId: agentOrgId,
+          agreedPrice: new Prisma.Decimal(5_000_000),
+          currency: 'XAF',
+          status: 'ACTIVE',
+          activatedAt: new Date(),
+          installments: {
+            create: {
+              label: 'Apport',
+              dueDate: new Date(Date.now() + 86_400_000),
+              amount: new Prisma.Decimal(1_000_000),
+              currency: 'XAF',
+              status: 'PENDING',
+              position: 0,
+            },
+          },
+        },
+        include: { installments: true },
+      });
+      const installmentId = agreement.installments[0]!.id;
+
+      const payment = await payments.recordCashPayment(agentUserId, {
+        saleInstallmentId: installmentId,
+        idempotencyKey: `record-cash-sale-${Date.now()}`,
+      });
+      createdPaymentIds.push(payment.id);
+
+      expect(payment.status).toBe('VALIDATED');
+      expect(payment.userId).toBe(tenantUserId);
+      expect(payment.allocations[0]?.type).toBe('SALE_INSTALLMENT');
+      expect(payment.allocations[0]?.refId).toBe(installmentId);
+
+      const installment = await prisma.saleInstallment.findUniqueOrThrow({
+        where: { id: installmentId },
+      });
+      expect(installment.status).toBe('PAID');
+
+      await prisma.saleInstallment.deleteMany({
+        where: { agreementId: agreement.id },
+      });
+      await prisma.saleAgreement.delete({ where: { id: agreement.id } });
+    });
+
+    it('rejects record cash with neither rent nor sale target', async () => {
+      await expect(
+        payments.recordCashPayment(agentUserId, {
+          idempotencyKey: `record-cash-${Date.now()}-none`,
+        }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
   });
 
-  it('failed payment leaves charges OPEN', async () => {
-    await prisma.messageCharge.deleteMany({
-      where: {
-        OR: [{ userId: tenantUserId }, { payerId: tenantUserId }],
-      },
-    });
-    const charge = await prisma.messageCharge.create({
-      data: {
-        channel: MessageChannel.WHATSAPP_OTP,
-        payerType: MessagePayerType.USER,
-        payerId: tenantUserId,
-        userId: tenantUserId,
-        recipientPhone: '+242073333334',
-        billingMonth: '2099-08',
-        unitUsd: 0.006,
-        fxRate: 600,
-        amountXaf: 4,
-        status: MessageChargeStatus.OPEN,
-        idempotencyKey: `pay-debt-fail:${tenantUserId}:${Date.now()}`,
-      },
-    });
-
-    const payment = await payments.initiatePayment({
-      userId: tenantUserId,
-      amount: '5000',
-      currency: 'XAF',
-      method: 'CASH',
-      idempotencyKey: `cash-fail-${Date.now()}`,
-    });
-    createdPaymentIds.push(payment.id);
-    expect(payment.status).toBe('PENDING_VALIDATION');
-
-    const stillOpen = await prisma.messageCharge.findUniqueOrThrow({
-      where: { id: charge.id },
-    });
-    expect(stillOpen.status).toBe(MessageChargeStatus.OPEN);
-    expect(stillOpen.settledPaymentId).toBeNull();
-  });
 });

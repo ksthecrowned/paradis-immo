@@ -1,14 +1,14 @@
 import {
-  PhoneCountryCallingCode,
-  type PhoneCountrySelection,
+    PhoneCountryCallingCode,
+    type PhoneCountrySelection,
 } from '@/components/auth/PhoneCountryCallingCode';
 import { colors, radii, spacing } from '@/constants/theme';
 import {
-  formatNationalInput,
-  getNationalPlaceholder,
-  isValidNationalNumber,
-  reformatForCountry,
-  toE164,
+    formatNationalInput,
+    getNationalPlaceholder,
+    isValidNationalNumber,
+    reformatForCountry,
+    toE164,
 } from '@/lib/phone';
 import type { CountryCode } from 'libphonenumber-js';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
@@ -67,7 +67,7 @@ export function PhoneNumberField({
             onChange(formatNationalInput(text, countryCode))
           }
           placeholder={getNationalPlaceholder(countryCode)}
-          placeholderTextColor={colors.muted + "20"}
+          placeholderTextColor="#4B5563"
           keyboardType="phone-pad"
           textContentType="telephoneNumber"
           autoComplete="tel"
@@ -132,10 +132,10 @@ const styles = StyleSheet.create({
     paddingRight: spacing.sm,
   },
   inputDisabled: {
-    color: colors.muted,
+    color: "#4B5563",
   },
   inputRowDisabled: {
-    backgroundColor: colors.primary + "10",
+    
   },
   errorText: {
     fontSize: 13,

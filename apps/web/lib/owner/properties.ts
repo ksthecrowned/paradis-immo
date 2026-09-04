@@ -149,8 +149,8 @@ export interface CreatePropertyInput {
   // Marketplace listing
   listingStatus?: ListingStatus;
   availableFrom?: string | null;
-  isFeatured?: boolean;
-  // Visit configuration
+  // Visit configuration (isFeatured is admin-only — not set via owner/agent forms)
+
   visitEnabled?: boolean;
   visitType?: VisitType;
   visitPrice?: number;
@@ -161,6 +161,13 @@ export interface CreatePropertyInput {
   maxNights?: number | null;
   checkInTime?: string | null;
   checkOutTime?: string | null;
+  /** Agency-on-behalf: existing owner id */
+  ownerId?: string;
+  /** Agency-on-behalf: E.164 phone (resolve or create) */
+  ownerPhone?: string;
+  ownerName?: string;
+  /** Agency org when the agent belongs to several */
+  organizationId?: string;
 }
 
 export async function listMyProperties(): Promise<PublicProperty[]> {
@@ -168,6 +175,15 @@ export async function listMyProperties(): Promise<PublicProperty[]> {
     data: PublicProperty[];
     meta: { total: number; limit: number; offset: number };
   }>('/properties/mine?limit=100');
+  return result.data ?? [];
+}
+
+/** Properties the current user can operate on (owner or mandated agent). */
+export async function listManagedProperties(): Promise<PublicProperty[]> {
+  const result = await apiFetch<{
+    data: PublicProperty[];
+    meta: { total: number; limit: number; offset: number };
+  }>('/properties/managed?limit=100');
   return result.data ?? [];
 }
 

@@ -1,11 +1,11 @@
 import {
   BadRequestException,
-  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { MediaType } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { AgencyAccessService } from '../mandates/agency-access.service';
 import { R2Service, MediaTypeError } from './r2.service';
 
 export const MAX_VIDEO_BYTES = 20 * 1024 * 1024;
@@ -32,6 +32,7 @@ export class MediaService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly r2: R2Service,
+    private readonly agencyAccess: AgencyAccessService,
   ) {}
 
   async presign(
@@ -222,21 +223,7 @@ export class MediaService {
         message: 'Property does not exist',
       });
     }
-    if (property.ownerId === userId) return property;
-    const membership = await this.prisma.organizationMember.findUnique({
-      where: {
-        userId_organizationId: {
-          userId,
-          organizationId: property.organizationId,
-        },
-      },
-    });
-    if (!membership) {
-      throw new ForbiddenException({
-        code: 'NOT_PROPERTY_OWNER',
-        message: 'Only the owner or an org member can manage media',
-      });
-    }
+    await this.agencyAccess.assertCanOperateOnProperty(userId, propertyId);
     return property;
   }
 }

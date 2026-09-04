@@ -1,15 +1,11 @@
 import { Test } from '@nestjs/testing';
 import {
-  MessageChannel,
-  MessageChargeStatus,
-  MessagePayerType,
   NotificationChannel,
   Prisma,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { EventPublisher } from '../events/event.publisher';
 import { R2Service } from '../media/r2.service';
-import { MessagingBillingService } from '../messaging/messaging-billing.service';
 import { InfobipSmsService } from '../messaging/infobip-sms.service';
 import { InfobipService } from './infobip.service';
 import { FcmService } from './fcm.service';
@@ -36,9 +32,6 @@ describe('Notifications — PAYMENT_VALIDATED processor', () => {
   const createdReceiptIds: string[] = [];
 
   beforeAll(async () => {
-    process.env.USD_TO_XAF = process.env.USD_TO_XAF || '600';
-    process.env.SMS_ALERT_UNIT_USD = process.env.SMS_ALERT_UNIT_USD || '0.234';
-
     const uploadSpy = jest.fn(
       (key: string) =>
         Promise.resolve({ url: `https://fake.r2/${key}` }) as Promise<{
@@ -67,7 +60,6 @@ describe('Notifications — PAYMENT_VALIDATED processor', () => {
       providers: [
         PaymentValidatedProcessor,
         NotificationsService,
-        MessagingBillingService,
         ReceiptService,
         PrismaService,
         { provide: EventPublisher, useValue: { emit: jest.fn() } },
@@ -98,16 +90,6 @@ describe('Notifications — PAYMENT_VALIDATED processor', () => {
       })
     ).map((u) => u.id);
     if (userIds.length > 0) {
-      await prisma.messageCharge
-        .deleteMany({
-          where: {
-            OR: [
-              { userId: { in: userIds } },
-              { payerId: { in: userIds } },
-            ],
-          },
-        })
-        .catch(() => undefined);
       await prisma.notification
         .deleteMany({ where: { userId: { in: userIds } } })
         .catch(() => undefined);
@@ -233,16 +215,6 @@ describe('Notifications — PAYMENT_VALIDATED processor', () => {
         .deleteMany({ where: { id: { in: createdReceiptIds } } })
         .catch(() => undefined);
     }
-    await prisma.messageCharge
-      .deleteMany({
-        where: {
-          OR: [
-            { userId: { in: [ownerUserId, tenantUserId] } },
-            { organizationId: ownerOrgId },
-          ],
-        },
-      })
-      .catch(() => undefined);
     await prisma.receipt
       .deleteMany({
         where: {
@@ -347,16 +319,6 @@ describe('Notifications — PAYMENT_VALIDATED processor', () => {
     expect(sentSms[0].text).toContain('https://fake.r2/receipts/');
     expect(sentPush).toHaveLength(0);
 
-    const charge = await prisma.messageCharge.findFirst({
-      where: {
-        channel: MessageChannel.SMS_ALERT,
-        payerId: ownerOrgId,
-        userId: tenantUserId,
-      },
-    });
-    expect(charge).not.toBeNull();
-    expect(charge!.status).toBe(MessageChargeStatus.OPEN);
-    expect(charge!.payerType).toBe(MessagePayerType.ORGANIZATION);
     createdNotificationIds.push(result.id);
   });
 

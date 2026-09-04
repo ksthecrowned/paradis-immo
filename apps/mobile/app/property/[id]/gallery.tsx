@@ -1,7 +1,7 @@
 import { CircleIconButton } from '@/components/ui/CircleIconButton';
 import { colors, radii, spacing } from '@/constants/theme';
 import { useCatalogProperty } from '@/hooks/use-catalog-property';
-import { getPropertyGallery } from '@/lib/mock-properties';
+import { getPropertyGallery } from '@/lib/property-gallery';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';

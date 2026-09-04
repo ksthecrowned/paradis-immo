@@ -21,7 +21,10 @@ export function useRequireSession(): {
       return;
     }
     if (status === 'authenticated' && session?.error === 'RefreshAccessTokenError') {
-      router.replace('/login');
+      void (async () => {
+        const { logout } = await import('@/lib/auth');
+        await logout('/login');
+      })();
     }
   }, [status, session?.error, router]);
 

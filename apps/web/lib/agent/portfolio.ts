@@ -1,6 +1,8 @@
 import { apiFetch } from '@/lib/api';
 import type { PublicProperty } from '@/lib/owner/properties';
+import { listManagedProperties } from '@/lib/owner/properties';
 
+/** @deprecated Prefer listManagedProperties — org filter misses mandated owner-org listings. */
 export async function listOrgProperties(
   organizationId: string,
 ): Promise<PublicProperty[]> {
@@ -13,3 +15,5 @@ export async function listOrgProperties(
   );
   return result.data ?? [];
 }
+
+export { listManagedProperties };

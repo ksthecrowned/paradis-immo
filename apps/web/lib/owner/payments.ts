@@ -20,7 +20,6 @@ export interface PublicPayment {
   idempotencyKey: string;
   validatedBy: string | null;
   validatedAt: string | null;
-  messagingDebtXaf?: number;
   allocations?: PublicPaymentAllocation[];
   createdAt: string;
 }
@@ -53,6 +52,41 @@ export async function validatePayment(
   return apiFetch<PublicPayment>(`/payments/${id}/validate`, {
     method: 'POST',
     body: { allocations },
+  });
+}
+
+export type RecordCashPaymentInput = {
+  rentScheduleId?: string;
+  saleInstallmentId?: string;
+  amount?: number;
+  currency?: string;
+  note?: string;
+  idempotencyKey?: string;
+};
+
+export async function recordCashPayment(
+  input: RecordCashPaymentInput,
+): Promise<PublicPayment> {
+  if (!input.rentScheduleId && !input.saleInstallmentId) {
+    throw new Error('rentScheduleId or saleInstallmentId is required');
+  }
+  const targetKey = input.rentScheduleId
+    ? `cash-rent-${input.rentScheduleId}`
+    : `cash-sale-${input.saleInstallmentId}`;
+  return apiFetch<PublicPayment>('/payments/record-cash', {
+    method: 'POST',
+    body: {
+      ...(input.rentScheduleId
+        ? { rentScheduleId: input.rentScheduleId }
+        : {}),
+      ...(input.saleInstallmentId
+        ? { saleInstallmentId: input.saleInstallmentId }
+        : {}),
+      ...(input.amount != null ? { amount: input.amount } : {}),
+      ...(input.currency ? { currency: input.currency } : {}),
+      ...(input.note ? { note: input.note } : {}),
+      idempotencyKey: input.idempotencyKey ?? `${targetKey}-${Date.now()}`,
+    },
   });
 }
 

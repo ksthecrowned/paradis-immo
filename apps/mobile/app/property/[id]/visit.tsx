@@ -9,7 +9,6 @@ import { getAgency, getAgent } from '@/lib/agencies';
 import { ensureAuthenticated } from '@/lib/auth-guard';
 import { formatDayLongFr, todayKey } from '@/lib/calendar';
 import { getErrorMessage } from '@/lib/feedback';
-import { initiatePayment } from '@/lib/payments';
 import { bookVisit, listVisitSlots } from '@/lib/visits';
 import {
   groupVisitSlotsByDay,
@@ -128,22 +127,14 @@ export default function VisitScreen(): React.JSX.Element {
       const isPaid = property.visitType === 'PAID';
       if (isPaid) {
         const amount = property.visitPrice ?? 0;
-        const payment = await initiatePayment({
-          amount,
-          currency: 'XAF',
-          method: 'CASH',
-          idempotencyKey: `visit-${booking.id}-${Date.now()}`,
-        });
-        const total = Number(payment.amount);
-        const debt = payment.messagingDebtXaf ?? 0;
         const qs = new URLSearchParams({
           propertyId: property.id,
-          amount: String(total),
+          amount: String(amount),
+          currency: 'XAF',
           visitBookingId: booking.id,
           title: `Visite · ${property.title}`,
         });
-        if (debt > 0) qs.set('messagingDebtXaf', String(debt));
-        router.push(`/payment/${payment.id}?${qs.toString()}`);
+        router.push(`/payment/checkout?${qs.toString()}`);
         return;
       }
       setDone(true);

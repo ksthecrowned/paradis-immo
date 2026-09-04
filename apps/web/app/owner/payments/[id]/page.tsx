@@ -1,4 +1,4 @@
-import { OwnerPaymentDetail } from './owner-payment-detail';
+import { PaymentDetail } from '@/components/payments/payment-detail';
 
 export default async function OwnerPaymentDetailPage({
   params,
@@ -6,5 +6,5 @@ export default async function OwnerPaymentDetailPage({
   params: Promise<{ id: string }>;
 }): Promise<React.JSX.Element> {
   const { id } = await params;
-  return <OwnerPaymentDetail paymentId={id} />;
+  return <PaymentDetail paymentId={id} />;
 }

@@ -14,7 +14,7 @@ import {
   PropertyReportStatus,
   PropertyStatus,
 } from '@prisma/client';
-import { IsEnum, IsOptional, IsString, MaxLength } from 'class-validator';
+import { IsBoolean, IsEnum, IsOptional, IsString, MaxLength } from 'class-validator';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AppAuthGuard } from '../common/guards/auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
@@ -29,6 +29,11 @@ class ModeratePropertyDto {
   @IsString()
   @MaxLength(500)
   reason?: string;
+}
+
+class SetFeaturedDto {
+  @IsBoolean()
+  isFeatured!: boolean;
 }
 
 class UpdateReportDto {
@@ -105,6 +110,22 @@ export class AdminController {
       data: {
         id: updated.id,
         status: updated.status,
+        ownerId: updated.ownerId,
+        updatedAt: updated.updatedAt.toISOString(),
+      },
+    };
+  }
+
+  @Patch('properties/:id/featured')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Feature or unfeature a property (marketplace highlight)' })
+  async setFeatured(@Param('id') id: string, @Body() dto: SetFeaturedDto) {
+    const updated = await this.admin.setPropertyFeatured(id, dto.isFeatured);
+    return {
+      statusCode: 200,
+      data: {
+        id: updated.id,
+        isFeatured: updated.isFeatured,
         ownerId: updated.ownerId,
         updatedAt: updated.updatedAt.toISOString(),
       },

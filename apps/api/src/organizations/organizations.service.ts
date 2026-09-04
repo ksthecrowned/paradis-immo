@@ -44,6 +44,16 @@ export type PublicOrganizationDetail = PublicOrganization & {
   agents: PublicAgent[];
 };
 
+export type PublicOrganizationReview = {
+  id: string;
+  organizationId: string;
+  authorName: string;
+  propertyTitle: string | null;
+  body: string;
+  rating: number;
+  createdAt: string;
+};
+
 const publicOrgWhere: Prisma.OrganizationWhereInput = {
   OR: [
     { isOfficial: true },
@@ -112,6 +122,33 @@ export class OrganizationsService {
         phone: m.user.phone ?? null,
       })),
     };
+  }
+
+  async listReviews(organizationId: string): Promise<PublicOrganizationReview[]> {
+    const org = await this.prisma.organization.findFirst({
+      where: { id: organizationId, ...publicOrgWhere },
+      select: { id: true },
+    });
+    if (!org) {
+      throw new NotFoundException({
+        code: 'ORGANIZATION_NOT_FOUND',
+        message: 'Organization not found',
+      });
+    }
+    const rows = await this.prisma.organizationReview.findMany({
+      where: { organizationId },
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+    });
+    return rows.map((r) => ({
+      id: r.id,
+      organizationId: r.organizationId,
+      authorName: r.authorName,
+      propertyTitle: r.propertyTitle,
+      body: r.body,
+      rating: r.rating,
+      createdAt: r.createdAt.toISOString(),
+    }));
   }
 
   toPublic(o: Organization): PublicOrganization {

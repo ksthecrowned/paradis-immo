@@ -1,6 +1,6 @@
 import { colors, radii, spacing } from '@/constants/theme';
 import { getAgency } from '@/lib/agencies';
-import { getPropertyGallery } from '@/lib/mock-properties';
+import { getPropertyCoverSource } from '@/lib/property-gallery';
 import {
   propertyPriceLabel,
   type Property,
@@ -13,13 +13,16 @@ export function PropertySummaryCard({
 }: {
   property: Property;
 }): React.JSX.Element {
-  const gallery = getPropertyGallery(property);
-  const cover = gallery[0] ?? require('@/assets/images/house2.jpg');
+  const cover = getPropertyCoverSource(property);
   const agency = getAgency(property.agencyId);
 
   return (
     <View style={styles.card}>
-      <Image source={cover} style={styles.image} resizeMode="cover" />
+      {cover ? (
+        <Image source={cover} style={styles.image} resizeMode="cover" />
+      ) : (
+        <View style={[styles.image, styles.imageEmpty]} />
+      )}
       <View style={styles.body}>
         <Text style={styles.title} numberOfLines={1}>
           {property.title}
@@ -56,6 +59,9 @@ const styles = StyleSheet.create({
     height: 64,
     borderRadius: radii.md,
     backgroundColor: colors.primarySoft,
+  },
+  imageEmpty: {
+    backgroundColor: colors.primaryMuted,
   },
   body: {
     flex: 1,

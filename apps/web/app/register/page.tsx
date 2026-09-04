@@ -1,8 +1,8 @@
 'use client';
 
+import { registerWeb } from '@/lib/auth';
 import Link from 'next/link';
 import { FormEvent, useState } from 'react';
-import { registerWeb } from '@/lib/auth';
 
 const inputClass =
   'block w-full rounded-lg border border-input-border bg-search px-3 py-2.5 text-sm text-foreground placeholder:text-placeholder focus:border-input-focus-border focus:ring-input-focus-border';
@@ -35,27 +35,21 @@ export default function RegisterPage(): React.JSX.Element {
       <div className="w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-lg">
         <h1 className="text-2xl font-bold text-foreground">Créer un compte</h1>
         <p className="mt-2 text-sm text-muted">
-          Nous envoyons un lien magique pour vérifier votre email.
+          Vous recevrez un email avec un lien pour vérifier votre adresse email.
         </p>
 
         {sent ? (
-          <div className="mt-6 space-y-3 text-sm text-muted">
+          <div className="mt-4 space-y-3 text-sm text-muted">
             <p>
               Si l&apos;adresse est valide, un lien a été envoyé à{' '}
               <strong className="text-foreground">{email}</strong>.
             </p>
-            {process.env.NODE_ENV === 'development' ? (
-              <p>
-                En local, ouvrez le terminal API : le lien magique y est
-                journalisé.
-              </p>
-            ) : null}
             <Link href="/login" className="font-semibold text-accent hover:underline">
               Retour à la connexion
             </Link>
           </div>
         ) : (
-          <form onSubmit={(e) => void onSubmit(e)} className="mt-6 space-y-4">
+          <form onSubmit={(e) => void onSubmit(e)} className="mt-4 space-y-4">
             <label className="block space-y-1.5">
               <span className="text-sm font-medium">Email</span>
               <input

@@ -152,6 +152,21 @@ export class AdminService {
     return updated;
   }
 
+  /** Marketplace “mise en avant” — PLATFORM_ADMIN only. */
+  async setPropertyFeatured(id: string, isFeatured: boolean) {
+    const existing = await this.prisma.property.findUnique({ where: { id } });
+    if (!existing) {
+      throw new NotFoundException({
+        code: 'PROPERTY_NOT_FOUND',
+        message: `Property ${id} not found`,
+      });
+    }
+    return this.prisma.property.update({
+      where: { id },
+      data: { isFeatured },
+    });
+  }
+
   async listReports(
     page: number,
     pageSize: number,

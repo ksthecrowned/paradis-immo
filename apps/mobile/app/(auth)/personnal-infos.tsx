@@ -4,24 +4,24 @@ import { colors, radii, spacing } from '@/constants/theme';
 import { useFeedback } from '@/context/FeedbackContext';
 import { apiFetch } from '@/lib/api';
 import {
-  getAccessToken,
-  getRefreshToken,
-  getStoredUser,
-  saveTokens,
+    getAccessToken,
+    getRefreshToken,
+    getStoredUser,
+    saveTokens,
 } from '@/lib/auth';
 import { getErrorMessage } from '@/lib/feedback';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import {
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
+    ActivityIndicator,
+    KeyboardAvoidingView,
+    Platform,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -122,7 +122,7 @@ export default function PersonnalInfosScreen(): React.JSX.Element {
           value={name}
           onChangeText={setName}
           placeholder="Ex. Jean Mbemba"
-          placeholderTextColor={colors.muted + "20"}
+          placeholderTextColor="#4B5563"
           autoCapitalize="words"
           autoComplete="name"
           textContentType="name"

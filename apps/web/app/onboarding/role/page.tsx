@@ -1,9 +1,10 @@
 'use client';
 
+import { logout } from '@/lib/auth';
 import { backendWebSetRole } from '@/lib/backend-auth';
 import {
-    isWebAccountActive,
-    resolveDashboardPath,
+  isWebAccountActive,
+  resolveDashboardPath,
 } from '@/lib/web-account';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
@@ -23,13 +24,25 @@ export default function OnboardingRolePage(): React.JSX.Element {
       router.replace('/login');
       return;
     }
-    if (status === 'authenticated' && session?.user && isWebAccountActive(session.user)) {
+    if (status !== 'authenticated' || !session) return;
+
+    // Stale session after re-seed / revoked refresh → must clear cookie.
+    if (session.error === 'RefreshAccessTokenError') {
+      void logout('/login');
+      return;
+    }
+
+    if (session.user && isWebAccountActive(session.user)) {
       router.replace(resolveDashboardPath(session.user));
     }
   }, [status, session, router]);
 
   async function choose(role: 'OWNER' | 'AGENT'): Promise<void> {
-    if (!session?.accessToken) return;
+    if (!session?.accessToken || session.error === 'RefreshAccessTokenError') {
+      setError('Session expirée. Reconnectez-vous.');
+      void logout('/login');
+      return;
+    }
     setBusy(role);
     setError(null);
     try {
@@ -43,10 +56,23 @@ export default function OnboardingRolePage(): React.JSX.Element {
       router.replace(resolveDashboardPath(tokens.user));
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Échec');
+      const message = err instanceof Error ? err.message : 'Échec';
+      setError(message);
+      // Access JWT expired / revoked → leave the loop.
+      if (/expir|401|unauthorized|invalid/i.test(message)) {
+        void logout('/login');
+      }
     } finally {
       setBusy(null);
     }
+  }
+
+  if (status === 'loading') {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-background px-4 py-12">
+        <p className="text-sm text-muted">Chargement…</p>
+      </main>
+    );
   }
 
   return (
@@ -97,6 +123,17 @@ export default function OnboardingRolePage(): React.JSX.Element {
             {error}
           </p>
         ) : null}
+
+        <p className="pt-2 text-center text-sm text-muted">
+          Mauvais compte ?{' '}
+          <button
+            type="button"
+            className="font-semibold text-accent hover:underline"
+            onClick={() => void logout('/login')}
+          >
+            Se déconnecter
+          </button>
+        </p>
       </div>
     </main>
   );

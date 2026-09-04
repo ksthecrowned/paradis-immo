@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   DashboardPageHeader,
@@ -13,6 +14,8 @@ import {
   validatePayment,
   type PublicPayment,
 } from '@/lib/agent/payments';
+import { RecordCashFromPaymentsPanel } from '@/components/payments/record-cash-from-payments-panel';
+import { ROUTES } from '@/lib/routes';
 import { useRequireSession } from '@/hooks/use-require-session';
 
 function formatMoney(amount: string, currency: string): string {
@@ -43,6 +46,7 @@ export function AgentPaymentsValidationPage(): React.JSX.Element {
   const load = useCallback(async () => {
     setLoading(true);
     try {
+      // Scoped server-side to operable portfolio (assigned / gérant / owner).
       const data = await listPendingValidationPayments();
       setRows(data);
       setError(null);
@@ -122,6 +126,11 @@ export function AgentPaymentsValidationPage(): React.JSX.Element {
     <section className="space-y-6">
       <DashboardPageHeader title="Validation des paiements" />
 
+      <RecordCashFromPaymentsPanel
+        onRecorded={load}
+        onError={setError}
+      />
+
       {error ? (
         <div className="rounded-xl border border-danger/40 bg-danger/10 px-4 py-3 text-sm text-danger">
           {error}
@@ -135,17 +144,25 @@ export function AgentPaymentsValidationPage(): React.JSX.Element {
         onRefresh={load}
         entityLabel="paiements"
         searchPlaceholder="Rechercher un paiement…"
-        emptyMessage="Aucun paiement en attente de validation."
+        emptyMessage="Aucun paiement en attente sur votre portefeuille."
         tableId="agent-payments-validation-table"
         actions={(row) => (
-          <button
-            type="button"
-            disabled={validatingId === row.id}
-            onClick={() => void handleValidate(row)}
-            className="rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-white hover:bg-accent/90 disabled:opacity-50"
-          >
-            Valider
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <Link
+              href={ROUTES.agent.payment(row.id)}
+              className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-card-hover"
+            >
+              Voir
+            </Link>
+            <button
+              type="button"
+              disabled={validatingId === row.id}
+              onClick={() => void handleValidate(row)}
+              className="rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-white hover:bg-accent/90 disabled:opacity-50"
+            >
+              Valider
+            </button>
+          </div>
         )}
       />
     </section>

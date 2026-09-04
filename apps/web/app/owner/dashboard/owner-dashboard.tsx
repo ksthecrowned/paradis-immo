@@ -1,14 +1,16 @@
 'use client';
 
 import {
+  DashboardMarketProperties,
   DataTable,
   PropertyModeChart,
   RevenueChart,
-  SessionsMapCard,
   StatCard,
   StatusBadge,
 } from '@/components/dashboard';
+import type { PropertyModeSeries } from '@/lib/dashboard/chart-series';
 import { DASH_CHART_COLORS, DASH_STAT_ICONS } from '@/lib/dash-icons';
+import type { PublicPayment } from '@/lib/owner/payments';
 import { ROUTES } from '@/lib/routes';
 
 export interface OwnerDashboardCounts {
@@ -33,12 +35,7 @@ export interface OwnerVisitRow {
   propertyId: string;
 }
 
-const SPARKLINES = {
-  properties: [8, 9, 9, 10, 11, 11, 12],
-  leases: [5, 5, 6, 6, 7, 7, 8],
-  payments: [1, 2, 1, 3, 2, 4, 3],
-  visits: [2, 3, 2, 4, 3, 5, 4],
-};
+const FALLBACK_SPARK = [0, 0, 0, 0, 0, 0, 0];
 
 function paymentTone(status: string): 'success' | 'warning' | 'danger' | 'neutral' {
   if (status === 'VALIDATED' || status === 'PAID') return 'success';
@@ -79,11 +76,29 @@ export function OwnerDashboard({
   counts,
   payments = [],
   visits = [],
+  chartPayments = [],
+  modeSeries,
+  sparklines,
 }: {
   counts: OwnerDashboardCounts;
   payments?: OwnerPaymentRow[];
   visits?: OwnerVisitRow[];
+  chartPayments?: PublicPayment[];
+  modeSeries?: PropertyModeSeries;
+  sparklines?: {
+    properties: number[];
+    leases: number[];
+    payments: number[];
+    visits: number[];
+  };
 }): React.JSX.Element {
+  const sparks = sparklines ?? {
+    properties: FALLBACK_SPARK,
+    leases: FALLBACK_SPARK,
+    payments: FALLBACK_SPARK,
+    visits: FALLBACK_SPARK,
+  };
+
   return (
     <section className="space-y-6">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -92,14 +107,14 @@ export function OwnerDashboard({
           value={counts.activeProperties}
           href={ROUTES.owner.properties}
           icon={DASH_STAT_ICONS.buildings}
-          sparkline={SPARKLINES.properties}
+          sparkline={sparks.properties}
         />
         <StatCard
           label="Baux actifs"
           value={counts.activeLeases}
           href={ROUTES.owner.leases}
           icon={DASH_STAT_ICONS.document}
-          sparkline={SPARKLINES.leases}
+          sparkline={sparks.leases}
           sparklineColor={DASH_CHART_COLORS.green}
         />
         <StatCard
@@ -107,7 +122,7 @@ export function OwnerDashboard({
           value={counts.pendingPayments}
           href={ROUTES.owner.payments}
           icon={DASH_STAT_ICONS.wallet}
-          sparkline={SPARKLINES.payments}
+          sparkline={sparks.payments}
           sparklineColor={DASH_CHART_COLORS.amber}
         />
         <StatCard
@@ -115,24 +130,23 @@ export function OwnerDashboard({
           value={counts.pendingVisitRequests}
           href={ROUTES.owner.visits}
           icon={DASH_STAT_ICONS.calendar}
-          sparkline={SPARKLINES.visits}
+          sparkline={sparks.visits}
           sparklineColor={DASH_CHART_COLORS.violet}
         />
       </div>
 
       <div className="space-y-2">
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
-          <div className="xl:col-span-5">
-            <RevenueChart />
+          <div className="xl:col-span-8">
+            <RevenueChart payments={chartPayments} />
           </div>
           <div className="xl:col-span-4">
-            <PropertyModeChart />
-          </div>
-          <div className="xl:col-span-3">
-            <SessionsMapCard />
+            <PropertyModeChart data={modeSeries} />
           </div>
         </div>
       </div>
+
+      <DashboardMarketProperties role="owner" />
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <DataTable

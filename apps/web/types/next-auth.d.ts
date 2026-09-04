@@ -34,6 +34,9 @@ declare module 'next-auth/jwt' {
     name?: string | null;
     roles: string[];
     orgRoles: string[];
+    orgRolesHydrated?: boolean;
+    /** Last Nest sync for empty-orgRoles re-check (ms epoch). */
+    orgRolesCheckedAt?: number;
     accessToken: string;
     refreshToken: string;
     accessTokenExpires: number;

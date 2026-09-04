@@ -4,14 +4,16 @@ import { colors, radii, spacing } from '@/constants/theme';
 import { ensureAuthenticated } from '@/lib/auth-guard';
 import {
   ACTIVITY_TABS,
-  listMockActivity,
+  fetchActivity,
   type ActivityItem,
   type ActivitySegment,
-} from '@/lib/mock-activity';
+} from '@/lib/activity';
+import { getErrorMessage } from '@/lib/feedback';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useState } from 'react';
 import {
+  ActivityIndicator,
   FlatList,
   Pressable,
   RefreshControl,
@@ -56,37 +58,56 @@ export default function ActivityScreen(): React.JSX.Element {
   const insets = useSafeAreaInsets();
   const [segment, setSegment] = useState<ActivitySegment>('visits');
   const [ready, setReady] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [tick, setTick] = useState(0);
+  const [data, setData] = useState<ActivityItem[]>([]);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async (seg: ActivitySegment) => {
+    setError(null);
+    try {
+      setData(await fetchActivity(seg));
+    } catch (err) {
+      setError(getErrorMessage(err, 'Impossible de charger l’activité'));
+      setData([]);
+    }
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
       let active = true;
       void (async () => {
         const ok = await ensureAuthenticated(router, '/activity');
-        if (active) setReady(ok);
+        if (!active) return;
+        setReady(ok);
+        if (!ok) return;
+        setLoading(true);
+        await load(segment);
+        if (active) setLoading(false);
       })();
       return () => {
         active = false;
       };
-    }, []),
+    }, [load, segment]),
   );
 
-  const data = useMemo(
-    () => listMockActivity(segment),
-    [segment, tick],
-  );
-  const emptyCopy = EMPTY[segment];
-
-  const onRefresh = useCallback(() => {
+  const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    setTick((n) => n + 1);
-    setTimeout(() => setRefreshing(false), 400);
-  }, []);
+    await load(segment);
+    setRefreshing(false);
+  }, [load, segment]);
+
+  const onChangeSegment = (key: string): void => {
+    setSegment(key as ActivitySegment);
+  };
 
   const onItemPress = (item: ActivityItem): void => {
     if (item.segment === 'rents' && item.leaseId) {
       router.push(`/leases/${item.leaseId}`);
+      return;
+    }
+    if (item.segment === 'payments') {
+      router.push(`/payment/${item.id}`);
       return;
     }
     if (item.stayId) {
@@ -97,11 +118,19 @@ export default function ActivityScreen(): React.JSX.Element {
       router.push(`/purchases/${item.purchaseId}`);
       return;
     }
-    router.push(`/property/${item.propertyId}`);
+    if (item.propertyId) {
+      router.push(`/property/${item.propertyId}`);
+    }
   };
 
-  if (!ready) {
-    return <View style={styles.screen} />;
+  const emptyCopy = EMPTY[segment];
+
+  if (!ready || loading) {
+    return (
+      <View style={[styles.screen, styles.centered]}>
+        <ActivityIndicator color={colors.primary} />
+      </View>
+    );
   }
 
   return (
@@ -114,9 +143,18 @@ export default function ActivityScreen(): React.JSX.Element {
         <SegmentTabs
           tabs={ACTIVITY_TABS}
           value={segment}
-          onChange={(key) => setSegment(key as ActivitySegment)}
+          onChange={onChangeSegment}
         />
       </View>
+
+      {error ? (
+        <View style={styles.errorBanner}>
+          <Text style={styles.errorText}>{error}</Text>
+          <Pressable onPress={() => void onRefresh()} accessibilityRole="button">
+            <Text style={styles.errorRetry}>Réessayer</Text>
+          </Pressable>
+        </View>
+      ) : null}
 
       <FlatList
         data={data}
@@ -132,7 +170,7 @@ export default function ActivityScreen(): React.JSX.Element {
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
-            onRefresh={onRefresh}
+            onRefresh={() => void onRefresh()}
             tintColor={colors.primary}
             colors={[colors.primary]}
           />
@@ -191,6 +229,10 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.bg,
   },
+  centered: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   header: {
     paddingHorizontal: spacing.md,
     paddingBottom: spacing.md,
@@ -207,6 +249,26 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: colors.muted,
     marginBottom: 4,
+  },
+  errorBanner: {
+    marginHorizontal: spacing.md,
+    marginBottom: spacing.sm,
+    padding: 12,
+    borderRadius: radii.lg,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    gap: 6,
+  },
+  errorText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.ink,
+  },
+  errorRetry: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.primary,
   },
   list: {
     flex: 1,

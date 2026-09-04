@@ -4,7 +4,14 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma, Property, PropertyStatus } from '@prisma/client';
+import {
+  MandateStatus,
+  OrgMemberRole,
+  OrganizationType,
+  Prisma,
+  Property,
+  PropertyStatus,
+} from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { EventPublisher } from '../events/event.publisher';
 import {
@@ -13,6 +20,8 @@ import {
 } from './dto/create-property.dto';
 import { FilterPropertiesDto } from './dto/filter-properties.dto';
 import { OrganizationsService } from '../organizations/organizations.service';
+import { AgencyAccessService } from '../mandates/agency-access.service';
+import { UsersService } from '../users/users.service';
 import {
   assertListingStatusForMode,
   coerceListingStatusForWrite,
@@ -152,6 +161,8 @@ export class PropertiesService {
     private readonly prisma: PrismaService,
     private readonly orgs: OrganizationsService,
     private readonly events: EventPublisher,
+    private readonly agencyAccess: AgencyAccessService,
+    private readonly users: UsersService,
   ) {}
 
   // ------------------------------------------------------------------
@@ -188,8 +199,14 @@ export class PropertiesService {
     assertListingStatusForMode(dto.mode, coercedListingStatus);
     const shortStayFields = assertShortStayFields(dto);
 
-    // Auto-create / reuse the user's personal OWNER org
-    const ownerOrg = await this.orgs.ensureOwnerOrg(userId, dto.countryId);
+    const onBehalf = await this.resolveOnBehalfOwner(userId, dto);
+    const effectiveOwnerId = onBehalf?.ownerId ?? userId;
+
+    // Auto-create / reuse the owner's personal OWNER org
+    const ownerOrg = await this.orgs.ensureOwnerOrg(
+      effectiveOwnerId,
+      dto.countryId,
+    );
 
     const created = await this.prisma.property.create({
       data: {
@@ -205,7 +222,7 @@ export class PropertiesService {
         lat: dto.lat ?? null,
         lng: dto.lng ?? null,
         countryId: dto.countryId,
-        ownerId: userId,
+        ownerId: effectiveOwnerId,
         organizationId: ownerOrg.id,
         bedrooms: dto.bedrooms ?? null,
         ...shortStayFields,
@@ -224,7 +241,8 @@ export class PropertiesService {
         availableFrom: dto.availableFrom
           ? new Date(dto.availableFrom)
           : null,
-        isFeatured: dto.isFeatured ?? false,
+        // Featured listings are admin-only (PATCH /admin/properties/:id/featured).
+        isFeatured: false,
         visitEnabled: dto.visitEnabled ?? false,
         visitType: dto.visitType ?? null,
         visitPrice:
@@ -240,6 +258,17 @@ export class PropertiesService {
       },
       include: this.publicInclude(),
     });
+
+    if (onBehalf) {
+      await this.prisma.mandate.create({
+        data: {
+          propertyId: created.id,
+          organizationId: onBehalf.agencyOrganizationId,
+          status: MandateStatus.ACTIVE,
+          assignedAgentId: onBehalf.assignedAgentId,
+        },
+      });
+    }
 
     return this.toPublic(created);
   }
@@ -345,6 +374,41 @@ export class PropertiesService {
     };
   }
 
+  /**
+   * Properties the user may operate on (owned, mandated, or unmanaged org
+   * listings). Used by the agent portfolio.
+   */
+  async listManaged(
+    userId: string,
+    filter: FilterPropertiesDto,
+  ): Promise<PaginatedProperties> {
+    const limit = filter.limit ?? 20;
+    const offset = filter.offset ?? 0;
+    const ids = await this.agencyAccess.listOperablePropertyIds(userId);
+    if (ids.length === 0) {
+      return { data: [], meta: { total: 0, limit, offset } };
+    }
+    const where: Prisma.PropertyWhereInput = {
+      id: { in: ids },
+      ...(filter.status ? { status: filter.status } : {}),
+      ...(filter.mode ? { mode: filter.mode } : {}),
+    };
+    const [rows, total] = await Promise.all([
+      this.prisma.property.findMany({
+        where,
+        include: this.publicInclude(),
+        orderBy: { createdAt: 'desc' },
+        take: limit,
+        skip: offset,
+      }),
+      this.prisma.property.count({ where }),
+    ]);
+    return {
+      data: rows.map((p) => this.toPublic(p)),
+      meta: { total, limit, offset },
+    };
+  }
+
   // ------------------------------------------------------------------
   // Update
   // ------------------------------------------------------------------
@@ -376,11 +440,7 @@ export class PropertiesService {
     }
 
     // RBAC: only the owner of the property (or an AGENT/ADMIN of the managing org) can update.
-    await this.assertCanWrite(
-      userId,
-      existing.ownerId,
-      existing.organizationId,
-    );
+    await this.assertCanWrite(userId, existing.id);
 
     if (dto.quartierId !== undefined) {
       const quartier = await this.prisma.quartier.findUnique({
@@ -493,9 +553,6 @@ export class PropertiesService {
                   : new Date(dto.availableFrom),
             }
           : {}),
-        ...(dto.isFeatured !== undefined
-          ? { isFeatured: dto.isFeatured }
-          : {}),
       },
       include: this.publicInclude(),
     });
@@ -515,11 +572,7 @@ export class PropertiesService {
         message: 'Property does not exist',
       });
     }
-    await this.assertCanWrite(
-      userId,
-      existing.ownerId,
-      existing.organizationId,
-    );
+    await this.assertCanWrite(userId, id);
 
     if (existing.status === PropertyStatus.ARCHIVED) {
       return this.getOne(id);
@@ -541,11 +594,7 @@ export class PropertiesService {
         message: 'Property does not exist',
       });
     }
-    await this.assertCanWrite(
-      userId,
-      existing.ownerId,
-      existing.organizationId,
-    );
+    await this.assertCanWrite(userId, id);
     if (
       existing.status !== PropertyStatus.DRAFT &&
       existing.status !== PropertyStatus.PAUSED
@@ -571,11 +620,7 @@ export class PropertiesService {
         message: 'Property does not exist',
       });
     }
-    await this.assertCanWrite(
-      userId,
-      existing.ownerId,
-      existing.organizationId,
-    );
+    await this.assertCanWrite(userId, id);
     if (existing.status !== PropertyStatus.ACTIVE) {
       throw new BadRequestException({
         code: 'INVALID_STATUS_TRANSITION',
@@ -652,22 +697,108 @@ export class PropertiesService {
 
   private async assertCanWrite(
     userId: string,
-    ownerId: string,
-    organizationId: string,
+    propertyId: string,
   ): Promise<void> {
-    if (ownerId === userId) return;
-    const membership = await this.prisma.organizationMember.findUnique({
-      where: {
-        userId_organizationId: { userId, organizationId },
-      },
-    });
-    if (!membership) {
-      throw new ForbiddenException({
-        code: 'NOT_PROPERTY_OWNER',
-        message:
-          'Only the property owner or a member of the managing organization can modify this property',
+    await this.agencyAccess.assertCanOperateOnProperty(userId, propertyId);
+  }
+
+  /**
+   * When creating for a third-party owner: resolve owner + caller's agency
+   * membership. Returns null for classic self-create.
+   */
+  private async resolveOnBehalfOwner(
+    userId: string,
+    dto: CreatePropertyDto,
+  ): Promise<{
+    ownerId: string;
+    agencyOrganizationId: string;
+    assignedAgentId: string | null;
+  } | null> {
+    const wantsOnBehalf = Boolean(dto.ownerId || dto.ownerPhone);
+    if (!wantsOnBehalf) return null;
+
+    if (dto.ownerId && dto.ownerPhone) {
+      throw new BadRequestException({
+        code: 'OWNER_REF_AMBIGUOUS',
+        message: 'Provide either ownerId or ownerPhone, not both',
       });
     }
+
+    const agencyMemberships = await this.prisma.organizationMember.findMany({
+      where: {
+        userId,
+        role: { in: [OrgMemberRole.AGENT, OrgMemberRole.ADMIN] },
+        organization: { type: OrganizationType.AGENCY },
+      },
+      select: {
+        organizationId: true,
+        role: true,
+      },
+    });
+    if (agencyMemberships.length === 0) {
+      throw new ForbiddenException({
+        code: 'NOT_AGENCY_MEMBER',
+        message:
+          'Only agency agents or gérants can create a property for an owner',
+      });
+    }
+
+    let agencyOrganizationId = dto.organizationId;
+    let membership = agencyMemberships.find(
+      (m) => m.organizationId === agencyOrganizationId,
+    );
+    if (!agencyOrganizationId) {
+      if (agencyMemberships.length > 1) {
+        throw new BadRequestException({
+          code: 'MULTIPLE_AGENCY_MEMBERSHIPS',
+          message:
+            'An agent must belong to a single agency; ambiguous membership',
+        });
+      }
+      membership = agencyMemberships[0];
+      agencyOrganizationId = membership.organizationId;
+    } else if (!membership) {
+      throw new ForbiddenException({
+        code: 'NOT_AGENCY_MEMBER',
+        message: 'You are not a member of the given agency organization',
+      });
+    }
+
+    let ownerId: string;
+    if (dto.ownerPhone) {
+      const resolved = await this.users.resolveOrCreateByPhone(
+        dto.ownerPhone,
+        dto.ownerName,
+      );
+      ownerId = resolved.id;
+    } else {
+      const owner = await this.prisma.user.findUnique({
+        where: { id: dto.ownerId! },
+        select: { id: true },
+      });
+      if (!owner) {
+        throw new NotFoundException({
+          code: 'OWNER_NOT_FOUND',
+          message: 'Target owner does not exist',
+        });
+      }
+      ownerId = owner.id;
+    }
+
+    if (ownerId === userId) {
+      throw new BadRequestException({
+        code: 'OWNER_IS_SELF',
+        message:
+          'Use self-create (omit ownerId/ownerPhone) to list your own property',
+      });
+    }
+
+    // Field agents are auto-assigned so they can operate immediately.
+    // Gérants leave assignment open (they already operate via ADMIN role).
+    const assignedAgentId =
+      membership!.role === OrgMemberRole.AGENT ? userId : null;
+
+    return { ownerId, agencyOrganizationId, assignedAgentId };
   }
 
   private publicInclude(): Prisma.PropertyInclude {

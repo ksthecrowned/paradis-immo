@@ -8,7 +8,7 @@ Push uses **native FCM/APNs tokens** via `expo-notifications` (`getDevicePushTok
    - Android → `google-services.json` → place at `apps/mobile/google-services.json`
    - iOS → `GoogleService-Info.plist` → place at `apps/mobile/GoogleService-Info.plist`
 2. Package / bundle IDs must match:
-   - Android: `com.paradisimmo.mobile`
+   - Android: `com.paradis.immo`
    - iOS: as configured in Xcode / `app.json`
 3. Rebuild a **dev client or store build** (`expo prebuild` / EAS). Expo Go does not receive your FCM project tokens.
 

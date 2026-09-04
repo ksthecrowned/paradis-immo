@@ -1,4 +1,4 @@
-import { OwnerPropertyDetailView } from './owner-property-detail-view';
+import { PropertyDetailView } from '@/components/properties/property-detail-view';
 
 export default async function OwnerBienDetailPage({
   params,
@@ -6,5 +6,5 @@ export default async function OwnerBienDetailPage({
   params: Promise<{ id: string }>;
 }): Promise<React.JSX.Element> {
   const { id } = await params;
-  return <OwnerPropertyDetailView propertyId={id} />;
+  return <PropertyDetailView propertyId={id} />;
 }

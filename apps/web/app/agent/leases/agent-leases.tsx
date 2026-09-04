@@ -1,31 +1,25 @@
 'use client';
 
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
-    DashboardPageHeader,
-    ListDataTable,
-    StatusBadge,
-    type ListColumn,
+  DashboardPageHeader,
+  ListDataTable,
+  StatusBadge,
+  type ListColumn,
 } from '@/components/dashboard';
+import { Button } from '@/components/primitives';
 import { useRequireSession } from '@/hooks/use-require-session';
 import {
-    activateLease,
-    createLease,
-    listManagedLeases,
-    requestLeaseSign,
-    type PublicLease,
+  activateLease,
+  listManagedLeases,
+  requestLeaseSign,
+  type PublicLease,
 } from '@/lib/agent/leases';
 import { ApiError } from '@/lib/api';
 import { leaseStatusLabel, leaseStatusTone } from '@/lib/owner/leases';
-import {
-    PhoneInput,
-    getPhoneE164,
-    isPhoneComplete,
-} from '@/components/forms';
-import {
-    DEFAULT_PHONE_COUNTRY,
-    type PhoneCountrySelection,
-} from '@/lib/phone';
-import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { ROUTES } from '@/lib/routes';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 function formatDate(iso: string): string {
   return new Intl.DateTimeFormat('fr-FR', {
@@ -35,25 +29,20 @@ function formatDate(iso: string): string {
   }).format(new Date(iso));
 }
 
-export function AgentLeasesPage(): React.JSX.Element {
-  const { ready } = useRequireSession();
-  const [propertyId, setPropertyId] = useState('');
-  const [tenantPhoneNational, setTenantPhoneNational] = useState('');
-  const [tenantName, setTenantName] = useState('');
-  const [phoneCountry, setPhoneCountry] = useState<PhoneCountrySelection>(
-    DEFAULT_PHONE_COUNTRY,
-  );
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
-  const [monthlyRent, setMonthlyRent] = useState('');
-  const [deposit, setDeposit] = useState('');
-  const [currency, setCurrency] = useState('XAF');
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [created, setCreated] = useState<PublicLease | null>(null);
+function formatMoney(amount: string, currency: string): string {
+  return new Intl.NumberFormat('fr-FR', {
+    style: 'currency',
+    currency,
+    maximumFractionDigits: 0,
+  }).format(Number(amount));
+}
 
+export function AgentLeasesPage(): React.JSX.Element {
+  const router = useRouter();
+  const { ready } = useRequireSession();
   const [leases, setLeases] = useState<PublicLease[]>([]);
   const [loadingLeases, setLoadingLeases] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [actionId, setActionId] = useState<string | null>(null);
 
   const loadLeases = useCallback(async () => {
@@ -61,8 +50,14 @@ export function AgentLeasesPage(): React.JSX.Element {
     try {
       const data = await listManagedLeases();
       setLeases(data);
-    } catch {
+      setError(null);
+    } catch (err) {
       setLeases([]);
+      setError(
+        err instanceof ApiError
+          ? err.message
+          : 'Impossible de charger les baux.',
+      );
     } finally {
       setLoadingLeases(false);
     }
@@ -73,55 +68,13 @@ export function AgentLeasesPage(): React.JSX.Element {
     void loadLeases();
   }, [loadLeases, ready]);
 
-  async function handleSubmit(e: FormEvent): Promise<void> {
-    e.preventDefault();
-    setSubmitting(true);
-    setError(null);
-    setCreated(null);
-    try {
-      const e164 = getPhoneE164(tenantPhoneNational, phoneCountry);
-      if (!e164 || !isPhoneComplete(tenantPhoneNational, phoneCountry)) {
-        setError('Numéro de téléphone du locataire invalide.');
-        setSubmitting(false);
-        return;
-      }
-      const name = tenantName.trim();
-      if (!name || name.length < 2) {
-        setError('Indiquez le nom du locataire (requis si pas de compte).');
-        setSubmitting(false);
-        return;
-      }
-      const lease = await createLease({
-        propertyId: propertyId.trim(),
-        tenantPhone: e164,
-        tenantName: name,
-        startDate,
-        endDate,
-        monthlyRent: Number(monthlyRent),
-        deposit: Number(deposit),
-        currency,
-      });
-      setCreated(lease);
-      await loadLeases();
-    } catch (err) {
-      setError(
-        err instanceof ApiError
-          ? err.message
-          : 'Impossible de créer le bail.',
-      );
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
   const handleRequestSign = useCallback(
-    async (leaseId: string) => {
-      if (!confirm('Demander la signature du propriétaire pour ce bail ?')) return;
-      setActionId(leaseId);
-      setError(null);
+    async (id: string) => {
+      setActionId(id);
       try {
-        await requestLeaseSign(leaseId);
+        await requestLeaseSign(id);
         await loadLeases();
+        setError(null);
       } catch (err) {
         setError(
           err instanceof ApiError
@@ -136,13 +89,15 @@ export function AgentLeasesPage(): React.JSX.Element {
   );
 
   const handleActivate = useCallback(
-    async (leaseId: string) => {
-      if (!confirm('Activer ce bail et générer l’échéancier ?')) return;
-      setActionId(leaseId);
-      setError(null);
+    async (id: string) => {
+      if (!confirm('Activer ce bail et générer l’échéancier de loyers ?')) {
+        return;
+      }
+      setActionId(id);
       try {
-        await activateLease(leaseId);
+        await activateLease(id);
         await loadLeases();
+        setError(null);
       } catch (err) {
         setError(
           err instanceof ApiError
@@ -159,18 +114,29 @@ export function AgentLeasesPage(): React.JSX.Element {
   const columns = useMemo<ListColumn<PublicLease>[]>(
     () => [
       {
-        key: 'propertyId',
-        label: 'Bien',
-        render: (value) => (
-          <span className="font-mono text-xs">{String(value).slice(0, 10)}…</span>
+        key: 'id',
+        label: 'Réf.',
+        sortable: true,
+        render: (_value, row) => (
+          <Link
+            href={ROUTES.agent.lease(row.id)}
+            className="font-mono text-xs text-accent hover:underline"
+          >
+            {row.id.slice(0, 8)}…
+          </Link>
         ),
       },
       {
-        key: 'tenantId',
-        label: 'Locataire',
-        className: 'hidden md:table-cell',
+        key: 'propertyId',
+        label: 'Bien',
+        sortable: true,
         render: (value) => (
-          <span className="font-mono text-xs">{String(value).slice(0, 10)}…</span>
+          <Link
+            href={ROUTES.agent.property(String(value))}
+            className="font-mono text-xs text-muted hover:text-accent hover:underline"
+          >
+            {String(value).slice(0, 8)}…
+          </Link>
         ),
       },
       {
@@ -180,9 +146,28 @@ export function AgentLeasesPage(): React.JSX.Element {
         render: (value) => formatDate(String(value)),
       },
       {
+        key: 'endDate',
+        label: 'Fin',
+        sortable: true,
+        render: (value) => formatDate(String(value)),
+      },
+      {
+        key: 'monthlyRent',
+        label: 'Loyer',
+        sortable: true,
+        render: (_value, row) => formatMoney(row.monthlyRent, row.currency),
+      },
+      {
         key: 'status',
         label: 'Statut',
         sortable: true,
+        filterable: true,
+        filterType: 'select',
+        filterOptions: [
+          { value: 'DRAFT', label: 'Brouillon' },
+          { value: 'ACTIVE', label: 'Actif' },
+          { value: 'TERMINATED', label: 'Résilié' },
+        ],
         render: (value) => (
           <StatusBadge
             label={leaseStatusLabel(String(value))}
@@ -194,173 +179,79 @@ export function AgentLeasesPage(): React.JSX.Element {
     [],
   );
 
-  if (!ready) {
-    return <p className="text-base text-muted">Chargement…</p>;
-  }
-
   return (
-    <section className="space-y-8">
-      <DashboardPageHeader title="Baux" />
+    <section className="space-y-6">
+      <DashboardPageHeader
+        title="Baux"
+        actions={
+          <Link href={ROUTES.agent.leasesAdd}>
+            <Button type="button">Créer un bail</Button>
+          </Link>
+        }
+      />
 
       {error ? (
-        <div className="rounded-xl border border-danger/40 bg-danger/10 px-4 py-3 text-base text-danger">
+        <div className="rounded-xl border border-danger/40 bg-danger/10 px-4 py-3 text-sm text-danger">
           {error}
         </div>
       ) : null}
 
-      {created ? (
-        <div className="rounded-xl border border-success/40 bg-success/10 px-4 py-3 text-base text-foreground">
-          <p className="font-medium">Bail créé (brouillon)</p>
-          <p className="mt-1 font-mono text-xs text-muted">ID : {created.id}</p>
-          {created.mandateApprovalId ? (
-            <p className="mt-2 text-muted">
-              Approbation mandat requise ({created.mandateApprovalId.slice(0, 8)}…).
-            </p>
+      <ListDataTable
+        data={leases}
+        columns={columns}
+        loading={loadingLeases}
+        onRefresh={loadLeases}
+        entityLabel="baux"
+        searchPlaceholder="Rechercher un bail…"
+        emptyMessage="Aucun bail pour le moment."
+        tableId="agent-leases-table"
+        onRowClick={(row) => {
+          router.push(ROUTES.agent.lease(row.id));
+        }}
+        actions={(row) =>
+          row.status === 'DRAFT' ? (
+            <div className="flex flex-wrap gap-2">
+              <Link
+                href={ROUTES.agent.leaseEdit(row.id)}
+                className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted hover:bg-card-hover"
+                onClick={(e) => e.stopPropagation()}
+              >
+                Modifier
+              </Link>
+              <button
+                type="button"
+                disabled={actionId === row.id}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  void handleRequestSign(row.id);
+                }}
+                className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted hover:bg-card-hover disabled:opacity-50"
+              >
+                Demander signature
+              </button>
+              <button
+                type="button"
+                disabled={actionId === row.id}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  void handleActivate(row.id);
+                }}
+                className="rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-white hover:bg-accent/90 disabled:opacity-50"
+              >
+                Activer
+              </button>
+            </div>
           ) : (
-            <p className="mt-2 text-muted">
-              Demandez la signature propriétaire si le bien est mandaté, puis activez.
-            </p>
-          )}
-        </div>
-      ) : null}
-
-      <form
-        onSubmit={(e) => void handleSubmit(e)}
-        className="max-w-2xl space-y-4 rounded-lg border border-border bg-card p-5"
-      >
-        <h2 className="text-base font-semibold text-heading">Créer un bail</h2>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <label className="block text-base sm:col-span-2">
-            <span className="mb-1 block text-muted">ID du bien</span>
-            <input
-              value={propertyId}
-              onChange={(e) => setPropertyId(e.target.value)}
-              required
-              placeholder="prop_…"
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 font-mono text-base"
-            />
-          </label>
-          <label className="block text-base sm:col-span-2">
-            <span className="mb-1 block text-muted">Téléphone du locataire</span>
-            <PhoneInput
-              label=""
-              value={tenantPhoneNational}
-              country={phoneCountry}
-              onCountryChange={setPhoneCountry}
-              onChange={setTenantPhoneNational}
-              required
-            />
-            <span className="mt-1 block text-xs text-muted">
-              Compte existant ou non : un profil minimal sera créé si besoin.
-            </span>
-          </label>
-          <label className="block text-base sm:col-span-2">
-            <span className="mb-1 block text-muted">Nom du locataire</span>
-            <input
-              value={tenantName}
-              onChange={(e) => setTenantName(e.target.value)}
-              required
-              minLength={2}
-              placeholder="Prénom et nom"
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-base"
-            />
-          </label>
-          <label className="block text-base">
-            <span className="mb-1 block text-muted">Date de début</span>
-            <input
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              required
-              className="w-full rounded-lg border border-border bg-background px-3 py-2"
-            />
-          </label>
-          <label className="block text-base">
-            <span className="mb-1 block text-muted">Date de fin</span>
-            <input
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              required
-              className="w-full rounded-lg border border-border bg-background px-3 py-2"
-            />
-          </label>
-          <label className="block text-base">
-            <span className="mb-1 block text-muted">Loyer mensuel</span>
-            <input
-              type="number"
-              min={0}
-              value={monthlyRent}
-              onChange={(e) => setMonthlyRent(e.target.value)}
-              required
-              className="w-full rounded-lg border border-border bg-background px-3 py-2"
-            />
-          </label>
-          <label className="block text-base">
-            <span className="mb-1 block text-muted">Dépôt de garantie</span>
-            <input
-              type="number"
-              min={0}
-              value={deposit}
-              onChange={(e) => setDeposit(e.target.value)}
-              required
-              className="w-full rounded-lg border border-border bg-background px-3 py-2"
-            />
-          </label>
-          <label className="block text-base">
-            <span className="mb-1 block text-muted">Devise</span>
-            <input
-              value={currency}
-              onChange={(e) => setCurrency(e.target.value)}
-              required
-              className="w-full rounded-lg border border-border bg-background px-3 py-2"
-            />
-          </label>
-        </div>
-        <button
-          type="submit"
-          disabled={submitting}
-          className="rounded-lg bg-accent px-4 py-2 text-base font-medium text-white hover:bg-accent/90 disabled:opacity-50"
-        >
-          {submitting ? 'Création…' : 'Créer le bail'}
-        </button>
-      </form>
-
-      <section className="space-y-4">
-        <h2 className="text-base font-semibold text-heading">Baux gérés</h2>
-        <ListDataTable
-          data={leases}
-          columns={columns}
-          loading={loadingLeases}
-          onRefresh={loadLeases}
-          entityLabel="baux"
-          searchPlaceholder="Rechercher un bail…"
-          emptyMessage="Aucun bail pour le moment."
-          tableId="agent-leases-table"
-          actions={(row) =>
-            row.status === 'DRAFT' ? (
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  disabled={actionId === row.id}
-                  onClick={() => void handleRequestSign(row.id)}
-                  className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted hover:bg-card-hover disabled:opacity-50"
-                >
-                  Demander signature
-                </button>
-                <button
-                  type="button"
-                  disabled={actionId === row.id}
-                  onClick={() => void handleActivate(row.id)}
-                  className="rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-white hover:bg-accent/90 disabled:opacity-50"
-                >
-                  Activer
-                </button>
-              </div>
-            ) : null
-          }
-        />
-      </section>
+            <Link
+              href={ROUTES.agent.lease(row.id)}
+              className="text-xs font-medium text-accent hover:underline"
+              onClick={(e) => e.stopPropagation()}
+            >
+              Voir
+            </Link>
+          )
+        }
+      />
     </section>
   );
 }

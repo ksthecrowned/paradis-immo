@@ -1,7 +1,6 @@
 import { CircleIconButton } from '@/components/ui/CircleIconButton';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { colors, radii, spacing } from '@/constants/theme';
-import { useFeedback } from '@/context/FeedbackContext';
 import { ensureAuthenticated } from '@/lib/auth-guard';
 import { fetchCatalogProperty } from '@/lib/catalog';
 import { formatDateFr, formatDueLabel } from '@/lib/format-date-fr';
@@ -18,7 +17,6 @@ import {
   type PublicLease,
   type RentLineView,
 } from '@/lib/leases';
-import { initiatePayment } from '@/lib/payments';
 import type { Property } from '@/types/property';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
@@ -40,12 +38,10 @@ function formatFcfa(amount: number): string {
 
 export default function LeaseDetailScreen(): React.JSX.Element {
   const insets = useSafeAreaInsets();
-  const { showFeedback } = useFeedback();
   const { id } = useLocalSearchParams<{ id: string }>();
   const leaseId = String(id ?? '');
   const [ready, setReady] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [payingId, setPayingId] = useState<string | null>(null);
   const [lease, setLease] = useState<PublicLease | null>(null);
   const [property, setProperty] = useState<Property | null>(null);
   const [schedule, setSchedule] = useState<RentLineView[]>([]);
@@ -94,33 +90,14 @@ export default function LeaseDetailScreen(): React.JSX.Element {
 
   const onPay = async (line: RentLineView): Promise<void> => {
     if (!lease || !property) return;
-    setPayingId(line.id);
-    try {
-      const payment = await initiatePayment({
-        amount: line.amount,
-        currency: line.currency || 'XAF',
-        method: 'CASH',
-        idempotencyKey: `rent-${line.id}-${Date.now()}`,
-      });
-      const total = Number(payment.amount);
-      const debt = payment.messagingDebtXaf ?? 0;
-      const qs = new URLSearchParams({
-        propertyId: property.id,
-        amount: String(total),
-        rentScheduleId: line.id,
-        title: `Loyer · ${line.label}`,
-      });
-      if (debt > 0) qs.set('messagingDebtXaf', String(debt));
-      router.push(`/payment/${payment.id}?${qs.toString()}`);
-    } catch (err) {
-      showFeedback({
-        type: 'error',
-        title: 'Paiement',
-        message: getErrorMessage(err, 'Impossible d’initier le paiement'),
-      });
-    } finally {
-      setPayingId(null);
-    }
+    const qs = new URLSearchParams({
+      propertyId: property.id,
+      amount: String(line.amount),
+      currency: line.currency || 'XAF',
+      rentScheduleId: line.id,
+      title: `Loyer · ${line.label}`,
+    });
+    router.push(`/payment/checkout?${qs.toString()}`);
   };
 
   if (!ready || loading) {
@@ -237,13 +214,10 @@ export default function LeaseDetailScreen(): React.JSX.Element {
                     <Pressable
                       style={styles.payBtn}
                       onPress={() => void onPay(line)}
-                      disabled={payingId === line.id}
                       accessibilityRole="button"
                       accessibilityLabel={`Payer ${line.label}`}
                     >
-                      <Text style={styles.payBtnText}>
-                        {payingId === line.id ? '…' : 'Payer'}
-                      </Text>
+                      <Text style={styles.payBtnText}>Payer</Text>
                     </Pressable>
                   ) : null}
                 </View>

@@ -1,14 +1,22 @@
 'use client';
 
 import {
-    OwnerDashboard,
-    type OwnerDashboardCounts,
-    type OwnerPaymentRow,
-    type OwnerVisitRow,
+  OwnerDashboard,
+  type OwnerDashboardCounts,
+  type OwnerPaymentRow,
+  type OwnerVisitRow,
 } from '@/app/owner/dashboard/owner-dashboard';
 import { useRequireSession } from '@/hooks/use-require-session';
 import { ApiError, apiFetch } from '@/lib/api';
+import {
+  buildDailySparkline,
+  buildPropertyModeSeries,
+  countByCreatedDay,
+  type PropertyModeSeries,
+} from '@/lib/dashboard/chart-series';
+import { listManagedLeases } from '@/lib/owner/leases';
 import { listManagedPayments, type PublicPayment } from '@/lib/owner/payments';
+import { listManagedProperties } from '@/lib/owner/properties';
 import { fetchOwnerStats } from '@/lib/owner/stats';
 import { useEffect, useState } from 'react';
 
@@ -40,21 +48,35 @@ export default function OwnerDashboardPage(): React.JSX.Element {
   const [counts, setCounts] = useState<OwnerDashboardCounts | null>(null);
   const [payments, setPayments] = useState<OwnerPaymentRow[]>([]);
   const [visits, setVisits] = useState<OwnerVisitRow[]>([]);
+  const [chartPayments, setChartPayments] = useState<PublicPayment[]>([]);
+  const [modeSeries, setModeSeries] = useState<PropertyModeSeries | undefined>();
+  const [sparklines, setSparklines] = useState<
+    | {
+        properties: number[];
+        leases: number[];
+        payments: number[];
+        visits: number[];
+      }
+    | undefined
+  >();
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!ready) return;
     let cancelled = false;
     (async (): Promise<void> => {
-      const [statsResult, paymentRows, visitRows] = await Promise.all([
-        fetchOwnerStats()
-          .then((s) => ({ ok: true as const, s }))
-          .catch((err: unknown) => ({ ok: false as const, err })),
-        listManagedPayments().catch(() => [] as PublicPayment[]),
-        apiFetch<PublicVisitBooking[]>('/visits/managed').catch(
-          () => [] as PublicVisitBooking[],
-        ),
-      ]);
+      const [statsResult, paymentRows, visitRows, propertyRows, leaseRows] =
+        await Promise.all([
+          fetchOwnerStats()
+            .then((s) => ({ ok: true as const, s }))
+            .catch((err: unknown) => ({ ok: false as const, err })),
+          listManagedPayments().catch(() => [] as PublicPayment[]),
+          apiFetch<PublicVisitBooking[]>('/visits/managed').catch(
+            () => [] as PublicVisitBooking[],
+          ),
+          listManagedProperties().catch(() => []),
+          listManagedLeases().catch(() => []),
+        ]);
       if (cancelled) return;
 
       if (!statsResult.ok) {
@@ -96,6 +118,23 @@ export default function OwnerDashboardPage(): React.JSX.Element {
           propertyId: v.propertyId,
         })),
       );
+      setChartPayments(paymentRows);
+      setModeSeries(buildPropertyModeSeries(propertyRows));
+
+      const paymentByDay = countByCreatedDay(
+        paymentRows.filter((p) => p.status === 'PENDING_VALIDATION'),
+      );
+      const visitByDay = countByCreatedDay(visitRows);
+      const leaseCount = leaseRows.filter((l) => l.status === 'ACTIVE').length;
+      const propertyCount = propertyRows.filter(
+        (p) => p.status === 'ACTIVE',
+      ).length;
+      setSparklines({
+        properties: buildDailySparkline(() => propertyCount),
+        leases: buildDailySparkline(() => leaseCount),
+        payments: buildDailySparkline((day) => paymentByDay.get(day) ?? 0),
+        visits: buildDailySparkline((day) => visitByDay.get(day) ?? 0),
+      });
     })();
     return () => {
       cancelled = true;
@@ -129,7 +168,14 @@ export default function OwnerDashboardPage(): React.JSX.Element {
           {error}
         </div>
       ) : null}
-      <OwnerDashboard counts={counts} payments={payments} visits={visits} />
+      <OwnerDashboard
+        counts={counts}
+        payments={payments}
+        visits={visits}
+        chartPayments={chartPayments}
+        modeSeries={modeSeries}
+        sparklines={sparklines}
+      />
     </>
   );
 }

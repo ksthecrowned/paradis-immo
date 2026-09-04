@@ -77,6 +77,29 @@ export function saleAgreementStatusTone(
   return 'neutral';
 }
 
+export function saleInstallmentStatusLabel(status: string): string {
+  const map: Record<string, string> = {
+    PENDING: 'À payer',
+    PAID: 'Payé',
+    OVERDUE: 'En retard',
+    PARTIAL: 'Partiel',
+  };
+  return map[status] ?? status;
+}
+
+export function saleInstallmentStatusTone(
+  status: string,
+): 'success' | 'warning' | 'danger' | 'neutral' {
+  if (status === 'PAID') return 'success';
+  if (status === 'OVERDUE') return 'danger';
+  if (status === 'PENDING' || status === 'PARTIAL') return 'warning';
+  return 'neutral';
+}
+
+export function canRecordSaleInstallmentCash(status: string): boolean {
+  return status === 'PENDING' || status === 'OVERDUE' || status === 'PARTIAL';
+}
+
 export async function listSaleAgreements(): Promise<PublicSaleAgreement[]> {
   return apiFetch<PublicSaleAgreement[]>('/sale-agreements');
 }

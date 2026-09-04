@@ -8,6 +8,7 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  Matches,
   Max,
   MaxLength,
   Min,
@@ -150,10 +151,6 @@ export class CreatePropertyDto {
   @IsDateString()
   availableFrom?: string | null;
 
-  @IsOptional()
-  @IsBoolean()
-  isFeatured?: boolean;
-
   // -------- Visit configuration --------
   @IsOptional()
   @IsBoolean()
@@ -178,6 +175,39 @@ export class CreatePropertyDto {
   @IsNumber()
   @Min(0)
   agencyFeeAmount?: number;
+
+  /**
+   * Agency-on-behalf create: target owner user id.
+   * Mutually exclusive with self-create; requires agency membership.
+   */
+  @IsOptional()
+  @IsString()
+  ownerId?: string;
+
+  /**
+   * Agency-on-behalf create: resolve or create owner by E.164 phone.
+   * Prefer when the owner may not have an account yet.
+   */
+  @IsOptional()
+  @IsString()
+  @Matches(/^\+\d{7,15}$/, {
+    message: 'ownerPhone must be E.164 (+country…)',
+  })
+  ownerPhone?: string;
+
+  /** Display name when creating an owner via ownerPhone. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  ownerName?: string;
+
+  /**
+   * Agency organization that receives the mandate (required when the caller
+   * belongs to multiple agencies; otherwise inferred).
+   */
+  @IsOptional()
+  @IsString()
+  organizationId?: string;
 }
 
 export class UpdatePropertyDto {
@@ -265,10 +295,6 @@ export class UpdatePropertyDto {
   @IsOptional()
   @IsDateString()
   availableFrom?: string | null;
-
-  @IsOptional()
-  @IsBoolean()
-  isFeatured?: boolean;
 
   @IsOptional()
   @IsBoolean()

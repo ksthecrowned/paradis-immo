@@ -106,3 +106,22 @@ export function leaseStatusTone(
   if (status === 'CANCELLED' || status === 'TERMINATED') return 'danger';
   return 'neutral';
 }
+
+export function rentScheduleStatusLabel(status: string): string {
+  const map: Record<string, string> = {
+    PENDING: 'À payer',
+    PAID: 'Payé',
+    OVERDUE: 'En retard',
+    PARTIAL: 'Partiel',
+  };
+  return map[status] ?? status;
+}
+
+export function rentScheduleStatusTone(
+  status: string,
+): 'success' | 'warning' | 'danger' | 'neutral' {
+  if (status === 'PAID') return 'success';
+  if (status === 'OVERDUE') return 'danger';
+  if (status === 'PENDING' || status === 'PARTIAL') return 'warning';
+  return 'neutral';
+}

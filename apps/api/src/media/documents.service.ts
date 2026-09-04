@@ -1,11 +1,11 @@
 import {
   BadRequestException,
-  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { DocumentType } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { AgencyAccessService } from '../mandates/agency-access.service';
 import { R2Service } from './r2.service';
 import { MAX_PHOTO_BYTES } from './media.service';
 
@@ -23,6 +23,7 @@ export class DocumentsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly r2: R2Service,
+    private readonly agencyAccess: AgencyAccessService,
   ) {}
 
   async list(propertyId: string): Promise<PropertyDocumentItem[]> {
@@ -133,7 +134,7 @@ export class DocumentsService {
   ): Promise<void> {
     const property = await this.prisma.property.findUnique({
       where: { id: propertyId },
-      select: { id: true, ownerId: true, organizationId: true },
+      select: { id: true },
     });
     if (!property) {
       throw new NotFoundException({
@@ -141,20 +142,6 @@ export class DocumentsService {
         message: 'Property does not exist',
       });
     }
-    if (property.ownerId === userId) return;
-    const membership = await this.prisma.organizationMember.findUnique({
-      where: {
-        userId_organizationId: {
-          userId,
-          organizationId: property.organizationId,
-        },
-      },
-    });
-    if (!membership) {
-      throw new ForbiddenException({
-        code: 'NOT_PROPERTY_OWNER',
-        message: 'Only the owner or an org member can manage documents',
-      });
-    }
+    await this.agencyAccess.assertCanOperateOnProperty(userId, propertyId);
   }
 }

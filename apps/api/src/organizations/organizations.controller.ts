@@ -17,6 +17,12 @@ export class OrganizationsController {
     return this.organizations.listPublic();
   }
 
+  @Get(':id/reviews')
+  @ApiOperation({ summary: 'List public reviews for an organization' })
+  listReviews(@Param('id') id: string) {
+    return this.organizations.listReviews(id);
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get a public organization with agents' })
   get(@Param('id') id: string) {

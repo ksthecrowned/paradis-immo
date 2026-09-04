@@ -1,5 +1,6 @@
 export {
   cancelBooking,
+  createBooking,
   bookingStatusLabel,
   bookingStatusTone,
   listManagedBookings,

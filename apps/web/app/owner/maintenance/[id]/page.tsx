@@ -1,4 +1,4 @@
-import { OwnerMaintenanceDetail } from './owner-maintenance-detail';
+import { MaintenanceTicketDetail } from '@/components/maintenance/maintenance-ticket-detail';
 
 export default async function OwnerMaintenanceDetailPage({
   params,
@@ -6,5 +6,5 @@ export default async function OwnerMaintenanceDetailPage({
   params: Promise<{ id: string }>;
 }): Promise<React.JSX.Element> {
   const { id } = await params;
-  return <OwnerMaintenanceDetail ticketId={id} />;
+  return <MaintenanceTicketDetail ticketId={id} />;
 }

@@ -1,7 +1,14 @@
 'use client';
 
 import { useTheme } from '@/components/theme-provider';
+import {
+  buildRevenueSeries,
+  type ChartRangeKey,
+  type PropertyModeSeries,
+  type RevenueSeriesPoint,
+} from '@/lib/dashboard/chart-series';
 import { DASH_CHART_COLORS } from '@/lib/dash-icons';
+import type { PublicPayment } from '@/lib/owner/payments';
 import type { ThemeMode } from '@/lib/theme';
 import type { ApexOptions } from 'apexcharts';
 import dynamic from 'next/dynamic';
@@ -9,60 +16,22 @@ import { useMemo, useState } from 'react';
 
 const ReactApexChart = dynamic(() => import('react-apexcharts'), { ssr: false });
 
-type RangeKey = 'all' | '1m' | '6m' | '1y';
-
-const RANGE_LABELS: Record<RangeKey, string> = {
-  all: 'ALL',
+const RANGE_LABELS: Record<ChartRangeKey, string> = {
   '1m': '1M',
   '6m': '6M',
   '1y': '1Y',
-};
-
-const MONTHS = [
-  'Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin',
-  'Juil', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc',
-];
-
-const DATA_BY_RANGE: Record<
-  RangeKey,
-  { categories: string[]; revenue: number[]; clicks: number[]; views: number[] }
-> = {
-  all: {
-    categories: MONTHS,
-    revenue: [32, 38, 35, 42, 48, 52, 55, 58, 54, 60, 65, 72],
-    clicks: [18, 22, 20, 26, 28, 30, 32, 34, 31, 36, 38, 42],
-    views: [45, 50, 48, 55, 58, 62, 64, 68, 65, 70, 74, 78],
-  },
-  '1m': {
-    categories: ['S1', 'S2', 'S3', 'S4'],
-    revenue: [14, 16, 15, 18],
-    clicks: [8, 9, 10, 11],
-    views: [20, 22, 21, 24],
-  },
-  '6m': {
-    categories: MONTHS.slice(6),
-    revenue: [55, 58, 54, 60, 65, 72],
-    clicks: [32, 34, 31, 36, 38, 42],
-    views: [64, 68, 65, 70, 74, 78],
-  },
-  '1y': {
-    categories: MONTHS,
-    revenue: [32, 38, 35, 42, 48, 52, 55, 58, 54, 60, 65, 72],
-    clicks: [18, 22, 20, 26, 28, 30, 32, 34, 31, 36, 38, 42],
-    views: [45, 50, 48, 55, 58, 62, 64, 68, 65, 70, 74, 78],
-  },
 };
 
 function ChartRangeToggle({
   range,
   onChange,
 }: {
-  range: RangeKey;
-  onChange: (r: RangeKey) => void;
+  range: ChartRangeKey;
+  onChange: (r: ChartRangeKey) => void;
 }): React.JSX.Element {
   return (
     <div className="inline-flex rounded-md border border-border p-0.5 text-[11px] font-medium">
-      {(Object.keys(RANGE_LABELS) as RangeKey[]).map((key) => (
+      {(Object.keys(RANGE_LABELS) as ChartRangeKey[]).map((key) => (
         <button
           key={key}
           type="button"
@@ -87,7 +56,11 @@ function chartPalette(theme: ThemeMode): { muted: string; border: string } {
     : { muted: '#afb9cf', border: '#272f37' };
 }
 
-function buildComboOptions(categories: string[], theme: ThemeMode): ApexOptions {
+function buildComboOptions(
+  categories: string[],
+  theme: ThemeMode,
+  yMax: number,
+): ApexOptions {
   const palette = chartPalette(theme);
   return {
     chart: {
@@ -97,8 +70,8 @@ function buildComboOptions(categories: string[], theme: ThemeMode): ApexOptions 
       fontFamily: 'inherit',
     },
     theme: { mode: theme },
-    stroke: { width: [0, 3, 3], curve: 'smooth', dashArray: [0, 0, 5] },
-    colors: [DASH_CHART_COLORS.purple, DASH_CHART_COLORS.green, DASH_CHART_COLORS.violet],
+    stroke: { width: [0, 3], curve: 'smooth' },
+    colors: [DASH_CHART_COLORS.purple, DASH_CHART_COLORS.green],
     plotOptions: {
       bar: { columnWidth: '50%', borderRadius: 3 },
     },
@@ -116,12 +89,27 @@ function buildComboOptions(categories: string[], theme: ThemeMode): ApexOptions 
       axisBorder: { show: false },
       axisTicks: { show: false },
     },
-    yaxis: {
-      min: 0,
-      max: 80,
-      tickAmount: 4,
-      labels: { style: { colors: palette.muted, fontSize: '11px' } },
-    },
+    yaxis: [
+      {
+        min: 0,
+        max: yMax > 0 ? undefined : 1,
+        tickAmount: 4,
+        labels: {
+          style: { colors: palette.muted, fontSize: '11px' },
+          formatter: (v) =>
+            new Intl.NumberFormat('fr-FR', {
+              notation: 'compact',
+              maximumFractionDigits: 1,
+            }).format(v),
+        },
+      },
+      {
+        opposite: true,
+        min: 0,
+        tickAmount: 4,
+        labels: { style: { colors: palette.muted, fontSize: '11px' } },
+      },
+    ],
     grid: {
       borderColor: palette.border,
       strokeDashArray: 4,
@@ -136,7 +124,11 @@ function buildDonutOptions(theme: ThemeMode): ApexOptions {
     chart: { type: 'donut', background: 'transparent' },
     theme: { mode: theme },
     labels: ['Location courte', 'Location longue', 'Vente'],
-    colors: [DASH_CHART_COLORS.purple, DASH_CHART_COLORS.blue, DASH_CHART_COLORS.green],
+    colors: [
+      DASH_CHART_COLORS.purple,
+      DASH_CHART_COLORS.blue,
+      DASH_CHART_COLORS.green,
+    ],
     legend: { show: false },
     dataLabels: { enabled: false },
     plotOptions: {
@@ -149,37 +141,45 @@ function buildDonutOptions(theme: ThemeMode): ApexOptions {
   };
 }
 
-const donutSeries = [33, 50, 17];
+const EMPTY_MODE: PropertyModeSeries = {
+  series: [0, 0, 0],
+  rows: [
+    { name: 'Location courte', count: 0, percent: '0%' },
+    { name: 'Location longue', count: 0, percent: '0%' },
+    { name: 'Vente', count: 0, percent: '0%' },
+  ],
+};
 
-const CATEGORY_ROWS = [
-  { name: 'Location courte', orders: '4', percent: '33%', trend: '2.5% Up', up: true },
-  { name: 'Location longue', orders: '6', percent: '50%', trend: '8.1% Up', up: true },
-  { name: 'Vente', orders: '2', percent: '17%', trend: '1.2% Down', up: false },
-];
-
-export function RevenueChart(): React.JSX.Element {
+export function RevenueChart({
+  payments = [],
+}: {
+  payments?: PublicPayment[];
+}): React.JSX.Element {
   const { theme } = useTheme();
-  const [range, setRange] = useState<RangeKey>('1y');
-  const data = DATA_BY_RANGE[range];
+  const [range, setRange] = useState<ChartRangeKey>('1y');
+  const data: RevenueSeriesPoint = useMemo(
+    () => buildRevenueSeries(payments, range),
+    [payments, range],
+  );
+  const yMax = Math.max(...data.revenue, 0);
   const options = useMemo(
-    () => buildComboOptions(data.categories, theme),
-    [data.categories, theme],
+    () => buildComboOptions(data.categories, theme, yMax),
+    [data.categories, theme, yMax],
   );
 
   return (
     <div className="flex h-full flex-col rounded-lg border border-border bg-card p-5">
       <div className="mb-3 flex items-center justify-between gap-2">
-        <h3 className="text-base font-semibold text-heading">Revenus</h3>
+        <h3 className="text-base font-semibold text-heading">Revenus encaissés</h3>
         <ChartRangeToggle range={range} onChange={setRange} />
       </div>
       <div className="min-h-0 flex-1">
         <ReactApexChart
-          key={theme}
+          key={`${theme}-${range}`}
           options={options}
           series={[
-            { name: 'Revenus', type: 'column', data: data.revenue },
-            { name: 'Clics', type: 'line', data: data.clicks },
-            { name: 'Vues', type: 'line', data: data.views },
+            { name: 'Montant', type: 'column', data: data.revenue },
+            { name: 'Paiements', type: 'line', data: data.paymentCounts },
           ]}
           type="line"
           height={280}
@@ -189,103 +189,52 @@ export function RevenueChart(): React.JSX.Element {
   );
 }
 
-export function PropertyModeChart(): React.JSX.Element {
+export function PropertyModeChart({
+  data = EMPTY_MODE,
+}: {
+  data?: PropertyModeSeries;
+}): React.JSX.Element {
   const { theme } = useTheme();
-  const [range, setRange] = useState<RangeKey>('1y');
   const options = useMemo(() => buildDonutOptions(theme), [theme]);
+  const empty = data.series.every((n) => n === 0);
 
   return (
     <div className="flex h-full flex-col rounded-lg border border-border bg-card p-5">
       <div className="mb-3 flex items-center justify-between gap-2">
-        <h3 className="text-base font-semibold text-heading">
-          Biens par mode
-        </h3>
-        <ChartRangeToggle range={range} onChange={setRange} />
+        <h3 className="text-base font-semibold text-heading">Biens par mode</h3>
       </div>
-      <ReactApexChart
-        key={theme}
-        options={options}
-        series={donutSeries}
-        type="donut"
-        height={180}
-      />
+      {empty ? (
+        <div className="flex h-[180px] items-center justify-center text-sm text-muted">
+          Aucun bien dans le portefeuille
+        </div>
+      ) : (
+        <ReactApexChart
+          key={theme}
+          options={options}
+          series={[...data.series]}
+          type="donut"
+          height={180}
+        />
+      )}
       <div className="mt-2 overflow-x-auto">
         <table className="min-w-full text-xs">
           <thead>
             <tr className="text-left text-muted">
               <th className="pb-2 pe-2 font-medium">Catégorie</th>
               <th className="pb-2 pe-2 font-medium">Biens</th>
-              <th className="pb-2 pe-2 font-medium">Part</th>
-              <th className="pb-2 font-medium text-end">Tendance</th>
+              <th className="pb-2 font-medium">Part</th>
             </tr>
           </thead>
           <tbody className="text-foreground">
-            {CATEGORY_ROWS.map((row) => (
+            {data.rows.map((row) => (
               <tr key={row.name} className="border-t border-border/60">
                 <td className="py-2.5 pe-2">{row.name}</td>
-                <td className="py-2.5 pe-2">{row.orders}</td>
-                <td className="py-2.5 pe-2">{row.percent}</td>
-                <td className="py-2.5 text-end">
-                  <span
-                    className={
-                      'inline-flex rounded px-1.5 py-0.5 text-[10px] font-medium ' +
-                      (row.up
-                        ? 'bg-success/15 text-success'
-                        : 'bg-danger/15 text-danger')
-                    }
-                  >
-                    {row.trend}
-                  </span>
-                </td>
+                <td className="py-2.5 pe-2">{row.count}</td>
+                <td className="py-2.5">{row.percent}</td>
               </tr>
             ))}
           </tbody>
         </table>
-      </div>
-    </div>
-  );
-}
-
-export function SessionsMapCard(): React.JSX.Element {
-  return (
-    <div className="flex h-full flex-col rounded-lg border border-border bg-card p-5">
-      <div className="mb-3 flex items-center justify-between gap-2">
-        <h3 className="text-base font-semibold text-heading">
-          Sessions par ville
-        </h3>
-        <button
-          type="button"
-          className="rounded-md border border-border px-2 py-1 text-[11px] text-muted"
-        >
-          Voir données ▾
-        </button>
-      </div>
-      <div className="relative flex flex-1 items-center justify-center overflow-hidden rounded-lg bg-background/80 p-4">
-        <svg
-          viewBox="0 0 360 180"
-          className="h-full w-full max-h-48 text-border"
-          aria-hidden
-        >
-          <ellipse cx="180" cy="90" rx="160" ry="70" fill="currentColor" opacity="0.35" />
-          <ellipse cx="120" cy="75" rx="40" ry="25" fill="currentColor" opacity="0.2" />
-          <ellipse cx="250" cy="85" rx="50" ry="30" fill="currentColor" opacity="0.2" />
-        </svg>
-        {[
-          { x: '28%', y: '38%', label: 'Brazzaville' },
-          { x: '52%', y: '55%', label: 'Pointe-Noire' },
-          { x: '68%', y: '42%', label: 'Dolisie' },
-        ].map((pin) => (
-          <div
-            key={pin.label}
-            className="absolute"
-            style={{ left: pin.x, top: pin.y }}
-          >
-            <span className="block size-2 rounded-full bg-active ring-2 ring-accent" />
-            <span className="mt-1 block whitespace-nowrap text-[10px] text-muted">
-              {pin.label}
-            </span>
-          </div>
-        ))}
       </div>
     </div>
   );

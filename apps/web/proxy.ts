@@ -38,13 +38,23 @@ function gateUser(
 export const proxy = auth((req) => {
   const { pathname } = req.nextUrl;
   const user = gateUser(req.auth);
-  const loggedIn =
-    Boolean(req.auth) && req.auth?.error !== 'RefreshAccessTokenError';
+  const refreshFailed = req.auth?.error === 'RefreshAccessTokenError';
+  const loggedIn = Boolean(req.auth) && !refreshFailed;
   const active = loggedIn && isWebAccountActive(user);
   const home = active ? resolveDashboardPath(user) : '/onboarding/role';
 
   if (pathname === '/admin/login' || pathname.startsWith('/admin/login/')) {
     return NextResponse.redirect(new URL('/login', req.nextUrl.origin));
+  }
+
+  // Dead session cookie: force login and do not bounce to onboarding.
+  if (refreshFailed) {
+    if (pathname === '/login' || pathname.startsWith('/login/')) {
+      return NextResponse.next();
+    }
+    const login = new URL('/login', req.nextUrl.origin);
+    login.searchParams.set('session', 'expired');
+    return NextResponse.redirect(login);
   }
 
   // Already set up → never park on login / register / role picker.

@@ -18,12 +18,15 @@ import {
 import {
   activateSaleAgreement,
   cancelSaleAgreement,
+  canRecordSaleInstallmentCash,
   completeSaleAgreement,
   getSaleAgreement,
   saleAgreementStatusLabel,
   saleAgreementStatusTone,
+  saleInstallmentStatusLabel,
   type PublicSaleAgreement,
 } from '@/lib/owner/sale-agreements';
+import { RecordCashPaymentButton } from '@/components/payments/record-cash-payment-button';
 import Link from 'next/link';
 
 function formatDate(iso: string): string {
@@ -245,7 +248,7 @@ export function SaleAgreementDetailPage({
           {row.installments.map((i) => (
             <li
               key={i.id}
-              className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 text-sm"
+              className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-sm"
             >
               <div>
                 <p className="font-medium">
@@ -253,17 +256,32 @@ export function SaleAgreementDetailPage({
                 </p>
                 <p className="text-muted">Échéance {formatDate(i.dueDate)}</p>
               </div>
-              <div className="text-right">
-                <p className="font-medium">
-                  {formatMoney(i.amount, i.currency)}
-                </p>
-                <p className="text-muted">{i.status}</p>
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="text-right">
+                  <p className="font-medium">
+                    {formatMoney(i.amount, i.currency)}
+                  </p>
+                  <p className="text-muted">
+                    {saleInstallmentStatusLabel(i.status)}
+                  </p>
+                </div>
+                {row.status === 'ACTIVE' &&
+                canRecordSaleInstallmentCash(i.status) ? (
+                  <RecordCashPaymentButton
+                    saleInstallmentId={i.id}
+                    amount={i.amount}
+                    currency={i.currency}
+                    dueDateLabel={formatDate(i.dueDate)}
+                    onRecorded={load}
+                    onError={setError}
+                  />
+                ) : null}
               </div>
             </li>
           ))}
         </ul>
         <p className="text-xs text-muted">
-          L’acheteur paie depuis l’app mobile. Validez les paiements cash dans{' '}
+          Mobile Money via l’app acheteur ; espèces enregistrées ici ou dans{' '}
           <Link href={paymentsHref} className="text-accent underline">
             Paiements
           </Link>

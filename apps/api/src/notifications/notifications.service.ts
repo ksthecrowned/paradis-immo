@@ -1,8 +1,7 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Notification, NotificationChannel, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { InfobipSmsService } from '../messaging/infobip-sms.service';
-import { MessagingBillingService } from '../messaging/messaging-billing.service';
 import { InfobipService } from './infobip.service';
 import { FcmService } from './fcm.service';
 
@@ -14,6 +13,7 @@ export interface PublicNotification {
   payload: Record<string, unknown>;
   status: string;
   sentAt: string | null;
+  readAt: string | null;
   createdAt: string;
 }
 
@@ -26,7 +26,7 @@ export interface SendInput {
    * (PUSH default, SMS when explicitly preferred).
    */
   channel?: NotificationChannel;
-  /** Required when delivering via SMS (org is billed). */
+  /** Required when delivering via SMS (agency context). */
   organizationId?: string;
 }
 
@@ -34,8 +34,8 @@ export interface SendInput {
  * Orchestrates outbound notifications. Persists a `Notification` row
  * (PENDING → SENT/FAILED) so the UI can show a history of what was sent.
  *
- * Preference: `User.notificationChannel = SMS` → Infobip SMS + MessageCharge
- * billed to the managing organization. Otherwise FCM push.
+ * Preference: `User.notificationChannel = SMS` → Infobip SMS (gratuit).
+ * Otherwise FCM push.
  */
 @Injectable()
 export class NotificationsService {
@@ -45,7 +45,6 @@ export class NotificationsService {
     private readonly prisma: PrismaService,
     private readonly infobip: InfobipService,
     private readonly sms: InfobipSmsService,
-    private readonly messaging: MessagingBillingService,
     private readonly fcm: FcmService,
   ) {}
 
@@ -98,15 +97,6 @@ export class NotificationsService {
       }
       const text = this.renderSmsMessage(input.type, input.payload);
       result = await this.sms.send({ to: user.phone, text });
-      if (result.ok) {
-        await this.messaging.recordSmsAlert({
-          phone: user.phone,
-          userId: input.userId,
-          organizationId: input.organizationId,
-          providerMessageId: result.providerMessageId,
-          idempotencyKey: `sms-alert:${row.id}`,
-        });
-      }
     } else if (channel === NotificationChannel.WHATSAPP) {
       if (!user.phone) {
         return this.markFailed(row.id, 'NO_PHONE');
@@ -141,6 +131,32 @@ export class NotificationsService {
       take: 100,
     });
     return rows.map((r) => this.toPublic(r));
+  }
+
+  async markRead(userId: string, id: string): Promise<PublicNotification> {
+    const row = await this.prisma.notification.findFirst({
+      where: { id, userId },
+    });
+    if (!row) {
+      throw new NotFoundException({
+        code: 'NOTIFICATION_NOT_FOUND',
+        message: 'Notification not found',
+      });
+    }
+    if (row.readAt) return this.toPublic(row);
+    const updated = await this.prisma.notification.update({
+      where: { id },
+      data: { readAt: new Date() },
+    });
+    return this.toPublic(updated);
+  }
+
+  async markAllRead(userId: string): Promise<{ updated: number }> {
+    const result = await this.prisma.notification.updateMany({
+      where: { userId, readAt: null },
+      data: { readAt: new Date() },
+    });
+    return { updated: result.count };
   }
 
   private renderSmsMessage(
@@ -292,6 +308,7 @@ export class NotificationsService {
       payload: n.payload as Record<string, unknown>,
       status: n.status,
       sentAt: n.sentAt?.toISOString() ?? null,
+      readAt: n.readAt?.toISOString() ?? null,
       createdAt: n.createdAt.toISOString(),
     };
   }

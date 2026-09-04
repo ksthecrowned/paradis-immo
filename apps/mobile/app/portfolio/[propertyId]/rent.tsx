@@ -4,7 +4,6 @@ import { TenantRentCard } from '@/components/tenant/TenantRentCard';
 import { CircleIconButton } from '@/components/ui/CircleIconButton';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { colors, radii, spacing } from '@/constants/theme';
-import { useFeedback } from '@/context/FeedbackContext';
 import { ensureAuthenticated } from '@/lib/auth-guard';
 import { fetchCatalogProperty } from '@/lib/catalog';
 import { formatDueLabel } from '@/lib/format-date-fr';
@@ -21,7 +20,6 @@ import {
   type PublicLease,
   type RentLineView,
 } from '@/lib/leases';
-import { initiatePayment } from '@/lib/payments';
 import {
   leaseDocTypeLabel,
   listLeaseDocuments,
@@ -52,12 +50,10 @@ function formatFcfa(amount: number): string {
 
 export default function PortfolioRentHubScreen(): React.JSX.Element {
   const insets = useSafeAreaInsets();
-  const { showFeedback } = useFeedback();
   const { propertyId } = useLocalSearchParams<{ propertyId: string }>();
   const id = String(propertyId ?? '');
   const [ready, setReady] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [paying, setPaying] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lease, setLease] = useState<PublicLease | null>(null);
   const [property, setProperty] = useState<Property | null>(null);
@@ -121,33 +117,14 @@ export default function PortfolioRentHubScreen(): React.JSX.Element {
 
   const onPay = async (): Promise<void> => {
     if (!lease || !property || !nextDue) return;
-    setPaying(true);
-    try {
-      const payment = await initiatePayment({
-        amount: nextDue.amount,
-        currency: nextDue.currency || 'XAF',
-        method: 'CASH',
-        idempotencyKey: `rent-${nextDue.id}-${Date.now()}`,
-      });
-      const total = Number(payment.amount);
-      const debt = payment.messagingDebtXaf ?? 0;
-      const qs = new URLSearchParams({
-        propertyId: property.id,
-        amount: String(total),
-        rentScheduleId: nextDue.id,
-        title: `Loyer · ${nextDue.label}`,
-      });
-      if (debt > 0) qs.set('messagingDebtXaf', String(debt));
-      router.push(`/payment/${payment.id}?${qs.toString()}`);
-    } catch (err) {
-      showFeedback({
-        type: 'error',
-        title: 'Paiement',
-        message: getErrorMessage(err, 'Impossible d’initier le paiement'),
-      });
-    } finally {
-      setPaying(false);
-    }
+    const qs = new URLSearchParams({
+      propertyId: property.id,
+      amount: String(nextDue.amount),
+      currency: nextDue.currency || 'XAF',
+      rentScheduleId: nextDue.id,
+      title: `Loyer · ${nextDue.label}`,
+    });
+    router.push(`/payment/checkout?${qs.toString()}`);
   };
 
   if (!ready || loading) {
@@ -212,7 +189,7 @@ export default function PortfolioRentHubScreen(): React.JSX.Element {
         {nextDue ? (
           <TenantRentCard
             line={nextDue}
-            canPay={canPay && !paying}
+            canPay={canPay}
             onPay={() => void onPay()}
           />
         ) : (

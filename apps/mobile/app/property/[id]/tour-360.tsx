@@ -1,6 +1,6 @@
 import { CircleIconButton } from '@/components/ui/CircleIconButton';
 import { colors, radii, spacing } from '@/constants/theme';
-import { getPropertyGallery } from '@/lib/mock-properties';
+import { getPropertyGallery } from '@/lib/property-gallery';
 import { useCatalogProperty } from '@/hooks/use-catalog-property';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';

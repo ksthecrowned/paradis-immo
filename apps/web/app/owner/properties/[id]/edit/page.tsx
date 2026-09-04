@@ -1,4 +1,4 @@
-import { OwnerPropertyForm } from '../../owner-property-form';
+import { PropertyForm } from '@/components/properties/property-form';
 import { ApiError } from '@/lib/api';
 import { getProperty } from '@/lib/owner/properties';
 import { notFound } from 'next/navigation';
@@ -52,7 +52,6 @@ async function loadInitial(
         availableFrom: property.availableFrom
           ? property.availableFrom.slice(0, 10)
           : '',
-        isFeatured: Boolean(property.isFeatured),
         visitEnabled: property.visitEnabled,
         visitType: property.visitType ?? 'FREE',
         visitPrice: property.visitPrice != null ? String(property.visitPrice) : '',
@@ -87,7 +86,7 @@ export default async function OwnerPropertyEditPage({
     notFound();
   }
   return (
-    <OwnerPropertyForm
+    <PropertyForm
       propertyId={id}
       initial={result.initial as never}
       submitLabel="Enregistrer"

@@ -1,11 +1,16 @@
 import { colors, radii, spacing } from '@/constants/theme';
-import type { MockLease } from '@/lib/mock-leases';
-import { getPropertyById } from '@/lib/mock-properties';
+import type { PublicLease } from '@/lib/leases';
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+export type LeaseSwitcherItem = {
+  lease: PublicLease;
+  title: string;
+  location: string;
+};
+
 type Props = {
-  leases: MockLease[];
+  leases: LeaseSwitcherItem[];
   selectedId: string;
   onSelect: (leaseId: string) => void;
 };
@@ -25,9 +30,8 @@ export function TenantLeaseSwitcher({
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.row}
       >
-        {leases.map((lease) => {
+        {leases.map(({ lease, title, location }) => {
           const selected = lease.id === selectedId;
-          const property = getPropertyById(lease.propertyId);
           return (
             <Pressable
               key={lease.id}
@@ -35,7 +39,7 @@ export function TenantLeaseSwitcher({
               onPress={() => onSelect(lease.id)}
               accessibilityRole="button"
               accessibilityState={{ selected }}
-              accessibilityLabel={property?.title ?? 'Bien'}
+              accessibilityLabel={title}
             >
               <View
                 style={[styles.iconWrap, selected && styles.iconWrapActive]}
@@ -51,13 +55,13 @@ export function TenantLeaseSwitcher({
                   style={[styles.title, selected && styles.titleActive]}
                   numberOfLines={1}
                 >
-                  {property?.title ?? 'Bien'}
+                  {title}
                 </Text>
                 <Text
                   style={[styles.meta, selected && styles.metaActive]}
                   numberOfLines={1}
                 >
-                  {property?.location ?? 'Congo'}
+                  {location}
                 </Text>
               </View>
             </Pressable>

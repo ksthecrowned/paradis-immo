@@ -159,7 +159,7 @@ function NavItemRow({
   const popover = hasChildren && open && collapsed ? (
     <div
       role="menu"
-      className="absolute start-full ms-2 top-0 z-50 min-w-[200px] rounded-xl border border-border bg-sidebar p-2 shadow-xl"
+      className="absolute inset-s-full ms-2 top-0 z-50 min-w-50 rounded-xl border border-border bg-sidebar p-2 shadow-xl"
     >
       <div className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-heading/70">
         {item.label}

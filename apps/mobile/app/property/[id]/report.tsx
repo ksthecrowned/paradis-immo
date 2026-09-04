@@ -2,21 +2,21 @@ import { CircleIconButton } from '@/components/ui/CircleIconButton';
 import { colors, radii, spacing } from '@/constants/theme';
 import { getErrorMessage } from '@/lib/feedback';
 import {
-  REPORT_REASON_LABELS,
-  submitPropertyReport,
-  type PropertyReportReason,
+    REPORT_REASON_LABELS,
+    submitPropertyReport,
+    type PropertyReportReason,
 } from '@/lib/property-reports';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import {
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
+    ActivityIndicator,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -138,7 +138,7 @@ export default function PropertyReportScreen(): React.JSX.Element {
           value={description}
           onChangeText={setDescription}
           placeholder="Décrivez le problème…"
-          placeholderTextColor={colors.muted}
+          placeholderTextColor="#4B5563"
           maxLength={1000}
         />
 

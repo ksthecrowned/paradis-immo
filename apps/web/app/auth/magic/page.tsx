@@ -4,6 +4,8 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { FormEvent, Suspense, useState } from 'react';
 import { backendWebMagicConsume } from '@/lib/backend-auth';
 import { loginWithPassword } from '@/lib/auth';
+import { DashIcon } from '@/components/dash-icon';
+import { DASH_ICONS } from '@/lib/dash-icons';
 
 const inputClass =
   'block w-full rounded-lg border border-input-border bg-search px-3 py-2.5 text-sm text-foreground placeholder:text-placeholder focus:border-input-focus-border focus:ring-input-focus-border';
@@ -19,6 +21,8 @@ function MagicForm(): React.JSX.Element {
   const [confirm, setConfirm] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
 
   async function onSubmit(e: FormEvent): Promise<void> {
     e.preventDefault();
@@ -66,27 +70,71 @@ function MagicForm(): React.JSX.Element {
         <form onSubmit={(e) => void onSubmit(e)} className="mt-6 space-y-4">
           <label className="block space-y-1.5">
             <span className="text-sm font-medium">Mot de passe</span>
-            <input
-              type="password"
-              required
-              minLength={8}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className={inputClass}
-              autoComplete="new-password"
-            />
+            <div className="relative">
+              <input
+                id="magic-password"
+                type={showPassword ? 'text' : 'password'}
+                required
+                minLength={8}
+                autoComplete="current-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className={`${inputClass} pe-11`}
+                placeholder="••••••••"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                className="absolute inset-e-2 top-1/2 inline-flex size-8 -translate-y-1/2 items-center justify-center rounded-lg text-muted hover:text-foreground"
+                aria-label={
+                  showPassword
+                    ? 'Masquer le mot de passe'
+                    : 'Afficher le mot de passe'
+                }
+              >
+                <DashIcon
+                  icon={
+                    showPassword ? DASH_ICONS.eyeOff : DASH_ICONS.eye
+                  }
+                  width={18}
+                  height={18}
+                />
+              </button>
+            </div>
           </label>
           <label className="block space-y-1.5">
             <span className="text-sm font-medium">Confirmation</span>
-            <input
-              type="password"
-              required
-              minLength={8}
-              value={confirm}
-              onChange={(e) => setConfirm(e.target.value)}
-              className={inputClass}
-              autoComplete="new-password"
-            />
+            <div className="relative">
+              <input
+                id="magic-confirm-password"
+                type={showConfirm ? 'text' : 'password'}
+                required
+                minLength={8}
+                autoComplete="confirm-password"
+                value={confirm}
+                onChange={(e) => setConfirm(e.target.value)}
+                className={`${inputClass} pe-11`}
+                placeholder="••••••••"
+              />
+              <button
+                type="button"
+                onClick={() => setShowConfirm((v) => !v)}
+                className="absolute inset-e-2 top-1/2 inline-flex size-8 -translate-y-1/2 items-center justify-center rounded-lg text-muted hover:text-foreground"
+                aria-label={
+                  showConfirm
+                    ? 'Masquer la confirmation'
+                    : 'Afficher la confirmation'
+                }
+              >
+                <DashIcon
+                  icon={
+                    showConfirm ? DASH_ICONS.eyeOff : DASH_ICONS.eye
+                  }
+                  width={18}
+                  height={18}
+                />
+              </button>
+            </div>
           </label>
           {error ? (
             <p role="alert" className="text-sm text-danger">

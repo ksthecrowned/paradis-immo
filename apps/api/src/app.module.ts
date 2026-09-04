@@ -3,6 +3,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { AdminModule } from './admin/admin.module';
+import { AgentModule } from './agent/agent.module';
 import { AuthModule } from './auth/auth.module';
 import { BookingsModule } from './bookings/bookings.module';
 import { EventModule } from './events/event.module';
@@ -33,6 +34,7 @@ import { VisitSlotsModule } from './visit-slots/visit-slots.module';
     PrismaModule,
     EventModule,
     AdminModule,
+    AgentModule,
     OwnerModule,
     AuthModule,
     OrganizationsModule,

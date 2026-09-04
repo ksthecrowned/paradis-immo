@@ -14,7 +14,7 @@ import { colors } from '@/constants/theme';
 import { fetchCatalogProperty } from '@/lib/catalog';
 import { isFavorite, toggleFavorite } from '@/lib/favorites';
 import { getErrorMessage } from '@/lib/feedback';
-import { getPropertyGallery } from '@/lib/mock-properties';
+import { getPropertyGallery } from '@/lib/property-gallery';
 import { recordPropertyView } from '@/lib/property-views';
 import {
   buildPropertyDetailRows,

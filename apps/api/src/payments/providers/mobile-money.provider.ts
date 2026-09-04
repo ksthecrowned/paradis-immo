@@ -36,7 +36,7 @@ export class MobileMoneyProvider {
     // This stub just returns a fake session.
     return Promise.resolve({
       id: `mm-${Date.now()}`,
-      status: 'PENDING_VALIDATION',
+      status: 'INITIATED',
       reference: `mm-ref-${Math.random().toString(36).slice(2, 10)}`,
     });
   }

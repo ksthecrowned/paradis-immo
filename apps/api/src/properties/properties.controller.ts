@@ -57,6 +57,18 @@ export class PropertiesController {
     return this.properties.listMine(current.userId, filter);
   }
 
+  @Get('managed')
+  @UseGuards(AppAuthGuard)
+  @ApiOperation({
+    summary: 'List properties the user can operate on (owned or mandated)',
+  })
+  listManaged(
+    @CurrentUser() current: AuthenticatedUser,
+    @Query() filter: FilterPropertiesDto,
+  ) {
+    return this.properties.listManaged(current.userId, filter);
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get a single property by id' })
   getOne(@Param('id') id: string) {

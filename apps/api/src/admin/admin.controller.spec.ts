@@ -334,4 +334,33 @@ describe('Admin (e2e)', () => {
       .send({ status: 'PAUSED' })
       .expect(403);
   });
+
+  it('sets isFeatured for a PLATFORM_ADMIN', async () => {
+    const res = await request(app.getHttpServer())
+      .patch(`/api/v1/admin/properties/${propertyId}/featured`)
+      .set('x-test-user', adminUserId)
+      .set('x-test-roles', 'PLATFORM_ADMIN')
+      .send({ isFeatured: true })
+      .expect(200);
+
+    const body = res.body as {
+      data: { id: string; isFeatured: boolean };
+    };
+    expect(body.data.id).toBe(propertyId);
+    expect(body.data.isFeatured).toBe(true);
+
+    const after = await prisma.property.findUnique({
+      where: { id: propertyId },
+    });
+    expect(after?.isFeatured).toBe(true);
+  });
+
+  it('rejects featured toggle from a non-admin with 403', async () => {
+    await request(app.getHttpServer())
+      .patch(`/api/v1/admin/properties/${propertyId}/featured`)
+      .set('x-test-user', tenantUserId)
+      .set('x-test-roles', 'TENANT')
+      .send({ isFeatured: true })
+      .expect(403);
+  });
 });

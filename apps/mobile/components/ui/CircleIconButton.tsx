@@ -10,11 +10,13 @@ import {
 type CircleIconButtonProps = Omit<PressableProps, 'style'> & {
   style?: StyleProp<ViewStyle>;
   children: React.ReactNode;
+  size?: number;
 };
 
 /** Circular icon button — same style as auth back buttons. */
 export function CircleIconButton({
   style,
+  size = 54,
   children,
   accessibilityRole = 'button',
   ...rest
@@ -22,7 +24,7 @@ export function CircleIconButton({
   return (
     <Pressable
       accessibilityRole={accessibilityRole}
-      style={[styles.btn, style]}
+      style={[styles.btn, style, { width: size, height: size }]}
       {...rest}
     >
       {children}
@@ -32,8 +34,6 @@ export function CircleIconButton({
 
 const styles = StyleSheet.create({
   btn: {
-    width: 54,
-    height: 54,
     borderWidth: 1,
     borderColor: colors.border,
     backgroundColor: colors.surface,

@@ -1,8 +1,8 @@
 import { Module } from '@nestjs/common';
 import { PrismaModule } from '../prisma/prisma.module';
 import { EventModule } from '../events/event.module';
+import { MandatesModule } from '../mandates/mandates.module';
 import { MediaModule } from '../media/media.module';
-import { MessagingModule } from '../messaging/messaging.module';
 import { PaymentsService } from './payments.service';
 import { PaymentsController } from './payments.controller';
 import { CashProvider } from './providers/cash.provider';
@@ -12,7 +12,12 @@ import { ReceiptController } from './receipts/receipt.controller';
 import { PaymentValidatedProcessor } from './receipts/payment-validated.processor';
 
 @Module({
-  imports: [PrismaModule, EventModule, MediaModule, MessagingModule],
+  imports: [
+    PrismaModule,
+    EventModule,
+    MediaModule,
+    MandatesModule,
+  ],
   controllers: [PaymentsController, ReceiptController],
   providers: [
     PaymentsService,

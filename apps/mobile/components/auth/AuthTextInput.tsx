@@ -26,7 +26,7 @@ export function AuthTextInput({
   containerStyle,
   style,
   editable = true,
-  placeholderTextColor = colors.muted,
+  placeholderTextColor = "#4B5563",
   ...inputProps
 }: AuthTextInputProps): React.JSX.Element {
   return (

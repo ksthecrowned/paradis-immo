@@ -2,29 +2,32 @@ import { CircleIconButton } from '@/components/ui/CircleIconButton';
 import { colors, radii, spacing } from '@/constants/theme';
 import { useFeedback } from '@/context/FeedbackContext';
 import { ensureAuthenticated } from '@/lib/auth-guard';
+import { getErrorMessage } from '@/lib/feedback';
+import { listMyLeases, type PublicLease } from '@/lib/leases';
 import {
-    addMaintenanceTicket,
-    canCreateMaintenance,
-    getMockLease,
-    type MaintenanceUrgency,
-} from '@/lib/mock-leases';
+  canCreateMaintenanceForLease,
+  createMaintenanceTicket,
+  type MaintenancePriority,
+} from '@/lib/maintenance';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useState } from 'react';
 import {
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    View,
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-const URGENCY: Array<{ key: MaintenanceUrgency; label: string }> = [
+const URGENCY: Array<{ key: MaintenancePriority; label: string }> = [
   { key: 'LOW', label: 'Basse' },
-  { key: 'NORMAL', label: 'Normale' },
+  { key: 'MEDIUM', label: 'Normale' },
   { key: 'HIGH', label: 'Haute' },
+  { key: 'URGENT', label: 'Urgente' },
 ];
 
 export default function NewMaintenanceScreen(): React.JSX.Element {
@@ -33,12 +36,35 @@ export default function NewMaintenanceScreen(): React.JSX.Element {
   const { id } = useLocalSearchParams<{ id: string }>();
   const leaseId = String(id ?? '');
   const [ready, setReady] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [lease, setLease] = useState<PublicLease | null>(null);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [urgency, setUrgency] = useState<MaintenanceUrgency>('NORMAL');
+  const [urgency, setUrgency] = useState<MaintenancePriority>('MEDIUM');
   const [submitting, setSubmitting] = useState(false);
 
-  const lease = useMemo(() => getMockLease(leaseId), [leaseId]);
+  const load = useCallback(async () => {
+    try {
+      const leases = await listMyLeases();
+      const found = leases.find((l) => l.id === leaseId) ?? null;
+      setLease(found);
+      if (!found || !canCreateMaintenanceForLease(found.status)) {
+        showFeedback({
+          type: 'warning',
+          title: 'Indisponible',
+          message: 'Signalement impossible pour ce bail.',
+        });
+        router.back();
+      }
+    } catch (err) {
+      showFeedback({
+        type: 'error',
+        title: 'Erreur',
+        message: getErrorMessage(err, 'Impossible de charger le bail'),
+      });
+      router.back();
+    }
+  }, [leaseId, showFeedback]);
 
   useFocusEffect(
     useCallback(() => {
@@ -50,46 +76,52 @@ export default function NewMaintenanceScreen(): React.JSX.Element {
         );
         if (!active) return;
         setReady(ok);
-        if (ok) {
-          const current = getMockLease(leaseId);
-          if (!current || !canCreateMaintenance(current)) {
-            showFeedback({
-              type: 'warning',
-              title: 'Indisponible',
-              message: 'Signalement impossible pour ce bail.',
-            });
-            router.back();
-          }
-        }
+        if (!ok) return;
+        setLoading(true);
+        await load();
+        if (active) setLoading(false);
       })();
       return () => {
         active = false;
       };
-    }, [leaseId, showFeedback]),
+    }, [leaseId, load]),
   );
 
-  const canSubmit = title.trim().length >= 3 && !submitting;
+  const canSubmit = title.trim().length >= 3 && !submitting && !!lease;
 
-  const handleSubmit = (): void => {
+  const handleSubmit = async (): Promise<void> => {
     if (!canSubmit || !lease) return;
     setSubmitting(true);
-    addMaintenanceTicket({
-      leaseId: lease.id,
-      title: title.trim(),
-      description: description.trim(),
-      urgency,
-    });
-    showFeedback({
-      type: 'success',
-      title: 'Ticket créé',
-      message: 'Votre signalement a bien été enregistré.',
-    });
-    setSubmitting(false);
-    router.back();
+    try {
+      await createMaintenanceTicket({
+        propertyId: lease.propertyId,
+        title: title.trim(),
+        description: description.trim(),
+        priority: urgency,
+      });
+      showFeedback({
+        type: 'success',
+        title: 'Ticket créé',
+        message: 'Votre signalement a bien été enregistré.',
+      });
+      router.back();
+    } catch (err) {
+      showFeedback({
+        type: 'error',
+        title: 'Échec',
+        message: getErrorMessage(err, 'Impossible de créer le ticket'),
+      });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  if (!ready) {
-    return <View style={styles.screen} />;
+  if (!ready || loading) {
+    return (
+      <View style={[styles.screen, styles.centered]}>
+        <ActivityIndicator color={colors.primary} />
+      </View>
+    );
   }
 
   return (
@@ -118,7 +150,7 @@ export default function NewMaintenanceScreen(): React.JSX.Element {
           value={title}
           onChangeText={setTitle}
           placeholder="Ex. Fuite d’eau"
-          placeholderTextColor={colors.muted + "20"}
+          placeholderTextColor="#4B5563"
         />
 
         <Text style={styles.label}>Description</Text>
@@ -127,7 +159,7 @@ export default function NewMaintenanceScreen(): React.JSX.Element {
           value={description}
           onChangeText={setDescription}
           placeholder="Décrivez le problème…"
-          placeholderTextColor={colors.muted + "20"}
+          placeholderTextColor="#4B5563"
           multiline
           textAlignVertical="top"
         />
@@ -156,11 +188,13 @@ export default function NewMaintenanceScreen(): React.JSX.Element {
 
         <Pressable
           style={[styles.submit, !canSubmit && styles.submitDisabled]}
-          onPress={handleSubmit}
+          onPress={() => void handleSubmit()}
           disabled={!canSubmit}
           accessibilityRole="button"
         >
-          <Text style={styles.submitText}>Envoyer</Text>
+          <Text style={styles.submitText}>
+            {submitting ? 'Envoi…' : 'Envoyer'}
+          </Text>
         </Pressable>
       </ScrollView>
     </View>
@@ -171,6 +205,10 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: colors.bg,
+  },
+  centered: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   topBar: {
     flexDirection: 'row',

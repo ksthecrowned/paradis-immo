@@ -119,7 +119,7 @@ export default function SaleInquiryScreen(): React.JSX.Element {
           value={message}
           onChangeText={setMessage}
           placeholder="Présentez votre projet, vos questions…"
-          placeholderTextColor={colors.muted + "20"}
+          placeholderTextColor="#4B5563"
           style={[styles.input, styles.textarea]}
           multiline
           textAlignVertical="top"
@@ -133,7 +133,7 @@ export default function SaleInquiryScreen(): React.JSX.Element {
           value={budget}
           onChangeText={setBudget}
           placeholder="Ex. 60 000 000 FCFA"
-          placeholderTextColor={colors.muted + "20"}
+          placeholderTextColor="#4B5563"
           style={styles.input}
           keyboardType="default"
         />
@@ -143,7 +143,7 @@ export default function SaleInquiryScreen(): React.JSX.Element {
           value={phone}
           onChangeText={setPhone}
           placeholder="+242 …"
-          placeholderTextColor={colors.muted + "20"}
+          placeholderTextColor="#4B5563"
           style={styles.input}
           keyboardType="phone-pad"
         />

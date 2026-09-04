@@ -3,7 +3,7 @@ import { colors, radii, spacing } from '@/constants/theme';
 import type {
   ActivityItem,
   ProspectSection,
-} from '@/lib/mock-activity';
+} from '@/lib/activity-build';
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 

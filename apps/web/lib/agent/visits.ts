@@ -1,4 +1,5 @@
 export {
+  bookVisit,
   cancelVisit,
   confirmVisit,
   listManagedVisits,

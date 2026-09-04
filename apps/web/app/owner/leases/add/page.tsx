@@ -1,5 +1,5 @@
-import { OwnerLeaseForm } from '../owner-lease-form';
+import { LeaseForm } from '@/components/leases/lease-form';
 
 export default function OwnerLeaseAddPage(): React.JSX.Element {
-  return <OwnerLeaseForm submitLabel="Créer le bail" />;
+  return <LeaseForm submitLabel="Créer le bail" />;
 }

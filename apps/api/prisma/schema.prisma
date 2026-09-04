@@ -199,25 +199,7 @@ enum AllocatableType {
   RENT_SCHEDULE
   BOOKING
   VISIT_BOOKING
-  MESSAGING_DEBT
   SALE_INSTALLMENT
-}
-
-enum MessageChannel {
-  WHATSAPP_OTP
-  SMS_ALERT
-}
-
-enum MessagePayerType {
-  USER
-  ORGANIZATION
-}
-
-enum MessageChargeStatus {
-  FREE
-  OPEN
-  SETTLED
-  WAIVED
 }
 
 enum MaintenancePriority {
@@ -377,7 +359,6 @@ model User {
   tickets                MaintenanceTicket[]  @relation("TicketReporter")
   assignedTickets        MaintenanceTicket[]  @relation("TicketAssignee")
   notifications          Notification[]
-  messageCharges         MessageCharge[]      @relation("MessageChargeUser")
   assignedMandates       Mandate[]            @relation("MandateAssignedAgent")
   tenantDocuments        TenantDocument[]
   solvencyChecks         SolvencyCheck[]      @relation("SolvencyCheckTenant")
@@ -408,11 +389,24 @@ model Organization {
   members            OrganizationMember[]
   properties         Property[]
   mandates           Mandate[]
-  messageCharges     MessageCharge[]
   solvencyChecks     SolvencyCheck[]
   saleAgreements     SaleAgreement[]
   buyerPaymentProofs BuyerPaymentProof[]
+  reviews            OrganizationReview[]
   createdAt          DateTime             @default(now())
+}
+
+model OrganizationReview {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  authorName     String
+  propertyTitle  String?
+  body           String
+  rating         Int
+  createdAt      DateTime     @default(now())
+
+  @@index([organizationId, createdAt])
 }
 
 model OrganizationMember {
@@ -916,7 +910,6 @@ model Payment {
   metadata        Json?
   allocations     PaymentAllocation[]
   receipt         Receipt?
-  messageCharges  MessageCharge[]
   createdAt       DateTime            @default(now())
   updatedAt       DateTime            @updatedAt
 }
@@ -940,33 +933,6 @@ model Receipt {
   url       String
   number    String   @unique
   createdAt DateTime @default(now())
-}
-
-model MessageCharge {
-  id                String              @id @default(uuid())
-  channel           MessageChannel
-  payerType         MessagePayerType
-  payerId           String
-  userId            String?
-  user              User?               @relation("MessageChargeUser", fields: [userId], references: [id])
-  organizationId    String?
-  organization      Organization?       @relation(fields: [organizationId], references: [id])
-  recipientPhone    String
-  occurredAt        DateTime            @default(now())
-  billingMonth      String
-  unitUsd           Decimal             @db.Decimal(12, 6)
-  fxRate            Decimal             @db.Decimal(12, 4)
-  amountXaf         Int
-  status            MessageChargeStatus
-  settledPaymentId  String?
-  settledPayment    Payment?            @relation(fields: [settledPaymentId], references: [id])
-  providerMessageId String?
-  idempotencyKey    String              @unique
-  createdAt         DateTime            @default(now())
-
-  @@index([payerType, payerId, status])
-  @@index([userId, channel, billingMonth])
-  @@index([billingMonth])
 }
 
 // =====================================================================
@@ -1004,6 +970,7 @@ model Notification {
   payload   Json
   status    NotificationStatus  @default(PENDING)
   sentAt    DateTime?
+  readAt    DateTime?
   createdAt DateTime            @default(now())
 }
 

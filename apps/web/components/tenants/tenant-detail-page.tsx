@@ -34,6 +34,7 @@ import {
   type TenantDocumentType,
 } from '@/lib/owner/tenant-documents';
 import { ManagedDocumentsSection } from '@/components/tenants/managed-documents-section';
+import { RecordCashPaymentButton } from '@/components/payments/record-cash-payment-button';
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 
@@ -391,6 +392,19 @@ export function TenantDetailPage({
                     {lease.overdueCount} échéance
                     {lease.overdueCount > 1 ? 's' : ''} en retard
                   </p>
+                ) : null}
+                {lease.nextDue &&
+                lease.nextDue.status !== 'PAID' ? (
+                  <div className="mt-3">
+                    <RecordCashPaymentButton
+                      rentScheduleId={lease.nextDue.id}
+                      amount={lease.nextDue.amount}
+                      currency={lease.nextDue.currency}
+                      dueDateLabel={formatDate(lease.nextDue.dueDate)}
+                      onRecorded={load}
+                      onError={setError}
+                    />
+                  </div>
                 ) : null}
               </li>
             ))}

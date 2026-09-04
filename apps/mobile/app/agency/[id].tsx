@@ -11,7 +11,8 @@ import {
 } from '@/lib/agencies';
 import { fetchCatalogProperties } from '@/lib/catalog';
 import { getErrorMessage } from '@/lib/feedback';
-import { listAgencyReviews } from '@/lib/mock-agency-reviews';
+import { fetchAgencyReviews } from '@/lib/organization-reviews';
+import type { AgencyReview } from '@/lib/map-organization';
 import type { Property } from '@/types/property';
 import { Ionicons, Octicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -43,6 +44,7 @@ export default function AgencyHubScreen(): React.JSX.Element {
   const [agency, setAgency] = useState<Agency | null>(null);
   const [agents, setAgents] = useState<Agent[]>([]);
   const [allProperties, setAllProperties] = useState<Property[]>([]);
+  const [reviews, setReviews] = useState<AgencyReview[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [segment, setSegment] = useState<Segment>('properties');
@@ -59,14 +61,16 @@ export default function AgencyHubScreen(): React.JSX.Element {
       setLoading(true);
       setError(null);
       try {
-        const [detail, props] = await Promise.all([
+        const [detail, props, reviewRows] = await Promise.all([
           fetchAgency(agencyId),
           fetchCatalogProperties({ organizationId: agencyId }),
+          fetchAgencyReviews(agencyId).catch(() => [] as AgencyReview[]),
         ]);
         if (cancelled) return;
         setAgency(detail);
         setAgents(detail.agents);
         setAllProperties(props);
+        setReviews(reviewRows);
       } catch (err) {
         if (!cancelled) {
           setAgency(null);
@@ -81,10 +85,6 @@ export default function AgencyHubScreen(): React.JSX.Element {
     };
   }, [agencyId]);
 
-  const reviews = useMemo(
-    () => (agency ? listAgencyReviews(agency.id) : []),
-    [agency],
-  );
   const selectedAgent = selectedAgentId
     ? agents.find((a) => a.id === selectedAgentId)
     : undefined;

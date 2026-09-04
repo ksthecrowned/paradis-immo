@@ -1,42 +1,45 @@
 'use client';
 
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
-    DashboardPageHeader,
-    ListDataTable,
-    StatusBadge,
-    type ListColumn,
+  DashboardPageHeader,
+  ListDataTable,
+  StatusBadge,
+  type ListColumn,
 } from '@/components/dashboard';
+import { Button } from '@/components/primitives';
 import { useRequireSession } from '@/hooks/use-require-session';
 import {
-    assignMandate,
-    listManagedMandates,
-    listOrganizationAgents,
-    type PublicMandate,
-    type PublicOrgAgent,
+  assignMandate,
+  listManagedMandates,
+  listOrganizationAgents,
+  type PublicMandate,
+  type PublicOrgAgent,
 } from '@/lib/agent/mandates';
-import { listOrgProperties } from '@/lib/agent/portfolio';
+import { listManagedProperties } from '@/lib/agent/portfolio';
 import { ApiError } from '@/lib/api';
 import {
-    agentOrganizationIds,
-    isAgencyGerant,
-    listMyOrganizations,
+  agentOrganizationIds,
+  isAgencyGerant,
+  listMyOrganizations,
 } from '@/lib/me';
 import {
-    formatPropertyPrice,
-    propertyModeLabel,
-    propertyStatusLabel,
-    propertyStatusTone,
-    type PublicProperty,
+  formatPropertyPrice,
+  propertyModeLabel,
+  propertyStatusLabel,
+  propertyStatusTone,
+  type PublicProperty,
 } from '@/lib/owner/properties';
+import { ROUTES } from '@/lib/routes';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 export function AgentPortfolioPage(): React.JSX.Element {
+  const router = useRouter();
   const { ready } = useRequireSession();
   const [rows, setRows] = useState<PublicProperty[]>([]);
   const [mandates, setMandates] = useState<PublicMandate[]>([]);
-  const [agentsByOrg, setAgentsByOrg] = useState<
-    Record<string, PublicOrgAgent[]>
-  >({});
+  const [agents, setAgents] = useState<PublicOrgAgent[]>([]);
   const [canAssign, setCanAssign] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -47,35 +50,22 @@ export function AgentPortfolioPage(): React.JSX.Element {
     try {
       const orgs = await listMyOrganizations();
       const orgIds = agentOrganizationIds(orgs);
+      // Product rule: one agent ↔ one agency. Take the sole membership.
+      const agencyId = orgIds[0] ?? null;
       setCanAssign(isAgencyGerant(orgs));
 
-      const [propertyLists, managedMandates] = await Promise.all([
-        orgIds.length === 0
-          ? Promise.resolve([] as PublicProperty[][])
-          : Promise.all(orgIds.map((id) => listOrgProperties(id))),
+      const [managedProperties, managedMandates] = await Promise.all([
+        listManagedProperties(),
         listManagedMandates(),
       ]);
-      const operableIds = new Set(
-        managedMandates.map((m) => m.propertyId),
-      );
-      const allProperties = propertyLists.flat();
-      setRows(
-        operableIds.size > 0
-          ? allProperties.filter((p) => operableIds.has(p.id))
-          : allProperties,
-      );
+      setRows(managedProperties);
       setMandates(managedMandates);
 
-      const uniqueOrgIds = [
-        ...new Set(managedMandates.map((m) => m.organizationId)),
-      ];
-      const agentEntries = await Promise.all(
-        uniqueOrgIds.map(async (id) => {
-          const agents = await listOrganizationAgents(id);
-          return [id, agents] as const;
-        }),
-      );
-      setAgentsByOrg(Object.fromEntries(agentEntries));
+      if (agencyId) {
+        setAgents(await listOrganizationAgents(agencyId));
+      } else {
+        setAgents([]);
+      }
       setError(null);
     } catch (err) {
       setError(
@@ -127,6 +117,14 @@ export function AgentPortfolioPage(): React.JSX.Element {
         key: 'title',
         label: 'Titre',
         sortable: true,
+        render: (_value, row) => (
+          <Link
+            href={ROUTES.agent.property(row.id)}
+            className="font-medium text-heading hover:text-accent hover:underline"
+          >
+            {row.title}
+          </Link>
+        ),
       },
       {
         key: 'mode',
@@ -179,7 +177,14 @@ export function AgentPortfolioPage(): React.JSX.Element {
 
   return (
     <section className="space-y-6">
-      <DashboardPageHeader title="Portefeuille" />
+      <DashboardPageHeader
+        title="Portefeuille"
+        actions={
+          <Link href={ROUTES.agent.portfolioAdd}>
+            <Button type="button">Ajouter un bien</Button>
+          </Link>
+        }
+      />
 
       {error ? (
         <div className="rounded-xl border border-danger/40 bg-danger/10 px-4 py-3 text-sm text-danger">
@@ -196,6 +201,27 @@ export function AgentPortfolioPage(): React.JSX.Element {
         searchPlaceholder="Rechercher un bien…"
         emptyMessage="Aucun bien dans votre portefeuille."
         tableId="agent-portfolio-table"
+        onRowClick={(row) => {
+          router.push(ROUTES.agent.property(row.id));
+        }}
+        actions={(row) => (
+          <div className="flex items-center gap-2">
+            <Link
+              href={ROUTES.agent.property(row.id)}
+              className="text-xs font-medium text-accent hover:underline"
+              onClick={(e) => e.stopPropagation()}
+            >
+              Voir
+            </Link>
+            <Link
+              href={ROUTES.agent.propertyEdit(row.id)}
+              className="text-xs font-medium text-muted hover:text-accent hover:underline"
+              onClick={(e) => e.stopPropagation()}
+            >
+              Modifier
+            </Link>
+          </div>
+        )}
       />
 
       <div className="space-y-3 rounded-lg border border-border bg-card p-5">
@@ -205,7 +231,7 @@ export function AgentPortfolioPage(): React.JSX.Element {
           </h2>
           <p className="mt-1 text-sm text-muted">
             {canAssign
-              ? 'En tant que gérant, assignez un agent de terrain à chaque mandat.'
+              ? 'En tant que gérant, assignez un agent de terrain à chaque mandat (un seul agent par bien).'
               : 'Vos mandats affectés (lecture seule).'}
           </p>
         </div>
@@ -226,16 +252,20 @@ export function AgentPortfolioPage(): React.JSX.Element {
               </thead>
               <tbody>
                 {mandates.map((m) => {
-                  const agents = agentsByOrg[m.organizationId] ?? [];
-                  const assignee = agents.find(
-                    (a) => a.id === m.assignedAgentId,
-                  );
+                  const assignee = agents.find((a) => a.id === m.assignedAgentId);
                   const title =
                     propertyTitleById.get(m.propertyId) ??
                     `${m.propertyId.slice(0, 8)}…`;
                   return (
                     <tr key={m.id} className="border-b border-border/60">
-                      <td className="px-2 py-3 text-heading">{title}</td>
+                      <td className="px-2 py-3 text-heading">
+                        <Link
+                          href={ROUTES.agent.property(m.propertyId)}
+                          className="hover:text-accent hover:underline"
+                        >
+                          {title}
+                        </Link>
+                      </td>
                       <td className="px-2 py-3">
                         <StatusBadge
                           label={m.status === 'ACTIVE' ? 'Actif' : m.status}

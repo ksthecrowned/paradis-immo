@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { S3Client } from '@aws-sdk/client-s3';
 import { PrismaModule } from '../prisma/prisma.module';
+import { MandatesModule } from '../mandates/mandates.module';
 import { MediaController } from './media.controller';
 import { MediaService } from './media.service';
 import { DocumentsController } from './documents.controller';
@@ -34,7 +35,7 @@ function makeR2Client(): S3Client {
 }
 
 @Module({
-  imports: [PrismaModule],
+  imports: [PrismaModule, MandatesModule],
   controllers: [MediaController, DocumentsController],
   providers: [
     MediaService,

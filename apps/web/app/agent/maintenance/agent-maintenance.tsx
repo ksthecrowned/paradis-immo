@@ -1,5 +1,7 @@
 'use client';
 
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   DashboardPageHeader,
@@ -7,6 +9,7 @@ import {
   StatusBadge,
   type ListColumn,
 } from '@/components/dashboard';
+import { Button } from '@/components/primitives';
 import { ApiError } from '@/lib/api';
 import {
   assignMaintenanceTicket,
@@ -17,6 +20,7 @@ import {
   updateMaintenanceTicket,
   type PublicMaintenanceTicket,
 } from '@/lib/agent/maintenance';
+import { ROUTES } from '@/lib/routes';
 import { useRequireSession } from '@/hooks/use-require-session';
 
 function formatDate(iso: string): string {
@@ -36,6 +40,7 @@ const STATUS_OPTIONS = [
 ] as const;
 
 export function AgentMaintenancePage(): React.JSX.Element {
+  const router = useRouter();
   const { ready } = useRequireSession();
   const [rows, setRows] = useState<PublicMaintenanceTicket[]>([]);
   const [loading, setLoading] = useState(true);
@@ -115,13 +120,30 @@ export function AgentMaintenancePage(): React.JSX.Element {
         sortable: true,
         render: (value) => formatDate(String(value)),
       },
-      { key: 'title', label: 'Titre', sortable: true },
+      {
+        key: 'title',
+        label: 'Titre',
+        sortable: true,
+        render: (_value, row) => (
+          <Link
+            href={ROUTES.agent.maintenanceTicket(row.id)}
+            className="font-medium text-heading hover:text-accent hover:underline"
+          >
+            {row.title}
+          </Link>
+        ),
+      },
       {
         key: 'propertyId',
         label: 'Bien',
         className: 'hidden sm:table-cell',
         render: (value) => (
-          <span className="font-mono text-xs text-muted">{String(value).slice(0, 8)}…</span>
+          <Link
+            href={ROUTES.agent.property(String(value))}
+            className="font-mono text-xs text-muted hover:text-accent hover:underline"
+          >
+            {String(value).slice(0, 8)}…
+          </Link>
         ),
       },
       {
@@ -147,7 +169,14 @@ export function AgentMaintenancePage(): React.JSX.Element {
 
   return (
     <section className="space-y-6">
-      <DashboardPageHeader title="Maintenance" />
+      <DashboardPageHeader
+        title="Maintenance"
+        actions={
+          <Link href={ROUTES.agent.maintenanceAdd}>
+            <Button type="button">Ouvrir un ticket</Button>
+          </Link>
+        }
+      />
 
       {error ? (
         <div className="rounded-xl border border-danger/40 bg-danger/10 px-4 py-3 text-sm text-danger">
@@ -164,9 +193,21 @@ export function AgentMaintenancePage(): React.JSX.Element {
         searchPlaceholder="Rechercher un ticket…"
         emptyMessage="Aucun ticket de maintenance."
         tableId="agent-maintenance-table"
+        onRowClick={(row) => {
+          router.push(ROUTES.agent.maintenanceTicket(row.id));
+        }}
         actions={(row) => (
-          <div className="flex min-w-[220px] flex-col gap-2">
+          <div
+            className="flex min-w-[220px] flex-col gap-2"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex gap-2">
+              <Link
+                href={ROUTES.agent.maintenanceEdit(row.id)}
+                className="rounded-lg border border-border px-2 py-1 text-xs font-medium hover:bg-card-hover"
+              >
+                Modifier
+              </Link>
               <input
                 value={assigneeByTicket[row.id] ?? ''}
                 onChange={(e) =>

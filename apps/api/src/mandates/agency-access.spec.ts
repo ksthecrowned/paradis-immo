@@ -190,6 +190,39 @@ describe('AgencyAccessService', () => {
     expect(unassignedIds).not.toContain(propertyId);
   });
 
+  it('listOperablePropertyIds: unmanaged org props are gérant-only, not field AGENT', async () => {
+    const unmanaged = await prisma.property.create({
+      data: {
+        title: 'Access Unmanaged Agency Prop',
+        description: 'no active mandate',
+        type: 'APARTMENT',
+        mode: 'RENT_LONG',
+        price: 50000,
+        currency: 'XAF',
+        priceUnit: 'MONTH',
+        quartierId,
+        address: 'Test unmanaged',
+        countryId,
+        ownerId: ownerUserId,
+        organizationId: agencyOrgId,
+        status: 'ACTIVE',
+      },
+    });
+    try {
+      const gerantIds = await access.listOperablePropertyIds(gerantUserId);
+      const assignedIds = await access.listOperablePropertyIds(assignedAgentId);
+      const unassignedIds =
+        await access.listOperablePropertyIds(unassignedAgentId);
+      expect(gerantIds).toContain(unmanaged.id);
+      expect(assignedIds).not.toContain(unmanaged.id);
+      expect(unassignedIds).not.toContain(unmanaged.id);
+    } finally {
+      await prisma.property
+        .delete({ where: { id: unmanaged.id } })
+        .catch(() => undefined);
+    }
+  });
+
   it('forbids a stranger', async () => {
     const stranger = await prisma.user.create({
       data: {

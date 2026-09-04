@@ -8,10 +8,7 @@ import {
   formatDayLongFr,
   todayKey,
 } from '@/lib/calendar';
-import {
-  createMockPaymentSession,
-  quoteShortStay,
-} from '@/lib/mock-conversion';
+import { quoteShortStay } from '@/lib/short-stay-quote';
 import { createBooking } from '@/lib/bookings';
 import { getErrorMessage } from '@/lib/feedback';
 import { useCatalogProperty } from '@/hooks/use-catalog-property';
@@ -41,12 +38,11 @@ export default function BookScreen(): React.JSX.Element {
   const [ready, setReady] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
-  const quoteId = property?.id ?? propertyId;
   const quote = useMemo(
-    () => quoteShortStay(quoteId, startIso, endIso),
-    [quoteId, startIso, endIso],
+    () => (property ? quoteShortStay(property, startIso, endIso) : null),
+    [property, startIso, endIso],
   );
-  const canConfirm = quote.nights > 0;
+  const canConfirm = Boolean(quote && quote.nights > 0 && !quote.error);
 
   useFocusEffect(
     useCallback(() => {
@@ -66,7 +62,6 @@ export default function BookScreen(): React.JSX.Element {
 
   const onSelectDate = (iso: string): void => {
     setSubmitError(null);
-    // First tap / reset → start; second tap after start → end
     if (!startIso || (startIso && endIso)) {
       setStartIso(iso);
       setEndIso('');
@@ -81,7 +76,7 @@ export default function BookScreen(): React.JSX.Element {
   };
 
   const handleConfirm = async (): Promise<void> => {
-    if (!property || !canConfirm) return;
+    if (!property || !quote || !canConfirm) return;
     setSubmitting(true);
     setSubmitError(null);
     try {
@@ -90,15 +85,13 @@ export default function BookScreen(): React.JSX.Element {
         startDate: new Date(`${startIso}T00:00:00.000Z`),
         endDate: new Date(`${endIso}T00:00:00.000Z`),
       });
-      const session = createMockPaymentSession({
-        kind: 'stay',
+      const qs = new URLSearchParams({
         propertyId: property.id,
-        amountLabel: quote.totalLabel,
+        amount: String(quote.totalAmount),
+        currency: 'XAF',
         title: `Séjour · ${property.title}`,
       });
-      router.push(
-        `/payment/${session.id}?propertyId=${encodeURIComponent(property.id)}&amount=${quote.totalAmount}&title=${encodeURIComponent(`Séjour · ${property.title}`)}`,
-      );
+      router.push(`/payment/checkout?${qs.toString()}`);
     } catch (err) {
       setSubmitError(getErrorMessage(err, 'Impossible de réserver ce séjour'));
     } finally {
@@ -126,10 +119,16 @@ export default function BookScreen(): React.JSX.Element {
     );
   }
 
+  const minNights = property.minNights ?? 1;
+  const maxNights = property.maxNights;
+
   return (
     <View style={styles.screen}>
       <View style={[styles.topBar, { paddingTop: insets.top + spacing.sm }]}>
-        <CircleIconButton onPress={() => router.back()} accessibilityLabel="Retour">
+        <CircleIconButton
+          onPress={() => router.back()}
+          accessibilityLabel="Retour"
+        >
           <Ionicons name="chevron-back" size={24} color={colors.ink} />
         </CircleIconButton>
         <Text style={styles.topTitle}>Réserver</Text>
@@ -148,6 +147,11 @@ export default function BookScreen(): React.JSX.Element {
         <Text style={styles.section}>Dates du séjour</Text>
         <Text style={styles.hint}>
           Touchez l’arrivée, puis le départ
+          {maxNights != null
+            ? ` · ${minNights}–${maxNights} nuit${maxNights > 1 ? 's' : ''}`
+            : minNights > 1
+              ? ` · min. ${minNights} nuits`
+              : ''}
         </Text>
 
         <MonthCalendar
@@ -178,12 +182,17 @@ export default function BookScreen(): React.JSX.Element {
         <View style={styles.recap}>
           <Text style={styles.recapLabel}>Récapitulatif</Text>
           <Text style={styles.recapLine}>
-            {quote.nights > 0
-              ? `${quote.nights} nuit${quote.nights > 1 ? 's' : ''}`
+            {quote && quote.nights > 0
+              ? `${quote.nights} nuit${quote.nights > 1 ? 's' : ''} · ${quote.nightlyAmount.toLocaleString('fr-FR').replace(/\u202f/g, ' ')} FCFA / nuit`
               : 'Choisissez une arrivée et un départ'}
           </Text>
-          {quote.nights > 0 ? (
+          {quote && quote.nights > 0 && !quote.error ? (
             <Text style={styles.recapTotal}>{quote.totalLabel}</Text>
+          ) : null}
+          {quote?.error ? (
+            <Text style={styles.quoteError} accessibilityRole="alert">
+              {quote.error}
+            </Text>
           ) : null}
         </View>
         {submitError ? (
@@ -274,6 +283,12 @@ const styles = StyleSheet.create({
   recapLabel: { fontSize: 13, fontWeight: '600', color: colors.muted },
   recapLine: { fontSize: 15, fontWeight: '700', color: colors.ink },
   recapTotal: { fontSize: 18, fontWeight: '800', color: colors.primary },
+  quoteError: {
+    marginTop: 4,
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.danger,
+  },
   error: {
     fontSize: 14,
     lineHeight: 20,

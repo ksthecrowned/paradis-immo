@@ -1,5 +1,5 @@
-import { OwnerMaintenanceForm } from '../owner-maintenance-form';
+import { MaintenanceTicketForm } from '@/components/maintenance/maintenance-ticket-form';
 
 export default function OwnerMaintenanceAddPage(): React.JSX.Element {
-  return <OwnerMaintenanceForm />;
+  return <MaintenanceTicketForm />;
 }

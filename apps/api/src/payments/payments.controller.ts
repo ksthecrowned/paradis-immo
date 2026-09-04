@@ -17,6 +17,7 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  ValidateIf,
   ValidateNested,
 } from 'class-validator';
 // Namespace import keeps the value at runtime (needed by emitDecoratorMetadata)
@@ -37,6 +38,22 @@ class InitiatePaymentDto {
   @IsString() idempotencyKey!: string;
   @IsOptional() @IsString() rentScheduleId?: string;
   @IsOptional() @IsString() saleInstallmentId?: string;
+  @IsOptional() @IsString() visitBookingId?: string;
+}
+
+class RecordCashPaymentDto {
+  @ValidateIf((o: RecordCashPaymentDto) => !o.saleInstallmentId)
+  @IsString()
+  rentScheduleId?: string;
+
+  @ValidateIf((o: RecordCashPaymentDto) => !o.rentScheduleId)
+  @IsString()
+  saleInstallmentId?: string;
+
+  @IsString() idempotencyKey!: string;
+  @IsOptional() @Type(() => Number) @IsNumber() amount?: number;
+  @IsOptional() @IsString() currency?: string;
+  @IsOptional() @IsString() note?: string;
 }
 
 class AllocationDto {
@@ -71,6 +88,21 @@ export class PaymentsController {
     return this.payments.initiatePayment({ ...dto, userId: current.userId });
   }
 
+  @Post('payments/record-cash')
+  @UseGuards(AppAuthGuard)
+  @HttpCode(201)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary:
+      'Record a cash rent payment on behalf of a tenant (create + validate)',
+  })
+  recordCash(
+    @CurrentUser() current: AuthenticatedUser,
+    @Body() dto: RecordCashPaymentDto,
+  ) {
+    return this.payments.recordCashPayment(current.userId, dto);
+  }
+
   @Post('payments/:id/validate')
   @UseGuards(AppAuthGuard)
   @HttpCode(200)
@@ -100,10 +132,11 @@ export class PaymentsController {
   @UseGuards(AppAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({
-    summary: 'List cash payments awaiting agent validation',
+    summary:
+      'List cash payments awaiting validation on managed properties',
   })
-  pendingValidation() {
-    return this.payments.listPendingValidation();
+  pendingValidation(@CurrentUser() current: AuthenticatedUser) {
+    return this.payments.listPendingValidation(current.userId);
   }
 
   @Get('payments/managed')

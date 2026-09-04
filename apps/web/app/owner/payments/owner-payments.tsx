@@ -16,6 +16,7 @@ import {
   validatePayment,
   type PublicPayment,
 } from '@/lib/owner/payments';
+import { RecordCashFromPaymentsPanel } from '@/components/payments/record-cash-from-payments-panel';
 import { ROUTES } from '@/lib/routes';
 import { useRequireSession } from '@/hooks/use-require-session';
 
@@ -148,6 +149,11 @@ export function OwnerPaymentsPage(): React.JSX.Element {
   return (
     <section className="space-y-6">
       <DashboardPageHeader title="Paiements" />
+
+      <RecordCashFromPaymentsPanel
+        onRecorded={load}
+        onError={setError}
+      />
 
       {error ? (
         <div className="rounded-xl border border-danger/40 bg-danger/10 px-4 py-3 text-sm text-danger">

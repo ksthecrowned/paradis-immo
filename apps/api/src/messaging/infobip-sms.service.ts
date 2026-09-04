@@ -11,7 +11,7 @@ export interface SmsMessage {
 
 /**
  * Sends operational SMS alerts via Infobip.
- * In dev (no Infobip config) logs and reports ok so billing can be exercised.
+ * In dev (no Infobip config) logs and reports ok so flows can be exercised.
  */
 @Injectable()
 export class InfobipSmsService {

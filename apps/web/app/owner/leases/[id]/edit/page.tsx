@@ -1,6 +1,6 @@
 'use client';
 
-import { OwnerLeaseForm, leaseToFormInitial } from '@/app/owner/leases/owner-lease-form';
+import { LeaseForm, leaseToFormInitial } from '@/components/leases/lease-form';
 import { useRequireSession } from '@/hooks/use-require-session';
 import { ApiError } from '@/lib/api';
 import { getLease } from '@/lib/owner/leases';
@@ -80,7 +80,7 @@ export default function OwnerLeaseEditPage(): React.JSX.Element {
   }
 
   return (
-    <OwnerLeaseForm
+    <LeaseForm
       leaseId={leaseId}
       initial={initial}
       initialPhoneCountry={phoneCountry}

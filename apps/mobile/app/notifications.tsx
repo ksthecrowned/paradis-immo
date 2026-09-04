@@ -1,10 +1,23 @@
 import { ScreenHeader } from '@/components/ui/ScreenHeader';
 import { colors, getBootColorScheme, radii, spacing } from '@/constants/theme';
-import { Ionicons } from '@expo/vector-icons';
-import { useMemo, useState } from 'react';
+import { ensureAuthenticated } from '@/lib/auth-guard';
+import { getErrorMessage } from '@/lib/feedback';
 import {
+  listMyNotifications,
+  mapInboxNotification,
+  markAllNotificationsRead,
+  markNotificationRead,
+  type InboxNotificationView,
+  type NotificationKind,
+} from '@/lib/inbox-notifications';
+import { Ionicons } from '@expo/vector-icons';
+import { router, useFocusEffect } from 'expo-router';
+import { useCallback, useMemo, useState } from 'react';
+import {
+  ActivityIndicator,
   FlatList,
   Pressable,
+  RefreshControl,
   StyleSheet,
   Text,
   View,
@@ -12,52 +25,6 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const isDark = getBootColorScheme() === 'dark';
-
-type NotificationKind = 'visit' | 'payment' | 'favorite' | 'info';
-
-type AppNotification = {
-  id: string;
-  kind: NotificationKind;
-  title: string;
-  body: string;
-  time: string;
-  read: boolean;
-};
-
-const MOCK_NOTIFICATIONS: AppNotification[] = [
-  {
-    id: '1',
-    kind: 'visit',
-    title: 'Visite confirmée',
-    body: 'Votre visite de Villa Whispering Pines est prévue demain à 10h.',
-    time: 'Il y a 2 h',
-    read: false,
-  },
-  {
-    id: '2',
-    kind: 'payment',
-    title: 'Paiement reçu',
-    body: 'Le reçu de votre réservation à Tié-Tié est disponible.',
-    time: 'Hier',
-    read: false,
-  },
-  {
-    id: '3',
-    kind: 'favorite',
-    title: 'Nouveau bien près de vous',
-    body: 'Un appartement à Centre-ville correspond à vos favoris.',
-    time: 'Il y a 2 j',
-    read: true,
-  },
-  {
-    id: '4',
-    kind: 'info',
-    title: 'Bienvenue sur Paradis Immo',
-    body: 'Explorez, réservez une visite et gérez vos locations en un seul endroit.',
-    time: 'Il y a 5 j',
-    read: true,
-  },
-];
 
 function kindIcon(kind: NotificationKind): keyof typeof Ionicons.glyphMap {
   if (kind === 'visit') return 'calendar-outline';
@@ -68,22 +35,97 @@ function kindIcon(kind: NotificationKind): keyof typeof Ionicons.glyphMap {
 
 export default function NotificationsScreen(): React.JSX.Element {
   const insets = useSafeAreaInsets();
-  const [items, setItems] = useState(MOCK_NOTIFICATIONS);
+  const [ready, setReady] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [items, setItems] = useState<InboxNotificationView[]>([]);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setError(null);
+    try {
+      const rows = await listMyNotifications();
+      setItems(rows.map(mapInboxNotification));
+    } catch (err) {
+      setError(getErrorMessage(err, 'Impossible de charger les notifications'));
+      setItems([]);
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      void (async () => {
+        const ok = await ensureAuthenticated(router, '/notifications');
+        if (!active) return;
+        setReady(ok);
+        if (!ok) return;
+        setLoading(true);
+        await load();
+        if (active) setLoading(false);
+      })();
+      return () => {
+        active = false;
+      };
+    }, [load]),
+  );
 
   const unreadCount = useMemo(
     () => items.filter((item) => !item.read).length,
     [items],
   );
 
-  const markAllRead = (): void => {
-    setItems((current) => current.map((item) => ({ ...item, read: true })));
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await load();
+    setRefreshing(false);
+  }, [load]);
+
+  const markAllRead = async (): Promise<void> => {
+    try {
+      await markAllNotificationsRead();
+      setItems((current) =>
+        current.map((item) => ({ ...item, read: true })),
+      );
+    } catch (err) {
+      setError(getErrorMessage(err, 'Impossible de tout marquer comme lu'));
+    }
   };
 
-  const openItem = (id: string): void => {
-    setItems((current) =>
-      current.map((item) => (item.id === id ? { ...item, read: true } : item)),
-    );
+  const openItem = async (item: InboxNotificationView): Promise<void> => {
+    if (!item.read) {
+      setItems((current) =>
+        current.map((row) =>
+          row.id === item.id ? { ...row, read: true } : row,
+        ),
+      );
+      void markNotificationRead(item.id).catch(() => {
+        setItems((current) =>
+          current.map((row) =>
+            row.id === item.id ? { ...row, read: false } : row,
+          ),
+        );
+      });
+    }
+    if (item.link) {
+      if (item.link.params) {
+        router.push({
+          pathname: item.link.pathname as never,
+          params: item.link.params,
+        });
+      } else {
+        router.push(item.link.pathname as never);
+      }
+    }
   };
+
+  if (!ready || loading) {
+    return (
+      <View style={[styles.screen, styles.centered]}>
+        <ActivityIndicator color={colors.primary} />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.screen}>
@@ -98,7 +140,7 @@ export default function NotificationsScreen(): React.JSX.Element {
         trailing={
           unreadCount > 0 ? (
             <Pressable
-              onPress={markAllRead}
+              onPress={() => void markAllRead()}
               hitSlop={8}
               style={styles.markAllBtn}
               accessibilityRole="button"
@@ -110,6 +152,15 @@ export default function NotificationsScreen(): React.JSX.Element {
         }
       />
 
+      {error ? (
+        <View style={styles.errorBanner}>
+          <Text style={styles.errorText}>{error}</Text>
+          <Pressable onPress={() => void onRefresh()} accessibilityRole="button">
+            <Text style={styles.errorRetry}>Réessayer</Text>
+          </Pressable>
+        </View>
+      ) : null}
+
       <FlatList
         data={items}
         keyExtractor={(item) => item.id}
@@ -120,6 +171,14 @@ export default function NotificationsScreen(): React.JSX.Element {
         ]}
         showsVerticalScrollIndicator={false}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => void onRefresh()}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
+          />
+        }
         ListEmptyComponent={
           <View style={styles.empty}>
             <View style={styles.emptyIcon}>
@@ -138,7 +197,7 @@ export default function NotificationsScreen(): React.JSX.Element {
         renderItem={({ item }) => (
           <Pressable
             style={[styles.card, !item.read && styles.cardUnread]}
-            onPress={() => openItem(item.id)}
+            onPress={() => void openItem(item)}
             accessibilityRole="button"
           >
             <View style={styles.iconWrap}>
@@ -172,12 +231,36 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.bg,
   },
+  centered: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   markAllBtn: {
     paddingHorizontal: 10,
     alignItems: 'center',
     justifyContent: 'center',
   },
   markAll: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.primary,
+  },
+  errorBanner: {
+    marginHorizontal: spacing.md,
+    marginBottom: spacing.sm,
+    padding: 12,
+    borderRadius: radii.lg,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    gap: 6,
+  },
+  errorText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.ink,
+  },
+  errorRetry: {
     fontSize: 13,
     fontWeight: '700',
     color: colors.primary,

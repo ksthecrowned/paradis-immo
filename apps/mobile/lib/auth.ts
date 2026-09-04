@@ -10,6 +10,31 @@ let refreshInFlight: Promise<string | null> | null = null;
 /** Bumped on logout/clear so an in-flight refresh cannot rewrite tokens. */
 let sessionEpoch = 0;
 
+/** Why the local session was wiped — drives whether the UI redirects to login. */
+export type SessionEndReason = 'logout' | 'expired';
+
+type SessionEndListener = (reason: SessionEndReason) => void;
+
+const sessionEndListeners = new Set<SessionEndListener>();
+
+/** Subscribe to session wipes (logout or expired refresh). Returns unsubscribe. */
+export function onSessionEnd(listener: SessionEndListener): () => void {
+  sessionEndListeners.add(listener);
+  return () => {
+    sessionEndListeners.delete(listener);
+  };
+}
+
+function emitSessionEnd(reason: SessionEndReason): void {
+  for (const listener of sessionEndListeners) {
+    try {
+      listener(reason);
+    } catch {
+      // Listener errors must not break logout / refresh.
+    }
+  }
+}
+
 export type AuthUser = {
   id: string;
   phone: string;
@@ -107,14 +132,17 @@ export async function isAuthenticated(): Promise<boolean> {
   return Boolean(token);
 }
 
-export async function clearSession(): Promise<void> {
+export async function clearSession(
+  reason: SessionEndReason = 'expired',
+): Promise<void> {
   sessionEpoch += 1;
   refreshInFlight = null;
   await AsyncStorage.multiRemove([ACCESS_KEY, REFRESH_KEY, USER_KEY]);
+  emitSessionEnd(reason);
 }
 
 export async function logout(): Promise<void> {
-  await clearSession();
+  await clearSession('logout');
 }
 
 export type OtpPurpose = 'LOGIN' | 'REGISTER';
@@ -186,7 +214,11 @@ export async function refreshSession(): Promise<string | null> {
   const epoch = sessionEpoch;
   refreshInFlight = (async (): Promise<string | null> => {
     const refreshToken = await getRefreshToken();
-    if (!refreshToken) return null;
+    if (!refreshToken) {
+      // Access token present but refresh missing → treat as expired session.
+      if (await getAccessToken()) await clearSession('expired');
+      return null;
+    }
 
     try {
       const res = await fetch(`${getApiUrl()}/auth/refresh`, {
@@ -199,7 +231,7 @@ export async function refreshSession(): Promise<string | null> {
       });
       const body = (await res.json().catch(() => null)) as TokenEnvelope | null;
       if (!res.ok || !body) {
-        await clearSession();
+        await clearSession('expired');
         return null;
       }
 
@@ -208,7 +240,7 @@ export async function refreshSession(): Promise<string | null> {
       const stored = await getStoredUser();
       const tokens = unwrapTokens(body, stored);
       if (!tokens) {
-        await clearSession();
+        await clearSession('expired');
         return null;
       }
       if (epoch !== sessionEpoch) return null;

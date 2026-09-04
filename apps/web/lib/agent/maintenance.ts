@@ -1,6 +1,7 @@
 export {
   assignMaintenanceTicket,
   createMaintenanceTicket,
+  getMaintenanceTicket,
   listManagedMaintenance,
   maintenancePriorityLabel,
   maintenanceStatusLabel,

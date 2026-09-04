@@ -238,6 +238,57 @@ async function seedPartnerAgencies(cgId: string): Promise<void> {
   console.log('✓ Partner agencies: Côte Sauvage, Habitat Pointe-Noire');
 }
 
+async function seedOrganizationReviews(): Promise<void> {
+  const reviews = [
+    {
+      id: 'a1b2c3d4-1111-4111-8111-111111111101',
+      organizationId: PARADIS_IMMO_ID,
+      authorName: 'Patricia K.',
+      propertyTitle: 'Villa Whispering Pines',
+      body: 'Accompagnement clair du premier contact à la visite. Équipe réactive et professionnelle.',
+      rating: 5,
+    },
+    {
+      id: 'a1b2c3d4-1111-4111-8111-111111111102',
+      organizationId: PARADIS_IMMO_ID,
+      authorName: 'Marc T.',
+      propertyTitle: 'Appartement Centre-ville',
+      body: 'Très bon suivi pour la location. Les créneaux de visite étaient bien organisés.',
+      rating: 5,
+    },
+    {
+      id: 'a1b2c3d4-1111-4111-8111-111111111103',
+      organizationId: PARADIS_IMMO_ID,
+      authorName: 'Nadia B.',
+      propertyTitle: 'Maison Tié-Tié',
+      body: 'Agence sérieuse, informations transparentes sur le bien et le quartier.',
+      rating: 4,
+    },
+    {
+      id: 'a1b2c3d4-2222-4222-8222-222222222201',
+      organizationId: SEED_IDS.orgCoteSauvage,
+      authorName: 'Hervé L.',
+      propertyTitle: 'Maison Tié-Tié',
+      body: 'Bon accueil pour une location journalière. Je recommande.',
+      rating: 5,
+    },
+  ] as const;
+
+  for (const review of reviews) {
+    await prisma.organizationReview.upsert({
+      where: { id: review.id },
+      update: {
+        authorName: review.authorName,
+        propertyTitle: review.propertyTitle,
+        body: review.body,
+        rating: review.rating,
+      },
+      create: { ...review },
+    });
+  }
+  console.log(`✓ Organization reviews: ${reviews.length}`);
+}
+
 /** One-shot cleanup when migrating seed IDs from string slugs → UUIDs. */
 async function purgeLegacySeedArtifacts(): Promise<void> {
   const legacyPropertyIds = [
@@ -1299,6 +1350,7 @@ async function main() {
   console.log(`✓ Organization: ${paradis.name} (${paradis.id})`);
 
   await seedPartnerAgencies(cg.id);
+  await seedOrganizationReviews();
   const demoQuartier = await prisma.quartier.findFirst({
     where: {
       name: 'Poto-Poto-Centre',

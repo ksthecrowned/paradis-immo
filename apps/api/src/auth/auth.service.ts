@@ -20,7 +20,6 @@ import { OAuth2Client } from 'google-auth-library';
 import * as crypto from 'node:crypto';
 import { PARADIS_IMMO_ORG_ID } from '../common/constants/seed-ids';
 import { PrismaService } from '../prisma/prisma.service';
-import { MessagingBillingService } from '../messaging/messaging-billing.service';
 import { EmailService } from './email.service';
 import { InfobipOtpService } from './infobip-otp.service';
 import { MagicLinkStore } from './magic-link.store';
@@ -74,7 +73,6 @@ export class AuthService {
     private readonly magicLinks: MagicLinkStore,
     private readonly email: EmailService,
     private readonly infobip: InfobipOtpService,
-    private readonly messaging: MessagingBillingService,
     private readonly jwt: JwtService,
   ) {}
 
@@ -95,7 +93,6 @@ export class AuthService {
     const code = this.generateCode();
     await this.otpStore.put(input.phone, code, input.purpose);
     await this.infobip.sendOtp({ to: input.phone, code });
-    await this.messaging.recordOtp(input.phone);
   }
 
   async verifyOtp(input: {
@@ -139,7 +136,6 @@ export class AuthService {
         ? await this.requireExistingUser(input.phone)
         : await this.getOrCreateUser(input.phone, country.id);
     this.assertNotPlatformAdmin(user);
-    await this.messaging.attachPhoneChargesToUser(input.phone, user.id);
 
     const tokens = await this.issueTokens(user);
     return { ...tokens, user: this.toPublicUser(user) };
@@ -174,6 +170,14 @@ export class AuthService {
     const email = input.email.trim().toLowerCase();
     const country = await this.ensureDefaultCountry();
     const existing = await this.prisma.user.findUnique({ where: { email } });
+    // Google-first accounts must keep using Google — no password signup path.
+    if (existing?.googleId) {
+      throw new ConflictException({
+        code: 'GOOGLE_ACCOUNT_EXISTS',
+        message:
+          'Un compte existe déjà avec Google pour cet email. Connectez-vous avec Google.',
+      });
+    }
     if (!existing) {
       await this.prisma.user.create({
         data: { email, countryId: country.id, phone: null },
@@ -202,6 +206,14 @@ export class AuthService {
       input.token,
       'VERIFY_EMAIL',
     );
+    const existing = await this.prisma.user.findUnique({ where: { email } });
+    if (existing?.googleId) {
+      throw new ConflictException({
+        code: 'GOOGLE_ACCOUNT_EXISTS',
+        message:
+          'Un compte existe déjà avec Google pour cet email. Connectez-vous avec Google.',
+      });
+    }
     const passwordHash = await hashPassword(input.password);
     const user = await this.prisma.user.update({
       where: { email },
@@ -274,10 +286,18 @@ export class AuthService {
     }
 
     const country = await this.ensureDefaultCountry();
-    let user = await this.prisma.user.findFirst({
-      where: { OR: [{ googleId }, { email }] },
-      include: { roles: true, orgMembers: true },
-    });
+    // Same email ⇒ same account for password and Google. Prefer email match
+    // so an existing web user keeps id / orgRoles when they later use Google.
+    let user =
+      (await this.prisma.user.findUnique({
+        where: { email },
+        include: { roles: true, orgMembers: true },
+      })) ??
+      (await this.prisma.user.findUnique({
+        where: { googleId },
+        include: { roles: true, orgMembers: true },
+      }));
+
     if (!user) {
       user = await this.prisma.user.create({
         data: {
@@ -291,6 +311,14 @@ export class AuthService {
         include: { roles: true, orgMembers: true },
       });
     } else {
+      // If this Google sub was linked to another row, detach it first so the
+      // verified-email account becomes the single source of truth.
+      if (user.googleId !== googleId) {
+        await this.prisma.user.updateMany({
+          where: { googleId, NOT: { id: user.id } },
+          data: { googleId: null },
+        });
+      }
       user = await this.prisma.user.update({
         where: { id: user.id },
         data: {
@@ -319,34 +347,37 @@ export class AuthService {
       const tokens = await this.issueTokens(user);
       return { ...tokens, user: this.toPublicUser(user) };
     }
+    // Idempotent: role onboarding must survive re-login / stale sessions.
+    // Never throw — return current tokens so the client can refresh JWT orgRoles.
     const hasBiz = (user.orgMembers ?? []).some(
-      (m) => m.role === OrgMemberRole.OWNER || m.role === OrgMemberRole.AGENT,
+      (m) =>
+        m.role === OrgMemberRole.OWNER ||
+        m.role === OrgMemberRole.AGENT ||
+        m.role === OrgMemberRole.ADMIN,
     );
-    if (hasBiz) {
-      throw new ConflictException({
-        code: 'ROLE_ALREADY_SET',
-        message: 'Rôle déjà défini',
-      });
-    }
-    if (role === 'OWNER') {
-      await this.prisma.organization.create({
-        data: {
-          name: user.name ? `${user.name} (propriétaire)` : 'Mon organisation',
-          type: OrganizationType.OWNER,
-          countryId: user.countryId,
-          members: {
-            create: { userId: user.id, role: OrgMemberRole.OWNER },
+    if (!hasBiz) {
+      if (role === 'OWNER') {
+        await this.prisma.organization.create({
+          data: {
+            name: user.name
+              ? `${user.name} (propriétaire)`
+              : 'Mon organisation',
+            type: OrganizationType.OWNER,
+            countryId: user.countryId,
+            members: {
+              create: { userId: user.id, role: OrgMemberRole.OWNER },
+            },
           },
-        },
-      });
-    } else {
-      await this.prisma.organizationMember.create({
-        data: {
-          userId: user.id,
-          organizationId: PARADIS_IMMO_ORG_ID,
-          role: OrgMemberRole.AGENT,
-        },
-      });
+        });
+      } else {
+        await this.prisma.organizationMember.create({
+          data: {
+            userId: user.id,
+            organizationId: PARADIS_IMMO_ORG_ID,
+            role: OrgMemberRole.AGENT,
+          },
+        });
+      }
     }
     const refreshed = await this.prisma.user.findUniqueOrThrow({
       where: { id: userId },

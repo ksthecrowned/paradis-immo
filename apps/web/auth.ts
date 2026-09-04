@@ -10,30 +10,57 @@ import {
 } from '@/lib/backend-auth';
 import { GoogleOAuthWithoutDiscovery } from '@/lib/google-oauth-provider';
 
-function sessionFromBackendUser(tokens: BackendAuthTokens): JWT {
+function sessionFromBackendUser(
+  tokens: BackendAuthTokens,
+  existing?: JWT,
+): JWT {
   return {
+    ...existing,
+    sub: tokens.user.id,
     id: tokens.user.id,
     phone: tokens.user.phone,
     email: tokens.user.email ?? null,
     name: tokens.user.name ?? null,
     roles: tokens.user.roles,
-    orgRoles: tokens.user.orgRoles,
+    orgRoles: tokens.user.orgRoles ?? [],
+    orgRolesHydrated: true,
+    orgRolesCheckedAt: Date.now(),
     accessToken: tokens.accessToken,
     refreshToken: tokens.refreshToken,
     accessTokenExpires: Date.now() + ACCESS_TOKEN_TTL_MS,
+    error: undefined,
   };
+}
+
+function isPlatformAdmin(roles: string[] | undefined): boolean {
+  return (roles ?? []).includes('PLATFORM_ADMIN');
+}
+
+function needsOrgRoleRehydrate(token: JWT): boolean {
+  if (!token.refreshToken || token.error === 'RefreshAccessTokenError') {
+    return false;
+  }
+  if (isPlatformAdmin(token.roles)) return false;
+  const org = token.orgRoles;
+  const empty = !Array.isArray(org) || org.length === 0;
+  if (!empty) return false;
+  // Empty orgRoles: re-check Nest periodically (seed restore / role granted
+  // after login). Avoid hammering refresh on true first-login users.
+  const last = token.orgRolesCheckedAt ?? 0;
+  return Date.now() - last > 30_000;
 }
 
 async function refreshAccessToken(token: JWT): Promise<JWT> {
   try {
     const refreshed = await backendRefreshTokens(token.refreshToken);
     return {
-      ...sessionFromBackendUser(refreshed),
-      error: undefined,
+      ...sessionFromBackendUser(refreshed, token),
+      orgRolesCheckedAt: Date.now(),
     };
   } catch {
     return {
       ...token,
+      orgRolesCheckedAt: Date.now(),
       error: 'RefreshAccessTokenError',
     };
   }
@@ -109,51 +136,72 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (account?.provider === 'google' && account.id_token) {
         try {
           const tokens = await backendWebGoogle(account.id_token);
-          return sessionFromBackendUser(tokens);
+          // Always re-read Nest user (incl. orgRoles) on every Google sign-in.
+          return sessionFromBackendUser(tokens, token);
         } catch {
           return { ...token, error: 'RefreshAccessTokenError' };
         }
       }
 
-      if (trigger === 'update' && session) {
-        return {
-          ...token,
-          orgRoles:
-            session.orgRoles !== undefined
-              ? (session.orgRoles as string[])
-              : token.orgRoles,
-          roles:
-            session.roles !== undefined
-              ? (session.roles as string[])
-              : token.roles,
-          accessToken: (session.accessToken as string) ?? token.accessToken,
-          refreshToken: (session.refreshToken as string) ?? token.refreshToken,
-        };
+      if (trigger === 'update') {
+        // Explicit patch after setWebRole (client passes orgRoles / tokens).
+        if (
+          session &&
+          (session.orgRoles !== undefined ||
+            session.accessToken !== undefined ||
+            session.roles !== undefined)
+        ) {
+          return {
+            ...token,
+            orgRoles:
+              session.orgRoles !== undefined
+                ? (session.orgRoles as string[])
+                : token.orgRoles,
+            orgRolesHydrated: true,
+            orgRolesCheckedAt: Date.now(),
+            roles:
+              session.roles !== undefined
+                ? (session.roles as string[])
+                : token.roles,
+            accessToken: (session.accessToken as string) ?? token.accessToken,
+            refreshToken:
+              (session.refreshToken as string) ?? token.refreshToken,
+            accessTokenExpires:
+              session.accessToken !== undefined
+                ? Date.now() + ACCESS_TOKEN_TTL_MS
+                : token.accessTokenExpires,
+          };
+        }
+        // Bare update() → force Nest re-sync (stale empty orgRoles).
+        if (token.refreshToken) {
+          return refreshAccessToken(token);
+        }
       }
 
       if (user) {
+        const orgRoles = Array.isArray(user.orgRoles)
+          ? user.orgRoles
+          : token.orgRoles ?? [];
         return {
           ...token,
+          sub: user.id,
           id: user.id,
           phone: user.phone ?? null,
           email: user.email ?? null,
           name: user.name,
           roles: Array.isArray(user.roles) ? user.roles : token.roles ?? [],
-          orgRoles: Array.isArray(user.orgRoles)
-            ? user.orgRoles
-            : token.orgRoles ?? [],
+          orgRoles,
+          orgRolesHydrated: true,
+          orgRolesCheckedAt: Date.now(),
           accessToken: user.accessToken,
           refreshToken: user.refreshToken,
           accessTokenExpires: Date.now() + ACCESS_TOKEN_TTL_MS,
         };
       }
 
-      // Legacy cookies written before orgRoles existed: rehydrate from Nest.
-      if (
-        token.refreshToken &&
-        token.orgRoles === undefined &&
-        !(token.roles ?? []).includes('PLATFORM_ADMIN')
-      ) {
+      // Stale cookie with missing/empty orgRoles while access token still valid:
+      // rehydrate once from Nest so returning users are not sent to onboarding.
+      if (needsOrgRoleRehydrate(token)) {
         return refreshAccessToken(token);
       }
 

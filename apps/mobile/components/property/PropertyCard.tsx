@@ -81,7 +81,7 @@ export default function PropertyCard({
 
   const imageSource = property.coverImage
     ? { uri: property.coverImage }
-    : require('@/assets/images/house2.jpg');
+    : null;
 
   return (
     <View style={[styles.wrap, { paddingHorizontal: horizontalSpacing ? spacing.md : 0 }]}>

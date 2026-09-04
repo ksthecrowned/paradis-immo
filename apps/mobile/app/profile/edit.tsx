@@ -1,7 +1,7 @@
 import { AuthTextInput } from '@/components/auth/AuthTextInput';
 import {
-  DEFAULT_PHONE_COUNTRY,
-  type PhoneCountrySelection,
+    DEFAULT_PHONE_COUNTRY,
+    type PhoneCountrySelection,
 } from '@/components/auth/PhoneCountryCallingCode';
 import { PhoneNumberField } from '@/components/auth/PhoneNumberField';
 import { ScreenHeader } from '@/components/ui/ScreenHeader';
@@ -11,19 +11,19 @@ import { ensureAuthenticated } from '@/lib/auth-guard';
 import { getErrorMessage } from '@/lib/feedback';
 import { parseE164Phone } from '@/lib/phone';
 import {
-  fetchMe,
-  updateMeAndSync,
-  type NotificationChannelPreference,
+    fetchMe,
+    updateMeAndSync,
+    type NotificationChannelPreference,
 } from '@/lib/users';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import {
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
+    ActivityIndicator,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    View,
 } from 'react-native';
 import { CountryCode } from 'react-native-country-picker-modal';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -149,7 +149,7 @@ export default function ProfileEditScreen(): React.JSX.Element {
           label="Nom complet"
           value={name}
           onChangeText={setName}
-          placeholderTextColor={colors.muted + "20"}
+          placeholderTextColor="#4B5563"
           placeholder="Ex. Jean Mbemba"
           autoCapitalize="words"
           autoComplete="name"
@@ -163,7 +163,7 @@ export default function ProfileEditScreen(): React.JSX.Element {
           onChangeText={setEmail}
           placeholder="vous@exemple.com"
           keyboardType="email-address"
-          placeholderTextColor={colors.muted + "20"}
+          placeholderTextColor="#4B5563"
           autoCapitalize="none"
           autoCorrect={false}
           autoComplete="email"

@@ -1,4 +1,4 @@
-import { OwnerVisitSlots } from './owner-visit-slots';
+import { PropertyVisitSlots } from '@/components/properties/property-visit-slots';
 
 export default async function OwnerCreneauxPage({
   params,
@@ -6,5 +6,5 @@ export default async function OwnerCreneauxPage({
   params: Promise<{ id: string }>;
 }): Promise<React.JSX.Element> {
   const { id } = await params;
-  return <OwnerVisitSlots propertyId={id} />;
+  return <PropertyVisitSlots propertyId={id} />;
 }

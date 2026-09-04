@@ -5,7 +5,7 @@ import { useTheme } from '@/components/theme-provider';
 import { loginWithPassword } from '@/lib/auth';
 import { DASH_ICONS } from '@/lib/dash-icons';
 import { resolveDashboardPath } from '@/lib/web-account';
-import { signIn, useSession } from 'next-auth/react';
+import { signIn, signOut, useSession } from 'next-auth/react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -34,13 +34,22 @@ function LoginForm(): React.JSX.Element {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (status === 'authenticated' && session?.user) {
-      router.replace(resolveDashboardPath(session.user));
+    if (status !== 'authenticated' || !session?.user) return;
+    // Dead refresh token (e.g. after re-seed): clear cookie or we loop
+    // login ↔ onboarding forever.
+    if (session.error === 'RefreshAccessTokenError') {
+      void signOut({ redirect: false });
+      return;
     }
+    router.replace(resolveDashboardPath(session.user));
   }, [status, session, router]);
 
   useEffect(() => {
     const code = searchParams.get('error');
+    const sessionExpired = searchParams.get('session') === 'expired';
+    if (sessionExpired) {
+      setError('Session expirée. Reconnectez-vous.');
+    }
     if (!code) return;
     if (code === 'Configuration') {
       setError(
@@ -200,7 +209,7 @@ function LoginForm(): React.JSX.Element {
                   <button
                     type="button"
                     onClick={() => setShowPassword((v) => !v)}
-                    className="absolute end-2 top-1/2 inline-flex size-8 -translate-y-1/2 items-center justify-center rounded-lg text-muted hover:text-foreground"
+                    className="absolute inset-e-2 top-1/2 inline-flex size-8 -translate-y-1/2 items-center justify-center rounded-lg text-muted hover:text-foreground"
                     aria-label={
                       showPassword
                         ? 'Masquer le mot de passe'
@@ -246,12 +255,6 @@ function LoginForm(): React.JSX.Element {
               Créer un compte
             </Link>
           </p>
-
-          {process.env.NODE_ENV === 'development' ? (
-            <p className="mt-4 rounded-xl border border-dashed border-border bg-card/60 px-3 py-2.5 text-center text-xs text-muted">
-              Seed admin : admin@paradisimmo.cg / Admin123!
-            </p>
-          ) : null}
         </div>
       </div>
     </main>

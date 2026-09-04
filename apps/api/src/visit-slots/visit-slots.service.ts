@@ -1,7 +1,6 @@
 import {
   BadRequestException,
   ConflictException,
-  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -314,8 +313,6 @@ export class VisitSlotsService {
         id: true,
         visitType: true,
         visitEnabled: true,
-        ownerId: true,
-        organizationId: true,
       },
     });
     if (!property || !property.visitEnabled) {
@@ -333,11 +330,7 @@ export class VisitSlotsService {
 
     let guestUserId = userId;
     if (input.guestPhone) {
-      await this.assertCanManageProperty(
-        userId,
-        property.ownerId,
-        property.organizationId,
-      );
+      await this.assertCanManageProperty(userId, input.propertyId);
       const guest = await this.users.resolveOrCreateByPhone(
         input.guestPhone,
         input.guestName,
@@ -396,26 +389,6 @@ export class VisitSlotsService {
     }
   }
 
-  private async assertCanManageProperty(
-    userId: string,
-    ownerId: string,
-    organizationId: string,
-  ): Promise<void> {
-    if (ownerId === userId) return;
-    const membership = await this.prisma.organizationMember.findUnique({
-      where: {
-        userId_organizationId: { userId, organizationId },
-      },
-    });
-    if (!membership) {
-      throw new ForbiddenException({
-        code: 'NOT_PROPERTY_OWNER',
-        message:
-          'Only the owner or a member of the managing org can book on behalf of a guest',
-      });
-    }
-  }
-
   /**
    * Confirm a `PENDING` booking (used after a successful payment) and flip
    * the slot to `BOOKED`. Emits `VISIT_BOOKING_CONFIRMED`.
@@ -426,9 +399,6 @@ export class VisitSlotsService {
   ): Promise<PublicVisitBooking> {
     const booking = await this.prisma.visitBooking.findUnique({
       where: { id: bookingId },
-      include: {
-        property: { select: { ownerId: true, organizationId: true } },
-      },
     });
     if (!booking) {
       throw new NotFoundException({

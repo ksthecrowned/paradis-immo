@@ -10,16 +10,16 @@ import {
   listQuartiersForCity,
 } from '@/lib/locations';
 import {
-  paramsAreBareSearch,
-  seekerPrefsToSearchFilters,
-} from '@/lib/seeker-setup';
-import {
   countActiveFilters,
   DEFAULT_SEARCH_FILTERS,
   filterProperties,
   filtersToParams,
   paramsToFilters,
 } from '@/lib/search-filters';
+import {
+  paramsAreBareSearch,
+  seekerPrefsToSearchFilters,
+} from '@/lib/seeker-setup';
 import { syncStoredUserFromApi } from '@/lib/users';
 import type { Property } from '@/types/property';
 import { Ionicons } from '@expo/vector-icons';
@@ -215,10 +215,11 @@ export default function SearchScreen(): React.JSX.Element {
     <View style={[styles.screen, { paddingTop: insets.top + spacing.sm }]}>
       <View style={styles.topBar}>
         <CircleIconButton
+          size={46}
           onPress={() => router.back()}
           accessibilityLabel="Retour"
         >
-          <Ionicons name="chevron-back" size={24} color={colors.ink} />
+          <Ionicons name="close" size={20} color={colors.ink} />
         </CircleIconButton>
 
         <View style={styles.searchField}>
@@ -228,7 +229,7 @@ export default function SearchScreen(): React.JSX.Element {
             value={query}
             onChangeText={setQuery}
             placeholder="Quartier, type de bien…"
-            placeholderTextColor={colors.muted + "20"}
+            placeholderTextColor="#4B5563"
             style={styles.input}
             returnKeyType="search"
             autoCorrect={false}
