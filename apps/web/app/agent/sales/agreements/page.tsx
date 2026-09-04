@@ -5,7 +5,7 @@ export default function AgentSaleAgreementsPage(): React.JSX.Element {
   return (
     <SaleAgreementsListPage
       addHref={ROUTES.agent.salesAgreementsAdd}
-      detailHref={ROUTES.agent.saleAgreement}
+      detailBasePath={ROUTES.agent.salesAgreements}
       inquiriesHref={ROUTES.agent.sales}
     />
   );

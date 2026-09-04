@@ -24,11 +24,12 @@ function formatDate(iso: string): string {
 }
 
 export type TenantsListPageProps = {
-  tenantHref: (id: string) => string;
+  /** Base path for tenant detail pages (e.g. `/owner/tenants`). */
+  tenantBasePath: string;
 };
 
 export function TenantsListPage({
-  tenantHref,
+  tenantBasePath,
 }: TenantsListPageProps): React.JSX.Element {
   const { ready } = useRequireSession();
   const [rows, setRows] = useState<ManagedTenantListItem[]>([]);
@@ -65,7 +66,7 @@ export function TenantsListPage({
         sortable: true,
         render: (_value, row) => (
           <Link
-            href={tenantHref(row.id)}
+            href={`${tenantBasePath}/${row.id}`}
             className="font-medium text-accent hover:underline"
           >
             {row.name?.trim() || 'Sans nom'}
@@ -118,7 +119,7 @@ export function TenantsListPage({
         ),
       },
     ],
-    [tenantHref],
+    [tenantBasePath],
   );
 
   if (!ready) {

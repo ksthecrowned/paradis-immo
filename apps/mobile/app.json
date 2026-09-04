@@ -16,9 +16,7 @@
       },
       "adaptiveIcon": {
         "backgroundColor": "#F7F7FD",
-        "foregroundImage": "./assets/logo-paradis-immo.png",
-        "width": 250,
-        "height": 250
+        "foregroundImage": "./assets/logo-paradis-immo.png"
       },
       "predictiveBackGestureEnabled": false,
       "permissions": [
@@ -74,7 +72,8 @@
           "locationWhenInUsePermission": "Paradis Immo utilise votre position pour afficher les biens près de chez vous."
         }
       ],
-      "expo-video"
+      "expo-video",
+      "expo-font"
     ],
     "owner": "kysr_styve",
     "runtimeVersion": {

@@ -7,7 +7,7 @@ export default function AgentSaleAgreementAddPage(): React.JSX.Element {
     <Suspense fallback={<p className="text-sm text-muted">Chargement…</p>}>
       <SaleAgreementFormPage
         listHref={ROUTES.agent.salesAgreements}
-        detailHref={ROUTES.agent.saleAgreement}
+        detailBasePath={ROUTES.agent.salesAgreements}
       />
     </Suspense>
   );

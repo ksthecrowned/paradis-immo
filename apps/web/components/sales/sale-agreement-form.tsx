@@ -25,10 +25,11 @@ type Row = SaleInstallmentInput & { key: string };
 
 export function SaleAgreementFormPage({
   listHref,
-  detailHref,
+  detailBasePath,
 }: {
   listHref: string;
-  detailHref: (id: string) => string;
+  /** Base path for the created agreement detail page (e.g. `/owner/sales`). */
+  detailBasePath: string;
 }): React.JSX.Element {
   const { ready } = useRequireSession();
   const router = useRouter();
@@ -116,7 +117,7 @@ export function SaleAgreementFormPage({
           amount: Number(r.amount),
         })),
       });
-      router.push(detailHref(created.id));
+      router.push(`${detailBasePath}/${created.id}`);
     } catch (err) {
       setError(
         err instanceof ApiError

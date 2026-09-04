@@ -7,7 +7,7 @@ export default function OwnerSaleAddPage(): React.JSX.Element {
     <Suspense fallback={<p className="text-sm text-muted">Chargement…</p>}>
       <SaleAgreementFormPage
         listHref={ROUTES.owner.sales}
-        detailHref={ROUTES.owner.sale}
+        detailBasePath={ROUTES.owner.sales}
       />
     </Suspense>
   );

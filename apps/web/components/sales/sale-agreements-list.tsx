@@ -26,11 +26,12 @@ function formatMoney(amount: string, currency: string): string {
 
 export function SaleAgreementsListPage({
   addHref,
-  detailHref,
+  detailBasePath,
   inquiriesHref,
 }: {
   addHref: string;
-  detailHref: (id: string) => string;
+  /** Base path for agreement detail pages (e.g. `/owner/sales`). */
+  detailBasePath: string;
   /** Optional link back to sale inquiries (agent). */
   inquiriesHref?: string;
 }): React.JSX.Element {
@@ -98,7 +99,7 @@ export function SaleAgreementsListPage({
             >
               <div>
                 <Link
-                  href={detailHref(row.id)}
+                  href={`${detailBasePath}/${row.id}`}
                   className="font-medium text-accent hover:underline"
                 >
                   {row.propertyTitle}

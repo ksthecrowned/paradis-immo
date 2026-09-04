@@ -5,7 +5,7 @@ export default function OwnerSalesPage(): React.JSX.Element {
   return (
     <SaleAgreementsListPage
       addHref={ROUTES.owner.salesAdd}
-      detailHref={ROUTES.owner.sale}
+      detailBasePath={ROUTES.owner.sales}
     />
   );
 }
