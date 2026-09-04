@@ -77,6 +77,12 @@
       "expo-video"
     ],
     "owner": "kysr_styve",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/65d1b0f0-752f-4d74-8860-527c37f3668a"
+    },
     "extra": {
       "router": {},
       "eas": {
