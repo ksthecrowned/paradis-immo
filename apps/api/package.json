@@ -8,7 +8,8 @@
   "packageManager": "bun@1.3.0",
   "scripts": {
     "preinstall": "node scripts/preinstall-rxjs-cache.mjs",
-    "build": "bunx nest build",
+    "postinstall": "prisma generate",
+    "build": "prisma generate && bunx nest build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "bunx nest start",
     "start:dev": "bunx nest start --watch",
