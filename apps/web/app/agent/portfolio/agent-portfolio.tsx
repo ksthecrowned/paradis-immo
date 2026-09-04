@@ -242,7 +242,7 @@ export function AgentPortfolioPage(): React.JSX.Element {
           <p className="text-sm text-muted">Aucun mandat géré.</p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[36rem] text-left text-sm">
+            <table className="w-full min-w-xl text-left text-sm">
               <thead>
                 <tr className="border-b border-border text-muted">
                   <th className="px-2 py-2 font-medium">Bien</th>
