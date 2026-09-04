@@ -84,6 +84,7 @@
       "url": "https://u.expo.dev/65d1b0f0-752f-4d74-8860-527c37f3668a"
     },
     "extra": {
+      "apiUrl": "https://paradis-immo.onrender.com/api/v1",
       "router": {},
       "eas": {
         "projectId": "65d1b0f0-752f-4d74-8860-527c37f3668a"
