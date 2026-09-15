@@ -177,7 +177,7 @@ export function LandingHero(): React.JSX.Element {
           </div>
 
           {/* Trustpilot badge */}
-          <div className="absolute bottom-0 end-0 z-10 rounded-tl-[var(--lp-radius-lg)] bg-[var(--lp-navy)] px-5 py-4 text-[var(--lp-on-primary)] sm:px-6 sm:py-5">
+          <div className="absolute bottom-0 end-0 z-10 rounded-tl-[var(--lp-radius-lg)] bg-[var(--lp-navy)] px-5 py-4 text-[var(--lp-on-navy)] sm:px-6 sm:py-5">
             <div className="flex items-center gap-2">
               <p className="text-[15px] font-bold">Excellent</p>
               <DashIcon
@@ -195,7 +195,7 @@ export function LandingHero(): React.JSX.Element {
                 />
               ))}
             </div>
-            <p className="mt-2 text-sm font-medium text-[var(--lp-on-primary)]/90">
+            <p className="mt-2 text-sm font-medium text-[var(--lp-on-navy)]/90">
               From 3,264 reviews
             </p>
           </div>

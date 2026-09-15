@@ -16,7 +16,7 @@ export type ButtonProps = {
 
 const VARIANT_CLASS: Record<ButtonVariant, string> = {
   primary:
-    'bg-accent text-white hover:bg-accent-light focus:bg-accent-light disabled:bg-accent/50',
+    'bg-accent text-on-accent hover:bg-accent-light focus:bg-accent-light disabled:bg-accent/50',
   secondary:
     'bg-card text-foreground border border-border hover:bg-card-hover disabled:opacity-50',
   danger:

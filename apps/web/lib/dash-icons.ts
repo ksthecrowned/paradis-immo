@@ -35,7 +35,7 @@ export const DASH_ICONS = {
   sales: 'solar:tag-price-linear',
 } as const;
 
-/** Bold icons for KPI stat cards — white on purple tile (Darkone). */
+/** Bold icons for KPI stat cards — on champagne accent tile. */
 export const DASH_STAT_ICONS = {
   buildings: 'solar:buildings-2-bold',
   document: 'solar:document-text-bold',
@@ -51,13 +51,13 @@ export const DASH_STAT_ICONS = {
   bills: 'solar:bills-bold',
 } as const;
 
-/** Chart / sparkline hex colors aligned with theme tokens. */
+/** Chart / sparkline hex colors aligned with brand tokens. */
 export const DASH_CHART_COLORS = {
-  purple: '#6658dd',
+  purple: '#d6b77c',
   green: '#22c997',
   amber: '#f5a623',
-  violet: '#9b8afb',
-  blue: '#5b9cf8',
+  violet: '#8fa9b8',
+  blue: '#8fa9b8',
 } as const;
 
 export type DashIconName = string;

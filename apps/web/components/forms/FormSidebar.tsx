@@ -115,7 +115,7 @@ export function ActionList({
         return 'border-transparent text-muted hover:bg-card-hover hover:text-foreground';
       case 'primary':
       default:
-        return 'border-accent bg-accent text-white hover:bg-accent-light';
+        return 'border-accent bg-accent text-on-accent hover:bg-accent-light';
     }
   };
   return (

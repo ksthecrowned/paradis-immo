@@ -5,7 +5,7 @@ export function LandingDownload(): React.JSX.Element {
   return (
     <section
       id="download"
-      className="bg-[var(--lp-navy)] py-16 text-[var(--lp-on-primary)] md:py-24"
+      className="bg-[var(--lp-navy)] py-16 text-[var(--lp-on-navy)] md:py-24"
     >
       <div className="landing-container grid items-center gap-10 lg:grid-cols-[1.1fr_0.9fr]">
         <div>

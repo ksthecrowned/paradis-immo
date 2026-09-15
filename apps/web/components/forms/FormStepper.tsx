@@ -34,7 +34,7 @@ export function FormStepper({
               className={[
                 'flex items-center gap-2 rounded-full px-3 py-1.5 text-base transition-colors',
                 isActive
-                  ? 'bg-accent text-white'
+                  ? 'bg-accent text-on-accent'
                   : isComplete
                     ? 'bg-accent/15 text-accent'
                     : 'bg-card-hover text-muted',

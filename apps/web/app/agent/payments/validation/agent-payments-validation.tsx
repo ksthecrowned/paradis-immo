@@ -158,7 +158,7 @@ export function AgentPaymentsValidationPage(): React.JSX.Element {
               type="button"
               disabled={validatingId === row.id}
               onClick={() => void handleValidate(row)}
-              className="rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-white hover:bg-accent/90 disabled:opacity-50"
+              className="rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-on-accent hover:bg-accent/90 disabled:opacity-50"
             >
               Valider
             </button>

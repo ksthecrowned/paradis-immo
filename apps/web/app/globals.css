@@ -4,29 +4,32 @@
 @plugin "@tailwindcss/forms";
 
 /*
- * Darkone-inspired tokens.
+ * Paradis Immobilier brand tokens.
+ * Palette: charbon #171C21 · champagne #D6B77C · ivoire #F1E6D0 · bleu-gris #8FA9B8 · blanc
  * Toggle via html[data-bs-theme="dark" | "light"].
  */
 :root,
 html[data-bs-theme="dark"] {
+  /* DARK PREMIUM — #171C21 + #D6B77C + #F1E6D0 */
   --background: #171c21;
-  --foreground: #f1f1f1;
+  --foreground: #f1e6d0;
 
   --topbar: #1d2329;
   --sidebar: #1d2329;
   --card: #242b33;
   --card-hover: #2a3139;
   --border: #272f37;
-  --muted: #afb9cf;
+  --muted: #8fa9b8;
   --active: #ffffff;
-  --heading: #aab8c5;
+  --heading: #8fa9b8;
   --placeholder: #6b7785;
   --search: #232a31;
   --input-border: #3a4551;
   --input-focus-border: #4a5663;
-  --accent: #7065f0;
-  --accent-light: #7c6ffc;
-  --accent-muted: rgba(102, 88, 221, 0.15);
+  --accent: #d6b77c;
+  --accent-light: #e0c794;
+  --accent-muted: rgba(214, 183, 124, 0.18);
+  --on-accent: #171c21;
   --success: #22c997;
   --warning: #f5a623;
   --danger: #ef4444;
@@ -35,24 +38,26 @@ html[data-bs-theme="dark"] {
 }
 
 html[data-bs-theme="light"] {
-  --background: #f5f6fa;
-  --foreground: #3b4758;
+  /* LIGHT PREMIUM — #F1E6D0 + #171C21 + #D6B77C */
+  --background: #f1e6d0;
+  --foreground: #171c21;
 
   --topbar: #ffffff;
   --sidebar: #ffffff;
   --card: #ffffff;
-  --card-hover: #f1f3f9;
-  --border: #e7e9ef;
-  --muted: #8391a2;
-  --active: #313a46;
-  --heading: #6c757d;
-  --placeholder: #9aa4b1;
-  --search: #f1f3fa;
-  --input-border: #dee2e6;
-  --input-focus-border: #b8c2cc;
-  --accent: #7065f0;
-  --accent-light: #7c6ffc;
-  --accent-muted: rgba(102, 88, 221, 0.12);
+  --card-hover: #f7efe0;
+  --border: #e5d9c4;
+  --muted: #8fa9b8;
+  --active: #171c21;
+  --heading: #5c6b75;
+  --placeholder: #8fa9b8;
+  --search: #f7efe0;
+  --input-border: #e5d9c4;
+  --input-focus-border: #d6b77c;
+  --accent: #d6b77c;
+  --accent-light: #e0c794;
+  --accent-muted: rgba(214, 183, 124, 0.2);
+  --on-accent: #171c21;
   --success: #1abc9c;
   --warning: #f7b84b;
   --danger: #f1556c;
@@ -78,6 +83,7 @@ html[data-bs-theme="light"] {
   --color-accent: var(--accent);
   --color-accent-light: var(--accent-light);
   --color-accent-muted: var(--accent-muted);
+  --color-on-accent: var(--on-accent);
   --color-success: var(--success);
   --color-warning: var(--warning);
   --color-danger: var(--danger);

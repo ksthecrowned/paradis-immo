@@ -236,7 +236,7 @@ export function AgentLeasesPage(): React.JSX.Element {
                   e.stopPropagation();
                   void handleActivate(row.id);
                 }}
-                className="rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-white hover:bg-accent/90 disabled:opacity-50"
+                className="rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-on-accent hover:bg-accent/90 disabled:opacity-50"
               >
                 Activer
               </button>

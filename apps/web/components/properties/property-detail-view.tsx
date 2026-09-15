@@ -201,7 +201,7 @@ export function PropertyDetailView({
               <div className="space-y-3">
                 <Link
                   href={paths.edit(propertyId)}
-                  className="flex w-full items-center justify-center gap-2 rounded-lg border border-accent bg-accent px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-accent-light"
+                  className="flex w-full items-center justify-center gap-2 rounded-lg border border-accent bg-accent px-3 py-2 text-sm font-medium text-on-accent transition-colors hover:bg-accent-light"
                 >
                   <Icon icon="mdi:pencil" className="h-4 w-4" />
                   Modifier

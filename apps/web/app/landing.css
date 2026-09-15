@@ -1,20 +1,21 @@
 /* Landing tokens — aligned with mobile `apps/mobile/constants/theme.ts` */
 
 .landing {
-  /* lightColors */
-  --lp-primary: #7065f0;
-  --lp-primary-hover: #5a50d6;
-  --lp-primary-soft: #e8e6f9;
-  --lp-primary-muted: #f0effb;
-  --lp-navy: #100a55;
-  --lp-ink: #000929;
-  --lp-muted: #6c727f;
-  --lp-border: #e0def7;
+  /* LIGHT PREMIUM — ivoire + charbon + champagne */
+  --lp-primary: #d6b77c;
+  --lp-primary-hover: #c4a56a;
+  --lp-primary-soft: #efe4cf;
+  --lp-primary-muted: #f5edd9;
+  --lp-navy: #171c21;
+  --lp-ink: #171c21;
+  --lp-muted: #8fa9b8;
+  --lp-border: #e5d9c4;
   --lp-surface: #ffffff;
-  --lp-bg: #f7f7fd;
-  --lp-bg-hero: #f0effb;
+  --lp-bg: #f1e6d0;
+  --lp-bg-hero: #f5edd9;
   --lp-search: #ffffff;
-  --lp-on-primary: #ffffff;
+  --lp-on-primary: #171c21;
+  --lp-on-navy: #f1e6d0;
   --lp-danger: #dc2626;
   --lp-success: #16a34a;
   --lp-warning: #f5a623;
@@ -23,9 +24,9 @@
   --lp-radius-lg: 16px;
   --lp-radius-xl: 20px;
   --lp-radius-full: 9999px;
-  --lp-shadow-card: 0 4px 20px rgba(0, 9, 41, 0.06);
-  --lp-shadow-float: 0 12px 40px rgba(0, 9, 41, 0.12);
-  --lp-shadow-search: 0 8px 30px rgba(0, 9, 41, 0.08);
+  --lp-shadow-card: 0 4px 20px rgba(23, 28, 33, 0.06);
+  --lp-shadow-float: 0 12px 40px rgba(23, 28, 33, 0.12);
+  --lp-shadow-search: 0 8px 30px rgba(23, 28, 33, 0.08);
   --lp-container: 1200px;
   --lp-pad-x: 40px;
 
@@ -39,20 +40,21 @@
 }
 
 html[data-bs-theme="dark"] .landing {
-  /* darkColors (Darkone / mobile) */
-  --lp-primary: #7065f0;
-  --lp-primary-hover: #5a50d6;
-  --lp-primary-soft: rgba(112, 101, 240, 0.22);
-  --lp-primary-muted: rgba(112, 101, 240, 0.15);
+  /* DARK PREMIUM — charbon + champagne + ivoire */
+  --lp-primary: #d6b77c;
+  --lp-primary-hover: #c4a56a;
+  --lp-primary-soft: rgba(214, 183, 124, 0.22);
+  --lp-primary-muted: rgba(214, 183, 124, 0.15);
   --lp-navy: #1d2329;
-  --lp-ink: #f1f1f1;
-  --lp-muted: #afb9cf;
+  --lp-ink: #f1e6d0;
+  --lp-muted: #8fa9b8;
   --lp-border: #272f37;
   --lp-surface: #242b33;
   --lp-bg: #171c21;
   --lp-bg-hero: #1d2329;
   --lp-search: #232a31;
-  --lp-on-primary: #ffffff;
+  --lp-on-primary: #171c21;
+  --lp-on-navy: #f1e6d0;
   --lp-danger: #ef4444;
   --lp-success: #22c997;
   --lp-warning: #f5a623;
@@ -117,7 +119,7 @@ html[data-bs-theme="dark"] .landing {
 
 .landing-btn-navy {
   background: var(--lp-navy);
-  color: var(--lp-on-primary);
+  color: var(--lp-on-navy);
   border: 1px solid var(--lp-navy);
 }
 

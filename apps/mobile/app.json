@@ -15,7 +15,7 @@
         }
       },
       "adaptiveIcon": {
-        "backgroundColor": "#F7F7FD",
+        "backgroundColor": "#F1E6D0",
         "foregroundImage": "./assets/logo-paradis-immo.png"
       },
       "predictiveBackGestureEnabled": false,
@@ -50,7 +50,7 @@
         "expo-notifications",
         {
           "icon": "./assets/logo-paradis-immo.png",
-          "color": "#7065F0",
+          "color": "#D6B77C",
           "defaultChannel": "default"
         }
       ],
@@ -61,7 +61,7 @@
         {
           "image": "./assets/logo-paradis-immo.png",
           "resizeMode": "contain",
-          "backgroundColor": "#F7F7FD",
+          "backgroundColor": "#F1E6D0",
           "width": 250,
           "height": 250
         }

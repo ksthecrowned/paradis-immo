@@ -120,7 +120,7 @@ function LinkButton({
 }: LinkButtonProps): React.JSX.Element {
   const variantClass =
     variant === 'primary'
-      ? 'bg-accent text-white hover:bg-accent-light focus:bg-accent-light'
+      ? 'bg-accent text-on-accent hover:bg-accent-light focus:bg-accent-light'
       : 'bg-card text-foreground border border-border hover:bg-card-hover';
   return (
     <Link

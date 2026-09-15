@@ -35,7 +35,7 @@ export function LandingAdvantages(): React.JSX.Element {
     <section id="advantages" className="bg-[var(--lp-navy)] py-16 md:py-24">
       <div className="landing-container">
         <div className="flex flex-col justify-between gap-6 md:flex-row md:items-start">
-          <h2 className="max-w-lg text-[32px] font-bold leading-tight text-[var(--lp-on-primary)] md:text-[48px]">
+          <h2 className="max-w-lg text-[32px] font-bold leading-tight text-[var(--lp-on-navy)] md:text-[48px]">
             We make it easy for{' '}
             <span className="text-[var(--lp-primary)]">tenants</span> and{' '}
             <span className="text-[var(--lp-primary)]">landlords.</span>
@@ -59,7 +59,7 @@ export function LandingAdvantages(): React.JSX.Element {
               card.tone === 'light'
                 ? 'bg-[var(--lp-primary-soft)] text-[var(--lp-primary)]'
                 : card.tone === 'muted'
-                  ? 'bg-[var(--lp-navy)] text-[var(--lp-on-primary)]'
+                  ? 'bg-[var(--lp-navy)] text-[var(--lp-on-navy)]'
                   : 'bg-[var(--lp-on-primary)]/15 text-[var(--lp-on-primary)]';
             const descStyles =
               card.tone === 'light'
@@ -87,7 +87,7 @@ export function LandingAdvantages(): React.JSX.Element {
           })}
         </div>
 
-        <div className="my-14 h-px bg-[var(--lp-on-primary)]/15" />
+        <div className="my-14 h-px bg-[var(--lp-on-navy)]/15" />
 
         <div className="grid gap-8 text-center sm:grid-cols-3 sm:gap-4">
           {STATS.map((stat, index) => (
@@ -95,11 +95,11 @@ export function LandingAdvantages(): React.JSX.Element {
               key={stat.label}
               className={
                 index > 0
-                  ? 'sm:border-s sm:border-[var(--lp-on-primary)]/20'
+                  ? 'sm:border-s sm:border-[var(--lp-on-navy)]/20'
                   : undefined
               }
             >
-              <p className="text-4xl font-bold text-[var(--lp-on-primary)] md:text-5xl">
+              <p className="text-4xl font-bold text-[var(--lp-on-navy)] md:text-5xl">
                 {stat.value}
               </p>
               <p className="mt-2 text-[15px] text-[var(--lp-muted)]">

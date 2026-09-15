@@ -79,7 +79,7 @@ function markerFor(bookings: VisitBookingSummary[]): DayMarker | null {
 
 const MARKER_CLASS: Record<DayMarker['tone'], string> = {
   pending: 'bg-warning text-white',
-  confirmed: 'bg-accent text-white',
+  confirmed: 'bg-accent text-on-accent',
   cancelled: 'bg-danger/60 text-white',
 };
 

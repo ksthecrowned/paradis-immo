@@ -169,7 +169,7 @@ export function TableActionMenu({
           href={viewHref}
           aria-label={viewAriaLabel ?? viewLabel}
           title={viewLabel}
-          className="group inline-flex size-9 items-center justify-center rounded-lg border border-accent/25 bg-accent-muted text-accent transition-all hover:border-accent/50 hover:bg-accent hover:text-white hover:shadow-sm"
+          className="group inline-flex size-9 items-center justify-center rounded-lg border border-accent/25 bg-accent-muted text-accent transition-all hover:border-accent/50 hover:bg-accent hover:text-on-accent hover:shadow-sm"
         >
           <DashIcon
             icon="solar:eye-linear"
@@ -191,8 +191,8 @@ export function TableActionMenu({
           className={
             'group inline-flex size-9 items-center justify-center rounded-lg border transition-all hover:shadow-sm ' +
             (open
-              ? 'border-accent/50 bg-accent text-white'
-              : 'border-accent/25 bg-accent-muted text-accent hover:border-accent/50 hover:bg-accent hover:text-white')
+              ? 'border-accent/50 bg-accent text-on-accent'
+              : 'border-accent/25 bg-accent-muted text-accent hover:border-accent/50 hover:bg-accent hover:text-on-accent')
           }
         >
           <MoreIcon />

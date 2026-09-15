@@ -17,7 +17,7 @@ export function AgencyChip({
   const shortName =
     (agency?.shortName ?? fallbackLabel?.trim()) || 'Agence';
   const name = agency?.name ?? shortName;
-  const logoColor = agency?.logoColor ?? '#7065F0';
+  const logoColor = agency?.logoColor ?? '#D6B77C';
   const isOfficial = agency?.isOfficial === true;
 
   const handlePress = (): void => {

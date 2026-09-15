@@ -433,7 +433,7 @@ export function PropertyVisitSlots({
           <button
             type="submit"
             disabled={opening}
-            className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent/90 disabled:opacity-50"
+            className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-on-accent hover:bg-accent/90 disabled:opacity-50"
           >
             {opening ? 'Ouverture…' : 'Ouvrir'}
           </button>

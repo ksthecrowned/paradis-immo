@@ -1340,7 +1340,7 @@ async function main() {
     address: 'Centre-ville, Pointe-Noire',
     phone: '+242 06 500 00 00',
     cityLabel: 'Pointe-Noire',
-    logoColor: '#7065F0',
+    logoColor: '#D6B77C',
     isOfficial: true,
     verified: true,
     foundedYear: 2012,

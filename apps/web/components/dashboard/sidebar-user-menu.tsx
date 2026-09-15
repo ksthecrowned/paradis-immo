@@ -144,7 +144,7 @@ export function SidebarUserMenu({
           className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full text-sm font-semibold text-white shadow-sm"
           style={{
             background:
-              'conic-gradient(from 210deg, #6658dd 0deg, #22c997 90deg, #f5a623 180deg, #ef4444 270deg, #6658dd 360deg)',
+              'conic-gradient(from 210deg, #d6b77c 0deg, #8fa9b8 90deg, #f1e6d0 180deg, #171c21 270deg, #d6b77c 360deg)',
           }}
           aria-hidden
         >

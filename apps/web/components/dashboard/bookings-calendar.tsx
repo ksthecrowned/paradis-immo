@@ -212,7 +212,7 @@ function buildWeeks(
 const STATUS_BAR: Record<string, string> = {
   PENDING:
     'bg-warning/85 text-white border border-warning hover:bg-warning',
-  CONFIRMED: 'bg-accent text-white border border-accent hover:bg-accent-light',
+  CONFIRMED: 'bg-accent text-on-accent border border-accent hover:bg-accent-light',
   COMPLETED:
     'bg-accent/30 text-accent border border-accent/40 hover:bg-accent/40',
   CANCELLED:
@@ -288,7 +288,7 @@ function DayCell({
         className={[
           'inline-flex size-5 items-center justify-center rounded-full text-[11px] font-medium',
           cell.isToday
-            ? 'bg-accent text-white'
+            ? 'bg-accent text-on-accent'
             : hasBookings
               ? 'font-semibold'
               : '',

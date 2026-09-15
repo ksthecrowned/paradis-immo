@@ -27,7 +27,7 @@ async function ensureAndroidChannel(): Promise<void> {
     name: 'Paradis Immo',
     importance: Notifications.AndroidImportance.MAX,
     vibrationPattern: [0, 250, 250, 250],
-    lightColor: '#7065F0',
+    lightColor: '#D6B77C',
   });
 }
 

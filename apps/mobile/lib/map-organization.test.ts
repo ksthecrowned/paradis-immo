@@ -14,7 +14,7 @@ const sample: PublicOrganization = {
   address: 'Centre-ville, Pointe-Noire',
   phone: '+242 06 500 00 00',
   cityLabel: 'Pointe-Noire',
-  logoColor: '#7065F0',
+  logoColor: '#D6B77C',
   isOfficial: true,
   verified: true,
   foundedYear: 2012,
@@ -46,7 +46,7 @@ describe('mapPublicOrganization', () => {
       dealSuccessPercent: null,
     });
     expect(agency.shortName).toBe('Agence Paradis Immo');
-    expect(agency.logoColor).toBe('#7065F0');
+    expect(agency.logoColor).toBe('#D6B77C');
     expect(agency.city).toBe('Pointe-Noire');
     expect(agency.tagline).toBe('');
     expect(agency.rating).toBe(0);

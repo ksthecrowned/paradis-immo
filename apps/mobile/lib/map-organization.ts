@@ -61,7 +61,7 @@ export type PublicAgent = {
   phone: string | null;
 };
 
-const BRAND = '#7065F0';
+const BRAND = '#D6B77C';
 
 function initialsFromName(name: string): string {
   const parts = name.split(/\s+/).filter(Boolean).slice(0, 2);
