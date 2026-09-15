@@ -1,7 +1,6 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { DashIcon } from '@/components/dash-icon';
 import {
   LandingPropertyCard,
   LandingPropertyCardSkeleton,
@@ -19,6 +18,15 @@ const TABS: Array<{ label: string; mode?: PropertyMode }> = [
   { label: 'Vente', mode: 'SALE' },
 ];
 
+function isDiscoverable(property: PublicProperty): boolean {
+  const status = property.listingStatus;
+  return (
+    status == null ||
+    status === 'AVAILABLE' ||
+    status === 'AVAILABLE_SOON'
+  );
+}
+
 export function LandingProperties(): React.JSX.Element {
   const [activeTab, setActiveTab] = useState(0);
   const [query, setQuery] = useState('');
@@ -28,8 +36,8 @@ export function LandingProperties(): React.JSX.Element {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await listActiveProperties(24);
-      setProperties(data);
+      const data = await listActiveProperties(48);
+      setProperties(data.filter(isDiscoverable));
     } catch {
       setProperties([]);
     } finally {
@@ -57,66 +65,91 @@ export function LandingProperties(): React.JSX.Element {
   }, [activeTab, properties, query]);
 
   return (
-    <section id="properties" className="bg-[var(--lp-surface)] py-16 md:py-24">
+    <section
+      id="properties"
+      className="bg-(--lp-bg) py-20 md:py-28"
+      aria-labelledby="properties-heading"
+    >
       <div className="landing-container">
-        <h2 className="text-center text-[32px] font-bold text-[var(--lp-ink)] md:text-[48px]">
-          Biens disponibles
-        </h2>
-        <p className="mx-auto mt-3 max-w-lg text-center text-[15px] text-[var(--lp-muted)]">
-          Même catalogue que l&apos;app — ouvrez un bien pour télécharger
-          Paradis Immo.
-        </p>
-
-        <div className="mt-10 flex flex-col justify-between gap-4 md:flex-row md:items-center">
-          <div className="inline-flex flex-wrap rounded-[var(--lp-radius-md)] border-2 border-[var(--lp-border)] bg-[var(--lp-primary-muted)] p-1.5">
-            {TABS.map((tab, index) => (
-              <button
-                key={tab.label}
-                type="button"
-                onClick={() => setActiveTab(index)}
-                className={`min-w-[80px] rounded-[var(--lp-radius-sm)] px-5 py-2 text-[14px] font-semibold transition-colors ${
-                  activeTab === index
-                    ? 'border border-[var(--lp-border)] bg-[var(--lp-surface)] text-[var(--lp-primary)] shadow-sm'
-                    : 'text-[var(--lp-muted)] hover:text-[var(--lp-ink)]'
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
+        <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
+          <div className="max-w-xl">
+            <p className="lp-eyebrow">Biens</p>
+            <h2
+              id="properties-heading"
+              className="mt-3 text-[2rem] leading-tight text-(--lp-ink) md:text-[2.75rem]"
+            >
+              À découvrir maintenant
+            </h2>
+            <p className="mt-4 text-[15px] leading-relaxed text-(--lp-muted) md:text-base">
+              Location, courte durée ou vente — les annonces disponibles du
+              moment.
+            </p>
           </div>
-          <label className="flex items-center gap-2 rounded-[var(--lp-radius-md)] border-2 border-[var(--lp-border)] bg-[var(--lp-primary-muted)] px-3 py-2.5 md:min-w-[280px]">
-            <DashIcon
-              icon="solar:magnifer-linear"
-              className="size-5 text-[var(--lp-primary)]"
-            />
+
+          <label className="flex w-full max-w-sm items-center gap-3 rounded-[var(--lp-radius-md)] border border-(--lp-border) bg-(--lp-surface) px-4 py-3">
+            <span className="sr-only">Rechercher un bien</span>
             <input
               type="search"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Rechercher…"
-              className="w-full bg-transparent text-[15px] text-[var(--lp-ink)] outline-none placeholder:text-[var(--lp-muted)]"
+              placeholder="Quartier, titre…"
+              className="w-full bg-transparent text-[15px] text-(--lp-ink) outline-none placeholder:text-(--lp-muted)"
             />
           </label>
         </div>
 
+        <div
+          className="mt-10 flex flex-wrap gap-2 border-b border-(--lp-border) pb-px"
+          role="tablist"
+          aria-label="Type de bien"
+        >
+          {TABS.map((tab, index) => {
+            const active = activeTab === index;
+            return (
+              <button
+                key={tab.label}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                onClick={() => setActiveTab(index)}
+                className={`relative px-4 py-3 text-sm font-semibold transition-colors ${
+                  active
+                    ? 'text-(--lp-ink)'
+                    : 'text-(--lp-muted) hover:text-(--lp-ink)'
+                }`}
+              >
+                {tab.label}
+                {active ? (
+                  <span
+                    className="absolute inset-x-0 -bottom-px h-0.5 bg-(--lp-primary)"
+                    aria-hidden
+                  />
+                ) : null}
+              </button>
+            );
+          })}
+        </div>
+
         {loading ? (
-          <div className="mt-10 grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
+          <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3 lg:gap-7">
             {Array.from({ length: 6 }).map((_, i) => (
               <LandingPropertyCardSkeleton key={i} />
             ))}
           </div>
         ) : filtered.length === 0 ? (
-          <p className="mt-10 text-center text-sm text-[var(--lp-muted)]">
-            Aucun bien pour cette catégorie pour le moment.
-          </p>
+          <div className="mt-16 max-w-md">
+            <p className="text-lg text-(--lp-ink)">
+              Aucun bien disponible dans cette catégorie pour le moment.
+            </p>
+          </div>
         ) : (
-          <div className="mt-10 grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
+          <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3 lg:gap-7">
             {filtered.map((property, index) => (
               <LandingPropertyCard
                 key={property.id}
                 property={property}
                 placeholderIndex={index}
-                href="#download"
+                href="#app"
               />
             ))}
           </div>

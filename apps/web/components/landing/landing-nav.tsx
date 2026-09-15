@@ -7,27 +7,23 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { LandingLogo } from './landing-logo';
 
-const LEFT_LINKS = [
-  { label: 'Home', href: '#hero' },
-  { label: 'Rent', href: '#properties' },
-  { label: 'Buy', href: '#properties' },
+const LINKS = [
+  { label: 'Biens', href: '#properties' },
+  { label: 'Application', href: '#app' },
+  { label: 'Gestion', href: '#manage' },
 ] as const;
-
-const RIGHT_LINKS = [
-  { label: 'Service', href: '#benefits' },
-  { label: 'About Us', href: '#advantages' },
-] as const;
-
-const MOBILE_LINKS = [...LEFT_LINKS, ...RIGHT_LINKS] as const;
 
 export function LandingNav(): React.JSX.Element {
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [onHero, setOnHero] = useState(true);
   const { theme, toggleTheme } = useTheme();
 
   useEffect(() => {
     const onScroll = (): void => {
-      setScrolled(window.scrollY > 8);
+      const y = window.scrollY;
+      setScrolled(y > 12);
+      setOnHero(y < window.innerHeight * 0.72);
     };
     onScroll();
     window.addEventListener('scroll', onScroll, { passive: true });
@@ -43,60 +39,31 @@ export function LandingNav(): React.JSX.Element {
     return () => window.removeEventListener('keydown', onKey);
   }, [open]);
 
+  const headerClass = [
+    'landing-header fixed top-0 z-50 w-full transition-[background-color,box-shadow,border-color] duration-200',
+    onHero ? 'landing-header-on-hero' : '',
+    scrolled || open ? 'landing-header-scrolled' : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
+
   return (
-    <header
-      className={`landing-header sticky top-0 z-50 w-full transition-[background-color,box-shadow,border-color] duration-200 ${
-        scrolled || open ? 'landing-header-scrolled' : ''
-      }`}
-    >
-      <div className="landing-container relative grid h-[72px] grid-cols-[1fr_auto_1fr] items-center gap-3 md:h-20">
-        {/* Left */}
+    <header className={headerClass}>
+      <div className="landing-container flex h-[68px] items-center justify-between gap-4 md:h-[76px]">
+        <LandingLogo className="landing-logo-mark" />
+
         <nav
-          className="landing-nav-left hidden items-center gap-8 lg:flex"
-          aria-label="Navigation gauche"
+          className="hidden items-center gap-9 lg:flex"
+          aria-label="Navigation principale"
         >
-          {LEFT_LINKS.map((link) => (
-            <a key={link.label} href={link.href} className="landing-nav-link">
+          {LINKS.map((link) => (
+            <a key={link.href} href={link.href} className="landing-nav-link">
               {link.label}
             </a>
           ))}
         </nav>
 
-        <button
-          type="button"
-          className="inline-flex size-10 items-center justify-center justify-self-start rounded-full border border-[var(--lp-border)] bg-[var(--lp-surface)] text-[var(--lp-ink)] lg:hidden"
-          aria-label={open ? 'Fermer le menu' : 'Ouvrir le menu'}
-          aria-expanded={open}
-          onClick={() => setOpen((v) => !v)}
-        >
-          <DashIcon
-            icon={
-              open ? 'solar:close-circle-linear' : 'solar:hamburger-menu-linear'
-            }
-            className="size-5"
-          />
-        </button>
-
-        {/* Center logo */}
-        <div className="justify-self-center">
-          <LandingLogo
-            className="landing-logo-mark"
-            textClassName="!text-[var(--lp-primary)]"
-          />
-        </div>
-
-        {/* Right */}
-        <div className="hidden items-center justify-end gap-6 lg:flex">
-          <nav
-            className="flex items-center gap-8"
-            aria-label="Navigation droite"
-          >
-            {RIGHT_LINKS.map((link) => (
-              <a key={link.label} href={link.href} className="landing-nav-link">
-                {link.label}
-              </a>
-            ))}
-          </nav>
+        <div className="flex items-center gap-2 sm:gap-3">
           <button
             type="button"
             className="landing-btn-icon"
@@ -112,25 +79,26 @@ export function LandingNav(): React.JSX.Element {
               height={18}
             />
           </button>
-          <Link href="/login" className="landing-btn landing-btn-outline">
-            Contact
-          </Link>
-        </div>
 
-        <div className="flex items-center justify-end gap-2 lg:hidden">
+          <Link
+            href="/login"
+            className="landing-btn landing-btn-outline hidden px-5 py-2.5 sm:inline-flex"
+          >
+            Espace gestionnaire
+          </Link>
+
           <button
             type="button"
-            className="landing-btn-icon"
-            aria-label={
-              theme === 'dark' ? 'Passer en mode clair' : 'Passer en mode sombre'
-            }
-            title={theme === 'dark' ? 'Mode clair' : 'Mode sombre'}
-            onClick={toggleTheme}
+            className="landing-btn-icon lg:hidden"
+            aria-label={open ? 'Fermer le menu' : 'Ouvrir le menu'}
+            aria-expanded={open}
+            onClick={() => setOpen((v) => !v)}
           >
             <DashIcon
-              icon={theme === 'dark' ? DASH_ICONS.sun : DASH_ICONS.moon}
-              width={18}
-              height={18}
+              icon={
+                open ? 'solar:close-circle-linear' : 'solar:hamburger-menu-linear'
+              }
+              className="size-5"
             />
           </button>
         </div>
@@ -138,10 +106,10 @@ export function LandingNav(): React.JSX.Element {
 
       {open ? (
         <div className="border-t border-[var(--lp-border)] bg-[var(--lp-bg)] px-5 py-5 lg:hidden">
-          <nav className="flex flex-col gap-1" aria-label="Mobile">
-            {MOBILE_LINKS.map((link) => (
+          <nav className="flex flex-col gap-1" aria-label="Navigation mobile">
+            {LINKS.map((link) => (
               <a
-                key={link.label}
+                key={link.href}
                 href={link.href}
                 className="rounded-[var(--lp-radius-sm)] px-3 py-3 text-[15px] font-medium text-[var(--lp-ink)] hover:bg-[var(--lp-primary-muted)]"
                 onClick={() => setOpen(false)}
@@ -151,10 +119,10 @@ export function LandingNav(): React.JSX.Element {
             ))}
             <Link
               href="/login"
-              className="landing-btn landing-btn-outline mt-3 w-full"
+              className="landing-btn landing-btn-primary mt-3 w-full"
               onClick={() => setOpen(false)}
             >
-              Contact
+              Espace gestionnaire
             </Link>
           </nav>
         </div>

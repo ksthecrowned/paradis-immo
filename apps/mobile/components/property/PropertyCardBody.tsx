@@ -39,26 +39,25 @@ export function PropertyCardBody({
 
   return (
     <View style={[styles.body, compact && styles.bodyCompact]}>
-      <View style={[styles.topRow, compact && styles.topRowCompact]}>
-        <View style={styles.locationRow}>
-          <Ionicons
-            name="location"
-            size={compact ? 12 : 14}
-            color={colors.muted}
-          />
-          <Text
-            style={[styles.location, compact && styles.locationCompact]}
-            numberOfLines={1}
-          >
-            {property.location ?? 'Congo'}
-          </Text>
-        </View>
-        {!compact ? (
-          <Text style={[styles.price, muted ? { color: muted } : null]}>
-            {priceLabel}
-          </Text>
-        ) : null}
+      <View style={styles.locationRow}>
+        <Ionicons
+          name="location"
+          size={compact ? 12 : 14}
+          color={colors.muted}
+        />
+        <Text
+          style={[styles.location, compact && styles.locationCompact]}
+          numberOfLines={1}
+        >
+          {property.location ?? 'Congo'}
+        </Text>
       </View>
+
+      {!compact ? (
+        <Text style={[styles.price, muted ? { color: muted } : null]}>
+          {priceLabel}
+        </Text>
+      ) : null}
 
       <Text
         style={[
@@ -162,15 +161,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     minWidth: 0,
   },
-  topRow: {
-    justifyContent: 'space-between',
-    gap: spacing.sm,
-  },
-  topRowCompact: {
-    justifyContent: 'flex-start',
-  },
   locationRow: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,

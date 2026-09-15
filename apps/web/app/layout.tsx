@@ -16,6 +16,10 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: 'Paradis Immo',
   description: 'Plateforme immobilière hybride — Congo (CG)',
+  icons: {
+    icon: '/landing/logo.png',
+    apple: '/landing/logo.png',
+  },
 };
 
 export default function RootLayout({

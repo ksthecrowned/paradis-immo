@@ -99,14 +99,16 @@ function LoginForm(): React.JSX.Element {
           className="inline-flex items-center gap-2.5 text-foreground"
         >
           <Image
-            src="/landing/logo.svg"
+            src="/landing/logo.png"
             alt=""
-            width={32}
-            height={32}
-            className="size-8"
+            width={36}
+            height={36}
+            className="size-9"
             priority
           />
-          <span className="text-lg font-bold tracking-tight">Paradis Immo</span>
+          <span className="text-lg font-semibold tracking-tight">
+            Paradis Immobilier
+          </span>
         </Link>
         <button
           type="button"

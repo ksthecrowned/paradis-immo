@@ -1,7 +1,8 @@
-/* Landing tokens — aligned with mobile `apps/mobile/constants/theme.ts` */
+/* Landing — Paradis Immobilier brand tokens
+ * Charbon #171C21 · Champagne #D6B77C · Ivoire #F1E6D0 · Bleu-gris #8FA9B8
+ */
 
 .landing {
-  /* LIGHT PREMIUM — ivoire + charbon + champagne */
   --lp-primary: #d6b77c;
   --lp-primary-hover: #c4a56a;
   --lp-primary-soft: #efe4cf;
@@ -12,60 +13,68 @@
   --lp-border: #e5d9c4;
   --lp-surface: #ffffff;
   --lp-bg: #f1e6d0;
-  --lp-bg-hero: #f5edd9;
+  --lp-bg-hero: #171c21;
   --lp-search: #ffffff;
   --lp-on-primary: #171c21;
   --lp-on-navy: #f1e6d0;
   --lp-danger: #dc2626;
   --lp-success: #16a34a;
   --lp-warning: #f5a623;
+  /* Alignés sur apps/mobile/constants/theme.ts */
   --lp-radius-sm: 8px;
   --lp-radius-md: 12px;
   --lp-radius-lg: 16px;
   --lp-radius-xl: 20px;
   --lp-radius-full: 9999px;
-  --lp-shadow-card: 0 4px 20px rgba(23, 28, 33, 0.06);
-  --lp-shadow-float: 0 12px 40px rgba(23, 28, 33, 0.12);
-  --lp-shadow-search: 0 8px 30px rgba(23, 28, 33, 0.08);
-  --lp-container: 1200px;
+  --lp-shadow-card: 0 4px 24px rgba(23, 28, 33, 0.06);
+  --lp-shadow-float: 0 18px 48px rgba(23, 28, 33, 0.14);
+  --lp-container: 1180px;
   --lp-pad-x: 40px;
 
   color: var(--lp-ink);
   background: var(--lp-bg);
-  font-feature-settings: "ss01" on;
+  font-family: var(--font-lp-sans), system-ui, sans-serif;
+  font-feature-settings: 'ss01' on;
   color-scheme: light;
   transition:
     background-color 0.2s ease,
     color 0.2s ease;
 }
 
-html[data-bs-theme="dark"] .landing {
-  /* DARK PREMIUM — charbon + champagne + ivoire */
+html[data-bs-theme='dark'] .landing {
   --lp-primary: #d6b77c;
   --lp-primary-hover: #c4a56a;
   --lp-primary-soft: rgba(214, 183, 124, 0.22);
-  --lp-primary-muted: rgba(214, 183, 124, 0.15);
-  --lp-navy: #1d2329;
+  --lp-primary-muted: rgba(214, 183, 124, 0.12);
+  --lp-navy: #171c21;
   --lp-ink: #f1e6d0;
   --lp-muted: #8fa9b8;
-  --lp-border: #272f37;
-  --lp-surface: #242b33;
+  --lp-border: #2a323a;
+  --lp-surface: #1d2329;
   --lp-bg: #171c21;
-  --lp-bg-hero: #1d2329;
+  --lp-bg-hero: #171c21;
   --lp-search: #232a31;
   --lp-on-primary: #171c21;
   --lp-on-navy: #f1e6d0;
   --lp-danger: #ef4444;
   --lp-success: #22c997;
   --lp-warning: #f5a623;
-  --lp-shadow-card: 0 4px 16px rgba(0, 0, 0, 0.35);
-  --lp-shadow-float: 0 12px 40px rgba(0, 0, 0, 0.45);
-  --lp-shadow-search: 0 8px 30px rgba(0, 0, 0, 0.4);
+  --lp-shadow-card: 0 4px 20px rgba(0, 0, 0, 0.35);
+  --lp-shadow-float: 0 18px 48px rgba(0, 0, 0, 0.5);
   color-scheme: dark;
 }
 
 .landing * {
   box-sizing: border-box;
+}
+
+.landing h1,
+.landing h2,
+.landing h3,
+.landing .lp-display {
+  font-family: var(--font-lp-display), Georgia, 'Times New Roman', serif;
+  font-weight: 500;
+  letter-spacing: -0.02em;
 }
 
 .landing-container {
@@ -85,15 +94,24 @@ html[data-bs-theme="dark"] .landing {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 0.5rem;
   border-radius: var(--lp-radius-sm);
+  font-family: var(--font-lp-sans), system-ui, sans-serif;
   font-size: 14px;
   font-weight: 600;
   line-height: 1.2;
-  padding: 12px 24px;
+  padding: 14px 26px;
+  text-decoration: none;
   transition:
-    background-color 0.15s ease,
-    color 0.15s ease,
-    border-color 0.15s ease;
+    background-color 0.18s ease,
+    color 0.18s ease,
+    border-color 0.18s ease,
+    transform 0.18s ease;
+}
+
+.landing-btn:focus-visible {
+  outline: 2px solid var(--lp-primary);
+  outline-offset: 3px;
 }
 
 .landing-btn-primary {
@@ -108,13 +126,14 @@ html[data-bs-theme="dark"] .landing {
 }
 
 .landing-btn-ghost {
-  background: var(--lp-surface);
-  color: var(--lp-ink);
-  border: 1px solid var(--lp-border);
+  background: transparent;
+  color: var(--lp-on-navy);
+  border: 1px solid color-mix(in srgb, var(--lp-on-navy) 35%, transparent);
 }
 
 .landing-btn-ghost:hover {
-  background: var(--lp-primary-muted);
+  background: color-mix(in srgb, var(--lp-on-navy) 8%, transparent);
+  border-color: color-mix(in srgb, var(--lp-on-navy) 55%, transparent);
 }
 
 .landing-btn-navy {
@@ -124,19 +143,16 @@ html[data-bs-theme="dark"] .landing {
 }
 
 .landing-btn-navy:hover {
-  filter: brightness(1.12);
+  filter: brightness(1.08);
 }
 
 .landing-btn-outline {
   background: transparent;
   color: var(--lp-ink);
   border: 1px solid var(--lp-border);
-  border-radius: var(--lp-radius-full);
-  padding-inline: 22px;
 }
 
 .landing-btn-outline:hover {
-  background: var(--lp-primary-muted);
   border-color: var(--lp-primary);
   color: var(--lp-primary);
 }
@@ -147,18 +163,35 @@ html[data-bs-theme="dark"] .landing {
 }
 
 .landing-header-scrolled {
-  background: color-mix(in srgb, var(--lp-bg) 88%, transparent);
+  background: color-mix(in srgb, var(--lp-bg) 90%, transparent);
   border-bottom-color: var(--lp-border);
-  box-shadow: var(--lp-shadow-card);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+.landing-header-on-hero {
+  --lp-nav-fg: var(--lp-on-navy);
+  --lp-nav-muted: color-mix(in srgb, var(--lp-on-navy) 70%, transparent);
+}
+
+.landing-header-on-hero .landing-nav-link {
+  color: var(--lp-nav-fg);
+}
+
+.landing-header-on-hero .landing-nav-link:hover {
+  color: var(--lp-primary);
+}
+
+.landing-header-on-hero:not(.landing-header-scrolled) .landing-logo-mark span {
+  color: var(--lp-primary) !important;
 }
 
 .landing-nav-link {
-  position: relative;
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 500;
+  letter-spacing: 0.01em;
   color: var(--lp-ink);
+  text-decoration: none;
   transition: color 0.15s ease;
 }
 
@@ -166,24 +199,10 @@ html[data-bs-theme="dark"] .landing {
   color: var(--lp-primary);
 }
 
-.landing-nav-left {
-  position: relative;
-  padding-bottom: 10px;
-}
-
-.landing-nav-left::after {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 1px;
-  background: color-mix(in srgb, var(--lp-ink) 22%, transparent);
-}
-
-.landing-logo-mark span {
-  font-size: 24px;
-  letter-spacing: -0.03em;
+.landing-nav-link:focus-visible {
+  outline: 2px solid var(--lp-primary);
+  outline-offset: 4px;
+  border-radius: 2px;
 }
 
 .landing-btn-icon {
@@ -203,25 +222,79 @@ html[data-bs-theme="dark"] .landing {
 }
 
 .landing-btn-icon:hover {
-  background: var(--lp-primary-muted);
-  color: var(--lp-ink);
   border-color: var(--lp-primary);
-}
-
-.landing-card {
-  background: var(--lp-surface);
-  border-radius: var(--lp-radius-lg);
-  box-shadow: var(--lp-shadow-card);
-}
-
-.landing-input-label {
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--lp-muted);
-}
-
-.landing-input-value {
-  font-size: 14px;
-  font-weight: 600;
   color: var(--lp-ink);
+}
+
+.landing-btn-icon:focus-visible {
+  outline: 2px solid var(--lp-primary);
+  outline-offset: 2px;
+}
+
+.landing-header-on-hero:not(.landing-header-scrolled) .landing-btn-icon {
+  border-color: color-mix(in srgb, var(--lp-on-navy) 28%, transparent);
+  color: var(--lp-on-navy);
+}
+
+.landing-header-on-hero:not(.landing-header-scrolled) .landing-btn-outline {
+  color: var(--lp-on-navy);
+  border-color: color-mix(in srgb, var(--lp-on-navy) 35%, transparent);
+}
+
+.landing-header-on-hero:not(.landing-header-scrolled) .landing-btn-outline:hover {
+  border-color: var(--lp-primary);
+  color: var(--lp-primary);
+  background: transparent;
+}
+
+/* Motion — discreet reveals */
+@keyframes lp-rise {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.lp-reveal {
+  animation: lp-rise 0.75s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.lp-reveal-delay-1 {
+  animation-delay: 0.08s;
+}
+.lp-reveal-delay-2 {
+  animation-delay: 0.16s;
+}
+.lp-reveal-delay-3 {
+  animation-delay: 0.24s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lp-reveal,
+  .lp-reveal-delay-1,
+  .lp-reveal-delay-2,
+  .lp-reveal-delay-3 {
+    animation: none;
+  }
+}
+
+.lp-rule {
+  height: 1px;
+  width: 100%;
+  background: var(--lp-border);
+  border: 0;
+}
+
+.lp-eyebrow {
+  display: inline-block;
+  font-family: var(--font-lp-sans), system-ui, sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--lp-primary);
 }
