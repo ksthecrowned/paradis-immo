@@ -25,6 +25,7 @@ import { InfobipOtpService } from './infobip-otp.service';
 import { MagicLinkStore } from './magic-link.store';
 import { OtpStore, type OtpPurpose } from './otp.store';
 import { hashPassword, verifyPassword } from './password.util';
+import { fixedOtpFor } from './test-otp';
 
 const MAX_OTP_ATTEMPTS = 5;
 const REFRESH_TTL_DAYS = 30;
@@ -81,6 +82,15 @@ export class AuthService {
     purpose: OtpPurpose;
   }): Promise<void> {
     await this.assertPhoneMatchesPurpose(input.phone, input.purpose);
+
+    const fixedCode = fixedOtpFor(input.phone);
+    if (fixedCode) {
+      await this.otpStore.put(input.phone, fixedCode, input.purpose);
+      this.logger.warn(
+        `[test] Fixed OTP for ${input.phone}: ${fixedCode} (SMS skipped)`,
+      );
+      return;
+    }
 
     const MAX_REQUESTS_PER_HOUR = 5;
     const count = await this.otpStore.incrementRequestCount(input.phone);

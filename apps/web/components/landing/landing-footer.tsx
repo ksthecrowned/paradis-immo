@@ -1,32 +1,61 @@
 import { DashIcon } from '@/components/dash-icon';
+import Link from 'next/link';
 import { LandingLogo } from './landing-logo';
 
-const COLUMNS = [
+type FooterLink = { label: string; href: string };
+
+const COLUMNS: { title: string; links: FooterLink[] }[] = [
   {
     title: 'SELL A HOME',
-    links: ['Request an offer', 'Pricing', 'Reviews', 'Stories'],
+    links: [
+      { label: 'Request an offer', href: '/#hero' },
+      { label: 'Pricing', href: '/#hero' },
+      { label: 'Reviews', href: '/#hero' },
+      { label: 'Stories', href: '/#hero' },
+    ],
   },
   {
     title: 'BUY, RENT AND SELL',
-    links: ['Buy and sell properties', 'Rent home', 'Builder trade-up'],
+    links: [
+      { label: 'Buy and sell properties', href: '/#hero' },
+      { label: 'Rent home', href: '/#hero' },
+      { label: 'Builder trade-up', href: '/#hero' },
+    ],
   },
   {
     title: 'ABOUT',
-    links: ['Company', 'How it works', 'Contact', 'Investors'],
+    links: [
+      { label: 'Company', href: '/#hero' },
+      { label: 'How it works', href: '/#hero' },
+      { label: 'Contact', href: '/#hero' },
+      { label: 'Investors', href: '/#hero' },
+    ],
   },
   {
     title: 'BUY A HOME',
-    links: ['Buy', 'Finance'],
+    links: [
+      { label: 'Buy', href: '/#hero' },
+      { label: 'Finance', href: '/#hero' },
+    ],
   },
   {
     title: 'TERMS & PRIVACY',
-    links: ['Trust & Safety', 'Terms of Service', 'Privacy Policy'],
+    links: [
+      { label: 'Trust & Safety', href: '/#hero' },
+      { label: 'Terms of Service', href: '/#hero' },
+      { label: 'Privacy Policy', href: '/privacy' },
+    ],
   },
   {
     title: 'RESOURCES',
-    links: ['Blog', 'Guides', 'FAQ', 'Help Center'],
+    links: [
+      { label: 'Blog', href: '/#hero' },
+      { label: 'Guides', href: '/#hero' },
+      { label: 'FAQ', href: '/#hero' },
+      { label: 'Help Center', href: '/#hero' },
+    ],
   },
-] as const;
+];
 
 const SOCIAL = [
   'solar:facebook-bold',
@@ -48,13 +77,22 @@ export function LandingFooter(): React.JSX.Element {
               </h3>
               <ul className="mt-4 space-y-2">
                 {column.links.map((link) => (
-                  <li key={link}>
-                    <a
-                      href="#hero"
-                      className="text-[15px] text-[var(--lp-muted)] transition-colors hover:text-[var(--lp-primary)]"
-                    >
-                      {link}
-                    </a>
+                  <li key={link.label}>
+                    {link.href.startsWith('/') ? (
+                      <Link
+                        href={link.href}
+                        className="text-[15px] text-[var(--lp-muted)] transition-colors hover:text-[var(--lp-primary)]"
+                      >
+                        {link.label}
+                      </Link>
+                    ) : (
+                      <a
+                        href={link.href}
+                        className="text-[15px] text-[var(--lp-muted)] transition-colors hover:text-[var(--lp-primary)]"
+                      >
+                        {link.label}
+                      </a>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -71,7 +109,7 @@ export function LandingFooter(): React.JSX.Element {
             {SOCIAL.map((icon) => (
               <a
                 key={icon}
-                href="#hero"
+                href="/#hero"
                 className="text-[var(--lp-muted)] transition-colors hover:text-[var(--lp-primary)]"
                 aria-label="Social link"
               >

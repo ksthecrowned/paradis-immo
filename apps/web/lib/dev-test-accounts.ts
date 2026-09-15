@@ -12,4 +12,9 @@ export const DEV_TEST_ACCOUNTS = [
   { role: 'Agent', phone: '+242060000002', path: '/agent/dashboard' },
   { role: 'Propriétaire', phone: '+242060000003', path: '/owner/dashboard' },
   { role: 'Locataire', phone: '+242060000004', path: '—' },
+  {
+    role: 'Locataire QA',
+    phone: '+242065152373',
+    path: '— (OTP 123456)',
+  },
 ] as const;

@@ -69,6 +69,12 @@ export const TEST_ACCOUNTS = {
     name: 'Locataire Test',
     path: '/owner/dashboard',
   },
+  /** Mobile / store review — OTP always 123456 (apps/api/src/auth/test-otp.ts). */
+  qaTenant: {
+    phone: '+242065152373',
+    name: 'Locataire QA',
+    path: '—',
+  },
 } as const;
 
 const TEST_USER_IDS = {
@@ -76,6 +82,7 @@ const TEST_USER_IDS = {
   agent: SEED_IDS.userAgent,
   owner: SEED_IDS.userOwner,
   tenant: SEED_IDS.userTenant,
+  qaTenant: SEED_IDS.userQaTenant,
 } as const;
 
 const PARADIS_IMMO_ID = SEED_IDS.orgParadisImmo;
@@ -528,6 +535,12 @@ async function seedTestUsers(
       id: TEST_USER_IDS.tenant,
       phone: TEST_ACCOUNTS.tenant.phone,
       name: TEST_ACCOUNTS.tenant.name,
+      globalRoles: [GlobalRole.TENANT],
+    },
+    {
+      id: TEST_USER_IDS.qaTenant,
+      phone: TEST_ACCOUNTS.qaTenant.phone,
+      name: TEST_ACCOUNTS.qaTenant.name,
       globalRoles: [GlobalRole.TENANT],
     },
   ];
@@ -1202,6 +1215,9 @@ async function seedTestUsers(
   );
   console.log(
     `    tenant   ${TEST_ACCOUNTS.tenant.phone}  → mobile OTP only`,
+  );
+  console.log(
+    `    qa       ${TEST_ACCOUNTS.qaTenant.phone}  → OTP always 123456`,
   );
   console.log('✓ Mandates (Paradis Immo):');
   console.log(

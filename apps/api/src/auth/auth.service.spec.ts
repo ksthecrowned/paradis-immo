@@ -181,6 +181,36 @@ describe('AuthService', () => {
     expect(err).toBeInstanceOf(UnauthorizedException);
   });
 
+  it('fixed OTP phone always accepts 123456 without SMS', async () => {
+    const qaPhone = '+242065152373';
+    await prisma.otpChallenge.deleteMany({ where: { phone: qaPhone } });
+    const existing = await prisma.user.findFirst({ where: { phone: qaPhone } });
+    if (existing) {
+      await prisma.refreshToken.deleteMany({ where: { userId: existing.id } });
+      await prisma.userRole.deleteMany({ where: { userId: existing.id } });
+      await prisma.user.delete({ where: { id: existing.id } });
+    }
+
+    await service.requestOtp({ phone: qaPhone, purpose: 'REGISTER' });
+    const stored = await otpStore.peek(qaPhone);
+    expect(stored).toBe('123456');
+
+    const result = await service.verifyOtp({
+      phone: qaPhone,
+      code: '123456',
+      purpose: 'REGISTER',
+    });
+    expect(result.user.phone).toBe(qaPhone);
+
+    await service.requestOtp({ phone: qaPhone, purpose: 'LOGIN' });
+    const login = await service.verifyOtp({
+      phone: qaPhone,
+      code: '123456',
+      purpose: 'LOGIN',
+    });
+    expect(login.user.phone).toBe(qaPhone);
+  });
+
   describe('setWebRole', () => {
     const webEmail = 'web-role-onboarding@example.com';
 

@@ -16,6 +16,8 @@ export const SEED_IDS = {
   userAgentHabitat: '61181f29-f925-4aab-92b7-139dbeab1035',
   userOwner: 'ec93037b-cd31-499f-9e14-f620e44eceeb',
   userTenant: '5e0becd9-83fc-48af-b9db-f2c9a3918d75',
+  /** Store-review / QA — fixed OTP 123456 (see auth/test-otp.ts). */
+  userQaTenant: 'a1b2c3d4-e5f6-4789-a012-3456789abcde',
 
   propRentLong: '823b9231-0eb7-4550-8dc6-892fd686496d',
   propSale: '29faa8b3-dd07-46ba-96c1-6f5f536b83ec',
