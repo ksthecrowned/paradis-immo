@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { LandingPropertyCard } from '@/components/landing/landing-property-card';
 import { DashIcon } from '@/components/dash-icon';
 import { listActiveProperties } from '@/lib/public/properties';
+import { hasStoreLinks } from '@/lib/store-links';
 import type { PublicProperty } from '@/lib/owner/properties';
 import Link from 'next/link';
 
@@ -16,15 +17,18 @@ function isDiscoverable(property: PublicProperty): boolean {
   );
 }
 
+function cardHref(): string | undefined {
+  return hasStoreLinks() ? '#app' : undefined;
+}
+
 /**
- * Hero inspired by SG dual CTAs + live inventory (no full-bleed photo).
- * Left: promise + paths. Right: auto-advancing property slider.
+ * Split hero — no full-bleed photo.
+ * Desire-led copy + 2 visible live listings (window slider).
  */
 export function LandingHero(): React.JSX.Element {
   const [items, setItems] = useState<PublicProperty[]>([]);
-  const [index, setIndex] = useState(0);
+  const [offset, setOffset] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [paused, setPaused] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -44,88 +48,78 @@ export function LandingHero(): React.JSX.Element {
     };
   }, []);
 
-  const count = items.length;
+  const visible = 2;
+  const maxOffset = Math.max(0, items.length - visible);
   const go = useCallback(
     (dir: -1 | 1) => {
-      if (count === 0) return;
-      setIndex((i) => (i + dir + count) % count);
+      setOffset((o) => Math.min(maxOffset, Math.max(0, o + dir)));
     },
-    [count],
+    [maxOffset],
   );
 
-  useEffect(() => {
-    if (paused || count < 2) return;
-    const id = window.setInterval(() => go(1), 4500);
-    return () => window.clearInterval(id);
-  }, [paused, count, go]);
-
-  const current = items[index];
+  const slice = items.slice(offset, offset + visible);
+  const href = cardHref();
 
   return (
     <section
       id="hero"
-      className="relative isolate flex min-h-screen flex-col justify-center overflow-hidden bg-[#171c21] pt-24 pb-12 md:pt-28 md:pb-16"
+      className="relative isolate flex min-h-screen flex-col justify-center overflow-hidden bg-[#171c21] pt-24 pb-14 md:pt-28 md:pb-20"
       aria-labelledby="hero-heading"
     >
-      {/* Soft brand atmosphere — no photo background */}
       <div
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_80%_20%,rgba(214,183,124,0.12),transparent_50%)]"
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_85%_15%,rgba(214,183,124,0.1),transparent_45%)]"
         aria-hidden
       />
 
-      <div className="landing-container relative grid items-center gap-10 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] lg:gap-14">
-        {/* Copy — SG-style dual path */}
+      <div className="landing-container relative grid items-center gap-12 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)] lg:gap-16">
         <div className="max-w-xl">
           <p className="lp-reveal lp-display text-[1.45rem] tracking-tight text-(--lp-primary) sm:text-[1.75rem]">
             Paradis Immobilier
           </p>
           <h1
             id="hero-heading"
-            className="lp-reveal lp-reveal-delay-1 mt-4 text-[2.25rem] leading-[1.08] text-(--lp-on-navy) sm:text-[3rem] md:text-[3.4rem]"
+            className="lp-reveal lp-reveal-delay-1 mt-4 text-[2.35rem] leading-[1.08] text-(--lp-on-navy) sm:text-[3.1rem] md:text-[3.5rem]"
           >
-            Trouvez un bien.
+            Votre prochain chez-vous,
             <br />
-            Ou confiez votre patrimoine.
+            sans le chaos.
           </h1>
           <p className="lp-reveal lp-reveal-delay-2 mt-5 max-w-md text-base leading-relaxed text-(--lp-muted) md:text-lg">
-            Des annonces à découvrir ici. Visites et suivi dans l&apos;application.
-            Gestion locative et opérationnelle en ligne.
+            Location, vente ou courte durée — des biens disponibles, maintenant.
           </p>
 
           <div className="lp-reveal lp-reveal-delay-3 mt-9 flex flex-col gap-3 sm:flex-row sm:items-center">
             <a href="#properties" className="landing-btn landing-btn-primary">
-              Trouver un bien
+              Voir les biens
             </a>
             <Link href="/login" className="landing-btn landing-btn-ghost">
-              Confier mon patrimoine
+              Espace gestionnaire
             </Link>
           </div>
         </div>
 
-        {/* Property slider */}
-        <div
-          className="lp-reveal lp-reveal-delay-2 relative mx-auto w-full max-w-md lg:mx-0 lg:max-w-none"
-          onMouseEnter={() => setPaused(true)}
-          onMouseLeave={() => setPaused(false)}
-          onFocusCapture={() => setPaused(true)}
-          onBlurCapture={() => setPaused(false)}
-        >
-          <div className="relative min-h-[420px]">
-            {loading ? (
-              <div className="rounded-[var(--lp-radius-xl)] border border-white/10 bg-white/5 p-2">
-                <div className="h-52.5 animate-pulse rounded-[var(--lp-radius-lg)] bg-white/10" />
-                <div className="space-y-3 px-2 pb-2 pt-4">
-                  <div className="h-3 w-2/5 animate-pulse rounded bg-white/10" />
-                  <div className="h-5 w-3/4 animate-pulse rounded bg-white/10" />
+        <div className="lp-reveal lp-reveal-delay-2 w-full">
+          {loading ? (
+            <div className="grid gap-4 sm:grid-cols-2">
+              {[0, 1].map((i) => (
+                <div
+                  key={i}
+                  className="rounded-(--lp-radius-xl) border border-white/10 bg-white/5 p-2"
+                >
+                  <div className="h-52.5 animate-pulse rounded-(--lp-radius-lg) bg-white/10" />
+                  <div className="space-y-3 px-2 pb-2 pt-4">
+                    <div className="h-3 w-2/5 animate-pulse rounded bg-white/10" />
+                    <div className="h-5 w-3/4 animate-pulse rounded bg-white/10" />
+                  </div>
                 </div>
-              </div>
-            ) : current ? (
+              ))}
+            </div>
+          ) : slice.length > 0 ? (
+            <>
               <div
-                key={current.id}
-                className="animate-[lp-rise_0.5s_ease]"
+                className="grid gap-4 sm:grid-cols-2"
                 style={
                   {
-                    /* Cards always read light/premium on the dark hero */
                     '--lp-surface': '#ffffff',
                     '--lp-ink': '#171c21',
                     '--lp-muted': '#8fa9b8',
@@ -136,66 +130,58 @@ export function LandingHero(): React.JSX.Element {
                   } as React.CSSProperties
                 }
               >
-                <LandingPropertyCard
-                  property={current}
-                  placeholderIndex={index}
-                  href="#app"
-                />
-              </div>
-            ) : (
-              <div className="flex min-h-[320px] flex-col items-start justify-center rounded-[var(--lp-radius-xl)] border border-white/10 bg-white/5 px-6 py-10">
-                <p className="text-lg text-(--lp-on-navy)">
-                  De nouveaux biens arrivent bientôt.
-                </p>
-                <a
-                  href="#properties"
-                  className="landing-btn landing-btn-primary mt-6"
-                >
-                  Voir la sélection
-                </a>
-              </div>
-            )}
-          </div>
-
-          {count > 1 ? (
-            <div className="mt-5 flex items-center justify-between gap-4">
-              <div className="flex gap-2" role="tablist" aria-label="Biens">
-                {items.map((item, i) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    role="tab"
-                    aria-selected={i === index}
-                    aria-label={`Bien ${i + 1}`}
-                    onClick={() => setIndex(i)}
-                    className={`h-1.5 rounded-full transition-all ${
-                      i === index
-                        ? 'w-7 bg-(--lp-primary)'
-                        : 'w-1.5 bg-white/25 hover:bg-white/45'
-                    }`}
+                {slice.map((property, i) => (
+                  <LandingPropertyCard
+                    key={property.id}
+                    property={property}
+                    placeholderIndex={offset + i}
+                    href={href}
                   />
                 ))}
+                {slice.length === 1 ? <div className="hidden sm:block" /> : null}
               </div>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  className="landing-btn-icon border-white/20 text-(--lp-on-navy)"
-                  aria-label="Bien précédent"
-                  onClick={() => go(-1)}
-                >
-                  <DashIcon icon="solar:alt-arrow-left-linear" className="size-5" />
-                </button>
-                <button
-                  type="button"
-                  className="landing-btn-icon border-white/20 text-(--lp-on-navy)"
-                  aria-label="Bien suivant"
-                  onClick={() => go(1)}
-                >
-                  <DashIcon icon="solar:alt-arrow-right-linear" className="size-5" />
-                </button>
-              </div>
+              {maxOffset > 0 ? (
+                <div className="mt-5 flex items-center justify-end gap-2">
+                  <button
+                    type="button"
+                    className="landing-btn-icon border-white/20 text-(--lp-on-navy) disabled:opacity-30"
+                    aria-label="Biens précédents"
+                    disabled={offset === 0}
+                    onClick={() => go(-1)}
+                  >
+                    <DashIcon
+                      icon="solar:alt-arrow-left-linear"
+                      className="size-5"
+                    />
+                  </button>
+                  <button
+                    type="button"
+                    className="landing-btn-icon border-white/20 text-(--lp-on-navy) disabled:opacity-30"
+                    aria-label="Biens suivants"
+                    disabled={offset >= maxOffset}
+                    onClick={() => go(1)}
+                  >
+                    <DashIcon
+                      icon="solar:alt-arrow-right-linear"
+                      className="size-5"
+                    />
+                  </button>
+                </div>
+              ) : null}
+            </>
+          ) : (
+            <div className="flex min-h-80 flex-col justify-center rounded-(--lp-radius-xl) border border-white/10 bg-white/5 px-6 py-10">
+              <p className="text-lg text-(--lp-on-navy)">
+                De nouveaux biens arrivent bientôt.
+              </p>
+              <a
+                href="#properties"
+                className="landing-btn landing-btn-primary mt-6 w-fit"
+              >
+                Explorer
+              </a>
             </div>
-          ) : null}
+          )}
         </div>
       </div>
     </section>

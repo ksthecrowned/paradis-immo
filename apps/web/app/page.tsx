@@ -2,12 +2,11 @@ import type { Metadata } from 'next';
 import { Fraunces, Manrope } from 'next/font/google';
 import {
   LandingApp,
+  LandingEditorial,
   LandingFooter,
   LandingHero,
-  LandingJourneys,
   LandingManage,
   LandingNav,
-  LandingProof,
   LandingProperties,
 } from '@/components/landing';
 import './landing.css';
@@ -29,7 +28,7 @@ const sans = Manrope({
 export const metadata: Metadata = {
   title: 'Paradis Immobilier — Découvrir, louer, gérer',
   description:
-    'Écosystème immobilier au Congo : découvrez des biens sur le web, poursuivez votre parcours dans l’application, pilotez votre patrimoine depuis l’espace de gestion.',
+    'Trouvez un bien au Congo. Visites et suivi dans l’application. Gérez votre patrimoine en ligne.',
   icons: {
     icon: '/landing/logo.png',
     apple: '/landing/logo.png',
@@ -37,15 +36,9 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'Paradis Immobilier',
     description:
-      'Trouvez un bien sur le web. Vivez votre parcours dans l’application. Gérez votre patrimoine en ligne.',
+      'Location, vente et gestion immobilière — des biens disponibles, maintenant.',
     locale: 'fr_CG',
     type: 'website',
-  },
-  twitter: {
-    card: 'summary_large_image',
-    title: 'Paradis Immobilier',
-    description:
-      'Écosystème immobilier : découverte web, expérience mobile, gestion patrimoniale.',
   },
 };
 
@@ -53,12 +46,8 @@ const jsonLd = {
   '@context': 'https://schema.org',
   '@type': 'RealEstateAgent',
   name: 'Paradis Immobilier',
-  description:
-    'Écosystème immobilier : découverte de biens, application mobile et espace de gestion patrimoniale.',
-  areaServed: {
-    '@type': 'Country',
-    name: 'Congo',
-  },
+  description: 'Location, vente et gestion immobilière au Congo.',
+  areaServed: { '@type': 'Country', name: 'Congo' },
 };
 
 export default function HomePage(): React.JSX.Element {
@@ -74,8 +63,7 @@ export default function HomePage(): React.JSX.Element {
       <main>
         <LandingHero />
         <LandingProperties />
-        <LandingProof />
-        <LandingJourneys />
+        <LandingEditorial />
         <LandingApp />
         <LandingManage />
       </main>

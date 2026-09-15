@@ -1,11 +1,10 @@
 export { LandingApp } from './landing-app';
+export { LandingEditorial } from './landing-editorial';
 export { LandingFooter } from './landing-footer';
 export { LandingHero } from './landing-hero';
-export { LandingJourneys } from './landing-journeys';
 export { LandingLogo } from './landing-logo';
 export { LandingManage } from './landing-manage';
 export { LandingNav } from './landing-nav';
-export { LandingProof } from './landing-proof';
 export { LandingProperties } from './landing-properties';
 export { LandingPropertyCard } from './landing-property-card';
 export { LandingStoreBadges } from './landing-store-badges';

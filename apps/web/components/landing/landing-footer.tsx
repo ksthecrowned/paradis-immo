@@ -1,3 +1,4 @@
+import { hasStoreLinks } from '@/lib/store-links';
 import Link from 'next/link';
 import { LandingLogo } from './landing-logo';
 
@@ -8,8 +9,7 @@ export function LandingFooter(): React.JSX.Element {
         <div className="max-w-sm">
           <LandingLogo textClassName="!text-(--lp-primary)" />
           <p className="mt-5 text-[15px] leading-relaxed text-(--lp-muted)">
-            Des biens à découvrir. Un parcours dans l&apos;application. La
-            gestion de patrimoine en ligne.
+            Immobilier au Congo — location, vente, gestion.
           </p>
         </div>
 
@@ -23,12 +23,14 @@ export function LandingFooter(): React.JSX.Element {
           >
             Biens
           </a>
-          <a
-            href="/#app"
-            className="text-(--lp-muted) transition-colors hover:text-(--lp-on-navy)"
-          >
-            Application
-          </a>
+          {hasStoreLinks() ? (
+            <a
+              href="/#app"
+              className="text-(--lp-muted) transition-colors hover:text-(--lp-on-navy)"
+            >
+              Application
+            </a>
+          ) : null}
           <Link
             href="/login"
             className="text-(--lp-muted) transition-colors hover:text-(--lp-on-navy)"

@@ -6,6 +6,7 @@ import {
   LandingPropertyCardSkeleton,
 } from '@/components/landing/landing-property-card';
 import { listActiveProperties } from '@/lib/public/properties';
+import { hasStoreLinks } from '@/lib/store-links';
 import {
   propertyLocationLabel,
   type PublicProperty,
@@ -32,6 +33,7 @@ export function LandingProperties(): React.JSX.Element {
   const [query, setQuery] = useState('');
   const [properties, setProperties] = useState<PublicProperty[]>([]);
   const [loading, setLoading] = useState(true);
+  const cardHref = hasStoreLinks() ? '#app' : undefined;
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -48,6 +50,19 @@ export function LandingProperties(): React.JSX.Element {
   useEffect(() => {
     void load();
   }, [load]);
+
+  const cities = useMemo(() => {
+    const set = new Set<string>();
+    for (const p of properties) {
+      try {
+        const city = propertyLocationLabel(p).split(',').pop()?.trim();
+        if (city) set.add(city);
+      } catch {
+        /* ignore */
+      }
+    }
+    return [...set].slice(0, 4);
+  }, [properties]);
 
   const filtered = useMemo(() => {
     const mode = TABS[activeTab]?.mode;
@@ -80,13 +95,22 @@ export function LandingProperties(): React.JSX.Element {
             >
               À découvrir maintenant
             </h2>
-            <p className="mt-4 text-[15px] leading-relaxed text-(--lp-muted) md:text-base">
-              Location, courte durée ou vente — les annonces disponibles du
-              moment.
-            </p>
+            {!loading && properties.length > 0 ? (
+              <p className="mt-3 text-[15px] text-(--lp-muted)">
+                {properties.length}{' '}
+                {properties.length > 1
+                  ? 'biens disponibles'
+                  : 'bien disponible'}
+                {cities.length > 0 ? ` · ${cities.join(' · ')}` : null}
+              </p>
+            ) : (
+              <p className="mt-4 text-[15px] leading-relaxed text-(--lp-muted)">
+                Location, courte durée ou vente.
+              </p>
+            )}
           </div>
 
-          <label className="flex w-full max-w-sm items-center gap-3 rounded-[var(--lp-radius-md)] border border-(--lp-border) bg-(--lp-surface) px-4 py-3">
+          <label className="flex w-full max-w-sm items-center gap-3 rounded-(--lp-radius-md) border border-(--lp-border) bg-(--lp-surface) px-4 py-3">
             <span className="sr-only">Rechercher un bien</span>
             <input
               type="search"
@@ -149,7 +173,7 @@ export function LandingProperties(): React.JSX.Element {
                 key={property.id}
                 property={property}
                 placeholderIndex={index}
-                href="#app"
+                href={cardHref}
               />
             ))}
           </div>
