@@ -4,6 +4,7 @@ export { LandingCta } from './landing-cta';
 export { LandingDownload } from './landing-download';
 export { LandingFooter } from './landing-footer';
 export { LandingHero } from './landing-hero';
+export { LandingLogo } from './landing-logo';
 export { LandingNav } from './landing-nav';
 export { LandingProperties } from './landing-properties';
 export { LandingPropertyCard } from './landing-property-card';

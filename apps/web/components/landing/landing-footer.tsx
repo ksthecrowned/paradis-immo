@@ -66,13 +66,13 @@ const SOCIAL = [
 
 export function LandingFooter(): React.JSX.Element {
   return (
-    <footer className="bg-[var(--lp-surface)]">
+    <footer className="bg-(--lp-surface)">
       <div className="landing-container flex flex-col gap-12 py-16 md:flex-row md:items-start md:justify-between md:gap-16">
         <LandingLogo />
         <div className="grid flex-1 grid-cols-2 gap-x-10 gap-y-10 sm:grid-cols-3">
           {COLUMNS.map((column) => (
             <div key={column.title}>
-              <h3 className="text-xs font-bold tracking-wide text-[var(--lp-ink)]">
+              <h3 className="text-xs font-bold tracking-wide text-(--lp-ink)">
                 {column.title}
               </h3>
               <ul className="mt-4 space-y-2">
@@ -81,14 +81,14 @@ export function LandingFooter(): React.JSX.Element {
                     {link.href.startsWith('/') ? (
                       <Link
                         href={link.href}
-                        className="text-[15px] text-[var(--lp-muted)] transition-colors hover:text-[var(--lp-primary)]"
+                        className="text-[15px] text-(--lp-muted) transition-colors hover:text-(--lp-primary)"
                       >
                         {link.label}
                       </Link>
                     ) : (
                       <a
                         href={link.href}
-                        className="text-[15px] text-[var(--lp-muted)] transition-colors hover:text-[var(--lp-primary)]"
+                        className="text-[15px] text-(--lp-muted) transition-colors hover:text-(--lp-primary)"
                       >
                         {link.label}
                       </a>
@@ -100,9 +100,9 @@ export function LandingFooter(): React.JSX.Element {
           ))}
         </div>
       </div>
-      <div className="border-t border-[var(--lp-border)]">
+      <div className="border-t border-(--lp-border)">
         <div className="landing-container flex flex-col items-center justify-between gap-4 py-6 md:flex-row">
-          <p className="text-sm text-[var(--lp-muted)]">
+          <p className="text-sm text-(--lp-muted)">
             ©{new Date().getFullYear()} Paradis Immo. All rights reserved
           </p>
           <div className="flex items-center gap-5">
@@ -110,7 +110,7 @@ export function LandingFooter(): React.JSX.Element {
               <a
                 key={icon}
                 href="/#hero"
-                className="text-[var(--lp-muted)] transition-colors hover:text-[var(--lp-primary)]"
+                className="text-(--lp-muted) transition-colors hover:text-(--lp-primary)"
                 aria-label="Social link"
               >
                 <DashIcon icon={icon} className="size-5" />
