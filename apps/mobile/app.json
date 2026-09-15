@@ -5,7 +5,7 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "scheme": "paradis-immo",
-    "icon": "./assets/logo-paradis-immo.png",
+    "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
     "android": {
       "googleServicesFile": "./google-services.json",
@@ -16,7 +16,9 @@
       },
       "adaptiveIcon": {
         "backgroundColor": "#F1E6D0",
-        "foregroundImage": "./assets/logo-paradis-immo.png"
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
       "permissions": [
@@ -42,7 +44,7 @@
       }
     },
     "web": {
-      "favicon": "./assets/logo-paradis-immo.png"
+      "favicon": "./assets/favicon.png"
     },
     "plugins": [
       "expo-router",
@@ -59,7 +61,7 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/logo-paradis-immo.png",
+          "image": "./assets/splash-icon.png",
           "resizeMode": "contain",
           "backgroundColor": "#F1E6D0",
           "width": 250,

@@ -15,6 +15,7 @@ const destMobile = join(mobileAssets, 'logo-paradis-immo.png');
 const destResources = join(resourcesDir, 'logo-paradis-immo.png');
 
 const sources = [
+  join(repoRoot, 'apps', 'web', 'public', 'landing', 'logo.png'),
   join(resourcesDir, 'logo-paradis-immo.png'),
   'C:\\Users\\pc\\Downloads\\logo-paradis-immo.png',
   join(process.env.USERPROFILE ?? '', 'Downloads', 'logo-paradis-immo.png'),
