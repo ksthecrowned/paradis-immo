@@ -126,7 +126,7 @@ export function LandingPropertyCard({
             {amenities.map((item) => (
               <span
                 key={item.label}
-                className="inline-flex items-center gap-1 rounded-full border border-(--lp-border) bg-(--lp-bg) px-2.5 py-1.5 text-[11px] font-semibold text-(--lp-muted)"
+                className="inline-flex items-center gap-1 rounded-full border border-(--lp-border) bg-(--lp-primary-muted) px-2.5 py-1.5 text-[11px] font-semibold text-(--lp-muted)"
               >
                 <DashIcon icon={item.icon} className="size-3" />
                 {item.label}

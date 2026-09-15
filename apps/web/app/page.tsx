@@ -7,6 +7,7 @@ import {
   LandingHero,
   LandingManage,
   LandingNav,
+  LandingPaths,
   LandingProperties,
 } from '@/components/landing';
 import './landing.css';
@@ -63,8 +64,9 @@ export default function HomePage(): React.JSX.Element {
       <main>
         <LandingHero />
         <LandingProperties />
-        <LandingEditorial />
+        <LandingPaths />
         <LandingApp />
+        <LandingEditorial />
         <LandingManage />
       </main>
       <LandingFooter />

@@ -38,25 +38,25 @@ html[data-bs-theme="dark"] {
 }
 
 html[data-bs-theme="light"] {
-  /* LIGHT PREMIUM — #F1E6D0 + #171C21 + #D6B77C */
-  --background: #f1e6d0;
+  /* LIGHT PREMIUM — paper white + charcoal; ivoire as soft accent only */
+  --background: #f7f6f3;
   --foreground: #171c21;
 
   --topbar: #ffffff;
   --sidebar: #ffffff;
   --card: #ffffff;
-  --card-hover: #f7efe0;
-  --border: #e5d9c4;
-  --muted: #8fa9b8;
+  --card-hover: #f3efe6;
+  --border: #e6e2da;
+  --muted: #5c6670;
   --active: #171c21;
-  --heading: #5c6b75;
-  --placeholder: #8fa9b8;
-  --search: #f7efe0;
-  --input-border: #e5d9c4;
+  --heading: #3d4650;
+  --placeholder: #8a939c;
+  --search: #f3efe6;
+  --input-border: #e6e2da;
   --input-focus-border: #d6b77c;
   --accent: #d6b77c;
   --accent-light: #e0c794;
-  --accent-muted: rgba(214, 183, 124, 0.2);
+  --accent-muted: rgba(214, 183, 124, 0.18);
   --on-accent: #171c21;
   --success: #1abc9c;
   --warning: #f7b84b;

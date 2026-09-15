@@ -5,6 +5,7 @@ export { LandingHero } from './landing-hero';
 export { LandingLogo } from './landing-logo';
 export { LandingManage } from './landing-manage';
 export { LandingNav } from './landing-nav';
+export { LandingPaths } from './landing-paths';
 export { LandingProperties } from './landing-properties';
 export { LandingPropertyCard } from './landing-property-card';
 export { LandingStoreBadges } from './landing-store-badges';

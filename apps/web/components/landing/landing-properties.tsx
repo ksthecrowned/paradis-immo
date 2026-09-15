@@ -6,7 +6,6 @@ import {
   LandingPropertyCardSkeleton,
 } from '@/components/landing/landing-property-card';
 import { listActiveProperties } from '@/lib/public/properties';
-import { hasStoreLinks } from '@/lib/store-links';
 import {
   propertyLocationLabel,
   type PublicProperty,
@@ -33,7 +32,6 @@ export function LandingProperties(): React.JSX.Element {
   const [query, setQuery] = useState('');
   const [properties, setProperties] = useState<PublicProperty[]>([]);
   const [loading, setLoading] = useState(true);
-  const cardHref = hasStoreLinks() ? '#app' : undefined;
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -173,7 +171,7 @@ export function LandingProperties(): React.JSX.Element {
                 key={property.id}
                 property={property}
                 placeholderIndex={index}
-                href={cardHref}
+                href="#app"
               />
             ))}
           </div>

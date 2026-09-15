@@ -1,18 +1,24 @@
 /* Landing — Paradis Immobilier brand tokens
  * Charbon #171C21 · Champagne #D6B77C · Ivoire #F1E6D0 · Bleu-gris #8FA9B8
+ *
+ * Light: near-white paper + charcoal ink. Ivoire is a soft band accent,
+ * not a full-page wash (avoids muddy cream + cool gray clash).
  */
 
 .landing {
   --lp-primary: #d6b77c;
   --lp-primary-hover: #c4a56a;
   --lp-primary-soft: #efe4cf;
-  --lp-primary-muted: #f5edd9;
+  --lp-primary-muted: #f3efe6;
   --lp-navy: #171c21;
   --lp-ink: #171c21;
-  --lp-muted: #8fa9b8;
-  --lp-border: #e5d9c4;
+  /* Slate from charcoal — readable on white; bleu-gris kept for cool accents */
+  --lp-muted: #5c6670;
+  --lp-cool: #8fa9b8;
+  --lp-border: #e6e2da;
   --lp-surface: #ffffff;
-  --lp-bg: #f1e6d0;
+  --lp-bg: #f7f6f3;
+  --lp-bg-soft: #f1e6d0;
   --lp-bg-hero: #171c21;
   --lp-search: #ffffff;
   --lp-on-primary: #171c21;
@@ -26,8 +32,9 @@
   --lp-radius-lg: 16px;
   --lp-radius-xl: 20px;
   --lp-radius-full: 9999px;
-  --lp-shadow-card: 0 4px 24px rgba(23, 28, 33, 0.06);
-  --lp-shadow-float: 0 18px 48px rgba(23, 28, 33, 0.14);
+  --lp-shadow-card: 0 1px 2px rgba(23, 28, 33, 0.04),
+    0 8px 28px rgba(23, 28, 33, 0.06);
+  --lp-shadow-float: 0 18px 48px rgba(23, 28, 33, 0.12);
   --lp-container: 1180px;
   --lp-pad-x: 40px;
 
@@ -49,9 +56,11 @@ html[data-bs-theme='dark'] .landing {
   --lp-navy: #171c21;
   --lp-ink: #f1e6d0;
   --lp-muted: #8fa9b8;
+  --lp-cool: #8fa9b8;
   --lp-border: #2a323a;
   --lp-surface: #1d2329;
   --lp-bg: #171c21;
+  --lp-bg-soft: #1a2026;
   --lp-bg-hero: #171c21;
   --lp-search: #232a31;
   --lp-on-primary: #171c21;
@@ -153,8 +162,9 @@ html[data-bs-theme='dark'] .landing {
 }
 
 .landing-btn-outline:hover {
-  border-color: var(--lp-primary);
-  color: var(--lp-primary);
+  border-color: var(--lp-ink);
+  color: var(--lp-ink);
+  background: color-mix(in srgb, var(--lp-ink) 4%, transparent);
 }
 
 .landing-header {
@@ -163,10 +173,16 @@ html[data-bs-theme='dark'] .landing {
 }
 
 .landing-header-scrolled {
-  background: color-mix(in srgb, var(--lp-bg) 90%, transparent);
+  background: color-mix(in srgb, var(--lp-surface) 88%, transparent);
   border-bottom-color: var(--lp-border);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
+}
+
+/* Over dark hero: keep a dark frosted bar so light-mode ink never washes out */
+.landing-header-on-hero.landing-header-scrolled {
+  background: color-mix(in srgb, #171c21 86%, transparent);
+  border-bottom-color: rgba(241, 230, 208, 0.1);
 }
 
 .landing-header-on-hero {
@@ -182,7 +198,7 @@ html[data-bs-theme='dark'] .landing {
   color: var(--lp-primary);
 }
 
-.landing-header-on-hero:not(.landing-header-scrolled) .landing-logo-mark span {
+.landing-header-on-hero .landing-logo-mark span {
   color: var(--lp-primary) !important;
 }
 
@@ -231,20 +247,37 @@ html[data-bs-theme='dark'] .landing {
   outline-offset: 2px;
 }
 
-.landing-header-on-hero:not(.landing-header-scrolled) .landing-btn-icon {
+.landing-header-on-hero .landing-btn-icon {
   border-color: color-mix(in srgb, var(--lp-on-navy) 28%, transparent);
   color: var(--lp-on-navy);
 }
 
-.landing-header-on-hero:not(.landing-header-scrolled) .landing-btn-outline {
+.landing-header-on-hero .landing-btn-icon:hover {
+  border-color: var(--lp-primary);
+  color: var(--lp-on-navy);
+  background: color-mix(in srgb, var(--lp-on-navy) 8%, transparent);
+}
+
+.landing-header-on-hero .landing-btn-outline {
   color: var(--lp-on-navy);
   border-color: color-mix(in srgb, var(--lp-on-navy) 35%, transparent);
 }
 
-.landing-header-on-hero:not(.landing-header-scrolled) .landing-btn-outline:hover {
+.landing-header-on-hero .landing-btn-outline:hover {
   border-color: var(--lp-primary);
   color: var(--lp-primary);
   background: transparent;
+}
+
+/* Property cards — light needs a hair of depth on paper */
+.landing article > a,
+.landing article > div:first-child {
+  box-shadow: var(--lp-shadow-card);
+}
+
+html[data-bs-theme='dark'] .landing article > a,
+html[data-bs-theme='dark'] .landing article > div:first-child {
+  box-shadow: none;
 }
 
 /* Motion — discreet reveals */
@@ -297,4 +330,100 @@ html[data-bs-theme='dark'] .landing {
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--lp-primary);
+}
+
+/* Subtle film grain on dark stages */
+.landing-grain {
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.55'/%3E%3C/svg%3E");
+  background-size: 180px 180px;
+  mix-blend-mode: overlay;
+}
+
+/* Phone device — App CTA */
+.landing-phone {
+  perspective: 1200px;
+}
+
+.landing-phone-bezel {
+  position: relative;
+  border-radius: 36px;
+  padding: 10px;
+  background: linear-gradient(160deg, #2a323a 0%, #12161a 55%, #1a2026 100%);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.08),
+    0 28px 60px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  transform: rotateY(-6deg) rotateX(2deg);
+  transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@media (hover: hover) {
+  .landing-phone:hover .landing-phone-bezel {
+    transform: rotateY(-2deg) rotateX(0deg) translateY(-4px);
+  }
+}
+
+.landing-phone-notch {
+  position: absolute;
+  top: 18px;
+  left: 50%;
+  z-index: 2;
+  height: 22px;
+  width: 96px;
+  transform: translateX(-50%);
+  border-radius: 999px;
+  background: #0a0c0e;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
+.landing-phone-screen {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 28px;
+  background: #171c21;
+  min-height: 560px;
+  aspect-ratio: 9 / 19.2;
+}
+
+@media (max-width: 1023px) {
+  .landing-phone-bezel {
+    transform: none;
+  }
+  .landing-phone-screen {
+    min-height: 480px;
+  }
+}
+
+.landing-store-badge-soon {
+  opacity: 0.78;
+  filter: grayscale(0.12);
+}
+
+.landing-store-badge-img {
+  display: block;
+  object-fit: contain;
+  object-position: center;
+}
+
+.landing-path-card {
+  text-decoration: none;
+  transition:
+    transform 0.25s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.25s ease;
+}
+
+@media (hover: hover) {
+  .landing-path-card:hover {
+    transform: translateY(-3px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-phone-bezel,
+  .landing-path-card {
+    transition: none;
+    transform: none !important;
+  }
 }

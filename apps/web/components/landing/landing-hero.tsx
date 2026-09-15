@@ -4,7 +4,6 @@ import { useCallback, useEffect, useState } from 'react';
 import { LandingPropertyCard } from '@/components/landing/landing-property-card';
 import { DashIcon } from '@/components/dash-icon';
 import { listActiveProperties } from '@/lib/public/properties';
-import { hasStoreLinks } from '@/lib/store-links';
 import type { PublicProperty } from '@/lib/owner/properties';
 import Link from 'next/link';
 
@@ -15,10 +14,6 @@ function isDiscoverable(property: PublicProperty): boolean {
     status === 'AVAILABLE' ||
     status === 'AVAILABLE_SOON'
   );
-}
-
-function cardHref(): string | undefined {
-  return hasStoreLinks() ? '#app' : undefined;
 }
 
 /**
@@ -58,7 +53,6 @@ export function LandingHero(): React.JSX.Element {
   );
 
   const slice = items.slice(offset, offset + visible);
-  const href = cardHref();
 
   return (
     <section
@@ -84,7 +78,7 @@ export function LandingHero(): React.JSX.Element {
             <br />
             sans le chaos.
           </h1>
-          <p className="lp-reveal lp-reveal-delay-2 mt-5 max-w-md text-base leading-relaxed text-(--lp-muted) md:text-lg">
+          <p className="lp-reveal lp-reveal-delay-2 mt-5 max-w-md text-base leading-relaxed text-(--lp-cool) md:text-lg">
             Location, vente ou courte durée — des biens disponibles, maintenant.
           </p>
 
@@ -92,10 +86,19 @@ export function LandingHero(): React.JSX.Element {
             <a href="#properties" className="landing-btn landing-btn-primary">
               Voir les biens
             </a>
-            <Link href="/login" className="landing-btn landing-btn-ghost">
+            <a href="#app" className="landing-btn landing-btn-ghost">
+              Télécharger l&apos;app
+            </a>
+          </div>
+          <p className="lp-reveal lp-reveal-delay-3 mt-4 text-[13px] text-white/45">
+            Propriétaire ou agent ?{' '}
+            <Link
+              href="/login"
+              className="font-semibold text-(--lp-primary) underline-offset-2 hover:underline"
+            >
               Espace gestionnaire
             </Link>
-          </div>
+          </p>
         </div>
 
         <div className="lp-reveal lp-reveal-delay-2 w-full">
@@ -135,7 +138,7 @@ export function LandingHero(): React.JSX.Element {
                     key={property.id}
                     property={property}
                     placeholderIndex={offset + i}
-                    href={href}
+                    href="#app"
                   />
                 ))}
                 {slice.length === 1 ? <div className="hidden sm:block" /> : null}

@@ -3,27 +3,22 @@
 import { DashIcon } from '@/components/dash-icon';
 import { useTheme } from '@/components/theme-provider';
 import { DASH_ICONS } from '@/lib/dash-icons';
-import { hasStoreLinks } from '@/lib/store-links';
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { LandingLogo } from './landing-logo';
+
+const LINKS = [
+  { label: 'Biens', href: '#properties' },
+  { label: 'Plateforme', href: '#paths' },
+  { label: 'Application', href: '#app' },
+  { label: 'Gestion', href: '#manage' },
+] as const;
 
 export function LandingNav(): React.JSX.Element {
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [onHero, setOnHero] = useState(true);
   const { theme, toggleTheme } = useTheme();
-
-  const links = useMemo(() => {
-    const base = [
-      { label: 'Biens', href: '#properties' },
-      { label: 'Gestion', href: '#manage' },
-    ];
-    if (hasStoreLinks()) {
-      base.splice(1, 0, { label: 'Application', href: '#app' });
-    }
-    return base;
-  }, []);
 
   useEffect(() => {
     const onScroll = (): void => {
@@ -59,10 +54,10 @@ export function LandingNav(): React.JSX.Element {
         <LandingLogo className="landing-logo-mark" />
 
         <nav
-          className="hidden items-center gap-9 lg:flex"
+          className="hidden items-center gap-8 xl:flex"
           aria-label="Navigation principale"
         >
-          {links.map((link) => (
+          {LINKS.map((link) => (
             <a key={link.href} href={link.href} className="landing-nav-link">
               {link.label}
             </a>
@@ -113,7 +108,7 @@ export function LandingNav(): React.JSX.Element {
       {open ? (
         <div className="border-t border-[var(--lp-border)] bg-[var(--lp-bg)] px-5 py-5 lg:hidden">
           <nav className="flex flex-col gap-1" aria-label="Navigation mobile">
-            {links.map((link) => (
+            {LINKS.map((link) => (
               <a
                 key={link.href}
                 href={link.href}
