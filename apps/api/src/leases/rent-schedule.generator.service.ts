@@ -13,8 +13,8 @@ export class RentScheduleGenerator {
 
   /**
    * Persist the rent schedule for a freshly-activated lease. Uses
-   * `skipDuplicates: true` plus the `@@unique([leaseId, dueDate])` index so
-   * re-runs are no-ops.
+   * `skipDuplicates: true` plus the `@@unique([leaseId, dueDate, kind])` index
+   * so re-runs are no-ops.
    */
   async generateForLease(
     leaseId: string,
@@ -29,6 +29,11 @@ export class RentScheduleGenerator {
         dueDate: e.dueDate,
         amount: e.amount,
         currency: e.currency,
+        kind: e.kind,
+        rentPart: e.rentPart,
+        chargesPart: e.chargesPart,
+        periodStart: e.periodStart,
+        periodEnd: e.periodEnd,
       })),
       skipDuplicates: true,
     });

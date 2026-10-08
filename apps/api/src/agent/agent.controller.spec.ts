@@ -155,6 +155,7 @@ describe('Agent stats (e2e)', () => {
         organizationId: agencyOrgId,
         assignedAgentId,
         status: 'ACTIVE',
+        proposedById: ownerUserId,
       },
     });
     mandateId = mandate.id;

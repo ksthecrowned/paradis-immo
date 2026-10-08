@@ -1,33 +1,115 @@
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
+  IsBoolean,
   IsDate,
+  IsIn,
+  IsInt,
   IsNumber,
   IsOptional,
   IsString,
   Length,
   Matches,
+  Max,
   Min,
-  ValidateIf,
 } from 'class-validator';
 
-export class CreateLeaseDto {
+/** Contractual terms shared by create and update (spec 04). */
+export class LeaseTermsDto {
+  /** Day of month the rent is due (1-28). */
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(28)
+  dueDay?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  chargesAmount?: number;
+
+  @IsOptional()
+  @IsIn(['FLAT', 'PROVISION'])
+  chargesMode?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @Max(24)
+  noticeMonthsTenant?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @Max(24)
+  noticeMonthsLandlord?: number;
+
+  /** Annual indexation rate, e.g. 0.03 for +3 %. */
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(-1)
+  @Max(1)
+  indexationRate?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @Max(60)
+  lateFeeAfterDays?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  lateFeeAmount?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  lateFeeRate?: number;
+
+  @IsOptional()
+  @Transform(({ value }) => value === true || value === 'true' || value === '1')
+  @IsBoolean()
+  autoRenew?: boolean;
+
+  @IsOptional()
+  @IsString()
+  templateId?: string;
+}
+
+export class CreateLeaseDto extends LeaseTermsDto {
   @IsString()
   propertyId!: string;
 
-  /** Preferred: resolve the tenant by E.164 phone. */
+  /**
+   * Phone of the tenant. Known accounts are linked; unknown numbers are only
+   * stored as `invitedPhone` — no silent `User` creation (spec 04).
+   */
+  @IsOptional()
+  @IsString()
+  @Matches(/^\+\d{7,15}$/)
+  invitedPhone?: string;
+
+  /** Backward-compatible alias of `invitedPhone`. */
   @IsOptional()
   @IsString()
   @Matches(/^\+\d{7,15}$/)
   tenantPhone?: string;
 
-  /** Display name — required when creating a tenant that has no account yet. */
+  /** Display name of the invited tenant. */
   @IsOptional()
   @IsString()
   @Length(2, 120)
   tenantName?: string;
 
-  /** Legacy: direct user id. Required when tenantPhone is omitted. */
-  @ValidateIf((o: CreateLeaseDto) => !o.tenantPhone)
+  @IsOptional()
   @IsString()
   tenantId?: string;
 
@@ -54,7 +136,12 @@ export class CreateLeaseDto {
   currency!: string;
 }
 
-export class UpdateLeaseDto {
+export class UpdateLeaseDto extends LeaseTermsDto {
+  @IsOptional()
+  @IsString()
+  @Matches(/^\+\d{7,15}$/)
+  invitedPhone?: string;
+
   @IsOptional()
   @IsString()
   @Matches(/^\+\d{7,15}$/)

@@ -123,6 +123,7 @@ describe('AgencyAccessService', () => {
         organizationId: agencyOrgId,
         status: 'ACTIVE',
         assignedAgentId,
+        proposedById: ownerUserId,
       },
     });
     mandateId = mandate.id;

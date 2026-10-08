@@ -17,6 +17,8 @@ export type SolvencySnapshotItem = {
 export type PublicSolvencyCheck = {
   id: string;
   tenantUserId: string;
+  /** Spec 04 — set when the check targets a rental application. */
+  applicationId: string | null;
   requesterOrgId: string;
   organizationName: string;
   status: SolvencyCheckStatus;

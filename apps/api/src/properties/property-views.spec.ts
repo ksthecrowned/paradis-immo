@@ -14,7 +14,7 @@ describe('Property views (e2e)', () => {
   const visitorId = 'user_views_visitor';
   const propertyId = 'prop_views_test';
   const draftPropertyId = 'prop_views_draft';
-  let organizationId: string;
+  const organizationId = 'org_views_test';
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
@@ -50,10 +50,23 @@ describe('Property views (e2e)', () => {
       });
     }
 
-    const org = await prisma.organization.findFirstOrThrow({
-      where: { countryId: cg.id },
+    // Dedicated org: picking an arbitrary shared one (findFirstOrThrow)
+    // races with other suites creating/deleting orgs in the same database.
+    await prisma.organization.upsert({
+      where: { id: organizationId },
+      create: {
+        id: organizationId,
+        name: 'Property Views Test Org',
+        type: 'AGENCY',
+        countryId: cg.id,
+      },
+      update: {},
     });
-    organizationId = org.id;
+    // Drop memberships left in other orgs by previous crashed runs, otherwise
+    // the user cleanup below trips OrganizationMember_userId_fkey RESTRICT.
+    await prisma.organizationMember.deleteMany({
+      where: { userId: { in: [ownerId, memberId, visitorId] } },
+    });
     await prisma.organizationMember.upsert({
       where: {
         userId_organizationId: { userId: memberId, organizationId },
@@ -84,7 +97,7 @@ describe('Property views (e2e)', () => {
           address: 'test',
           countryId: cg.id,
         },
-        update: { status },
+        update: { status, organizationId },
       });
     }
 
@@ -94,20 +107,24 @@ describe('Property views (e2e)', () => {
   });
 
   afterAll(async () => {
-    await prisma.propertyView.deleteMany({
-      where: { propertyId: { in: [propertyId, draftPropertyId] } },
-    });
-    await prisma.property.deleteMany({
-      where: { id: { in: [propertyId, draftPropertyId] } },
-    });
-    await prisma.organizationMember.deleteMany({
-      where: { userId: memberId, organizationId },
-    });
-    await prisma.user.deleteMany({
-      where: { id: { in: [ownerId, memberId, visitorId] } },
-    });
-    await app.close();
-    await prisma.onModuleDestroy();
+    // beforeAll may have failed midway: only touch rows this spec owns.
+    if (prisma) {
+      await prisma.propertyView.deleteMany({
+        where: { propertyId: { in: [propertyId, draftPropertyId] } },
+      });
+      await prisma.property.deleteMany({
+        where: { id: { in: [propertyId, draftPropertyId] } },
+      });
+      await prisma.organizationMember.deleteMany({
+        where: { userId: { in: [ownerId, memberId, visitorId] } },
+      });
+      await prisma.organization.deleteMany({ where: { id: organizationId } });
+      await prisma.user.deleteMany({
+        where: { id: { in: [ownerId, memberId, visitorId] } },
+      });
+    }
+    if (app) await app.close();
+    if (prisma) await prisma.onModuleDestroy();
   });
 
   it('counts an anonymous device view once per day', async () => {

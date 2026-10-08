@@ -52,3 +52,8 @@ Thumbs.db
 .pnpm-lock.yaml
 
 .vercel
+
+# Aiola (auto-generated)
+.mcp.json
+.aiola/
+.cursor/mcp.json

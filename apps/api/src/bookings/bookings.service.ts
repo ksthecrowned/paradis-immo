@@ -175,13 +175,8 @@ export class BookingsService {
       return b;
     });
 
-    await this.events.emit(DOMAIN_EVENTS.PAYMENT_INITIATED, {
-      paymentId: booking.id, // placeholder until Task 16
-      userId: guestUserId,
-      amount: totalPrice.toString(),
-      currency,
-    });
-
+    // Spec 05 — PAYMENT_INITIATED est émis par PaymentsService avec le
+    // vrai paymentId (plus de placeholder portant l'id du booking).
     return this.toPublic(booking);
   }
 

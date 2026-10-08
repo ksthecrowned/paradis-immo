@@ -39,6 +39,8 @@ export class TenantsService {
     const byTenant = new Map<string, ManagedTenantListItem>();
     for (const lease of leases) {
       const t = lease.tenant;
+      // Leases with only an invited phone have no tenant account yet.
+      if (!t) continue;
       let row = byTenant.get(t.id);
       if (!row) {
         row = {
@@ -103,6 +105,12 @@ export class TenantsService {
     }
 
     const tenant = leases[0].tenant;
+    if (!tenant) {
+      throw new NotFoundException({
+        code: 'TENANT_NOT_FOUND',
+        message: 'Locataire introuvable sur vos biens',
+      });
+    }
     const leaseDetails: ManagedTenantLeaseDetail[] = [];
     let activeLeaseCount = 0;
 

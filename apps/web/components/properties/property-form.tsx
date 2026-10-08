@@ -648,16 +648,21 @@ export function PropertyForm({
       try {
         const user = await lookupUserByPhone(e164);
         if (cancelled) return;
-        setOwnerPreview({ name: user.name, phone: user.phone });
-        setOwnerLookupHint(null);
-        if (user.name && !form.values.ownerName.trim()) {
-          form.setField('ownerName', user.name);
+        if (user.exists) {
+          // Masked name only (spec 01) — never prefilled into ownerName.
+          setOwnerPreview({ name: user.displayName, phone: user.phone });
+          setOwnerLookupHint(null);
+        } else {
+          setOwnerPreview(null);
+          setOwnerLookupHint(
+            'Aucun compte trouvé — un profil propriétaire minimal sera créé.',
+          );
         }
       } catch {
         if (cancelled) return;
         setOwnerPreview(null);
         setOwnerLookupHint(
-          'Aucun compte trouvé — un profil propriétaire minimal sera créé.',
+          'Recherche indisponible — un profil propriétaire minimal sera créé.',
         );
       }
     })();

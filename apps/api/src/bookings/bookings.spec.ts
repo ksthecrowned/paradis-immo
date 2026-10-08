@@ -42,9 +42,35 @@ describe('BookingsService — short-term', () => {
     if (!quartier) throw new Error('Run seed first');
     bzvQuartierId = quartier.id;
 
-    await prisma.user.deleteMany({
+    const stale = await prisma.user.findMany({
       where: { phone: { in: ['+242073333333', '+242076666666'] } },
+      select: { id: true },
     });
+    const staleIds = stale.map((u) => u.id);
+    if (staleIds.length) {
+      await prisma.booking.deleteMany({ where: { userId: { in: staleIds } } });
+      const staleProps = await prisma.property.findMany({
+        where: { ownerId: { in: staleIds } },
+        select: { id: true },
+      });
+      const stalePropIds = staleProps.map((p) => p.id);
+      if (stalePropIds.length) {
+        await prisma.booking.deleteMany({
+          where: { propertyId: { in: stalePropIds } },
+        });
+        await prisma.availabilityBlock.deleteMany({
+          where: { propertyId: { in: stalePropIds } },
+        });
+        await prisma.property.deleteMany({
+          where: { id: { in: stalePropIds } },
+        });
+      }
+      await prisma.organizationMember.deleteMany({
+        where: { userId: { in: staleIds } },
+      });
+      await prisma.userRole.deleteMany({ where: { userId: { in: staleIds } } });
+      await prisma.user.deleteMany({ where: { id: { in: staleIds } } });
+    }
     const owner = await prisma.user.create({
       data: {
         phone: '+242073333333',
@@ -112,37 +138,28 @@ describe('BookingsService — short-term', () => {
         .deleteMany({ where: { id: { in: createdBookingIds } } })
         .catch(() => undefined);
     }
-    await prisma.availabilityBlock
-      .deleteMany({
-        where: { propertyId: { in: [shortPropertyId, longPropertyId] } },
-      })
-      .catch(() => undefined);
-    await prisma.property
-      .deleteMany({ where: { id: shortPropertyId } })
-      .catch(() => undefined);
-    await prisma.property
-      .deleteMany({ where: { id: longPropertyId } })
-      .catch(() => undefined);
-    await prisma.organizationMember.deleteMany({
-      where: { userId: ownerUserId },
-    });
-    await prisma.organizationMember.deleteMany({
-      where: { userId: tenantUserId },
-    });
-    await prisma.organization
-      .deleteMany({
-        where: {
-          OR: [
-            { members: { some: { userId: ownerUserId } } },
-            { members: { some: { userId: tenantUserId } } },
-          ],
-        },
-      })
-      .catch(() => undefined);
-    await prisma.userRole.deleteMany({ where: { userId: ownerUserId } });
-    await prisma.userRole.deleteMany({ where: { userId: tenantUserId } });
-    await prisma.user.deleteMany({ where: { id: ownerUserId } });
-    await prisma.user.deleteMany({ where: { id: tenantUserId } });
+    const propIds = [shortPropertyId, longPropertyId].filter(Boolean);
+    if (propIds.length) {
+      await prisma.availabilityBlock
+        .deleteMany({ where: { propertyId: { in: propIds } } })
+        .catch(() => undefined);
+      await prisma.property
+        .deleteMany({ where: { id: { in: propIds } } })
+        .catch(() => undefined);
+    }
+    const userIds = [ownerUserId, tenantUserId].filter(Boolean);
+    if (userIds.length) {
+      await prisma.organizationMember.deleteMany({
+        where: { userId: { in: userIds } },
+      });
+      await prisma.organization
+        .deleteMany({
+          where: { members: { some: { userId: { in: userIds } } } },
+        })
+        .catch(() => undefined);
+      await prisma.userRole.deleteMany({ where: { userId: { in: userIds } } });
+      await prisma.user.deleteMany({ where: { id: { in: userIds } } });
+    }
     await prisma.onModuleDestroy();
   });
 

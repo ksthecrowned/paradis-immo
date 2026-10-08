@@ -80,15 +80,23 @@ describe('Properties on-behalf create (e2e)', () => {
       await prisma.property.deleteMany({
         where: { ownerId: { in: leftoverIds } },
       });
+      const leftoverOrgIds = (
+        await prisma.organization.findMany({
+          where: {
+            type: OrganizationType.OWNER,
+            members: { some: { userId: { in: leftoverIds } } },
+          },
+          select: { id: true },
+        })
+      ).map((o) => o.id);
       await prisma.organizationMember.deleteMany({
         where: { userId: { in: leftoverIds } },
       });
-      await prisma.organization.deleteMany({
-        where: {
-          type: OrganizationType.OWNER,
-          members: { some: { userId: { in: leftoverIds } } },
-        },
-      });
+      if (leftoverOrgIds.length) {
+        await prisma.organization.deleteMany({
+          where: { id: { in: leftoverOrgIds } },
+        });
+      }
       await prisma.userRole.deleteMany({
         where: { userId: { in: leftoverIds } },
       });
@@ -145,6 +153,36 @@ describe('Properties on-behalf create (e2e)', () => {
       },
     });
     ownerUserId = owner.id;
+
+    // OWNER organizations are invitation-only now (spec 02): the fixture
+    // grants one the way an accepted admin invitation would.
+    await prisma.organization.create({
+      data: {
+        name: `OnBehalf Owner ${ownerUserId.slice(0, 8)}`,
+        type: 'OWNER',
+        countryId,
+        members: { create: { userId: ownerUserId, role: 'OWNER' } },
+      },
+    });
+
+    // The phone-resolved owner must exist *and* have been opened by an admin,
+    // otherwise the on-behalf create is refused (OWNER_ORG_REQUIRED).
+    const phoneOwner = await prisma.user.create({
+      data: {
+        phone: '+242076010099',
+        name: 'Nouveau Owner',
+        countryId,
+        roles: { create: { role: 'TENANT' } },
+      },
+    });
+    await prisma.organization.create({
+      data: {
+        name: `OnBehalf Phone Owner ${phoneOwner.id.slice(0, 8)}`,
+        type: 'OWNER',
+        countryId,
+        members: { create: { userId: phoneOwner.id, role: 'OWNER' } },
+      },
+    });
   });
 
   afterAll(async () => {
@@ -164,15 +202,24 @@ describe('Properties on-behalf create (e2e)', () => {
       await prisma.organization.deleteMany({ where: { id: agencyOrgId } });
     }
     if (ownerUserId) {
+      // Capture ids first: dropping the member makes the filter match nothing.
+      const ownerOrgIds = (
+        await prisma.organization.findMany({
+          where: {
+            members: { some: { userId: ownerUserId } },
+            type: 'OWNER',
+          },
+          select: { id: true },
+        })
+      ).map((o) => o.id);
       await prisma.organizationMember.deleteMany({
         where: { userId: ownerUserId },
       });
-      await prisma.organization.deleteMany({
-        where: {
-          members: { some: { userId: ownerUserId } },
-          type: 'OWNER',
-        },
-      });
+      if (ownerOrgIds.length) {
+        await prisma.organization.deleteMany({
+          where: { id: { in: ownerOrgIds } },
+        });
+      }
     }
     const orphan = await prisma.user.findFirst({
       where: { phone: '+242076010099' },
@@ -182,12 +229,23 @@ describe('Properties on-behalf create (e2e)', () => {
         where: { property: { ownerId: orphan.id } },
       });
       await prisma.property.deleteMany({ where: { ownerId: orphan.id } });
+      const orphanOrgIds = (
+        await prisma.organization.findMany({
+          where: {
+            members: { some: { userId: orphan.id } },
+            type: 'OWNER',
+          },
+          select: { id: true },
+        })
+      ).map((o) => o.id);
       await prisma.organizationMember.deleteMany({
         where: { userId: orphan.id },
       });
-      await prisma.organization.deleteMany({
-        where: { members: { some: { userId: orphan.id } }, type: 'OWNER' },
-      });
+      if (orphanOrgIds.length) {
+        await prisma.organization.deleteMany({
+          where: { id: { in: orphanOrgIds } },
+        });
+      }
       await prisma.userRole.deleteMany({ where: { userId: orphan.id } });
       await prisma.user.delete({ where: { id: orphan.id } });
     }

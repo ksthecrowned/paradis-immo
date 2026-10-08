@@ -1,5 +1,6 @@
 import { IsEmail, IsIn, IsString, MinLength } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import { DeviceContextDto } from './device-context.dto';
 
 export class WebRegisterDto {
   @ApiProperty({ example: 'owner@example.com' })
@@ -7,7 +8,7 @@ export class WebRegisterDto {
   email!: string;
 }
 
-export class WebMagicConsumeDto {
+export class WebMagicConsumeDto extends DeviceContextDto {
   @ApiProperty()
   @IsString()
   @MinLength(20)
@@ -19,7 +20,7 @@ export class WebMagicConsumeDto {
   password!: string;
 }
 
-export class WebLoginDto {
+export class WebLoginDto extends DeviceContextDto {
   @ApiProperty()
   @IsEmail()
   email!: string;
@@ -30,14 +31,14 @@ export class WebLoginDto {
   password!: string;
 }
 
-export class WebGoogleDto {
+export class WebGoogleDto extends DeviceContextDto {
   @ApiProperty()
   @IsString()
   @MinLength(20)
   idToken!: string;
 }
 
-export class WebRoleDto {
+export class WebRoleDto extends DeviceContextDto {
   @ApiProperty({ enum: ['OWNER', 'AGENT'] })
   @IsIn(['OWNER', 'AGENT'])
   role!: 'OWNER' | 'AGENT';

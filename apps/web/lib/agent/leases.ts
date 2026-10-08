@@ -1,46 +1,60 @@
 import { apiFetch } from '@/lib/api';
+export {
+  getLeaseDeposit,
+  proposeDeduction,
+  settleDeposit,
+  updateDeduction,
+  deductionStatusLabel,
+  deductionStatusTone,
+} from '@/lib/owner/deposits';
+export type {
+  PublicDepositDeduction,
+  PublicDepositSettlement,
+  PublicDepositSummary,
+} from '@/lib/owner/deposits';
+import {
+  listManagedLeases,
+  type CreateLeaseInput,
+  type LeaseStatus,
+  type ManagedLeasesFilter,
+  type PublicLease,
+  type UpdateLeaseInput,
+} from '@/lib/owner/leases';
 
-export type PublicLease = {
-  id: string;
-  propertyId: string;
-  tenantId: string;
-  startDate: string;
-  endDate: string;
-  monthlyRent: string;
-  deposit: string;
-  currency: string;
-  status: string;
-  createdAt: string;
-  mandateApprovalId?: string;
+export type {
+  CreateLeaseInput,
+  LeaseStatus,
+  PublicLease,
+  UpdateLeaseInput,
 };
+export {
+  activateLease,
+  cancelLease,
+  closeLease,
+  leaseStatusLabel,
+  leaseStatusTone,
+  rentScheduleStatusLabel,
+  rentScheduleStatusTone,
+  scheduleBalance,
+  sendLeaseForSignature,
+  signLease,
+  terminateLease,
+  withdrawTermination,
+} from '@/lib/owner/leases';
 
-export type CreateLeaseInput = {
-  propertyId: string;
-  tenantPhone?: string;
-  tenantName?: string;
-  tenantId?: string;
-  startDate: string;
-  endDate: string;
-  monthlyRent: number;
-  deposit: number;
-  currency: string;
-};
-
-export async function createLease(input: CreateLeaseInput): Promise<PublicLease> {
-  return apiFetch<PublicLease>('/leases', {
-    method: 'POST',
-    body: input,
-  });
-}
-
-export async function activateLease(leaseId: string): Promise<PublicLease> {
-  return apiFetch<PublicLease>(`/leases/${leaseId}/activate`, {
-    method: 'PATCH',
-  });
-}
-
-export async function listManagedLeases(): Promise<PublicLease[]> {
-  return apiFetch<PublicLease[]>('/leases/managed');
+/** Paginated managed leases (spec 04). */
+export async function listManagedLeasesPage(
+  filter: ManagedLeasesFilter = {},
+): Promise<{
+  data: PublicLease[];
+  meta: {
+    total: number;
+    page: number;
+    pageSize: number;
+    totalPages: number;
+  };
+}> {
+  return listManagedLeases(filter);
 }
 
 export async function requestLeaseSign(leaseId: string): Promise<{

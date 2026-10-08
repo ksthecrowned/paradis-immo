@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { S3Client } from '@aws-sdk/client-s3';
 import { PrismaModule } from '../prisma/prisma.module';
 import { MandatesModule } from '../mandates/mandates.module';
@@ -35,7 +35,9 @@ function makeR2Client(): S3Client {
 }
 
 @Module({
-  imports: [PrismaModule, MandatesModule],
+  // MandatesModule pulls R2 for generated amendment PDFs (spec 03), which
+  // closes the cycle — forwardRef on both sides makes Nest resolve it.
+  imports: [PrismaModule, forwardRef(() => MandatesModule)],
   controllers: [MediaController, DocumentsController],
   providers: [
     MediaService,

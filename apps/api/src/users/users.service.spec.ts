@@ -72,7 +72,7 @@ describe('UsersService', () => {
     expect(me.id).toBe(userId);
     expect(me.phone).toBe(phone);
     expect(me.roles).toContain('TENANT');
-    expect(me.notificationChannel).toBe('PUSH');
+    expect(me.notificationChannel).toBe('WHATSAPP');
   });
 
   it('getMe throws 404 for unknown user', async () => {
@@ -104,6 +104,15 @@ describe('UsersService', () => {
     expect(updated.notificationChannel).toBe('SMS');
     const again = await users.getMe(userId);
     expect(again.notificationChannel).toBe('SMS');
+  });
+
+  it('updateMe keeps an explicit PUSH preference (WhatsApp is only the default)', async () => {
+    const updated = await users.updateMe(userId, {
+      notificationChannel: 'PUSH',
+    });
+    expect(updated.notificationChannel).toBe('PUSH');
+    const again = await users.getMe(userId);
+    expect(again.notificationChannel).toBe('PUSH');
   });
 
   it('listMyOrganizations returns [] when user has none', async () => {

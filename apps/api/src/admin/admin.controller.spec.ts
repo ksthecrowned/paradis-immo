@@ -72,18 +72,49 @@ describe('Admin (e2e)', () => {
       await prisma.notification
         .deleteMany({ where: { userId: { in: ids } } })
         .catch(() => undefined);
+      // Full FK chain on the way out: allocation → schedule → lease →
+      // property, otherwise the property delete trips Lease_propertyId_fkey.
+      const leftoverProps = await prisma.property.findMany({
+        where: { ownerId: { in: ids } },
+        select: { id: true },
+      });
+      const leftoverPropIds = leftoverProps.map((p) => p.id);
+      if (leftoverPropIds.length) {
+        const leftoverLeases = await prisma.lease.findMany({
+          where: { propertyId: { in: leftoverPropIds } },
+          select: { id: true },
+        });
+        const leftoverLeaseIds = leftoverLeases.map((l) => l.id);
+        if (leftoverLeaseIds.length) {
+          await prisma.paymentAllocation.deleteMany({
+            where: { rentSchedule: { leaseId: { in: leftoverLeaseIds } } },
+          });
+          await prisma.rentSchedule.deleteMany({
+            where: { leaseId: { in: leftoverLeaseIds } },
+          });
+          await prisma.lease.deleteMany({
+            where: { id: { in: leftoverLeaseIds } },
+          });
+        }
+        await prisma.property.deleteMany({
+          where: { id: { in: leftoverPropIds } },
+        });
+      }
       await prisma.userRole.deleteMany({
         where: { userId: { in: ids } },
       });
       await prisma.organizationMember.deleteMany({
         where: { userId: { in: ids } },
       });
-      // Detach properties owned by these users (delete cascades chains).
-      await prisma.property.deleteMany({
-        where: { ownerId: { in: ids } },
-      });
       await prisma.user.deleteMany({ where: { id: { in: ids } } });
     }
+    await prisma.organization.deleteMany({
+      where: {
+        name: { startsWith: 'Admin Test Owner Org' },
+        members: { none: {} },
+        properties: { none: {} },
+      },
+    });
 
     const admin = await prisma.user.create({
       data: {
@@ -176,35 +207,51 @@ describe('Admin (e2e)', () => {
   });
 
   afterAll(async () => {
-    // Notification FK RESTRICT cleanup first.
-    await prisma.notification
-      .deleteMany({ where: { userId: { in: createdUserIds } } })
-      .catch(() => undefined);
-    await prisma.paymentAllocation
-      .deleteMany({ where: { rentScheduleId: overdueScheduleId } })
-      .catch(() => undefined);
-    await prisma.rentSchedule
-      .deleteMany({ where: { id: overdueScheduleId } })
-      .catch(() => undefined);
-    await prisma.lease
-      .deleteMany({ where: { id: activeLeaseId } })
-      .catch(() => undefined);
-    await prisma.property
-      .deleteMany({ where: { id: { in: [propertyId, secondPropertyId] } } })
-      .catch(() => undefined);
-    await prisma.organizationMember.deleteMany({
-      where: { userId: { in: createdUserIds } },
-    });
-    await prisma.organization
-      .delete({ where: { id: ownerOrgId } })
-      .catch(() => undefined);
-    await prisma.userRole.deleteMany({
-      where: { userId: { in: createdUserIds } },
-    });
-    await prisma.user.deleteMany({
-      where: { id: { in: createdUserIds } },
-    });
-    await app.close();
+    if (!prisma) return;
+    const userIds = createdUserIds.filter(Boolean);
+    // Notification FK RESTRICT cleanup first. All deletes are guarded: when
+    // beforeAll aborts, an undefined id would make deleteMany match everything.
+    if (userIds.length) {
+      await prisma.notification
+        .deleteMany({ where: { userId: { in: userIds } } })
+        .catch(() => undefined);
+    }
+    if (overdueScheduleId) {
+      await prisma.paymentAllocation
+        .deleteMany({ where: { rentScheduleId: overdueScheduleId } })
+        .catch(() => undefined);
+      await prisma.rentSchedule
+        .deleteMany({ where: { id: overdueScheduleId } })
+        .catch(() => undefined);
+    }
+    if (activeLeaseId) {
+      await prisma.lease
+        .deleteMany({ where: { id: activeLeaseId } })
+        .catch(() => undefined);
+    }
+    const pids = [propertyId, secondPropertyId].filter(Boolean);
+    if (pids.length) {
+      await prisma.property
+        .deleteMany({ where: { id: { in: pids } } })
+        .catch(() => undefined);
+    }
+    if (userIds.length) {
+      await prisma.organizationMember.deleteMany({
+        where: { userId: { in: userIds } },
+      });
+    }
+    if (ownerOrgId) {
+      await prisma.organization
+        .delete({ where: { id: ownerOrgId } })
+        .catch(() => undefined);
+    }
+    if (userIds.length) {
+      await prisma.userRole.deleteMany({
+        where: { userId: { in: userIds } },
+      });
+      await prisma.user.deleteMany({ where: { id: { in: userIds } } });
+    }
+    if (app) await app.close();
     await prisma.onModuleDestroy();
   });
 
@@ -279,11 +326,27 @@ describe('Admin (e2e)', () => {
       meta: { total: number; page: number; pageSize: number };
     };
     expect(body.data.length).toBeGreaterThanOrEqual(3);
-    const me = body.data.find((u) => u.id === adminUserId);
+    expect(body.meta.pageSize).toBe(10);
+    expect(body.meta.page).toBe(1);
+    expect(body.meta.total).toBeGreaterThanOrEqual(3);
+
+    // The list spans every user on the platform and other suites create
+    // users concurrently, so the admin is not guaranteed to sit on page 1.
+    // Page through rather than assuming it does.
+    let me = body.data.find((u) => u.id === adminUserId);
+    const pageCount = Math.ceil(body.meta.total / body.meta.pageSize);
+    for (let page = 2; !me && page <= pageCount; page += 1) {
+      const next = await request(app.getHttpServer())
+        .get(`/api/v1/admin/users?page=${page}&pageSize=10`)
+        .set('x-test-user', adminUserId)
+        .set('x-test-roles', 'PLATFORM_ADMIN')
+        .expect(200);
+      me = (next.body as { data: Array<{ id: string }> }).data.find(
+        (u) => u.id === adminUserId,
+      );
+    }
     expect(me).toBeDefined();
     expect(me?.roles).toContain('PLATFORM_ADMIN');
-    expect(body.meta.pageSize).toBe(10);
-    expect(body.meta.total).toBeGreaterThanOrEqual(3);
   });
 
   // ------------------------------------------------------------------

@@ -1,10 +1,23 @@
-import {
-  ForbiddenException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
-import { MandateStatus, OrgMemberRole } from '@prisma/client';
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { MandateStatus, OrgMemberRole, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+
+/**
+ * Mandates through which the agency may still operate on a property:
+ * ACTIVE, or TERMINATING while the notice period has not elapsed yet
+ * (the agent keeps access up to `terminationEffectiveAt`).
+ */
+function liveMandateFilter(): Prisma.MandateWhereInput {
+  return {
+    OR: [
+      { status: MandateStatus.ACTIVE },
+      {
+        status: MandateStatus.TERMINATING,
+        terminationEffectiveAt: { gt: new Date() },
+      },
+    ],
+  };
+}
 
 @Injectable()
 export class AgencyAccessService {
@@ -22,13 +35,33 @@ export class AgencyAccessService {
     if (property.ownerId === userId) return true;
 
     const mandate = await this.prisma.mandate.findFirst({
-      where: { propertyId, status: MandateStatus.ACTIVE },
+      where: { propertyId, ...liveMandateFilter() },
       select: {
         organizationId: true,
         assignedAgentId: true,
       },
     });
-    if (!mandate) return false;
+    if (!mandate) {
+      // No live mandate: the org gérant/owner may still operate on their own
+      // org's listing. Mirrors listOperablePropertyIds ("unmanaged org props
+      // are gérant-only, not field AGENT") so portfolio and mutate paths
+      // agree (spec 03 expenses on an unmandated org property).
+      const orgAdmin = await this.prisma.property.findFirst({
+        where: {
+          id: propertyId,
+          organization: {
+            members: {
+              some: {
+                userId,
+                role: { in: [OrgMemberRole.ADMIN, OrgMemberRole.OWNER] },
+              },
+            },
+          },
+        },
+        select: { id: true },
+      });
+      return Boolean(orgAdmin);
+    }
 
     const member = await this.prisma.organizationMember.findUnique({
       where: {
@@ -104,7 +137,7 @@ export class AgencyAccessService {
       }),
       this.prisma.mandate.findMany({
         where: {
-          status: MandateStatus.ACTIVE,
+          ...liveMandateFilter(),
           OR: [
             {
               organization: {
@@ -130,7 +163,7 @@ export class AgencyAccessService {
               },
             },
           },
-          NOT: { mandates: { some: { status: MandateStatus.ACTIVE } } },
+          NOT: { mandates: { some: liveMandateFilter() } },
         },
         select: { id: true },
         take: 500,

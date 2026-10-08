@@ -70,12 +70,14 @@ export default function OwnerDashboardPage(): React.JSX.Element {
           fetchOwnerStats()
             .then((s) => ({ ok: true as const, s }))
             .catch((err: unknown) => ({ ok: false as const, err })),
-          listManagedPayments().catch(() => [] as PublicPayment[]),
+          listManagedPayments({ pageSize: 100 })
+            .then((r) => r.data)
+            .catch(() => [] as PublicPayment[]),
           apiFetch<PublicVisitBooking[]>('/visits/managed').catch(
             () => [] as PublicVisitBooking[],
           ),
           listManagedProperties().catch(() => []),
-          listManagedLeases().catch(() => []),
+          listManagedLeases().then((r) => r.data).catch(() => []),
         ]);
       if (cancelled) return;
 

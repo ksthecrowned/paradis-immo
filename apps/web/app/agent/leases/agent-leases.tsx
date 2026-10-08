@@ -1,10 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import {
   DashboardPageHeader,
-  ListDataTable,
+  PaginatedDataTable,
   StatusBadge,
   type ListColumn,
 } from '@/components/dashboard';
@@ -12,14 +11,19 @@ import { Button } from '@/components/primitives';
 import { useRequireSession } from '@/hooks/use-require-session';
 import {
   activateLease,
-  listManagedLeases,
+  cancelLease,
+  closeLease,
   requestLeaseSign,
+  sendLeaseForSignature,
+  terminateLease,
+  withdrawTermination,
   type PublicLease,
 } from '@/lib/agent/leases';
 import { ApiError } from '@/lib/api';
+import { fetchManagedLeases } from '@/lib/owner/lease-queries';
 import { leaseStatusLabel, leaseStatusTone } from '@/lib/owner/leases';
 import { ROUTES } from '@/lib/routes';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 function formatDate(iso: string): string {
   return new Intl.DateTimeFormat('fr-FR', {
@@ -38,78 +42,30 @@ function formatMoney(amount: string, currency: string): string {
 }
 
 export function AgentLeasesPage(): React.JSX.Element {
-  const router = useRouter();
   const { ready } = useRequireSession();
-  const [leases, setLeases] = useState<PublicLease[]>([]);
-  const [loadingLeases, setLoadingLeases] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionId, setActionId] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<string | undefined>();
+  const [overdueOnly, setOverdueOnly] = useState(false);
 
-  const loadLeases = useCallback(async () => {
-    setLoadingLeases(true);
-    try {
-      const data = await listManagedLeases();
-      setLeases(data);
+  const runAction = useCallback(
+    async (id: string, label: string, fn: () => Promise<unknown>) => {
+      setActionId(id);
       setError(null);
-    } catch (err) {
-      setLeases([]);
-      setError(
-        err instanceof ApiError
-          ? err.message
-          : 'Impossible de charger les baux.',
-      );
-    } finally {
-      setLoadingLeases(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!ready) return;
-    void loadLeases();
-  }, [loadLeases, ready]);
-
-  const handleRequestSign = useCallback(
-    async (id: string) => {
-      setActionId(id);
       try {
-        await requestLeaseSign(id);
-        await loadLeases();
-        setError(null);
+        await fn();
+        setRefreshKey((value) => value + 1);
       } catch (err) {
-        setError(
-          err instanceof ApiError
-            ? err.message
-            : 'Impossible de demander la signature.',
-        );
+        setError(err instanceof ApiError ? err.message : label);
       } finally {
         setActionId(null);
       }
     },
-    [loadLeases],
+    [],
   );
 
-  const handleActivate = useCallback(
-    async (id: string) => {
-      if (!confirm('Activer ce bail et générer l’échéancier de loyers ?')) {
-        return;
-      }
-      setActionId(id);
-      try {
-        await activateLease(id);
-        await loadLeases();
-        setError(null);
-      } catch (err) {
-        setError(
-          err instanceof ApiError
-            ? err.message
-            : 'Impossible d’activer le bail.',
-        );
-      } finally {
-        setActionId(null);
-      }
-    },
-    [loadLeases],
-  );
+  // Bumping this key reloads the (paginated) table after an action.
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const columns = useMemo<ListColumn<PublicLease>[]>(
     () => [
@@ -140,6 +96,24 @@ export function AgentLeasesPage(): React.JSX.Element {
         ),
       },
       {
+        key: 'tenantPhone',
+        label: 'Locataire',
+        sortable: true,
+        render: (_value, row) => (
+          <span className="text-xs text-foreground">
+            {row.tenantName ?? '—'}
+            {row.tenantPhone ? (
+              <span className="ml-1 font-mono text-muted">{row.tenantPhone}</span>
+            ) : null}
+            {!row.tenantId ? (
+              <span className="ml-1 rounded bg-accent/15 px-1.5 py-0.5 text-[10px] text-accent">
+                invité
+              </span>
+            ) : null}
+          </span>
+        ),
+      },
+      {
         key: 'startDate',
         label: 'Début',
         sortable: true,
@@ -155,19 +129,21 @@ export function AgentLeasesPage(): React.JSX.Element {
         key: 'monthlyRent',
         label: 'Loyer',
         sortable: true,
-        render: (_value, row) => formatMoney(row.monthlyRent, row.currency),
+        render: (_value, row) => (
+          <span className="text-xs">
+            {formatMoney(row.monthlyRent, row.currency)}
+            {Number(row.chargesAmount) > 0 ? (
+              <span className="ml-1 text-muted">
+                +{formatMoney(row.chargesAmount, row.currency)} charges
+              </span>
+            ) : null}
+          </span>
+        ),
       },
       {
         key: 'status',
         label: 'Statut',
         sortable: true,
-        filterable: true,
-        filterType: 'select',
-        filterOptions: [
-          { value: 'DRAFT', label: 'Brouillon' },
-          { value: 'ACTIVE', label: 'Actif' },
-          { value: 'TERMINATED', label: 'Résilié' },
-        ],
         render: (value) => (
           <StatusBadge
             label={leaseStatusLabel(String(value))}
@@ -177,6 +153,22 @@ export function AgentLeasesPage(): React.JSX.Element {
       },
     ],
     [],
+  );
+
+  const query = useMemo(
+    () => ({
+      ...(statusFilter ? { status: statusFilter } : {}),
+      ...(overdueOnly ? { overdue: true } : {}),
+    }),
+    [statusFilter, overdueOnly],
+  );
+
+  const fetchFn = useCallback(
+    (params: Parameters<typeof fetchManagedLeases>[0]) => {
+      void refreshKey;
+      return fetchManagedLeases({ ...query, ...params });
+    },
+    [query, refreshKey],
   );
 
   return (
@@ -196,52 +188,185 @@ export function AgentLeasesPage(): React.JSX.Element {
         </div>
       ) : null}
 
-      <ListDataTable
-        data={leases}
+      <div className="flex flex-wrap items-center gap-3">
+        <label className="flex items-center gap-2 text-sm text-muted">
+          Statut
+          <select
+            value={statusFilter ?? ''}
+            onChange={(e) =>
+              setStatusFilter(e.target.value === '' ? undefined : e.target.value)
+            }
+            className="rounded-lg border border-border bg-card px-3 py-1.5 text-sm text-foreground"
+          >
+            <option value="">Tous</option>
+            <option value="DRAFT">Brouillon</option>
+            <option value="PENDING_SIGNATURE">En attente de signature</option>
+            <option value="ACTIVE">Actif</option>
+            <option value="TERMINATING">En préavis</option>
+            <option value="TERMINATED">Terminé</option>
+            <option value="CANCELLED">Annulé</option>
+          </select>
+        </label>
+        <label className="flex items-center gap-2 text-sm text-muted">
+          <input
+            type="checkbox"
+            checked={overdueOnly}
+            onChange={(e) => setOverdueOnly(e.target.checked)}
+          />
+          Impayés uniquement
+        </label>
+      </div>
+
+      <PaginatedDataTable
+        key={`${statusFilter ?? 'all'}-${overdueOnly}-${refreshKey}`}
+        fetchFn={fetchFn}
         columns={columns}
-        loading={loadingLeases}
-        onRefresh={loadLeases}
         entityLabel="baux"
         searchPlaceholder="Rechercher un bail…"
         emptyMessage="Aucun bail pour le moment."
         tableId="agent-leases-table"
-        onRowClick={(row) => {
-          router.push(ROUTES.agent.lease(row.id));
-        }}
-        actions={(row) =>
-          row.status === 'DRAFT' ? (
-            <div className="flex flex-wrap gap-2">
-              <Link
-                href={ROUTES.agent.leaseEdit(row.id)}
-                className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted hover:bg-card-hover"
-                onClick={(e) => e.stopPropagation()}
-              >
-                Modifier
-              </Link>
+        onError={(err) =>
+          setError(
+            err instanceof ApiError ? err.message : 'Impossible de charger les baux.',
+          )
+        }
+        actions={(row) => (
+          <div className="flex flex-wrap gap-2">
+            {row.status === 'DRAFT' ? (
+              <>
+                <Link
+                  href={ROUTES.agent.leaseEdit(row.id)}
+                  className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted hover:bg-card-hover"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  Modifier
+                </Link>
+                <button
+                  type="button"
+                  disabled={actionId === row.id}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    void runAction(row.id, 'Impossible d’envoyer le bail.', () =>
+                      sendLeaseForSignature(row.id),
+                    );
+                  }}
+                  className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted hover:bg-card-hover disabled:opacity-50"
+                >
+                  Envoyer pour signature
+                </button>
+                <button
+                  type="button"
+                  disabled={actionId === row.id}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (!confirm('Annuler ce bail ?')) return;
+                    void runAction(row.id, 'Impossible d’annuler le bail.', () =>
+                      cancelLease(row.id),
+                    );
+                  }}
+                  className="rounded-lg border border-danger/40 px-3 py-1.5 text-xs font-medium text-danger hover:bg-danger/10 disabled:opacity-50"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="button"
+                  disabled={actionId === row.id}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    void runAction(row.id, 'Impossible de demander la signature.', () =>
+                      requestLeaseSign(row.id),
+                    );
+                  }}
+                  className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted hover:bg-card-hover disabled:opacity-50"
+                >
+                  Approbation mandat
+                </button>
+              </>
+            ) : null}
+            {row.status === 'DRAFT' || row.status === 'PENDING_SIGNATURE' ? (
               <button
                 type="button"
                 disabled={actionId === row.id}
                 onClick={(e) => {
                   e.stopPropagation();
-                  void handleRequestSign(row.id);
-                }}
-                className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted hover:bg-card-hover disabled:opacity-50"
-              >
-                Demander signature
-              </button>
-              <button
-                type="button"
-                disabled={actionId === row.id}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  void handleActivate(row.id);
+                  if (
+                    !confirm(
+                      'Activer ce bail ? Le bien passe en occupé et l’échéancier est généré.',
+                    )
+                  ) {
+                    return;
+                  }
+                  void runAction(row.id, 'Impossible d’activer le bail.', () =>
+                    activateLease(row.id),
+                  );
                 }}
                 className="rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-on-accent hover:bg-accent/90 disabled:opacity-50"
               >
                 Activer
               </button>
-            </div>
-          ) : (
+            ) : null}
+            {row.status === 'ACTIVE' ? (
+              <button
+                type="button"
+                disabled={actionId === row.id}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const requestedEndDate = prompt(
+                    'Date de sortie souhaitée (AAAA-MM-JJ) ?',
+                    new Date(Date.now() + 90 * 86400000)
+                      .toISOString()
+                      .slice(0, 10),
+                  );
+                  if (!requestedEndDate) return;
+                  void runAction(
+                    row.id,
+                    'Impossible d’enregistrer le congé.',
+                    () =>
+                      terminateLease(row.id, {
+                        initiator: 'LANDLORD',
+                        requestedEndDate,
+                      }),
+                  );
+                }}
+                className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted hover:bg-card-hover disabled:opacity-50"
+              >
+                Congé
+              </button>
+            ) : null}
+            {row.status === 'TERMINATING' ? (
+              <>
+                <button
+                  type="button"
+                  disabled={actionId === row.id}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (!confirm('Retirer le congé déposé ?')) return;
+                    void runAction(row.id, 'Impossible de retirer le congé.', () =>
+                      withdrawTermination(row.id),
+                    );
+                  }}
+                  className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted hover:bg-card-hover disabled:opacity-50"
+                >
+                  Retirer le congé
+                </button>
+                <button
+                  type="button"
+                  disabled={actionId === row.id}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (!confirm('Clôturer ce bail ? Le bien redevient disponible.')) {
+                      return;
+                    }
+                    void runAction(row.id, 'Impossible de clôturer le bail.', () =>
+                      closeLease(row.id),
+                    );
+                  }}
+                  className="rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-on-accent hover:bg-accent/90 disabled:opacity-50"
+                >
+                  Clôturer
+                </button>
+              </>
+            ) : null}
             <Link
               href={ROUTES.agent.lease(row.id)}
               className="text-xs font-medium text-accent hover:underline"
@@ -249,8 +374,8 @@ export function AgentLeasesPage(): React.JSX.Element {
             >
               Voir
             </Link>
-          )
-        }
+          </div>
+        )}
       />
     </section>
   );

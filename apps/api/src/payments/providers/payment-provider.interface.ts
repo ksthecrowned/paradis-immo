@@ -1,7 +1,12 @@
-export type PaymentStatus =
-  'INITIATED' | 'PENDING_VALIDATION' | 'VALIDATED' | 'FAILED' | 'DISPUTED';
+import type { PaymentStatus as PrismaPaymentStatus } from '@prisma/client';
+
+/** Spec 05 — mirrors the Prisma `PaymentStatus` enum (single source of truth). */
+export type PaymentStatus = PrismaPaymentStatus;
 
 export type PaymentProviderName = 'AIRTEL' | 'MOMO';
+
+/** Outcome reported by a mobile money operator (initiate / poll / webhook). */
+export type ProviderOutcome = 'VALIDATED' | 'FAILED' | 'EXPIRED' | 'PENDING';
 
 export interface InitiatePayment {
   userId: string;

@@ -18,6 +18,15 @@ export const LEASE_DOCUMENT_TYPE_LABELS: Record<LeaseDocumentType, string> = {
   OTHER_LEASE: 'Autre',
 };
 
+/**
+ * Display labels for every stored type, including the ones the platform
+ * generates itself (a formal notice is never uploaded by hand).
+ */
+export const LEASE_DOCUMENT_DISPLAY_LABELS: Record<string, string> = {
+  ...LEASE_DOCUMENT_TYPE_LABELS,
+  FORMAL_NOTICE: 'Mise en demeure',
+};
+
 export async function listLeaseDocuments(
   leaseId: string,
 ): Promise<LeaseDocumentItem[]> {

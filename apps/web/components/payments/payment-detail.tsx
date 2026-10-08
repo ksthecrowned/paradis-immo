@@ -14,6 +14,7 @@ import {
 } from '@/lib/owner/payments';
 import { ROUTES } from '@/lib/routes';
 import { useRequireSession } from '@/hooks/use-require-session';
+import { PaymentTimeline } from '@/components/payments/payment-timeline';
 
 export interface PaymentDetailProps {
   paymentId: string;
@@ -248,6 +249,8 @@ export function PaymentDetail({
           </ul>
         </div>
       ) : null}
+
+      <PaymentTimeline paymentId={payment.id} />
     </section>
   );
 }

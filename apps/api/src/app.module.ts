@@ -2,21 +2,26 @@ import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { AccountModule } from './account/account.module';
+import { AccountingModule } from './accounting/accounting.module';
 import { AdminModule } from './admin/admin.module';
 import { AgentModule } from './agent/agent.module';
+import { AgencyModule } from './organizations/agency.module';
+import { ApplicationsModule } from './applications/applications.module';
 import { AuthModule } from './auth/auth.module';
 import { BookingsModule } from './bookings/bookings.module';
 import { EventModule } from './events/event.module';
 import { HealthModule } from './health/health.module';
 import { FavoritesModule } from './favorites/favorites.module';
+import { DepositsModule } from './deposits/deposits.module';
 import { LeasesModule } from './leases/leases.module';
 import { LocationsModule } from './locations/locations.module';
 import { MaintenanceModule } from './maintenance/maintenance.module';
 import { MandatesModule } from './mandates/mandates.module';
 import { MediaModule } from './media/media.module';
-import { MessagingModule } from './messaging/messaging.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { PaymentsModule } from './payments/payments.module';
+import { PayoutsModule } from './payouts/payouts.module';
 import { SalesModule } from './sales/sales.module';
 import { OrganizationsModule } from './organizations/organizations.module';
 import { OwnerModule } from './owner/owner.module';
@@ -33,12 +38,15 @@ import { VisitSlotsModule } from './visit-slots/visit-slots.module';
     ScheduleModule.forRoot(),
     PrismaModule,
     EventModule,
+    AccountModule,
     AdminModule,
     AgentModule,
     OwnerModule,
     AuthModule,
     OrganizationsModule,
+    AgencyModule,
     UsersModule,
+    AccountingModule,
     HealthModule,
     LocationsModule,
     PropertiesModule,
@@ -47,13 +55,15 @@ import { VisitSlotsModule } from './visit-slots/visit-slots.module';
     BookingsModule,
     FavoritesModule,
     LeasesModule,
+    DepositsModule,
+    ApplicationsModule,
     TenantsModule,
     MaintenanceModule,
     MandatesModule,
     MediaModule,
-    MessagingModule,
     NotificationsModule,
     PaymentsModule,
+    PayoutsModule,
     SalesModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

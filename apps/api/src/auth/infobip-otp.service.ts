@@ -9,6 +9,12 @@ export interface OtpMessage {
   code: string;
 }
 
+/** Free-form notification text (spec 01: e.g. "your number was changed"). */
+export interface TextMessage {
+  to: string;
+  text: string;
+}
+
 /**
  * Sends an OTP over WhatsApp via Infobip.
  *
@@ -65,5 +71,42 @@ export class InfobipOtpService {
     }
 
     this.logger.log(`OTP sent to ${message.to} via WhatsApp`);
+  }
+
+  /**
+   * Send a plain informational WhatsApp message. Uses an existing template
+   * when configured; in dev it is logged like `sendOtp`.
+   */
+  async sendText(message: TextMessage): Promise<void> {
+    if (!INFOBIP_API_KEY || !INFOBIP_BASE_URL || !INFOBIP_WHATSAPP_SENDER) {
+      this.logger.log(
+        `[dev] WhatsApp text to ${message.to}: ${message.text} (Infobip not configured)`,
+      );
+      return;
+    }
+
+    const url = `${INFOBIP_BASE_URL.replace(/\/$/, '')}/whatsapp/1/message/general`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        Authorization: `App ${INFOBIP_API_KEY}`,
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+      body: JSON.stringify({
+        from: INFOBIP_WHATSAPP_SENDER,
+        to: message.to,
+        type: 'text',
+        text: { body: message.text },
+      }),
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      this.logger.error(
+        `Infobip text send failed (${res.status}): ${text.slice(0, 200)}`,
+      );
+      throw new Error(`Infobip text send failed: ${res.status}`);
+    }
+    this.logger.log(`Text sent to ${message.to} via WhatsApp`);
   }
 }

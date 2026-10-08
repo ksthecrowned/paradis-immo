@@ -210,7 +210,11 @@ describe('SolvencyChecksService', () => {
   });
 
   afterAll(async () => {
-    await prisma.solvencyCheck.deleteMany({ where: { tenantUserId } });
+    // Guard against a midway beforeAll failure: an undefined id would turn
+    // deleteMany into a full-table delete of other suites' rows.
+    if (prisma && tenantUserId) {
+      await prisma.solvencyCheck.deleteMany({ where: { tenantUserId } });
+    }
     if (paymentIds.length) {
       await prisma.paymentAllocation.deleteMany({
         where: { paymentId: { in: paymentIds } },
@@ -222,18 +226,25 @@ describe('SolvencyChecksService', () => {
         where: { id: { in: scheduleIds } },
       });
     }
-    await prisma.lease.deleteMany({ where: { id: leaseId } });
-    await prisma.property.deleteMany({ where: { id: propertyId } });
-    await prisma.organizationMember.deleteMany({
-      where: { organizationId: orgId },
-    });
-    await prisma.organization.deleteMany({ where: { id: orgId } });
-    await prisma.userRole.deleteMany({
-      where: { userId: { in: [ownerUserId, tenantUserId, strangerUserId] } },
-    });
-    await prisma.user.deleteMany({
-      where: { id: { in: [ownerUserId, tenantUserId, strangerUserId] } },
-    });
+    if (leaseId) {
+      await prisma.lease.deleteMany({ where: { id: leaseId } });
+    }
+    if (propertyId) {
+      await prisma.property.deleteMany({ where: { id: propertyId } });
+    }
+    if (orgId) {
+      await prisma.organizationMember.deleteMany({
+        where: { organizationId: orgId },
+      });
+      await prisma.organization.deleteMany({ where: { id: orgId } });
+    }
+    const userIds = [ownerUserId, tenantUserId, strangerUserId].filter(Boolean);
+    if (userIds.length) {
+      await prisma.userRole.deleteMany({
+        where: { userId: { in: userIds } },
+      });
+      await prisma.user.deleteMany({ where: { id: { in: userIds } } });
+    }
     await prisma.onModuleDestroy();
   });
 

@@ -74,8 +74,8 @@ export function RecordCashFromPaymentsPanel({
   const loadLeases = useCallback(async () => {
     setLoadingLeases(true);
     try {
-      const rows = await listManagedLeases();
-      setLeases(rows.filter((l) => l.status === 'ACTIVE'));
+      const rows = await listManagedLeases({ status: 'ACTIVE', pageSize: 100 });
+      setLeases(rows.data);
     } catch (err) {
       onError?.(
         err instanceof ApiError

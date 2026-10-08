@@ -1,5 +1,5 @@
-import { Type } from 'class-transformer';
-import { IsEnum, IsInt, IsOptional, Max, Min } from 'class-validator';
+import { Transform, Type } from 'class-transformer';
+import { IsBoolean, IsEnum, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
 import { LeaseStatus } from '@prisma/client';
 
 export class ListLeasesDto {
@@ -8,9 +8,25 @@ export class ListLeasesDto {
   status?: LeaseStatus;
 
   @IsOptional()
+  @IsString()
+  propertyId?: string;
+
+  /** Only leases holding at least one OVERDUE rent schedule. */
+  @IsOptional()
+  @Transform(({ value }) => value === true || value === 'true' || value === '1')
+  @IsBoolean()
+  overdue?: boolean;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page?: number = 1;
+
+  @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
   @Max(100)
-  limit?: number = 50;
+  pageSize?: number = 20;
 }

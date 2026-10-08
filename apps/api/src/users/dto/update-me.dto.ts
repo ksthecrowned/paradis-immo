@@ -34,10 +34,13 @@ export class UpdateMeDto {
   @MaxLength(512)
   fcmToken?: string;
 
-  /** Explicit alert delivery preference. SMS is billed to the managing org. */
+  /**
+   * Explicit alert delivery preference. WhatsApp is the default channel; SMS is
+   * never used for delivery (it is delivered via WhatsApp).
+   */
   @IsOptional()
-  @IsIn(['PUSH', 'SMS'])
-  notificationChannel?: 'PUSH' | 'SMS';
+  @IsIn(['PUSH', 'SMS', 'WHATSAPP'])
+  notificationChannel?: 'PUSH' | 'SMS' | 'WHATSAPP';
 
   @IsOptional()
   @IsIn(['RENT', 'BUY', 'VISIT', 'ALL_OPTIONS'])

@@ -1,7 +1,6 @@
 'use client';
 
 import { logout } from '@/lib/auth';
-import { backendWebSetRole } from '@/lib/backend-auth';
 import {
   isWebAccountActive,
   resolveDashboardPath,
@@ -15,7 +14,7 @@ const btnClass =
 
 export default function OnboardingRolePage(): React.JSX.Element {
   const router = useRouter();
-  const { data: session, status, update } = useSession();
+  const { data: session, status } = useSession();
   const [busy, setBusy] = useState<'OWNER' | 'AGENT' | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -38,33 +37,14 @@ export default function OnboardingRolePage(): React.JSX.Element {
   }, [status, session, router]);
 
   async function choose(role: 'OWNER' | 'AGENT'): Promise<void> {
-    if (!session?.accessToken || session.error === 'RefreshAccessTokenError') {
-      setError('Session expirée. Reconnectez-vous.');
-      void logout('/login');
-      return;
-    }
-    setBusy(role);
-    setError(null);
-    try {
-      const tokens = await backendWebSetRole(session.accessToken, role);
-      await update({
-        orgRoles: tokens.user.orgRoles,
-        roles: tokens.user.roles,
-        accessToken: tokens.accessToken,
-        refreshToken: tokens.refreshToken,
-      });
-      router.replace(resolveDashboardPath(tokens.user));
-      router.refresh();
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Échec';
-      setError(message);
-      // Access JWT expired / revoked → leave the loop.
-      if (/expir|401|unauthorized|invalid/i.test(message)) {
-        void logout('/login');
-      }
-    } finally {
-      setBusy(null);
-    }
+    // No self-service (spec 02): owner and agency accounts are opened by a
+    // PLATFORM_ADMIN invitation. Both paths start at the sign-up form.
+    void role;
+    router.push('/onboarding/request');
+  }
+
+  function joinAgency(): void {
+    router.push('/onboarding/join');
   }
 
   if (status === 'loading') {
@@ -79,11 +59,13 @@ export default function OnboardingRolePage(): React.JSX.Element {
     <main className="flex min-h-screen items-center justify-center bg-background px-4 py-12">
       <div className="w-full max-w-lg space-y-4">
         <h1 className="text-2xl font-bold text-foreground">
-          Choisissez votre rôle
+          Choisissez votre parcours
         </h1>
         <p className="text-sm text-muted">
-          Obligatoire pour activer votre compte web. Les administrateurs
-          plateforme sont provisionnés séparément.
+          Aucune création en libre-service : le compte propriétaire et les
+          agences sont ouverts par un administrateur après examen de votre
+          demande. Les agents rejoignent une agence sur invitation de leur
+          gérant.
         </p>
 
         <button
@@ -96,10 +78,10 @@ export default function OnboardingRolePage(): React.JSX.Element {
             Propriétaire
           </span>
           <span className="mt-1 text-sm text-muted">
-            Publier et gérer vos biens, baux et paiements.
+            Déposez votre demande : vous recevrez un lien d’invitation.
           </span>
           {busy === 'OWNER' ? (
-            <span className="mt-2 text-xs text-accent">Création…</span>
+            <span className="mt-2 text-xs text-accent">Ouverture…</span>
           ) : null}
         </button>
 
@@ -109,13 +91,29 @@ export default function OnboardingRolePage(): React.JSX.Element {
           className={btnClass}
           onClick={() => void choose('AGENT')}
         >
-          <span className="text-lg font-semibold text-foreground">Agent</span>
+          <span className="text-lg font-semibold text-foreground">
+            Je crée mon agence
+          </span>
           <span className="mt-1 text-sm text-muted">
-            Gérer le portefeuille Paradis Immo (agence plateforme).
+            Nom, RCCM, NIU : l’administrateur vérifie puis vous invite.
           </span>
           {busy === 'AGENT' ? (
-            <span className="mt-2 text-xs text-accent">Rattachement…</span>
+            <span className="mt-2 text-xs text-accent">Envoi…</span>
           ) : null}
+        </button>
+
+        <button
+          type="button"
+          disabled={busy != null}
+          className={btnClass}
+          onClick={joinAgency}
+        >
+          <span className="text-lg font-semibold text-foreground">
+            Je rejoins une agence
+          </span>
+          <span className="mt-1 text-sm text-muted">
+            Saisissez le code d’invitation reçu de votre gérant.
+          </span>
         </button>
 
         {error ? (

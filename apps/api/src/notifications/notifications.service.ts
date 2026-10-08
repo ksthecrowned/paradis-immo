@@ -1,7 +1,6 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Notification, NotificationChannel, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { InfobipSmsService } from '../messaging/infobip-sms.service';
 import { InfobipService } from './infobip.service';
 import { FcmService } from './fcm.service';
 
@@ -22,11 +21,12 @@ export interface SendInput {
   type: string;
   payload: Record<string, unknown>;
   /**
-   * Optional override. When omitted, uses `User.notificationChannel`
-   * (PUSH default, SMS when explicitly preferred).
+   * Optional override. When omitted, WhatsApp is used by default —
+   * PUSH only when the user explicitly prefers it *and* has a device
+   * token registered. SMS is never used for delivery (spec: WhatsApp).
    */
   channel?: NotificationChannel;
-  /** Required when delivering via SMS (agency context). */
+  /** Kept for call-site compatibility; no longer required for delivery. */
   organizationId?: string;
 }
 
@@ -34,8 +34,9 @@ export interface SendInput {
  * Orchestrates outbound notifications. Persists a `Notification` row
  * (PENDING → SENT/FAILED) so the UI can show a history of what was sent.
  *
- * Preference: `User.notificationChannel = SMS` → Infobip SMS (gratuit).
- * Otherwise FCM push.
+ * Channel resolution (spec): WhatsApp is the default delivery channel.
+ * PUSH is only used for users who explicitly prefer it and have a device
+ * token. SMS is never used — an SMS preference is delivered via WhatsApp.
  */
 @Injectable()
 export class NotificationsService {
@@ -44,7 +45,6 @@ export class NotificationsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly infobip: InfobipService,
-    private readonly sms: InfobipSmsService,
     private readonly fcm: FcmService,
   ) {}
 
@@ -70,11 +70,17 @@ export class NotificationsService {
       return this.markFailed(row.id, 'USER_NOT_FOUND');
     }
 
-    const channel =
+    const requested =
       input.channel ??
-      (user.notificationChannel === NotificationChannel.SMS
-        ? NotificationChannel.SMS
-        : NotificationChannel.PUSH);
+      (user.notificationChannel === NotificationChannel.PUSH && user.fcmToken
+        ? NotificationChannel.PUSH
+        : NotificationChannel.WHATSAPP);
+    // WhatsApp is the default channel — an SMS preference is delivered
+    // as a WhatsApp message too (no SMS anywhere, spec: WhatsApp only).
+    const channel =
+      requested === NotificationChannel.SMS
+        ? NotificationChannel.WHATSAPP
+        : requested;
 
     const row = await this.prisma.notification.create({
       data: {
@@ -88,16 +94,7 @@ export class NotificationsService {
 
     let result: { ok: boolean; reason?: string; providerMessageId?: string };
 
-    if (channel === NotificationChannel.SMS) {
-      if (!input.organizationId) {
-        return this.markFailed(row.id, 'MISSING_ORGANIZATION');
-      }
-      if (!user.phone) {
-        return this.markFailed(row.id, 'NO_PHONE');
-      }
-      const text = this.renderSmsMessage(input.type, input.payload);
-      result = await this.sms.send({ to: user.phone, text });
-    } else if (channel === NotificationChannel.WHATSAPP) {
+    if (channel === NotificationChannel.WHATSAPP) {
       if (!user.phone) {
         return this.markFailed(row.id, 'NO_PHONE');
       }
@@ -122,6 +119,27 @@ export class NotificationsService {
     return result.ok
       ? await this.markSent(row.id)
       : await this.markFailed(row.id, result.reason ?? 'PROVIDER_ERROR');
+  }
+
+  /**
+   * WhatsApp-only delivery to a raw phone number, used when the recipient has
+   * no account yet (e.g. a lease invitation to an `invitedPhone`). No
+   * `Notification` row is persisted because it is not attached to a user.
+   */
+  async sendToPhone(
+    phone: string,
+    type: string,
+    payload: Record<string, unknown>,
+    text: string,
+  ): Promise<{ ok: boolean; reason?: string }> {
+    const result = await this.infobip.sendWhatsApp(phone, text);
+    const ref = payload.leaseId ? ` (lease ${payload.leaseId})` : '';
+    this.logger.log(
+      `${type}${ref} -> WhatsApp ${phone}: ${
+        result.ok ? 'sent' : `failed (${result.reason})`
+      }`,
+    );
+    return { ok: result.ok, reason: result.reason };
   }
 
   async listForUser(userId: string): Promise<PublicNotification[]> {
@@ -159,13 +177,6 @@ export class NotificationsService {
     return { updated: result.count };
   }
 
-  private renderSmsMessage(
-    type: string,
-    payload: Record<string, unknown>,
-  ): string {
-    return this.renderWhatsAppMessage(type, payload);
-  }
-
   private renderWhatsAppMessage(
     type: string,
     payload: Record<string, unknown>,
@@ -190,6 +201,75 @@ export class NotificationsService {
           payload,
           'daysOverdue',
         )} jour(s). Merci de régulariser.`;
+      case 'RENT_REMINDER_MANUAL':
+        return (
+          this.stringField(payload, 'message') ||
+          `Paradis Immo — votre loyer est en retard : ${this.stringField(
+            payload,
+            'amount',
+          )} ${this.stringField(payload, 'currency', 'XAF')}. Merci de régulariser.`
+        );
+      case 'LATE_FEE_APPLIED':
+        return `Paradis Immo — une pénalité de retard de ${this.stringField(
+          payload,
+          'amount',
+        )} ${this.stringField(
+          payload,
+          'currency',
+          'XAF',
+        )} a été appliquée à votre loyer.`;
+      case 'LATE_FEE_WAIVED':
+        return `Paradis Immo — la pénalité de retard de ${this.stringField(
+          payload,
+          'amount',
+        )} ${this.stringField(
+          payload,
+          'currency',
+          'XAF',
+        )} a été annulée par votre gestionnaire.`;
+      case 'FORMAL_NOTICE_SENT':
+        return `Paradis Immo — mise en demeure : ${this.stringField(
+          payload,
+          'totalDue',
+        )} ${this.stringField(
+          payload,
+          'currency',
+          'XAF',
+        )} sont dus pour ${this.stringField(
+          payload,
+          'propertyTitle',
+        )}. Régularisez sans délai.`;
+      case 'AMENDMENT_PROPOSED':
+        return `Paradis Immo — un avenant (v${this.stringField(
+          payload,
+          'version',
+        )}) vous est proposé, à effet du ${this.stringField(
+          payload,
+          'effectiveFrom',
+        )}. Ouvrez l’app pour le signer.`;
+      case 'AMENDMENT_APPLIED':
+        return `Paradis Immo — l’avenant v${this.stringField(
+          payload,
+          'version',
+        )} est appliqué : nouveau loyer ${this.stringField(
+          payload,
+          'monthlyRent',
+        )}, à effet du ${this.stringField(payload, 'effectiveFrom')}.`;
+      case 'RENT_INDEXATION_PROPOSED':
+        return `Paradis Immo — révision annuelle : loyer ${this.stringField(
+          payload,
+          'previousMonthlyRent',
+        )} → ${this.stringField(
+          payload,
+          'newMonthlyRent',
+        )} ${this.stringField(
+          payload,
+          'currency',
+          'XAF',
+        )}, à effet du ${this.stringField(
+          payload,
+          'effectiveFrom',
+        )}. Validation requise.`;
       case 'VISIT_CONFIRMED':
         return `Paradis Immo — votre visite est confirmée.`;
       case 'MAINTENANCE_OPENED':
@@ -211,6 +291,54 @@ export class NotificationsService {
           'organizationName',
           'un logeur',
         )} demande à consulter vos 3 derniers loyers. Ouvrez l’app pour répondre.`;
+      case 'LEASE_INVITATION':
+        return `Paradis Immo — un bail vous attend pour ${this.stringField(
+          payload,
+          'propertyTitle',
+        )}. Ouvrez l’app pour le consulter et le signer.`;
+      case 'LEASE_STARTED':
+        return `Paradis Immo — votre bail pour ${this.stringField(
+          payload,
+          'propertyTitle',
+        )} est actif. Bonne installation !`;
+      case 'LEASE_TENANT_SIGNED':
+        return `Paradis Immo — le locataire a signé le bail de ${this.stringField(
+          payload,
+          'propertyTitle',
+        )}. Il vous reste à signer.`;
+      case 'LEASE_LANDLORD_SIGNED':
+        return `Paradis Immo — le bailleur a signé le bail de ${this.stringField(
+          payload,
+          'propertyTitle',
+        )}. Il vous reste à signer.`;
+      case 'DEPOSIT_DEDUCTION_PROPOSED':
+        return `Paradis Immo — une retenue de ${this.stringField(
+          payload,
+          'amount',
+        )} (${this.stringField(payload, 'label')}) est proposée sur votre caution. Vous pouvez la contester sous 15 jours.`;
+      case 'DEPOSIT_DEDUCTION_CONTESTED':
+        return `Paradis Immo — le locataire conteste une retenue de ${this.stringField(
+          payload,
+          'amount',
+        )} (${this.stringField(payload, 'label')}).`;
+      case 'DEPOSIT_SETTLED':
+        return `Paradis Immo — restitution de caution : ${this.stringField(
+          payload,
+          'refundAmount',
+        )} ${this.stringField(payload, 'currency', 'XAF')} après retenues de ${this.stringField(
+          payload,
+          'deducted',
+        )}.`;
+      case 'DEPOSIT_REFUND_DUE':
+        return `Paradis Immo — la restitution de caution est à effectuer avant le ${this.stringField(
+          payload,
+          'refundDeadline',
+        )}.`;
+      case 'LEASE_TERMINATION_NOTICE':
+        return `Paradis Immo — un congé a été déposé sur votre bail${this.stringField(
+          payload,
+          'effectiveAt',
+        ) ? `, effectif au ${this.stringField(payload, 'effectiveAt')}` : ''}.`;
       default:
         return `Paradis Immo — ${type}`;
     }
@@ -231,6 +359,46 @@ export class NotificationsService {
         return 'Demande de preuve de paiements';
       case 'SOLVENCY_CHECK_REQUESTED':
         return 'Demande de solvabilité';
+      case 'LEASE_INVITATION':
+        return 'Un bail vous attend';
+      case 'LEASE_STARTED':
+        return 'Votre bail est actif';
+      case 'LEASE_TENANT_SIGNED':
+        return 'Le locataire a signé';
+      case 'LEASE_LANDLORD_SIGNED':
+        return 'Le bailleur a signé';
+      case 'DEPOSIT_DEDUCTION_PROPOSED':
+        return 'Retenue sur caution';
+      case 'DEPOSIT_DEDUCTION_CONTESTED':
+        return 'Retenue contestée';
+      case 'DEPOSIT_SETTLED':
+        return 'Caution restituée';
+      case 'DEPOSIT_REFUND_DUE':
+        return 'Restitution de caution à faire';
+      case 'LEASE_TERMINATION_NOTICE':
+        return 'Congé déposé';
+      case 'APPLICATION_SUBMITTED':
+        return 'Candidature envoyée';
+      case 'APPLICATION_ACCEPTED':
+        return 'Candidature acceptée';
+      case 'APPLICATION_REJECTED':
+        return 'Candidature non retenue';
+      case 'APPLICATION_WITHDRAWN':
+        return 'Candidature retirée';
+      case 'RENT_REMINDER_MANUAL':
+        return 'Loyer en retard';
+      case 'LATE_FEE_APPLIED':
+        return 'Pénalité de retard';
+      case 'LATE_FEE_WAIVED':
+        return 'Pénalité annulée';
+      case 'FORMAL_NOTICE_SENT':
+        return 'Mise en demeure';
+      case 'AMENDMENT_PROPOSED':
+        return 'Avenant à signer';
+      case 'AMENDMENT_APPLIED':
+        return 'Avenant appliqué';
+      case 'RENT_INDEXATION_PROPOSED':
+        return 'Révision annuelle';
       default:
         return `Paradis Immo · ${type}`;
     }

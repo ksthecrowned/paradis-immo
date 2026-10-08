@@ -1,6 +1,8 @@
 import { ForbiddenException, Injectable, Logger } from '@nestjs/common';
+import { AllocatableType, Payment, PaymentAllocation } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { R2Service } from '../../media/r2.service';
+import { DocumentSequenceService } from '../../documents/document-sequence.service';
 import { renderReceiptPdf } from './receipt-pdf';
 
 const R2_RECEIPT_PREFIX = 'receipts';
@@ -33,6 +35,7 @@ export class ReceiptService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly r2: R2Service,
+    private readonly sequences: DocumentSequenceService,
   ) {}
 
   async generateForPayment(
@@ -60,7 +63,27 @@ export class ReceiptService {
 
     const propertyTitle = await this.resolvePropertyTitle(payment);
 
-    const number = `REC-${payment.reference.slice(-8).toUpperCase()}-${Date.now().toString(36)}`;
+    // Spec 04 — sequential per-org payment receipt `R-{ORG}-{AAAA}-{000001}`.
+    // When the payment cannot be traced to a property (no allocation yet) we
+    // fall back to a dedicated platform sequence so numbers stay unique.
+    const issuerOrgId = await this.resolveIssuerOrgId(payment);
+    const { number } = await this.prisma.$transaction(async (tx) => {
+      const reserved = await this.sequences.nextNumber(tx, {
+        organizationId: issuerOrgId,
+        kind: 'RECEIPT',
+        prefix: 'R',
+        at: payment.validatedAt ?? payment.createdAt,
+      });
+      const row = await tx.receipt.create({
+        data: {
+          paymentId,
+          url: '',
+          number: reserved,
+          issuerOrgId,
+        },
+      });
+      return { number: row.number };
+    });
 
     const buffer = await renderReceiptPdf({
       number,
@@ -76,12 +99,9 @@ export class ReceiptService {
     const key = `${R2_RECEIPT_PREFIX}/${paymentId}/${number}.pdf`;
     const { url } = await this.uploadToR2(key, buffer);
 
-    const created = await this.prisma.receipt.create({
-      data: {
-        paymentId,
-        url,
-        number,
-      },
+    const created = await this.prisma.receipt.update({
+      where: { paymentId },
+      data: { url },
     });
 
     this.logger.log(
@@ -209,6 +229,30 @@ export class ReceiptService {
       url: receipt.url,
       createdAt: receipt.createdAt.toISOString(),
     };
+  }
+
+  /**
+   * Org issuing the receipt: the property's managing organization when the
+   * payment is allocated to a rent schedule, otherwise a stable platform
+   * sequence keyed by the payer.
+   */
+  private async resolveIssuerOrgId(
+    payment: Payment & { allocations: PaymentAllocation[] },
+  ): Promise<string> {
+    const rentAllocation = payment.allocations.find(
+      (a) => a.type === AllocatableType.RENT_SCHEDULE && a.rentScheduleId,
+    );
+    if (rentAllocation?.rentScheduleId) {
+      const schedule = await this.prisma.rentSchedule.findUnique({
+        where: { id: rentAllocation.rentScheduleId },
+        select: { lease: { select: { property: { select: { organizationId: true } } } } },
+      });
+      const orgId = schedule?.lease.property.organizationId;
+      if (orgId) return orgId;
+    }
+    // No property yet: number under a per-payer pseudo-org so the sequence is
+    // still strictly consecutive and unique.
+    return `payer-${payment.userId}`;
   }
 
   private async resolvePropertyTitle(payment: {

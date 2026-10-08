@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import {
+  MemberStatus,
   Organization,
   OrgMemberRole,
   OrganizationType,
@@ -52,6 +53,13 @@ export type PublicOrganizationReview = {
   body: string;
   rating: number;
   createdAt: string;
+  reply: string | null;
+  repliedAt: string | null;
+};
+
+export type PaginatedReviews = {
+  data: PublicOrganizationReview[];
+  meta: { page: number; pageSize: number; total: number; totalPages: number };
 };
 
 const publicOrgWhere: Prisma.OrganizationWhereInput = {
@@ -124,7 +132,15 @@ export class OrganizationsService {
     };
   }
 
-  async listReviews(organizationId: string): Promise<PublicOrganizationReview[]> {
+  /**
+   * Paginated public reviews (spec 02 — the endpoint was made paginated).
+   * Only PUBLISHED reviews are visible; hidden/flagged ones await moderation.
+   */
+  async listReviews(
+    organizationId: string,
+    page = 1,
+    pageSize = 20,
+  ): Promise<PaginatedReviews> {
     const org = await this.prisma.organization.findFirst({
       where: { id: organizationId, ...publicOrgWhere },
       select: { id: true },
@@ -135,20 +151,37 @@ export class OrganizationsService {
         message: 'Organization not found',
       });
     }
-    const rows = await this.prisma.organizationReview.findMany({
-      where: { organizationId },
-      orderBy: { createdAt: 'desc' },
-      take: 50,
-    });
-    return rows.map((r) => ({
-      id: r.id,
-      organizationId: r.organizationId,
-      authorName: r.authorName,
-      propertyTitle: r.propertyTitle,
-      body: r.body,
-      rating: r.rating,
-      createdAt: r.createdAt.toISOString(),
-    }));
+    const where = { organizationId, status: 'PUBLISHED' };
+    const safePage = Math.max(1, page);
+    const safeSize = Math.min(50, Math.max(1, pageSize));
+    const [total, rows] = await Promise.all([
+      this.prisma.organizationReview.count({ where }),
+      this.prisma.organizationReview.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip: (safePage - 1) * safeSize,
+        take: safeSize,
+      }),
+    ]);
+    return {
+      data: rows.map((r) => ({
+        id: r.id,
+        organizationId: r.organizationId,
+        authorName: r.authorName,
+        propertyTitle: r.propertyTitle,
+        body: r.body,
+        rating: r.rating,
+        createdAt: r.createdAt.toISOString(),
+        reply: r.reply ?? null,
+        repliedAt: r.repliedAt ? r.repliedAt.toISOString() : null,
+      })),
+      meta: {
+        page: safePage,
+        pageSize: safeSize,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / safeSize)),
+      },
+    };
   }
 
   toPublic(o: Organization): PublicOrganization {
@@ -172,17 +205,19 @@ export class OrganizationsService {
   }
 
   /**
-   * Auto-create a personal OWNER organization when a user publishes their
-   * first property. The user becomes the OWNER member. Idempotent: returns
-   * the existing org if one already exists for that user.
+   * Resolve the caller's personal OWNER organization (spec 02 — no
+   * self-service): OWNER organizations are only ever created when a
+   * PLATFORM_ADMIN invites their owner. Publishing without one is refused
+   * with a pointer to the request form.
    */
   async ensureOwnerOrg(
     userId: string,
-    countryId: string,
+    _countryId: string,
   ): Promise<Organization> {
     const existing = await this.prisma.organizationMember.findFirst({
       where: {
         userId,
+        status: MemberStatus.ACTIVE,
         role: OrgMemberRole.OWNER,
         organization: { type: OrganizationType.OWNER },
       },
@@ -190,89 +225,13 @@ export class OrganizationsService {
     });
     if (existing) return existing.organization;
 
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-    });
-    const baseName =
-      user?.name?.trim() || `Propriétaire ${user?.phone ?? userId.slice(-6)}`;
-
-    const name = await this.uniqueOwnerOrgName(baseName);
-
-    try {
-      return await this.prisma.organization.create({
-        data: {
-          name,
-          type: OrganizationType.OWNER,
-          affiliationStatus: null,
-          countryId,
-          members: {
-            create: { userId, role: OrgMemberRole.OWNER },
-          },
-        },
-      });
-    } catch (err) {
-      this.logger.warn(`ensureOwnerOrg race for user ${userId}: ${err}`);
-      const again = await this.prisma.organizationMember.findFirst({
-        where: {
-          userId,
-          role: OrgMemberRole.OWNER,
-          organization: { type: OrganizationType.OWNER },
-        },
-        include: { organization: true },
-      });
-      if (!again) throw err;
-      return again.organization;
-    }
-  }
-
-  /**
-   * Add the user as an AGENT member of Paradis Immo.
-   * Called when a user is promoted to agent status.
-   */
-  async ensureAgentMembership(
-    userId: string,
-  ): Promise<{ userId: string; organizationId: string; role: OrgMemberRole }> {
-    const paradis = await this.getParadisImmo();
-    const existing = await this.prisma.organizationMember.findUnique({
-      where: {
-        userId_organizationId: { userId, organizationId: paradis.id },
-      },
-    });
-    if (existing) return existing;
-    try {
-      return await this.prisma.organizationMember.create({
-        data: {
-          userId,
-          organizationId: paradis.id,
-          role: OrgMemberRole.AGENT,
-        },
-      });
-    } catch (err) {
-      const found = await this.prisma.organizationMember.findUnique({
-        where: {
-          userId_organizationId: { userId, organizationId: paradis.id },
-        },
-      });
-      if (!found) throw err;
-      return found;
-    }
-  }
-
-  private async uniqueOwnerOrgName(base: string): Promise<string> {
-    const existing = await this.prisma.organization.findFirst({
-      where: { name: base },
-    });
-    if (!existing) return base;
-    for (let i = 0; i < 10; i++) {
-      const candidate = `${base} (${Math.floor(Math.random() * 9999)})`;
-      const taken = await this.prisma.organization.findFirst({
-        where: { name: candidate },
-      });
-      if (!taken) return candidate;
-    }
+    this.logger.warn(
+      `Refused property write for ${userId}: no OWNER organization (invitation-only)`,
+    );
     throw new ConflictException({
-      code: 'OWNER_NAME_COLLISION',
-      message: 'Could not allocate a unique owner organization name',
+      code: 'OWNER_ORG_REQUIRED',
+      message:
+        'Votre compte propriétaire n’a pas encore été ouvert par un administrateur. Déposez une demande, puis attendez votre lien d’invitation.',
     });
   }
 }

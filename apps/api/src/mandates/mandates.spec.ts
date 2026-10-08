@@ -4,10 +4,15 @@ import { EventPublisher } from '../events/event.publisher';
 import { MandatesService } from './mandates.service';
 import { MandateApprovalService } from './mandate-approval.service';
 import { AgencyAccessService } from './agency-access.service';
+import { RentScheduleGenerator } from '../leases/rent-schedule.generator.service';
+import { R2Service } from '../media/r2.service';
+import { OtpStore } from '../auth/otp.store';
+import { InfobipOtpService } from '../auth/infobip-otp.service';
 
 describe('Mandate delegation + owner approval', () => {
   let mandates: MandatesService;
   let approvals: MandateApprovalService;
+  let access: AgencyAccessService;
   let prisma: PrismaService;
   let countryId: string;
   let bzvQuartierId: string;
@@ -34,11 +39,28 @@ describe('Mandate delegation + owner approval', () => {
         MandateApprovalService,
         AgencyAccessService,
         PrismaService,
+        RentScheduleGenerator,
+        OtpStore,
+        {
+          provide: R2Service,
+          useValue: {
+            uploadLeaseFile: jest.fn(async () => ({
+              url: 'https://fake.r2/avenant.pdf',
+              key: 'avenant.pdf',
+            })),
+            uploadPrivateFile: jest.fn(async (p: { filename: string }) => ({
+              url: `https://fake.r2/${p.filename}`,
+              key: `private/${p.filename}`,
+            })),
+          },
+        },
+        { provide: InfobipOtpService, useValue: { sendText: jest.fn() } },
         { provide: EventPublisher, useValue: eventBus },
       ],
     }).compile();
     mandates = moduleRef.get(MandatesService);
     approvals = moduleRef.get(MandateApprovalService);
+    access = moduleRef.get(AgencyAccessService);
     prisma = moduleRef.get(PrismaService);
     await prisma.onModuleInit();
 
@@ -86,7 +108,7 @@ describe('Mandate delegation + owner approval', () => {
         name: `Mandate Test Agent ${Date.now()}`,
         type: 'AGENCY',
         countryId,
-        members: { create: { userId: agentUserId, role: 'AGENT' } },
+        members: { create: { userId: agentUserId, role: 'ADMIN' } },
       },
     });
     agentOrgId = agentOrg.id;
@@ -144,16 +166,54 @@ describe('Mandate delegation + owner approval', () => {
     emittedEvents.length = 0;
   });
 
-  it('owner creates a mandate delegating the property to an agency', async () => {
+  it('owner proposes a mandate: PROPOSED, no agency access yet', async () => {
     const m = await mandates.createMandate(ownerUserId, {
       propertyId,
       organizationId: agentOrgId,
+      scopes: ['LONG_TERM_RENTAL'],
+      managementFeeRate: 0.08,
     });
     createdMandateIds.push(m.id);
 
-    expect(m.status).toBe('ACTIVE');
+    expect(m.status).toBe('PROPOSED');
     expect(m.propertyId).toBe(propertyId);
     expect(m.organizationId).toBe(agentOrgId);
+    expect(m.managementFeeRate).toBe('0.08');
+
+    // Spec 03 acceptance: no access for the agency before `accept`.
+    expect(await access.canOperateOnProperty(agentUserId, propertyId)).toBe(
+      false,
+    );
+
+    // Initial version snapshot recorded.
+    const versions = await prisma.mandateVersion.findMany({
+      where: { mandateId: m.id },
+    });
+    expect(versions.length).toBe(1);
+    expect(versions[0].proposedBy).toBe(ownerUserId);
+  });
+
+  it('gérant accepts the proposal: ACTIVE and agency gains access', async () => {
+    const mandateId = createdMandateIds[0];
+    const accepted = await mandates.acceptMandate(agentUserId, mandateId);
+    expect(accepted.status).toBe('ACTIVE');
+    expect(accepted.acceptedById).toBe(agentUserId);
+    expect(accepted.acceptedAt).not.toBeNull();
+    expect(await access.canOperateOnProperty(agentUserId, propertyId)).toBe(
+      true,
+    );
+  });
+
+  it('rejects a second proposal on the same property+scope (409 MANDATE_CONFLICT)', async () => {
+    await expect(
+      mandates.createMandate(ownerUserId, {
+        propertyId,
+        organizationId: agentOrgId,
+        scopes: ['LONG_TERM_RENTAL'],
+      }),
+    ).rejects.toMatchObject({
+      response: { code: 'MANDATE_CONFLICT' },
+    });
   });
 
   it('rejects mandate creation by non-owner', async () => {

@@ -6,6 +6,10 @@ import { EventPublisher } from '../events/event.publisher';
 import { MandateApprovalService } from '../mandates/mandate-approval.service';
 import { MandatesService } from '../mandates/mandates.service';
 import { AgencyAccessService } from '../mandates/agency-access.service';
+import { RentScheduleGenerator } from '../leases/rent-schedule.generator.service';
+import { R2Service } from '../media/r2.service';
+import { OtpStore } from '../auth/otp.store';
+import { InfobipOtpService } from '../auth/infobip-otp.service';
 import { MaintenanceService } from './maintenance.service';
 
 describe('MaintenanceService', () => {
@@ -40,6 +44,22 @@ describe('MaintenanceService', () => {
         MandatesService,
         AgencyAccessService,
         PrismaService,
+        RentScheduleGenerator,
+        OtpStore,
+        {
+          provide: R2Service,
+          useValue: {
+            uploadLeaseFile: jest.fn(async () => ({
+              url: 'https://fake.r2/avenant.pdf',
+              key: 'avenant.pdf',
+            })),
+            uploadPrivateFile: jest.fn(async (p: { filename: string }) => ({
+              url: `https://fake.r2/${p.filename}`,
+              key: `private/${p.filename}`,
+            })),
+          },
+        },
+        { provide: InfobipOtpService, useValue: { sendText: jest.fn() } },
         { provide: EventPublisher, useValue: eventBus },
       ],
     }).compile();
@@ -153,6 +173,7 @@ describe('MaintenanceService', () => {
         organizationId: agentOrg.id,
         status: 'ACTIVE',
         startDate: new Date(),
+        proposedById: ownerUserId,
       },
     });
     mandateId = mandate.id;
@@ -444,5 +465,51 @@ describe('MaintenanceService', () => {
   it('listForActor returns [] for an unrelated user', async () => {
     const tickets = await maintenance.listForActor(tenantUserId);
     expect(tickets).toEqual([]);
+  });
+
+  it('spec 03: blocked ticket answers 409 OWNER_APPROVAL_REQUIRED until approved', async () => {
+    const t = await maintenance.createTicket({
+      propertyId: rentPropertyId,
+      reporterId: tenantUserId,
+      title: 'Travaux majeurs',
+      description: 'Charpente',
+      priority: MaintenancePriority.URGENT,
+      estimatedCost: 400_000,
+      mandateId,
+    });
+    createdTicketIds.push(t.id);
+    expect(t.requiresOwnerApproval).toBe(true);
+
+    const pending = await approvals.listForMandate(mandateId);
+    const approval = pending
+      .filter((a) => a.actionType === 'MAJOR_REPAIR')
+      .find((a) => (a.payload as { ticketId?: string }).ticketId === t.id);
+    expect(approval).toBeDefined();
+    if (!approval) throw new Error('approval missing');
+    createdApprovalIds.push(approval.id);
+
+    // Before the owner approves: any transition is refused.
+    await expect(
+      maintenance.assignTicket(ownerUserId, t.id, agentUserId),
+    ).rejects.toMatchObject({ response: { code: 'OWNER_APPROVAL_REQUIRED' } });
+    await expect(
+      maintenance.updateTicket(ownerUserId, t.id, {
+        status: MaintenanceStatus.IN_PROGRESS,
+      }),
+    ).rejects.toMatchObject({ response: { code: 'OWNER_APPROVAL_REQUIRED' } });
+
+    // Owner approves: the effect lifts the flag, the transition goes through.
+    const decided = await approvals.decideApproval(ownerUserId, approval.id, {
+      decision: 'APPROVE',
+    });
+    expect(decided.status).toBe('APPROVED');
+
+    const assigned = await maintenance.assignTicket(
+      ownerUserId,
+      t.id,
+      agentUserId,
+    );
+    expect(assigned.status).toBe(MaintenanceStatus.ASSIGNED);
+    expect(assigned.requiresOwnerApproval).toBe(false);
   });
 });

@@ -16,7 +16,9 @@ describe('TenantDocumentsService', () => {
   let propertyId: string;
   let orgId: string;
   let leaseId: string;
-  const phones = ['+242073000001', '+242073000002', '+242073000003'];
+  // Unique to this suite: sharing phones with solvency-checks.spec made the
+  // two suites delete each other's leases/rent schedules when run in parallel.
+  const phones = ['+242073000011', '+242073000012', '+242073000013'];
   const fakeR2 = {
     uploadTenantFile: jest.fn(async () => ({
       url: 'https://cdn.test/tenants/x/doc.pdf',
@@ -57,7 +59,22 @@ describe('TenantDocumentsService', () => {
       await prisma.tenantDocument.deleteMany({
         where: { userId: { in: staleIds } },
       });
-      await prisma.lease.deleteMany({ where: { tenantId: { in: staleIds } } });
+      const staleLeases = await prisma.lease.findMany({
+        where: { tenantId: { in: staleIds } },
+        select: { id: true },
+      });
+      const staleLeaseIds = staleLeases.map((l) => l.id);
+      if (staleLeaseIds.length) {
+        await prisma.paymentAllocation.deleteMany({
+          where: { rentSchedule: { leaseId: { in: staleLeaseIds } } },
+        });
+        await prisma.rentSchedule.deleteMany({
+          where: { leaseId: { in: staleLeaseIds } },
+        });
+        await prisma.lease.deleteMany({
+          where: { id: { in: staleLeaseIds } },
+        });
+      }
       await prisma.userRole.deleteMany({ where: { userId: { in: staleIds } } });
       await prisma.organizationMember.deleteMany({
         where: { userId: { in: staleIds } },
@@ -133,20 +150,37 @@ describe('TenantDocumentsService', () => {
   });
 
   afterAll(async () => {
-    await prisma.tenantDocument.deleteMany({
-      where: { userId: tenantUserId },
-    });
-    await prisma.lease.deleteMany({ where: { id: leaseId } });
-    await prisma.property.deleteMany({ where: { id: propertyId } });
-    await prisma.organizationMember.deleteMany({
-      where: { organizationId: orgId },
-    });
-    await prisma.organization.deleteMany({ where: { id: orgId } });
-    for (const id of [ownerUserId, tenantUserId, strangerUserId]) {
-      await prisma.userRole.deleteMany({ where: { userId: id } });
-      await prisma.user.deleteMany({ where: { id } });
+    // beforeAll may have failed midway: an undefined id here would turn
+    // deleteMany into a full-table delete of other suites' rows.
+    if (prisma && tenantUserId) {
+      await prisma.tenantDocument.deleteMany({
+        where: { userId: tenantUserId },
+      });
     }
-    await prisma.onModuleDestroy();
+    if (prisma && leaseId) {
+      await prisma.paymentAllocation.deleteMany({
+        where: { rentSchedule: { leaseId } },
+      });
+      await prisma.rentSchedule.deleteMany({ where: { leaseId } });
+      await prisma.lease.deleteMany({ where: { id: leaseId } });
+    }
+    if (prisma && propertyId) {
+      await prisma.property.deleteMany({ where: { id: propertyId } });
+    }
+    if (prisma && orgId) {
+      await prisma.organizationMember.deleteMany({
+        where: { organizationId: orgId },
+      });
+      await prisma.organization.deleteMany({ where: { id: orgId } });
+    }
+    if (prisma) {
+      for (const id of [ownerUserId, tenantUserId, strangerUserId]) {
+        if (!id) continue;
+        await prisma.userRole.deleteMany({ where: { userId: id } });
+        await prisma.user.deleteMany({ where: { id } });
+      }
+      await prisma.onModuleDestroy();
+    }
   });
 
   it('owner uploads and lists ID_CARD for managed tenant', async () => {

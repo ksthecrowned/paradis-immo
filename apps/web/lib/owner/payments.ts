@@ -1,4 +1,5 @@
-import { apiFetch } from '@/lib/api';
+import { apiFetch, apiFetchPaginated } from '@/lib/api';
+import type { PaginatedResult } from '@/lib/http/types';
 
 export interface PublicPaymentAllocation {
   id: string;
@@ -22,6 +23,14 @@ export interface PublicPayment {
   validatedAt: string | null;
   allocations?: PublicPaymentAllocation[];
   createdAt: string;
+  updatedAt?: string;
+  propertyId?: string;
+  payerPhone?: string;
+  bookingId?: string;
+  expiresAt?: string;
+  failureReason?: string;
+  refundedAmount?: string;
+  providerRef?: string;
 }
 
 export interface PublicPaymentReceipt {
@@ -32,8 +41,33 @@ export interface PublicPaymentReceipt {
   createdAt: string;
 }
 
-export async function listManagedPayments(): Promise<PublicPayment[]> {
-  return apiFetch<PublicPayment[]>('/payments/managed');
+export type ManagedPaymentsQuery = {
+  page?: number;
+  pageSize?: number;
+  status?: string;
+  method?: string;
+  propertyId?: string;
+  /** ISO date (inclusive lower bound on createdAt). */
+  from?: string;
+  /** ISO date (inclusive upper bound on createdAt). */
+  to?: string;
+};
+
+export async function listManagedPayments(
+  query: ManagedPaymentsQuery = {},
+): Promise<PaginatedResult<PublicPayment>> {
+  const params = new URLSearchParams();
+  if (query.status) params.set('status', query.status);
+  if (query.method) params.set('method', query.method);
+  if (query.propertyId) params.set('propertyId', query.propertyId);
+  if (query.from) params.set('from', query.from);
+  if (query.to) params.set('to', query.to);
+  if (query.page) params.set('page', String(query.page));
+  if (query.pageSize) params.set('pageSize', String(query.pageSize));
+  const qs = params.toString();
+  return apiFetchPaginated<PublicPayment>(
+    `/payments/managed${qs ? `?${qs}` : ''}`,
+  );
 }
 
 export async function getPayment(id: string): Promise<PublicPayment> {

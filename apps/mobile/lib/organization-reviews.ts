@@ -13,11 +13,17 @@ export {
 
 export async function listOrganizationReviews(
   organizationId: string,
+  page = 1,
+  pageSize = 20,
 ): Promise<PublicOrganizationReview[]> {
-  return apiFetch<PublicOrganizationReview[]>(
-    `/organizations/${organizationId}/reviews`,
+  const res = await apiFetch<{
+    data: PublicOrganizationReview[];
+    meta: { page: number; pageSize: number; total: number; totalPages: number };
+  }>(
+    `/organizations/${organizationId}/reviews?page=${page}&pageSize=${pageSize}`,
     { anonymous: true },
   );
+  return res.data;
 }
 
 export async function fetchAgencyReviews(

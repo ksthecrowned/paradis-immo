@@ -43,10 +43,16 @@ describe('OrganizationsService', () => {
 
   afterAll(async () => {
     if (userId) {
-      await prisma.organizationMember.deleteMany({ where: { userId } });
-      await prisma.organization.deleteMany({
+      const owned = await prisma.organization.findMany({
         where: { members: { some: { userId } } },
+        select: { id: true },
       });
+      await prisma.organizationMember.deleteMany({ where: { userId } });
+      if (owned.length) {
+        await prisma.organization.deleteMany({
+          where: { id: { in: owned.map((o) => o.id) } },
+        });
+      }
       await prisma.userRole.deleteMany({ where: { userId } });
       await prisma.user.deleteMany({ where: { id: userId } });
     }
@@ -81,10 +87,26 @@ describe('OrganizationsService', () => {
     );
   });
 
-  it('ensureOwnerOrg creates a personal OWNER org + member', async () => {
-    const org = await orgs.ensureOwnerOrg(userId, countryId);
-    expect(org.type).toBe('OWNER');
-    expect(org.countryId).toBe(countryId);
+  it('refuses when no OWNER organization was opened by an admin (spec 02)', async () => {
+    await expect(orgs.ensureOwnerOrg(userId, countryId)).rejects.toMatchObject({
+      response: { code: 'OWNER_ORG_REQUIRED' },
+    });
+  });
+
+  it('returns the OWNER organization created from the admin invitation', async () => {
+    const org = await prisma.organization.create({
+      data: {
+        name: `Owner Org Spec02 ${userId.slice(0, 8)}`,
+        type: 'OWNER',
+        countryId,
+        members: { create: { userId, role: 'OWNER' } },
+      },
+    });
+
+    const resolved = await orgs.ensureOwnerOrg(userId, countryId);
+    expect(resolved.id).toBe(org.id);
+    expect(resolved.type).toBe('OWNER');
+
     const member = await prisma.organizationMember.findUnique({
       where: {
         userId_organizationId: {
@@ -102,16 +124,17 @@ describe('OrganizationsService', () => {
     expect(second.id).toBe(first.id);
   });
 
-  it('ensureAgentMembership adds AGENT to Paradis Immo', async () => {
-    const m = await orgs.ensureAgentMembership(userId);
-    expect(m.role).toBe('AGENT');
-    expect(m.organizationId).toBe(SEED_IDS.orgParadisImmo);
-  });
-
-  it('ensureAgentMembership is idempotent', async () => {
-    const first = await orgs.ensureAgentMembership(userId);
-    const second = await orgs.ensureAgentMembership(userId);
-    expect(second.userId).toBe(first.userId);
-    expect(second.organizationId).toBe(first.organizationId);
+  // Regression guard: AGENT membership must never be granted implicitly
+  // (spec 01 — escalation of privileges). It comes from an invitation or the
+  // creation of an organization only.
+  it('never creates an AGENT membership implicitly', async () => {
+    const members = await prisma.organizationMember.findMany({
+      where: { userId, role: 'AGENT' },
+    });
+    expect(members).toHaveLength(0);
+    expect(
+      (orgs as unknown as { ensureAgentMembership?: unknown })
+        .ensureAgentMembership,
+    ).toBeUndefined();
   });
 });

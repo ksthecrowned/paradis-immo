@@ -8,6 +8,9 @@ import { MandateApprovalService } from '../mandates/mandate-approval.service';
 import { AgencyAccessService } from '../mandates/agency-access.service';
 import { generateRentSchedule } from './rent-schedule.generator';
 import { UsersService } from '../users/users.service';
+import { NotificationsService } from '../notifications/notifications.service';
+import { OtpStore } from '../auth/otp.store';
+import { InfobipOtpService } from '../auth/infobip-otp.service';
 
 describe('RentScheduleGenerator (unit)', () => {
   it('generates one entry per month from startDate to endDate', () => {
@@ -61,6 +64,8 @@ describe('LeasesService — schedule generation', () => {
         RentScheduleGenerator,
         PrismaService,
         UsersService,
+        OtpStore,
+        InfobipOtpService,
         {
           provide: MandateApprovalService,
           useValue: {
@@ -68,6 +73,23 @@ describe('LeasesService — schedule generation', () => {
           },
         },
         AgencyAccessService,
+        {
+          provide: NotificationsService,
+          useValue: {
+            send: jest.fn(async () => ({
+              id: 'notif',
+              userId: '',
+              channel: 'WHATSAPP',
+              type: '',
+              payload: {},
+              status: 'SENT',
+              sentAt: new Date().toISOString(),
+              readAt: null,
+              createdAt: new Date().toISOString(),
+            })),
+            sendToPhone: jest.fn(async () => ({ ok: true })),
+          },
+        },
         { provide: EventPublisher, useValue: eventBus },
       ],
     }).compile();
@@ -192,9 +214,15 @@ describe('LeasesService — schedule generation', () => {
       where: { leaseId: lease.id },
       orderBy: { dueDate: 'asc' },
     });
-    expect(schedule).toHaveLength(6);
-    expect(schedule[0].dueDate.toISOString()).toContain('2026-01-01');
-    expect(schedule[5].dueDate.toISOString()).toContain('2026-06-01');
+    expect(schedule).toHaveLength(7);
+    // Spec 04 — the DEPOSIT line is due on the move-in day, before the rents.
+    const depositLine = schedule.find((s) => s.kind === 'DEPOSIT');
+    expect(depositLine?.dueDate.toISOString()).toContain('2026-01-01');
+    expect(depositLine?.amount.toString()).toBe('300000');
+    const rentLines = schedule.filter((s) => s.kind !== 'DEPOSIT');
+    // Default `dueDay` is 5 (schema default) for every monthly line.
+    expect(rentLines[0].dueDate.toISOString()).toContain('2026-01-05');
+    expect(rentLines[5].dueDate.toISOString()).toContain('2026-06-05');
     expect(schedule.every((s) => s.status === 'PENDING')).toBe(true);
 
     // LEASE_CREATED event was emitted on activation.
@@ -218,8 +246,9 @@ describe('LeasesService — schedule generation', () => {
     const schedule = await prisma.rentSchedule.findMany({
       where: { leaseId: lease.id },
     });
-    // 3 months: Jul, Aug, Sep
-    expect(schedule).toHaveLength(3);
+    // 3 months: Jul, Aug, Sep — plus the single DEPOSIT line (spec 04).
+    expect(schedule).toHaveLength(4);
+    expect(schedule.filter((s) => s.kind === 'DEPOSIT')).toHaveLength(1);
   });
 
   it('listManaged returns leases for properties the user owns or manages', async () => {
@@ -235,8 +264,9 @@ describe('LeasesService — schedule generation', () => {
     createdLeaseIds.push(lease.id);
 
     const managed = await leases.listManaged(ownerUserId, {});
-    expect(Array.isArray(managed)).toBe(true);
-    const found = managed.find((l) => l.id === lease.id);
+    expect(Array.isArray(managed.data)).toBe(true);
+    expect(managed.meta.total).toBeGreaterThanOrEqual(1);
+    const found = managed.data.find((l) => l.id === lease.id);
     expect(found).toBeDefined();
     expect(found?.propertyId).toBe(propertyId);
     expect(found?.tenantId).toBe(tenantUserId);

@@ -13,7 +13,7 @@ describe('Property reports (e2e)', () => {
   const visitorId = 'user_reports_visitor';
   const adminId = 'user_reports_admin';
   const propertyId = 'prop_reports_test';
-  let organizationId: string;
+  const organizationId = 'org_reports_test';
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
@@ -31,10 +31,21 @@ describe('Property reports (e2e)', () => {
 
     const cg = await prisma.country.findFirstOrThrow();
     const quartier = await prisma.quartier.findFirstOrThrow();
-    const org = await prisma.organization.findFirstOrThrow({
-      where: { countryId: cg.id },
+    // Dedicated org: picking an arbitrary shared one races with other suites
+    // creating/deleting orgs in the same database (and blocks their cleanup).
+    await prisma.organization.upsert({
+      where: { id: organizationId },
+      create: {
+        id: organizationId,
+        name: 'Property Reports Test Org',
+        type: 'AGENCY',
+        countryId: cg.id,
+      },
+      update: {},
     });
-    organizationId = org.id;
+    await prisma.organizationMember.deleteMany({
+      where: { userId: { in: [ownerId, visitorId, adminId] } },
+    });
 
     for (const [id, phone] of [
       [ownerId, '+242060000301'],
@@ -75,20 +86,25 @@ describe('Property reports (e2e)', () => {
         address: 'test',
         countryId: cg.id,
       },
-      update: { status: 'ACTIVE' },
+      update: { status: 'ACTIVE', organizationId },
     });
 
     await prisma.propertyReport.deleteMany({ where: { propertyId } });
   });
 
   afterAll(async () => {
+    if (!prisma) return;
     await prisma.propertyReport.deleteMany({ where: { propertyId } });
     await prisma.property.deleteMany({ where: { id: propertyId } });
+    await prisma.organizationMember.deleteMany({
+      where: { userId: { in: [ownerId, visitorId, adminId] } },
+    });
+    await prisma.organization.deleteMany({ where: { id: organizationId } });
     await prisma.userRole.deleteMany({ where: { userId: adminId } });
     await prisma.user.deleteMany({
       where: { id: { in: [ownerId, visitorId, adminId] } },
     });
-    await app.close();
+    if (app) await app.close();
     await prisma.onModuleDestroy();
   });
 

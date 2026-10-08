@@ -17,7 +17,7 @@ export interface ListColumn<T> {
   className?: string;
 }
 
-export interface ListDataTableProps<T> {
+export interface ListDataTableProps<T extends object> {
   data: T[];
   columns: ListColumn<T>[];
   searchPlaceholder?: string;
@@ -41,6 +41,13 @@ export interface ListDataTableProps<T> {
   selectedRowId?: string;
   /** Field used to read each row's id (for `selectedRowId` match). */
   rowIdKey?: keyof T;
+  corner?: boolean;
+  sortKey?: string | null;
+  sortDir?: 'asc' | 'desc';
+  onSort?: (key: string) => void;
+  rows?: T[];
+  search?: string;
+  onSearchChange?: (search: string) => void;
 }
 
 type PageItem = number | 'ellipsis';
@@ -237,7 +244,7 @@ export function ListDataTable<T extends object>({
   entityLabel = 'entrées',
   tableId = 'table',
   serverSide = false,
-  enableClientFilters = true,
+  enableClientFilters = false,
   totalCount,
   totalPages: totalPagesProp,
   page: controlledPage,
@@ -248,18 +255,29 @@ export function ListDataTable<T extends object>({
   onRowClick,
   selectedRowId,
   rowIdKey = 'id' as keyof T,
+  corner,
+  sortKey,
+  sortDir,
+  onSort,
+  rows: rowsProp,
+  search,
+  onSearchChange,
 }: ListDataTableProps<T>): React.JSX.Element {
-  const [search, setSearch] = useState('');
+  const [internalSearch, setInternalSearch] = useState('');
   const [colFilters, setColFilters] = useState<Record<string, string>>({});
   const [openFilter, setOpenFilter] = useState<string | null>(null);
-  const [sortKey, setSortKey] = useState<string | null>(null);
-  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+  const [internalSortKey, setInternalSortKey] = useState<string | null>(null);
+  const [internalSortDir, setInternalSortDir] = useState<'asc' | 'desc'>('asc');
   const [internalPage, setInternalPage] = useState(1);
   const [internalPageSize, setInternalPageSize] = useState(pageSizeProp);
   const [showExport, setShowExport] = useState(false);
 
   const page = controlledPage ?? internalPage;
+  const controlledSortKey = sortKey ?? internalSortKey;
+  const controlledSortDir = sortDir ?? internalSortDir;
   const pageSize = serverSide ? pageSizeProp : internalPageSize;
+  const setSortKey = (next: string | null) => setInternalSortKey(next as any);
+  const setSortDir = (next: 'asc' | 'desc') => setInternalSortDir(next as any);
 
   const setPage = useCallback(
     (nextPage: number | ((current: number) => number)) => {
@@ -287,11 +305,13 @@ export function ListDataTable<T extends object>({
   );
 
   const filtered = useMemo(() => {
-    if (!enableClientFilters) return data;
+    if (!enableClientFilters) {
+      return data;
+    }
 
     let rows = data;
-    if (search) {
-      const q = search.toLowerCase();
+    if (internalSearch) {
+      const q = internalSearch.toLowerCase();
       rows = rows.filter((row) => rowMatchesSearch(row, columns, q));
     }
     Object.entries(colFilters).forEach(([key, value]) => {
@@ -305,13 +325,13 @@ export function ListDataTable<T extends object>({
       });
     });
     return rows;
-  }, [columns, data, enableClientFilters, search, colFilters]);
+  }, [columns, data, enableClientFilters, internalSearch, colFilters]);
 
   const sorted = useMemo(() => {
-    if (!sortKey) return filtered;
+    if (!controlledSortKey) return filtered;
     return [...filtered].sort((a, b) => {
-      const av = String(getRowFieldValue(a, sortKey) ?? '').trim();
-      const bv = String(getRowFieldValue(b, sortKey) ?? '').trim();
+      const av = String(getRowFieldValue(a, controlledSortKey) ?? '').trim();
+      const bv = String(getRowFieldValue(b, controlledSortKey) ?? '').trim();
       const an = parseFloat(av);
       const bn = parseFloat(bv);
       if (!isNaN(an) && !isNaN(bn)) {
@@ -321,7 +341,7 @@ export function ListDataTable<T extends object>({
         ? av.localeCompare(bv, 'fr')
         : bv.localeCompare(av, 'fr');
     });
-  }, [filtered, sortKey, sortDir]);
+  }, [filtered, controlledSortKey, controlledSortDir]);
 
   const rowCount = serverSide ? (totalCount ?? 0) : sorted.length;
   const totalPages =
@@ -331,18 +351,42 @@ export function ListDataTable<T extends object>({
   const paginated = serverSide
     ? sorted
     : sorted.slice((page - 1) * pageSize, page * pageSize);
+  const paginatedRows = paginated;
   const from = rowCount === 0 ? 0 : (page - 1) * pageSize + 1;
   const to = Math.min(page * pageSize, rowCount);
 
   const handleSort = (key: string) => {
-    if (sortKey === key) {
-      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    if (controlledSortKey === key) {
+      setInternalSortDir(d => (d === 'asc' ? 'desc' : 'asc'));
     } else {
-      setSortKey(key);
-      setSortDir('asc');
+      setInternalSortKey(key);
+      setInternalSortDir('asc');
     }
     setPage(1);
+    onSort?.(key);
   };
+
+  const handleExport = useCallback(() => {
+    const headers = columns.map((c) => c.label).join(',');
+    const rows = sorted
+      .map((row) =>
+        columns
+          .map((c) => {
+            const value = getRowFieldValue(row, String(c.key));
+            return `"${String(value ?? '').replace(/"/g, '""')}"`;
+          })
+          .join(','),
+      )
+      .join('\n');
+    const blob = new Blob([headers + '\n' + rows], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'export.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [sorted, columns]);
+
 
   const pageItems = buildPageItems(page, totalPages);
 
@@ -373,16 +417,16 @@ export function ListDataTable<T extends object>({
   return (
     <div className="mx-auto flex w-full flex-col rounded-lg border border-border bg-card shadow-sm">
       <div className="rounded-xl px-3 py-4 md:py-5">
-        <div className="mb-4 flex items-center space-x-2">
+        <div className="mb-4 flex items-center space-x-2" data-testid="table-top">
           {enableClientFilters ? (
             <div className="flex-1">
               <div className="relative max-w-xs">
                 <label className="sr-only">Recherche</label>
                 <input
                   type="text"
-                  value={search}
+                  value={internalSearch}
                   onChange={(e) => {
-                    setSearch(e.target.value);
+                    setInternalSearch(e.target.value);
                     setPage(1);
                   }}
                   className="block w-full rounded-lg border border-input-border bg-search py-2 ps-9 pe-3 text-sm text-foreground shadow-sm placeholder:text-placeholder focus:border-accent focus:ring-2 focus:ring-accent/30 focus:outline-none"
@@ -405,13 +449,13 @@ export function ListDataTable<T extends object>({
             }
           >
             <button
-              type="button"
-              onClick={() => {
-                setSearch('');
-                setColFilters({});
-                setPage(1);
-                onRefresh?.();
-              }}
+      type="button"
+      onClick={() => {
+        setInternalSearch('');
+        setColFilters({});
+        setPage(1);
+        onRefresh?.();
+      }}
               className={toolbarBtn}
               aria-label="Actualiser"
             >
@@ -438,11 +482,11 @@ export function ListDataTable<T extends object>({
                 type="button"
                 onClick={() => setShowExport((o) => !o)}
                 className={toolbarBtn}
+                data-testid="export-btn"
               >
                 <DashIcon icon="solar:export-linear" className="size-4 shrink-0" />
                 <DashIcon icon="solar:alt-arrow-down-linear" className="size-4" />
-              </button>
-              {showExport ? (
+              </button>              {showExport ? (
                 <>
                   <div
                     className="fixed inset-0 z-40"
@@ -475,6 +519,7 @@ export function ListDataTable<T extends object>({
               <table id={tableId} className="min-w-full table-fixed">
                 <thead className="border-b border-border bg-card-hover/30">
                   <tr>
+
                     {columns.map((col, colIndex) => (
                       <th
                         key={`${col.id ?? String(col.key)}-${colIndex}`}
@@ -554,12 +599,11 @@ export function ListDataTable<T extends object>({
                               ) : null}
                             </div>
                           </div>
-                        ) : (
-                          <div
-                            className={`inline-flex items-center rounded-md border border-transparent px-2.5 py-1 text-muted hover:border-border ${col.sortable ? 'cursor-pointer select-none' : ''}`}
-                            onClick={() =>
-                              col.sortable && handleSort(String(col.key))
-                            }
+                        ) : (  <div
+            className={`inline-flex items-center rounded-md border border-transparent px-2.5 py-1 text-muted hover:border-border ${col.sortable ? 'cursor-pointer select-none' : ''}`}
+            onClick={() =>
+              col.sortable && handleSort(String(col.key))
+            }
                           >
                             {col.label}
                             {col.sortable ? (
@@ -611,11 +655,10 @@ export function ListDataTable<T extends object>({
                       return (
                         <TableRow
                           key={i}
-                          row={row}
-                          columns={columns}
-                          rowIndex={i}
-                          actions={actions}
-                          onRowClick={onRowClick}
+                          row={row}      columns={columns}
+      rowIndex={i}
+      actions={actions}
+      onRowClick={onRowClick}
                           isSelected={isSelected}
                           rowIdKey={rowIdKey}
                         />

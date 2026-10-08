@@ -16,6 +16,7 @@ import {
 } from '@prisma/client';
 import { IsBoolean, IsEnum, IsOptional, IsString, MaxLength } from 'class-validator';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { AuthService } from '../auth/auth.service';
 import { AppAuthGuard } from '../common/guards/auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -46,13 +47,22 @@ class UpdateReportDto {
   adminNote?: string;
 }
 
+class SuspendUserDto {
+  @IsString()
+  @MaxLength(500)
+  reason!: string;
+}
+
 @ApiTags('Admin')
 @ApiBearerAuth()
 @Controller('admin')
 @UseGuards(AppAuthGuard, RolesGuard)
 @Roles('PLATFORM_ADMIN')
 export class AdminController {
-  constructor(private readonly admin: AdminService) {}
+  constructor(
+    private readonly admin: AdminService,
+    private readonly auth: AuthService,
+  ) {}
 
   @Get('stats')
   @ApiOperation({ summary: 'Get platform-wide statistics' })
@@ -130,5 +140,24 @@ export class AdminController {
         updatedAt: updated.updatedAt.toISOString(),
       },
     };
+  }
+
+  @Patch('users/:id/suspend')
+  @HttpCode(200)
+  @ApiOperation({
+    summary:
+      'Suspend an account: blocks every route and revokes all sessions (spec 01)',
+  })
+  async suspendUser(@Param('id') id: string, @Body() dto: SuspendUserDto) {
+    const result = await this.auth.suspendUser(id, dto.reason);
+    return { statusCode: 200, data: { id, status: 'SUSPENDED', ...result } };
+  }
+
+  @Patch('users/:id/unsuspend')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Lift a suspension (spec 01)' })
+  async unsuspendUser(@Param('id') id: string) {
+    await this.auth.unsuspendUser(id);
+    return { statusCode: 200, data: { id, status: 'ACTIVE' } };
   }
 }

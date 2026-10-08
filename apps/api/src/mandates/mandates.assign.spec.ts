@@ -124,6 +124,7 @@ describe('Mandates assign (e2e)', () => {
           propertyId,
           organizationId: agencyOrgId,
           status: 'ACTIVE',
+          proposedById: ownerUserId,
         },
       })
     ).id;

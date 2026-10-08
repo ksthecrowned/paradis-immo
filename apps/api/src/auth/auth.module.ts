@@ -26,6 +26,13 @@ import { OtpStore } from './otp.store';
     InfobipOtpService,
     JwtStrategy,
   ],
-  exports: [AuthService, JwtModule, OtpStore],
+  exports: [
+    AuthService,
+    JwtModule,
+    OtpStore,
+    MagicLinkStore,
+    EmailService,
+    InfobipOtpService,
+  ],
 })
 export class AuthModule {}

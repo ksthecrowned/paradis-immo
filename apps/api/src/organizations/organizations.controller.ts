@@ -1,6 +1,22 @@
-import { Controller, Get, Param } from '@nestjs/common';
+import { Controller, Get, Param, Query } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { IsOptional, IsPositive, Max, Min } from 'class-validator';
+import { Type } from 'class-transformer';
 import { OrganizationsService } from './organizations.service';
+
+class ReviewsQueryDto {
+  @IsOptional()
+  @Type(() => Number)
+  @IsPositive()
+  @Min(1)
+  page?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsPositive()
+  @Max(50)
+  pageSize?: number;
+}
 
 /**
  * Public marketplace agencies (official platform + AGENCY orgs).
@@ -18,9 +34,9 @@ export class OrganizationsController {
   }
 
   @Get(':id/reviews')
-  @ApiOperation({ summary: 'List public reviews for an organization' })
-  listReviews(@Param('id') id: string) {
-    return this.organizations.listReviews(id);
+  @ApiOperation({ summary: 'Paginated public reviews for an organization' })
+  listReviews(@Param('id') id: string, @Query() query: ReviewsQueryDto) {
+    return this.organizations.listReviews(id, query.page, query.pageSize);
   }
 
   @Get(':id')

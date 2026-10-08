@@ -6,11 +6,11 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { EventPublisher } from '../events/event.publisher';
 import { R2Service } from '../media/r2.service';
-import { InfobipSmsService } from '../messaging/infobip-sms.service';
 import { InfobipService } from './infobip.service';
 import { FcmService } from './fcm.service';
 import { NotificationsService } from './notifications.service';
 import { ReceiptService } from '../payments/receipts/receipt.service';
+import { DocumentSequenceService } from '../documents/document-sequence.service';
 import { PaymentValidatedProcessor } from './processors/payment-validated.processor';
 
 describe('Notifications — PAYMENT_VALIDATED processor', () => {
@@ -27,7 +27,7 @@ describe('Notifications — PAYMENT_VALIDATED processor', () => {
   let rentScheduleId: string;
   let paymentId: string;
   const sentPush: Array<{ token: string; title: string }> = [];
-  const sentSms: Array<{ to: string; text: string }> = [];
+  const sentWhatsApp: Array<{ phone: string; message: string }> = [];
   const createdNotificationIds: string[] = [];
   const createdReceiptIds: string[] = [];
 
@@ -39,13 +39,12 @@ describe('Notifications — PAYMENT_VALIDATED processor', () => {
         }>,
     );
     const infobip: Pick<InfobipService, 'sendWhatsApp'> = {
-      sendWhatsApp: jest.fn(async () => ({ ok: false, reason: 'NOT_USED' })),
-    };
-    const sms: Pick<InfobipSmsService, 'send'> = {
-      send: jest.fn(async (message: { to: string; text: string }) => {
-        sentSms.push(message);
-        return { ok: true, providerMessageId: 'sms-test-1' };
-      }),
+      sendWhatsApp: jest.fn(
+        async (phone: string, message: string) => {
+          sentWhatsApp.push({ phone, message });
+          return { ok: true, providerMessageId: 'wa-test-1' };
+        },
+      ),
     };
     const fcm: Pick<FcmService, 'sendPush'> = {
       sendPush: jest.fn(
@@ -62,10 +61,11 @@ describe('Notifications — PAYMENT_VALIDATED processor', () => {
         NotificationsService,
         ReceiptService,
         PrismaService,
+        // Spec 04 P1 — receipts carry a sequential per-org number.
+        DocumentSequenceService,
         { provide: EventPublisher, useValue: { emit: jest.fn() } },
         { provide: R2Service, useValue: { uploadBuffer: uploadSpy } },
         { provide: InfobipService, useValue: infobip },
-        { provide: InfobipSmsService, useValue: sms },
         { provide: FcmService, useValue: fcm },
       ],
     }).compile();
@@ -256,7 +256,7 @@ describe('Notifications — PAYMENT_VALIDATED processor', () => {
 
   beforeEach(() => {
     sentPush.length = 0;
-    sentSms.length = 0;
+    sentWhatsApp.length = 0;
   });
 
   it('notification uses FCM when channel is PUSH', async () => {
@@ -273,7 +273,7 @@ describe('Notifications — PAYMENT_VALIDATED processor', () => {
     expect(result.sent).toBe(true);
     expect(sentPush).toHaveLength(1);
     expect(sentPush[0].token).toBe('fcm-tenant-token');
-    expect(sentSms).toHaveLength(0);
+    expect(sentWhatsApp).toHaveLength(0);
 
     const rows = await notifications.listForUser(tenantUserId);
     const ours = rows.filter(
@@ -292,7 +292,7 @@ describe('Notifications — PAYMENT_VALIDATED processor', () => {
     );
   });
 
-  it('notification uses SMS path when user.notificationChannel is SMS', async () => {
+  it('SMS preference falls back to WhatsApp (no SMS sending)', async () => {
     await prisma.user.update({
       where: { id: tenantUserId },
       data: { notificationChannel: NotificationChannel.SMS },
@@ -313,10 +313,10 @@ describe('Notifications — PAYMENT_VALIDATED processor', () => {
     });
 
     expect(result.status).toBe('SENT');
-    expect(result.channel).toBe(NotificationChannel.SMS);
-    expect(sentSms).toHaveLength(1);
-    expect(sentSms[0].to).toBe('+242078888882');
-    expect(sentSms[0].text).toContain('https://fake.r2/receipts/');
+    expect(result.channel).toBe(NotificationChannel.WHATSAPP);
+    expect(sentWhatsApp).toHaveLength(1);
+    expect(sentWhatsApp[0].phone).toBe('+242078888882');
+    expect(sentWhatsApp[0].message).toContain('https://fake.r2/receipts/');
     expect(sentPush).toHaveLength(0);
 
     createdNotificationIds.push(result.id);

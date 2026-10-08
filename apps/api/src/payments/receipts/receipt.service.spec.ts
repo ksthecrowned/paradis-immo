@@ -4,6 +4,7 @@ import { ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { EventPublisher } from '../../events/event.publisher';
 import { R2Service } from '../../media/r2.service';
+import { DocumentSequenceService } from '../../documents/document-sequence.service';
 import { ReceiptService } from './receipt.service';
 
 describe('ReceiptService', () => {
@@ -35,6 +36,8 @@ describe('ReceiptService', () => {
       providers: [
         ReceiptService,
         PrismaService,
+        // Spec 04 P1 — receipts carry a sequential per-org number.
+        DocumentSequenceService,
         { provide: EventPublisher, useValue: { emit: jest.fn() } },
         {
           provide: R2Service,
@@ -76,6 +79,11 @@ describe('ReceiptService', () => {
         .deleteMany({ where: { userId: { in: userIds } } })
         .catch(() => undefined);
       await prisma.userRole.deleteMany({ where: { userId: { in: userIds } } });
+      // A killed run can leave members behind; deleting users first trips
+      // OrganizationMember_userId_fkey (RESTRICT).
+      await prisma.organizationMember.deleteMany({
+        where: { userId: { in: userIds } },
+      });
       await prisma.user.deleteMany({ where: { id: { in: userIds } } });
     }
     const owner = await prisma.user.create({
@@ -234,22 +242,30 @@ describe('ReceiptService', () => {
         .delete({ where: { id: propertyId } })
         .catch(() => undefined);
     }
+    // A partially-aborted beforeAll leaves undefined ids; Prisma rejects
+    // `in: [undefined]`, which would mask the original error.
+    const cleanupUserIds = [ownerUserId, agentUserId, tenantUserId].filter(
+      (v): v is string => Boolean(v),
+    );
+    const cleanupOrgIds = [ownerOrgId, agentOrgId].filter(
+      (v): v is string => Boolean(v),
+    );
     await prisma.property
       .deleteMany({
-        where: { organizationId: { in: [ownerOrgId, agentOrgId] } },
+        where: { organizationId: { in: cleanupOrgIds } },
       })
       .catch(() => undefined);
     await prisma.organizationMember.deleteMany({
-      where: { userId: { in: [ownerUserId, agentUserId, tenantUserId] } },
+      where: { userId: { in: cleanupUserIds } },
     });
     await prisma.organization.deleteMany({
-      where: { id: { in: [ownerOrgId, agentOrgId] } },
+      where: { id: { in: cleanupOrgIds } },
     });
     await prisma.userRole.deleteMany({
-      where: { userId: { in: [ownerUserId, agentUserId, tenantUserId] } },
+      where: { userId: { in: cleanupUserIds } },
     });
     await prisma.user.deleteMany({
-      where: { id: { in: [ownerUserId, agentUserId, tenantUserId] } },
+      where: { id: { in: cleanupUserIds } },
     });
     await prisma.onModuleDestroy();
   });
@@ -264,12 +280,15 @@ describe('ReceiptService', () => {
     createdReceiptIds.push(result.receiptId);
 
     expect(result.url).toMatch(/^https:\/\/fake\.r2\/receipts\//);
-    expect(result.number).toMatch(/^REC-/);
+    // Spec 04 — `R-{ORG}-{AAAA}-{000001}` issued by the property's organization.
+    expect(result.number).toMatch(
+      new RegExp(`^R-${ownerOrgId.slice(0, 6).toUpperCase()}-\\d{4}-\\d{6}$`),
+    );
     expect(uploadSpy).toHaveBeenCalledTimes(1);
 
     const callArgs = uploadSpy.mock.calls[0] as [string, Buffer, string];
     const [key, body, contentType] = callArgs;
-    expect(key).toMatch(new RegExp(`^receipts/${paymentId}/REC-.*\\.pdf$`));
+    expect(key).toMatch(new RegExp(`^receipts/${paymentId}/R-.*\\.pdf$`));
     expect(body.length).toBeGreaterThan(200);
     expect(body.subarray(0, 5).toString('ascii')).toBe('%PDF-');
     expect(contentType).toBe('application/pdf');
@@ -279,6 +298,7 @@ describe('ReceiptService', () => {
     });
     expect(persisted?.paymentId).toBe(paymentId);
     expect(persisted?.number).toBe(result.number);
+    expect(persisted?.issuerOrgId).toBe(ownerOrgId);
   });
 
   it('is idempotent on paymentId — re-running returns the same receipt without re-uploading', async () => {
@@ -296,7 +316,11 @@ describe('ReceiptService', () => {
     const fakePrisma = {
       receipt: { findUnique: jest.fn().mockResolvedValue(null) },
     } as any;
-    const svc = new ReceiptService(fakePrisma as any);
+    const svc = new ReceiptService(
+      fakePrisma as any,
+      undefined as any,
+      undefined as any,
+    );
     expect(await svc.findById('missing')).toBeNull();
   });
 
@@ -317,7 +341,11 @@ describe('ReceiptService', () => {
       },
       organizationMember: { findUnique: jest.fn() },
     } as any;
-    const svc = new ReceiptService(fakePrisma as any);
+    const svc = new ReceiptService(
+      fakePrisma as any,
+      undefined as any,
+      undefined as any,
+    );
     await expect(svc.findByIdForUser('r1', 'other-user')).rejects.toThrow(
       ForbiddenException,
     );

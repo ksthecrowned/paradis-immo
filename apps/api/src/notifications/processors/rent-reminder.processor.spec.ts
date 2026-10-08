@@ -2,7 +2,6 @@ import { Test } from '@nestjs/testing';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { EventPublisher } from '../../events/event.publisher';
-import { InfobipSmsService } from '../../messaging/infobip-sms.service';
 import { InfobipService } from '../infobip.service';
 import { FcmService } from '../fcm.service';
 import { NotificationsService } from '../notifications.service';
@@ -28,9 +27,6 @@ describe('RentReminderProcessor', () => {
     const infobip: Pick<InfobipService, 'sendWhatsApp'> = {
       sendWhatsApp: jest.fn(async () => ({ ok: false, reason: 'NOT_USED' })),
     };
-    const sms: Pick<InfobipSmsService, 'send'> = {
-      send: jest.fn(async () => ({ ok: false, reason: 'NOT_USED' })),
-    };
     const fcm: Pick<FcmService, 'sendPush'> = {
       sendPush: jest.fn(async (token: string, title: string) => {
         sentPush.push({ token, title });
@@ -45,7 +41,6 @@ describe('RentReminderProcessor', () => {
         PrismaService,
         { provide: EventPublisher, useValue: { emit: jest.fn() } },
         { provide: InfobipService, useValue: infobip },
-        { provide: InfobipSmsService, useValue: sms },
         { provide: FcmService, useValue: fcm },
       ],
     }).compile();
@@ -102,6 +97,7 @@ describe('RentReminderProcessor', () => {
         countryId,
         name: 'Jean LOYER',
         fcmToken: 'fcm-rent-tenant',
+        notificationChannel: 'PUSH',
         roles: { create: { role: 'TENANT' } },
       },
     });
@@ -268,6 +264,7 @@ describe('RentReminderProcessor', () => {
         countryId,
         name: 'LATE Tenant',
         fcmToken: 'fcm-late-tenant',
+        notificationChannel: 'PUSH',
         roles: { create: { role: 'TENANT' } },
       },
     });

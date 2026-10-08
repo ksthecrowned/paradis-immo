@@ -36,7 +36,12 @@ function formatDate(iso: string): string {
   }).format(new Date(iso));
 }
 
-export function AgentPaymentsValidationPage(): React.JSX.Element {
+export function AgentPaymentsValidationPage({
+  embedded = false,
+}: {
+  /** Affiche l'écran sans son propre en-tête (usage comme onglet). */
+  embedded?: boolean;
+}): React.JSX.Element {
   const { ready } = useRequireSession();
   const [rows, setRows] = useState<PublicPayment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -124,7 +129,7 @@ export function AgentPaymentsValidationPage(): React.JSX.Element {
 
   return (
     <section className="space-y-6">
-      <DashboardPageHeader title="Validation des paiements" />
+      {embedded ? null : <DashboardPageHeader title="Validation des paiements" />}
 
       <RecordCashFromPaymentsPanel
         onRecorded={load}

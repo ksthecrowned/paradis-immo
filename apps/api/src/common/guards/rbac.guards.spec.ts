@@ -95,15 +95,27 @@ describe('OrgContextGuard', () => {
     if (!cg) throw new Error('Run seed first');
     countryId = cg.id;
 
-    await prisma.user.deleteMany({
+    // Unique phones: +242071111111/22222222 are also used by
+    // payments.spec and +242073333333 by bookings.spec — sharing them made
+    // the suites delete each other's users when run in parallel.
+    const stale = await prisma.user.findMany({
       where: {
-        phone: { in: ['+242071111111', '+242072222222', '+242073333333'] },
+        phone: { in: ['+242079111111', '+242079222222', '+242079333333'] },
       },
+      select: { id: true },
     });
+    const staleIds = stale.map((u) => u.id);
+    if (staleIds.length) {
+      await prisma.organizationMember.deleteMany({
+        where: { userId: { in: staleIds } },
+      });
+      await prisma.userRole.deleteMany({ where: { userId: { in: staleIds } } });
+      await prisma.user.deleteMany({ where: { id: { in: staleIds } } });
+    }
 
     const owner = await prisma.user.create({
       data: {
-        phone: '+242071111111',
+        phone: '+242079111111',
         countryId,
         roles: { create: { role: 'TENANT' } },
       },
@@ -112,7 +124,7 @@ describe('OrgContextGuard', () => {
 
     const agent = await prisma.user.create({
       data: {
-        phone: '+242072222222',
+        phone: '+242079222222',
         countryId,
         roles: { create: { role: 'TENANT' } },
       },
@@ -121,7 +133,7 @@ describe('OrgContextGuard', () => {
 
     const outsider = await prisma.user.create({
       data: {
-        phone: '+242073333333',
+        phone: '+242079333333',
         countryId,
         roles: { create: { role: 'TENANT' } },
       },
@@ -152,15 +164,18 @@ describe('OrgContextGuard', () => {
   });
 
   afterAll(async () => {
-    await prisma.organizationMember.deleteMany({
-      where: { userId: { in: [ownerUserId, agentUserId, outsiderUserId] } },
-    });
-    await prisma.userRole.deleteMany({
-      where: { userId: { in: [ownerUserId, agentUserId, outsiderUserId] } },
-    });
-    await prisma.user.deleteMany({
-      where: { id: { in: [ownerUserId, agentUserId, outsiderUserId] } },
-    });
+    if (!prisma) return;
+    // beforeAll may have failed midway: never filter on undefined ids.
+    const userIds = [ownerUserId, agentUserId, outsiderUserId].filter(Boolean);
+    if (userIds.length) {
+      await prisma.organizationMember.deleteMany({
+        where: { userId: { in: userIds } },
+      });
+      await prisma.userRole.deleteMany({
+        where: { userId: { in: userIds } },
+      });
+      await prisma.user.deleteMany({ where: { id: { in: userIds } } });
+    }
     await prisma.onModuleDestroy();
   });
 

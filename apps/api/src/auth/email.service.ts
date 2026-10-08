@@ -14,4 +14,9 @@ export class EmailService {
     const url = `${base}/auth/magic?token=${encodeURIComponent(rawToken)}&purpose=${purpose}`;
     this.logger.log(`[dev] Magic link for ${email} (${purpose}): ${url}`);
   }
+
+  /** Plain informational email (spec 02: invitations, admin notices). */
+  async sendText(to: string, subject: string, body: string): Promise<void> {
+    this.logger.log(`[dev] Email to ${to} — ${subject}: ${body}`);
+  }
 }

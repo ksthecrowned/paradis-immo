@@ -2,6 +2,8 @@ import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
+  HttpException,
+  HttpStatus,
   Injectable,
   Logger,
   NotFoundException,
@@ -18,16 +20,18 @@ import {
 } from '@prisma/client';
 import { OAuth2Client } from 'google-auth-library';
 import * as crypto from 'node:crypto';
-import { PARADIS_IMMO_ORG_ID } from '../common/constants/seed-ids';
 import { PrismaService } from '../prisma/prisma.service';
 import { EmailService } from './email.service';
 import { InfobipOtpService } from './infobip-otp.service';
 import { MagicLinkStore } from './magic-link.store';
-import { OtpStore, type OtpPurpose } from './otp.store';
+import {
+  OtpStore,
+  OTP_MAX_ATTEMPTS as MAX_OTP_ATTEMPTS,
+  type OtpPurpose,
+} from './otp.store';
 import { hashPassword, verifyPassword } from './password.util';
 import { fixedOtpFor } from './test-otp';
 
-const MAX_OTP_ATTEMPTS = 5;
 const REFRESH_TTL_DAYS = 30;
 const ACCESS_TTL = '15m';
 
@@ -50,6 +54,15 @@ export interface AuthTokens {
   accessToken: string;
   refreshToken: string;
   user: PublicUser;
+}
+
+/** Device context captured at login so sessions can be listed and revoked. */
+export interface AuthDeviceContext {
+  deviceId?: string;
+  deviceName?: string;
+  platform?: 'IOS' | 'ANDROID' | 'WEB' | 'ADMIN';
+  ipAddress?: string;
+  userAgent?: string;
 }
 
 export interface PublicUser {
@@ -80,9 +93,12 @@ export class AuthService {
   async requestOtp(input: {
     phone: string;
     purpose: OtpPurpose;
+    ipAddress?: string;
   }): Promise<void> {
     await this.assertPhoneMatchesPurpose(input.phone, input.purpose);
 
+    // Store-review accounts use a fixed code and never hit the SMS provider,
+    // so they are exempt from the send rate limits (spec 01).
     const fixedCode = fixedOtpFor(input.phone);
     if (fixedCode) {
       await this.otpStore.put(input.phone, fixedCode, input.purpose);
@@ -92,16 +108,31 @@ export class AuthService {
       return;
     }
 
-    const MAX_REQUESTS_PER_HOUR = 5;
-    const count = await this.otpStore.incrementRequestCount(input.phone);
-    if (count > MAX_REQUESTS_PER_HOUR) {
-      throw new ServiceUnavailableException({
-        code: 'OTP_RATE_LIMIT',
-        message: 'Too many OTP requests for this phone; try again later',
-      });
+    const decision = await this.otpStore.decideSend(
+      input.phone,
+      input.ipAddress,
+    );
+    if (!decision.allowed) {
+      throw new HttpException(
+        {
+          code: decision.code ?? 'OTP_RATE_LIMITED',
+          message:
+            decision.code === 'OTP_COOLDOWN'
+              ? 'Un code a déjà été envoyé récemment. Réessayez dans un instant.'
+              : decision.code === 'OTP_LOCKED'
+                ? 'Trop de tentatives : ce numéro est bloqué temporairement.'
+                : 'Trop de demandes de code. Réessayez plus tard.',
+          retryAfter: decision.retryAfterSeconds,
+        },
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
     }
+
     const code = this.generateCode();
     await this.otpStore.put(input.phone, code, input.purpose);
+    if (input.ipAddress) {
+      await this.otpStore.recordIpRequest(input.ipAddress);
+    }
     await this.infobip.sendOtp({ to: input.phone, code });
   }
 
@@ -109,6 +140,7 @@ export class AuthService {
     phone: string;
     code: string;
     purpose: OtpPurpose;
+    device?: AuthDeviceContext;
   }): Promise<AuthTokens> {
     const record = await this.otpStore.getWithAttempts(input.phone);
     if (!record) {
@@ -124,10 +156,10 @@ export class AuthService {
       });
     }
     if (record.attempts >= MAX_OTP_ATTEMPTS) {
-      await this.otpStore.del(input.phone);
+      // Keep the row: `lockedUntil` is what blocks new sends for 30 minutes.
       throw new UnauthorizedException({
         code: 'OTP_LOCKED',
-        message: 'Too many attempts, request a new code',
+        message: 'Trop de tentatives : réessayez dans 30 minutes.',
       });
     }
     if (record.code !== input.code) {
@@ -147,13 +179,14 @@ export class AuthService {
         : await this.getOrCreateUser(input.phone, country.id);
     this.assertNotPlatformAdmin(user);
 
-    const tokens = await this.issueTokens(user);
+    const tokens = await this.issueTokens(user, input.device);
     return { ...tokens, user: this.toPublicUser(user) };
   }
 
   async loginAdminPassword(input: {
     email: string;
     password: string;
+    device?: AuthDeviceContext;
   }): Promise<AuthTokens> {
     const tokens = await this.loginWeb(input);
     if (!tokens.user.roles.includes(GlobalRole.PLATFORM_ADMIN)) {
@@ -165,7 +198,10 @@ export class AuthService {
     return tokens;
   }
 
-  async loginAdminGoogle(input: { idToken: string }): Promise<AuthTokens> {
+  async loginAdminGoogle(input: {
+    idToken: string;
+    device?: AuthDeviceContext;
+  }): Promise<AuthTokens> {
     const tokens = await this.loginGoogleWeb(input);
     if (!tokens.user.roles.includes(GlobalRole.PLATFORM_ADMIN)) {
       throw new ForbiddenException({
@@ -205,6 +241,7 @@ export class AuthService {
   async consumeMagic(input: {
     token: string;
     password: string;
+    device?: AuthDeviceContext;
   }): Promise<AuthTokens> {
     if (input.password.length < 8) {
       throw new BadRequestException({
@@ -230,13 +267,14 @@ export class AuthService {
       data: { emailVerifiedAt: new Date(), passwordHash },
       include: { roles: true, orgMembers: true },
     });
-    const tokens = await this.issueTokens(user);
+    const tokens = await this.issueTokens(user, input.device);
     return { ...tokens, user: this.toPublicUser(user) };
   }
 
   async loginWeb(input: {
     email: string;
     password: string;
+    device?: AuthDeviceContext;
   }): Promise<AuthTokens> {
     const email = input.email.trim().toLowerCase();
     const user = await this.prisma.user.findUnique({
@@ -256,11 +294,14 @@ export class AuthService {
         message: 'Email ou mot de passe incorrect',
       });
     }
-    const tokens = await this.issueTokens(user);
+    const tokens = await this.issueTokens(user, input.device);
     return { ...tokens, user: this.toPublicUser(user) };
   }
 
-  async loginGoogleWeb(input: { idToken: string }): Promise<AuthTokens> {
+  async loginGoogleWeb(input: {
+    idToken: string;
+    device?: AuthDeviceContext;
+  }): Promise<AuthTokens> {
     const clientId = process.env.GOOGLE_CLIENT_ID;
     if (!clientId) {
       throw new ServiceUnavailableException({
@@ -341,20 +382,21 @@ export class AuthService {
       });
     }
 
-    const tokens = await this.issueTokens(user);
+    const tokens = await this.issueTokens(user, input.device);
     return { ...tokens, user: this.toPublicUser(user) };
   }
 
   async setWebRole(
     userId: string,
     role: 'OWNER' | 'AGENT',
+    device?: AuthDeviceContext,
   ): Promise<AuthTokens> {
     const user = await this.prisma.user.findUniqueOrThrow({
       where: { id: userId },
       include: { roles: true, orgMembers: true },
     });
     if (this.isPlatformAdmin(user)) {
-      const tokens = await this.issueTokens(user);
+      const tokens = await this.issueTokens(user, device);
       return { ...tokens, user: this.toPublicUser(user) };
     }
     // Idempotent: role onboarding must survive re-login / stale sessions.
@@ -366,34 +408,27 @@ export class AuthService {
         m.role === OrgMemberRole.ADMIN,
     );
     if (!hasBiz) {
+      // Neither OWNER nor AGENT is ever granted implicitly: both come from an
+      // invitation — the agency founder / owner from a PLATFORM_ADMIN
+      // invitation (spec 02), the agent from their agency admin (spec 01/02).
       if (role === 'OWNER') {
-        await this.prisma.organization.create({
-          data: {
-            name: user.name
-              ? `${user.name} (propriétaire)`
-              : 'Mon organisation',
-            type: OrganizationType.OWNER,
-            countryId: user.countryId,
-            members: {
-              create: { userId: user.id, role: OrgMemberRole.OWNER },
-            },
-          },
-        });
-      } else {
-        await this.prisma.organizationMember.create({
-          data: {
-            userId: user.id,
-            organizationId: PARADIS_IMMO_ORG_ID,
-            role: OrgMemberRole.AGENT,
-          },
+        throw new ForbiddenException({
+          code: 'OWNER_REQUIRES_INVITATION',
+          message:
+            'Le compte propriétaire est ouvert par un administrateur. Déposez une demande puis attendez votre lien d’invitation.',
         });
       }
+      throw new ForbiddenException({
+        code: 'AGENT_ROLE_REQUIRES_INVITATION',
+        message:
+          'Le rôle agent s’obtient sur invitation d’une agence.',
+      });
     }
     const refreshed = await this.prisma.user.findUniqueOrThrow({
       where: { id: userId },
       include: { roles: true, orgMembers: true },
     });
-    const tokens = await this.issueTokens(refreshed);
+    const tokens = await this.issueTokens(refreshed, device);
     return { ...tokens, user: this.toPublicUser(refreshed) };
   }
 
@@ -401,7 +436,10 @@ export class AuthService {
     return hashPassword(password);
   }
 
-  async refresh(input: { refreshToken: string }): Promise<AuthTokens> {
+  async refresh(input: {
+    refreshToken: string;
+    device?: AuthDeviceContext;
+  }): Promise<AuthTokens> {
     let payload: JwtRefreshPayload;
     try {
       payload = await this.jwt.verifyAsync<JwtRefreshPayload>(
@@ -419,10 +457,26 @@ export class AuthService {
         user: { include: { roles: true, orgMembers: true } },
       },
     });
-    if (!stored || stored.revokedAt || stored.expiresAt < new Date()) {
+    if (!stored || stored.expiresAt < new Date()) {
       throw new UnauthorizedException({
-        code: 'REFRESH_REVOKED',
-        message: 'Refresh token revoked or expired',
+        code: 'REFRESH_INVALID',
+        message: 'Invalid or expired refresh token',
+      });
+    }
+    if (stored.revokedAt) {
+      // Replay of an already-rotated token: the device either leaked its
+      // token or a stolen copy is being used. Revoke the whole family so
+      // neither copy can keep minting sessions.
+      const revoked = await this.prisma.refreshToken.updateMany({
+        where: { familyId: stored.familyId, revokedAt: null },
+        data: { revokedAt: new Date() },
+      });
+      this.logger.warn(
+        `Refresh replay for family ${stored.familyId} (user ${stored.userId}) — revoked ${revoked.count} token(s)`,
+      );
+      throw new UnauthorizedException({
+        code: 'REFRESH_REPLAYED',
+        message: 'Refresh token already used; all sessions of this device were revoked',
       });
     }
     if (stored.userId !== payload.sub) {
@@ -431,12 +485,104 @@ export class AuthService {
         message: 'Refresh token does not match user',
       });
     }
+    if (stored.user.status === 'SUSPENDED') {
+      throw new ForbiddenException({
+        code: 'ACCOUNT_SUSPENDED',
+        message: 'Ce compte est suspendu.',
+      });
+    }
+    await this.prisma.refreshToken.update({
+      where: { id: stored.id },
+      data: { revokedAt: new Date(), lastUsedAt: new Date() },
+    });
+    // Rotation keeps the device bound to the same family.
+    const tokens = await this.issueTokens(stored.user, {
+      ...input.device,
+      deviceId: stored.deviceId,
+      deviceName: input.device?.deviceName ?? stored.deviceName ?? undefined,
+      platform: input.device?.platform ?? stored.platform,
+      ipAddress: input.device?.ipAddress ?? stored.ipAddress ?? undefined,
+      userAgent: input.device?.userAgent ?? stored.userAgent ?? undefined,
+      familyId: stored.familyId,
+    });
+    return { ...tokens, user: this.toPublicUser(stored.user) };
+  }
+
+  /**
+   * Suspend an account (spec 01): the status blocks every authenticated route
+   * and every session is revoked immediately.
+   */
+  async suspendUser(
+    userId: string,
+    reason?: string,
+  ): Promise<{ sessionsRevoked: number }> {
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        status: 'SUSPENDED',
+        suspendedAt: new Date(),
+        suspendedReason: reason ?? null,
+      },
+    });
+    const revoked = await this.prisma.refreshToken.updateMany({
+      where: { userId, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+    this.logger.warn(`Account ${userId} suspended (${revoked.count} sessions revoked)`);
+    return { sessionsRevoked: revoked.count };
+  }
+
+  /** Lift a suspension — the user gets 200 on login again but no old session. */
+  async unsuspendUser(userId: string): Promise<void> {
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        status: 'ACTIVE',
+        suspendedAt: null,
+        suspendedReason: null,
+      },
+    });
+  }
+
+  /** Revoke the presented refresh token — `POST auth/logout`. */
+  async logout(input: { refreshToken: string }): Promise<{ revoked: boolean }> {
+    const tokenHash = this.hash(input.refreshToken);
+    const stored = await this.prisma.refreshToken.findUnique({
+      where: { tokenHash },
+      select: { id: true, revokedAt: true },
+    });
+    // Unknown or already revoked token → still a success for the client.
+    if (!stored) return { revoked: false };
+    if (stored.revokedAt) return { revoked: true };
     await this.prisma.refreshToken.update({
       where: { id: stored.id },
       data: { revokedAt: new Date() },
     });
-    const tokens = await this.issueTokens(stored.user);
-    return { ...tokens, user: this.toPublicUser(stored.user) };
+    return { revoked: true };
+  }
+
+  /** Revoke every session of the user — `POST auth/logout-all`. */
+  async logoutAll(
+    userId: string,
+    input: {
+      includeCurrent?: boolean;
+      refreshToken?: string;
+    } = {},
+  ): Promise<{ revoked: number }> {
+    const includeCurrent = input.includeCurrent ?? true;
+    const keepHash =
+      !includeCurrent && input.refreshToken
+        ? this.hash(input.refreshToken)
+        : null;
+    const result = await this.prisma.refreshToken.updateMany({
+      where: {
+        userId,
+        revokedAt: null,
+        ...(keepHash ? { tokenHash: { not: keepHash } } : {}),
+      },
+      data: { revokedAt: new Date() },
+    });
+    return { revoked: result.count };
   }
 
   private isPlatformAdmin(user: UserWithRoles): boolean {
@@ -506,6 +652,7 @@ export class AuthService {
 
   private async issueTokens(
     user: UserWithRoles,
+    device: AuthDeviceContext & { familyId?: string } = {},
   ): Promise<{ accessToken: string; refreshToken: string }> {
     const roles = user.roles.map((r) => r.role);
     const accessPayload: JwtAccessPayload = { sub: user.id, roles };
@@ -524,7 +671,17 @@ export class AuthService {
       Date.now() + REFRESH_TTL_DAYS * 24 * 60 * 60 * 1000,
     );
     await this.prisma.refreshToken.create({
-      data: { userId: user.id, tokenHash, expiresAt },
+      data: {
+        userId: user.id,
+        tokenHash,
+        expiresAt,
+        familyId: device.familyId ?? crypto.randomUUID(),
+        deviceId: device.deviceId ?? crypto.randomUUID(),
+        deviceName: device.deviceName ?? null,
+        platform: device.platform ?? 'WEB',
+        ipAddress: device.ipAddress ?? null,
+        userAgent: device.userAgent ?? null,
+      },
     });
 
     return { accessToken, refreshToken };

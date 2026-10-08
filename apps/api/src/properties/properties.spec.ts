@@ -50,7 +50,26 @@ describe('Properties (e2e)', () => {
     if (!quartier) throw new Error('Seed Brazzaville quartiers first');
     bzvQuartierId = quartier.id;
 
-    // Cleanup users from previous runs
+    // Cleanup users from previous runs (orgs first — membership blocks delete)
+    const stale = await prisma.user.findMany({
+      where: { phone: { in: ['+242074444444', '+242075555555'] } },
+      select: { id: true },
+    });
+    const staleIds = stale.map((u) => u.id);
+    if (staleIds.length) {
+      await prisma.organizationMember.deleteMany({
+        where: { userId: { in: staleIds } },
+      });
+      // Only orphan orgs can go: a property still points at its organization.
+      await prisma.organization.deleteMany({
+        where: {
+          type: 'OWNER',
+          properties: { none: {} },
+          members: { none: {} },
+        },
+      });
+      await prisma.userRole.deleteMany({ where: { userId: { in: staleIds } } });
+    }
     await prisma.user.deleteMany({
       where: { phone: { in: ['+242074444444', '+242075555555'] } },
     });
@@ -64,6 +83,17 @@ describe('Properties (e2e)', () => {
     });
     ownerUserId = owner.id;
 
+    // OWNER organizations are invitation-only now (spec 02): the fixture
+    // grants one the way an accepted admin invitation would.
+    await prisma.organization.create({
+      data: {
+        name: `Properties Spec Owner ${ownerUserId.slice(0, 8)}`,
+        type: 'OWNER',
+        countryId,
+        members: { create: { userId: ownerUserId, role: 'OWNER' } },
+      },
+    });
+
     const outsider = await prisma.user.create({
       data: {
         phone: '+242075555555',
@@ -75,27 +105,39 @@ describe('Properties (e2e)', () => {
   });
 
   afterAll(async () => {
-    // Cleanup any leftover properties
-    if (createdPropertyId) {
-      await prisma.property.delete({ where: { id: createdPropertyId } });
+    // beforeAll may have failed midway: only clean up what was created.
+    const userIds = [ownerUserId, outsiderUserId].filter(Boolean);
+    if (prisma) {
+      if (createdPropertyId) {
+        await prisma.property.delete({ where: { id: createdPropertyId } });
+      }
+      if (userIds.length) {
+        // Capture the orgs first: deleting members would make the membership
+        // filter below match nothing.
+        const ownedOrgIds = (
+          await prisma.organization.findMany({
+            where: { members: { some: { userId: userIds[0] } }, type: 'OWNER' },
+            select: { id: true },
+          })
+        ).map((o) => o.id);
+        await prisma.organizationMember.deleteMany({
+          where: { userId: { in: userIds } },
+        });
+        if (ownedOrgIds.length) {
+          await prisma.organization.deleteMany({
+            where: { id: { in: ownedOrgIds } },
+          });
+        }
+        await prisma.userRole.deleteMany({
+          where: { userId: { in: userIds } },
+        });
+        await prisma.user.deleteMany({
+          where: { id: { in: userIds } },
+        });
+      }
     }
-    await prisma.organizationMember.deleteMany({
-      where: { userId: { in: [ownerUserId, outsiderUserId] } },
-    });
-    await prisma.organization.deleteMany({
-      where: {
-        members: { some: { userId: ownerUserId } },
-        type: 'OWNER',
-      },
-    });
-    await prisma.userRole.deleteMany({
-      where: { userId: { in: [ownerUserId, outsiderUserId] } },
-    });
-    await prisma.user.deleteMany({
-      where: { id: { in: [ownerUserId, outsiderUserId] } },
-    });
-    await app.close();
-    await prisma.onModuleDestroy();
+    if (app) await app.close();
+    if (prisma) await prisma.onModuleDestroy();
   });
 
   // ------------------------------------------------------------------

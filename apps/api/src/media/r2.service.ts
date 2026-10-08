@@ -1,6 +1,7 @@
 import {
   S3Client,
   PutObjectCommand,
+  GetObjectCommand,
   DeleteObjectCommand,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
@@ -20,6 +21,8 @@ const ALLOWED_CONTENT_TYPES: Record<string, MediaType> = {
 };
 
 const URL_TTL_SECONDS = 600;
+/** Spec 01: KYC files are private — short-lived signed reads only. */
+export const PRIVATE_DOWNLOAD_TTL_SECONDS = 5 * 60;
 
 @Injectable()
 export class R2Service {
@@ -135,6 +138,35 @@ export class R2Service {
   }
 
   /**
+   * Server-side upload of a private file (KYC dossier, data export). The key
+   * is returned so the caller can store it and later mint a signed read URL.
+   */
+  async uploadPrivateFile(params: {
+    folder: string;
+    ownerId: string;
+    filename: string;
+    contentType: string;
+    body: Buffer;
+  }): Promise<{ url: string; key: string }> {
+    const safeFilename = sanitizeFilename(params.filename);
+    const key = `${params.folder}/${params.ownerId}/${Date.now()}-${randomToken(6)}-${safeFilename}`;
+    const { url } = await this.uploadBuffer(key, params.body, params.contentType);
+    return { url, key };
+  }
+
+  /**
+   * Mint a time-limited read URL for a private object. Used for KYC documents
+   * (5 min, spec 01) — never for public marketplace media.
+   */
+  async createPresignedDownload(
+    key: string,
+    expiresIn = PRIVATE_DOWNLOAD_TTL_SECONDS,
+  ): Promise<string> {
+    const command = new GetObjectCommand({ Bucket: this.bucket, Key: key });
+    return getSignedUrl(this.client, command, { expiresIn });
+  }
+
+  /**
    * Check that a URL the client claims was just uploaded actually belongs to
    * our configured R2 public host. Prevents someone from pointing a
    * `PropertyMedia` row at a malicious URL.
@@ -152,6 +184,7 @@ export class R2Service {
    */
   async deleteObject(key: string): Promise<void> {
     if (!this.bucket) return;
+    if (!key) return;
     await this.client.send(
       new DeleteObjectCommand({ Bucket: this.bucket, Key: key }),
     );

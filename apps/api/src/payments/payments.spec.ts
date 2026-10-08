@@ -11,6 +11,9 @@ import { AgencyAccessService } from '../mandates/agency-access.service';
 import { PaymentsService } from './payments.service';
 import { CashProvider } from './providers/cash.provider';
 import { MobileMoneyProvider } from './providers/mobile-money.provider';
+import { DocumentSequenceService } from '../documents/document-sequence.service';
+import { RentReceiptService } from '../leases/rent-receipt.service';
+import { R2Service } from '../media/r2.service';
 
 describe('PaymentsService', () => {
   let payments: PaymentsService;
@@ -40,6 +43,19 @@ describe('PaymentsService', () => {
         CashProvider,
         MobileMoneyProvider,
         PrismaService,
+        // Spec 04 P1 — PaymentsService now issues quittances on PAID lines.
+        DocumentSequenceService,
+        RentReceiptService,
+        {
+          provide: R2Service,
+          useValue: {
+            uploadBuffer: jest.fn(async (key: string) => ({
+              url: `https://fake.r2/${key}`,
+              key,
+            })),
+            createPresignedDownload: jest.fn(async (key: string) => key),
+          },
+        },
         { provide: EventPublisher, useValue: { emit: jest.fn() } },
       ],
     }).compile();
@@ -58,6 +74,60 @@ describe('PaymentsService', () => {
     });
     if (!quartier) throw new Error('Run seed first');
     bzvQuartierId = quartier.id;
+
+    // Belt-and-suspenders cleanup: drop orgs left over from previous crashed
+    // runs before creating new ones, otherwise their properties pile up and
+    // are impossible to reason about when the org delete fails.
+    const staleOrgs = await prisma.organization.findMany({
+      where: { name: { startsWith: 'Payment Test ' } },
+      select: { id: true },
+    });
+    const staleOrgIds = staleOrgs.map((o) => o.id);
+    if (staleOrgIds.length) {
+      const staleProps = await prisma.property.findMany({
+        where: { organizationId: { in: staleOrgIds } },
+        select: { id: true },
+      });
+      const stalePropIds = staleProps.map((p) => p.id);
+      if (stalePropIds.length) {
+        const staleLeases = await prisma.lease.findMany({
+          where: { propertyId: { in: stalePropIds } },
+          select: { id: true },
+        });
+        const staleLeaseIds = staleLeases.map((l) => l.id);
+        if (staleLeaseIds.length) {
+          const staleSchedules = await prisma.rentSchedule.findMany({
+            where: { leaseId: { in: staleLeaseIds } },
+            select: { id: true },
+          });
+          const staleScheduleIds = staleSchedules.map((s) => s.id);
+          await prisma.paymentAllocation.deleteMany({
+            where: { rentScheduleId: { in: staleScheduleIds } },
+          });
+          await prisma.rentReceipt.deleteMany({
+            where: { rentScheduleId: { in: staleScheduleIds } },
+          });
+          await prisma.rentSchedule.deleteMany({
+            where: { id: { in: staleScheduleIds } },
+          });
+          await prisma.lease.deleteMany({ where: { id: { in: staleLeaseIds } } });
+        }
+        await prisma.saleAgreement.deleteMany({
+          where: { propertyId: { in: stalePropIds } },
+        });
+        await prisma.mandate.deleteMany({
+          where: { propertyId: { in: stalePropIds } },
+        });
+        await prisma.property.deleteMany({ where: { id: { in: stalePropIds } } });
+      }
+      await prisma.documentSequence.deleteMany({
+        where: { organizationId: { in: staleOrgIds } },
+      });
+      await prisma.organizationMember.deleteMany({
+        where: { organizationId: { in: staleOrgIds } },
+      });
+      await prisma.organization.deleteMany({ where: { id: { in: staleOrgIds } } });
+    }
 
     // Belt-and-suspenders cleanup: remove anything left over from previous
     // crashed runs (FK chain on User is RESTRICT).
@@ -144,6 +214,7 @@ describe('PaymentsService', () => {
         organizationId: agentOrgId,
         assignedAgentId: agentUserId,
         status: 'ACTIVE',
+        proposedById: ownerUserId,
       },
     });
     mandateId = mandate.id;
@@ -197,11 +268,13 @@ describe('PaymentsService', () => {
         .deleteMany({ where: { id: { in: createdPaymentIds } } })
         .catch(() => undefined);
     }
-    await prisma.rentSchedule
-      .deleteMany({ where: { leaseId } })
-      .catch(() => undefined);
     if (leaseId) {
       await prisma.paymentAllocation
+        .deleteMany({ where: { rentSchedule: { leaseId } } })
+        .catch(() => undefined);
+      // Spec 04 P1 — settlements now issue quittances, which FK-RESTRICT
+      // RentSchedule deletion. Drop them before the schedules.
+      await prisma.rentReceipt
         .deleteMany({ where: { rentSchedule: { leaseId } } })
         .catch(() => undefined);
       await prisma.rentSchedule
@@ -230,9 +303,16 @@ describe('PaymentsService', () => {
     await prisma.organizationMember.deleteMany({
       where: { userId: { in: cleanupUserIds } },
     });
-    await prisma.organization.deleteMany({
-      where: { id: { in: [ownerOrgId, agentOrgId] } },
-    });
+    const orgIds = [ownerOrgId, agentOrgId].filter(Boolean);
+    if (orgIds.length) {
+      // Numbering counters reference the org and would block its deletion.
+      await prisma.documentSequence.deleteMany({
+        where: { organizationId: { in: orgIds } },
+      });
+      await prisma.organization.deleteMany({
+        where: { id: { in: orgIds } },
+      });
+    }
     await prisma.userRole.deleteMany({
       where: { userId: { in: cleanupUserIds } },
     });
@@ -328,10 +408,11 @@ describe('PaymentsService', () => {
   });
 
   it('owner validates cash with empty allocations using metadata.rentScheduleId', async () => {
-    // Reset schedule to PENDING if previous test marked it PAID.
+    // Reset schedule to PENDING if previous test marked it PAID (spec 05:
+    // the amount due is computed server-side, so amountPaid must be clean).
     await prisma.rentSchedule.update({
       where: { id: rentScheduleId },
-      data: { status: 'PENDING' },
+      data: { status: 'PENDING', amountPaid: 0 },
     });
     await prisma.paymentAllocation.deleteMany({
       where: { rentScheduleId },
@@ -375,9 +456,15 @@ describe('PaymentsService', () => {
   });
 
   it('lists cash payments awaiting validation scoped to operable portfolio', async () => {
+    // Clean slate: server-side amount = amount due (no partial on this lease).
+    await prisma.paymentAllocation.deleteMany({ where: { rentScheduleId } });
+    await prisma.rentSchedule.update({
+      where: { id: rentScheduleId },
+      data: { status: 'PENDING', amountPaid: 0 },
+    });
     const payment = await payments.initiatePayment({
       userId: tenantUserId,
-      amount: '50000',
+      amount: '150000',
       currency: 'XAF',
       method: 'CASH',
       idempotencyKey: `cash-${Date.now()}-pending-list`,
@@ -512,6 +599,13 @@ describe('PaymentsService', () => {
   });
 
   it('listManaged includes pending cash linked by metadata.rentScheduleId', async () => {
+    // The previous test left a PARTIAL line (75 000 paid): reset the balance
+    // so the server-side amount due is the full 150 000 again.
+    await prisma.paymentAllocation.deleteMany({ where: { rentScheduleId } });
+    await prisma.rentSchedule.update({
+      where: { id: rentScheduleId },
+      data: { status: 'PENDING', amountPaid: 0 },
+    });
     const payment = await payments.initiatePayment({
       userId: tenantUserId,
       amount: '150000',

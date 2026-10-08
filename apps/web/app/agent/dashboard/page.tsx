@@ -83,7 +83,9 @@ export default function AgentDashboardPage(): React.JSX.Element {
             .then((s) => ({ ok: true as const, s }))
             .catch((err: unknown) => ({ ok: false as const, err })),
           listManagedVisits().catch(() => [] as PublicVisitBooking[]),
-          listManagedPayments().catch(() => [] as PublicPayment[]),
+          listManagedPayments({ pageSize: 100 })
+            .then((r) => r.data)
+            .catch(() => [] as PublicPayment[]),
           listManagedProperties().catch(() => []),
           listManagedMaintenance().catch(() => []),
         ]);

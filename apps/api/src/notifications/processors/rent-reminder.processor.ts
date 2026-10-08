@@ -101,6 +101,8 @@ export class RentReminderProcessor {
     for (const s of schedules) {
       const tier = pickReminderTier(s.dueDate, now);
       if (!tier) continue;
+      // Leases with only an invited phone have no account to notify yet.
+      if (!s.lease.tenantId) continue;
       const existing = await this.prisma.$queryRaw<Array<{ id: string }>>`
         SELECT id FROM "Notification"
         WHERE type = ${tier.type}::text

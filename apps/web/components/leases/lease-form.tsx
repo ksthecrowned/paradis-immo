@@ -49,6 +49,15 @@ type FormValues = {
   monthlyRent: string;
   deposit: string;
   currency: string;
+  dueDay: string;
+  chargesAmount: string;
+  chargesMode: string;
+  noticeMonthsTenant: string;
+  noticeMonthsLandlord: string;
+  indexationRate: string;
+  lateFeeAfterDays: string;
+  lateFeeAmount: string;
+  autoRenew: string;
 };
 
 const defaultValues = (): FormValues => ({
@@ -60,6 +69,15 @@ const defaultValues = (): FormValues => ({
   monthlyRent: '',
   deposit: '',
   currency: 'XAF',
+  dueDay: '5',
+  chargesAmount: '0',
+  chargesMode: 'FLAT',
+  noticeMonthsTenant: '3',
+  noticeMonthsLandlord: '6',
+  indexationRate: '',
+  lateFeeAfterDays: '',
+  lateFeeAmount: '',
+  autoRenew: 'yes',
 });
 
 const validate = (
@@ -91,6 +109,35 @@ const validate = (
     if (n === null || n < 0) e.deposit = 'La caution est invalide.';
   }
   e.currency = validateRequired(v.currency, 'La devise') ?? '';
+
+  const dueDay = parseNumeric(v.dueDay);
+  if (dueDay === null || dueDay < 1 || dueDay > 28) {
+    e.dueDay = 'Le jour d’échéance doit être compris entre 1 et 28.';
+  }
+  if (v.chargesAmount.trim() && (parseNumeric(v.chargesAmount) ?? -1) < 0) {
+    e.chargesAmount = 'Le montant des charges est invalide.';
+  }
+  const noticeFields = [
+    ['noticeMonthsTenant', 'Le préavis locataire'],
+    ['noticeMonthsLandlord', 'Le préavis bailleur'],
+  ] as const;
+  for (const [field, label] of noticeFields) {
+    const n = parseNumeric(v[field]);
+    if (n === null || n < 0 || n > 24) e[field] = `${label} est invalide.`;
+  }
+  if (v.indexationRate.trim()) {
+    const rate = parseNumeric(v.indexationRate);
+    if (rate === null || rate <= 0 || rate > 1) {
+      e.indexationRate =
+        'Le taux doit être compris entre 0 et 1 (0,03 = +3 %).';
+    }
+  }
+  if (v.lateFeeAfterDays.trim() && (parseNumeric(v.lateFeeAfterDays) ?? -1) < 0) {
+    e.lateFeeAfterDays = 'Le délai de pénalité est invalide.';
+  }
+  if (v.lateFeeAmount.trim() && (parseNumeric(v.lateFeeAmount) ?? -1) < 0) {
+    e.lateFeeAmount = 'Le montant de la pénalité est invalide.';
+  }
   return e;
 };
 
@@ -145,15 +192,39 @@ export function LeaseForm({
       const e164 = getPhoneE164(values.tenantPhoneNational, phoneCountry);
       if (!e164) throw new Error('Numéro invalide');
       const tenantName = values.tenantName.trim();
+      const optional = (raw: string): number | undefined => {
+        const trimmed = raw.trim();
+        return trimmed === '' ? undefined : Number(trimmed);
+      };
       const payload = {
         propertyId: values.propertyId,
-        tenantPhone: e164,
+        // Spec 04: the phone is an invitation target. Unknown numbers are
+        // never turned into a `User` behind the scenes.
+        invitedPhone: e164,
         ...(tenantName ? { tenantName } : {}),
         startDate: values.startDate,
         endDate: values.endDate,
         monthlyRent: Number(values.monthlyRent),
         deposit: Number(values.deposit),
         currency: values.currency.trim().toUpperCase(),
+        dueDay: Number(values.dueDay),
+        chargesAmount: Number(values.chargesAmount || 0),
+        chargesMode:
+          values.chargesMode === 'PROVISION'
+            ? ('PROVISION' as const)
+            : ('FLAT' as const),
+        noticeMonthsTenant: Number(values.noticeMonthsTenant),
+        noticeMonthsLandlord: Number(values.noticeMonthsLandlord),
+        ...(optional(values.indexationRate) !== undefined
+          ? { indexationRate: optional(values.indexationRate) }
+          : {}),
+        ...(optional(values.lateFeeAfterDays) !== undefined
+          ? { lateFeeAfterDays: optional(values.lateFeeAfterDays) }
+          : {}),
+        ...(optional(values.lateFeeAmount) !== undefined
+          ? { lateFeeAmount: optional(values.lateFeeAmount) }
+          : {}),
+        autoRenew: values.autoRenew === 'yes',
       };
       if (leaseId) {
         const { propertyId: _p, ...update } = payload;
@@ -196,21 +267,20 @@ export function LeaseForm({
     if (!e164) return;
     try {
       const user = await lookupUserByPhone(e164);
-      setAccountFound(true);
-      setTenantPreview({ name: user.name, phone: user.phone });
-      if (user.name && !form.values.tenantName.trim()) {
-        form.setField('tenantName', user.name);
+      setAccountFound(user.exists);
+      if (user.exists) {
+        setTenantPreview({ name: user.displayName, phone: user.phone });
+        // The API only returns a masked name ("Jean M."), so the real tenant
+        // name is never prefilled from it.
+        setLookupHint(null);
+      } else {
+        setTenantPreview(null);
+        setLookupHint(
+          'Pas de compte Paradis Immo : le locataire sera invité par WhatsApp à créer son compte et à signer le bail.',
+        );
       }
-      setLookupHint(null);
     } catch (err) {
       setTenantPreview(null);
-      if (err instanceof ApiError && err.status === 404) {
-        setAccountFound(false);
-        setLookupHint(
-          'Pas de compte Paradis Immo : un profil locataire sera créé avec le nom indiqué.',
-        );
-        return;
-      }
       setAccountFound(null);
       setLookupHint(
         err instanceof ApiError
@@ -247,7 +317,7 @@ export function LeaseForm({
                 {
                   icon: 'mdi:cellphone',
                   title: 'Locataire inscrit ou non',
-                  body: 'Avec un compte existant, le profil est reconnu. Sinon, indiquez le nom : un profil minimal sera créé (connexion OTP possible plus tard).',
+                  body: 'Avec un compte existant, le profil est reconnu. Sinon, indiquez le nom : le locataire reçoit une invitation WhatsApp et le compte n’est créé qu’à son acceptation.',
                 },
                 {
                   icon: 'mdi:calendar-range',
@@ -448,6 +518,144 @@ export function LeaseForm({
                 />
               </FormField>
             </div>
+
+            <div className="grid gap-4 sm:grid-cols-3">
+              <FormField
+                name="dueDay"
+                label="Jour d’échéance"
+                required
+                error={form.errors.dueDay}
+              >
+                <NumberInput
+                  name="dueDay"
+                  min={1}
+                  max={28}
+                  value={form.values.dueDay}
+                  onChange={(v) => form.setField('dueDay', v)}
+                  invalid={!!form.errors.dueDay}
+                />
+              </FormField>
+              <FormField
+                name="chargesAmount"
+                label="Charges mensuelles"
+                error={form.errors.chargesAmount}
+              >
+                <NumberInput
+                  name="chargesAmount"
+                  min={0}
+                  value={form.values.chargesAmount}
+                  onChange={(v) => form.setField('chargesAmount', v)}
+                  invalid={!!form.errors.chargesAmount}
+                />
+              </FormField>
+              <FormField
+                name="chargesMode"
+                label="Mode des charges"
+                error={form.errors.chargesMode}
+              >
+                <SelectSearch
+                  name="chargesMode"
+                  value={form.values.chargesMode}
+                  onChange={(v) => form.setField('chargesMode', v)}
+                  options={[
+                    { value: 'FLAT', label: 'Forfait' },
+                    { value: 'PROVISION', label: 'Provision' },
+                  ]}
+                />
+              </FormField>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <FormField
+                name="noticeMonthsTenant"
+                label="Préavis locataire (mois)"
+                required
+                error={form.errors.noticeMonthsTenant}
+              >
+                <NumberInput
+                  name="noticeMonthsTenant"
+                  min={0}
+                  max={24}
+                  value={form.values.noticeMonthsTenant}
+                  onChange={(v) => form.setField('noticeMonthsTenant', v)}
+                  invalid={!!form.errors.noticeMonthsTenant}
+                />
+              </FormField>
+              <FormField
+                name="noticeMonthsLandlord"
+                label="Préavis bailleur (mois)"
+                required
+                error={form.errors.noticeMonthsLandlord}
+              >
+                <NumberInput
+                  name="noticeMonthsLandlord"
+                  min={0}
+                  max={24}
+                  value={form.values.noticeMonthsLandlord}
+                  onChange={(v) => form.setField('noticeMonthsLandlord', v)}
+                  invalid={!!form.errors.noticeMonthsLandlord}
+                />
+              </FormField>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-3">
+              <FormField
+                name="indexationRate"
+                label="Révision annuelle (0,03 = +3 %)"
+                error={form.errors.indexationRate}
+              >
+                <NumberInput
+                  name="indexationRate"
+                  min={0}
+                  step={0.005}
+                  value={form.values.indexationRate}
+                  onChange={(v) => form.setField('indexationRate', v)}
+                  invalid={!!form.errors.indexationRate}
+                />
+              </FormField>
+              <FormField
+                name="lateFeeAfterDays"
+                label="Pénalité après (jours)"
+                error={form.errors.lateFeeAfterDays}
+              >
+                <NumberInput
+                  name="lateFeeAfterDays"
+                  min={0}
+                  value={form.values.lateFeeAfterDays}
+                  onChange={(v) => form.setField('lateFeeAfterDays', v)}
+                  invalid={!!form.errors.lateFeeAfterDays}
+                />
+              </FormField>
+              <FormField
+                name="lateFeeAmount"
+                label="Pénalité (montant)"
+                error={form.errors.lateFeeAmount}
+              >
+                <NumberInput
+                  name="lateFeeAmount"
+                  min={0}
+                  value={form.values.lateFeeAmount}
+                  onChange={(v) => form.setField('lateFeeAmount', v)}
+                  invalid={!!form.errors.lateFeeAmount}
+                />
+              </FormField>
+            </div>
+
+            <FormField
+              name="autoRenew"
+              label="Reconduction tacite"
+              error={form.errors.autoRenew}
+            >
+              <SelectSearch
+                name="autoRenew"
+                value={form.values.autoRenew}
+                onChange={(v) => form.setField('autoRenew', v)}
+                options={[
+                  { value: 'yes', label: 'Oui' },
+                  { value: 'no', label: 'Non' },
+                ]}
+              />
+            </FormField>
           </form>
         </FormCard>
       </FormLayout>
@@ -456,15 +664,7 @@ export function LeaseForm({
 }
 
 /** Prefill helper for edit page from an existing lease. */
-export function leaseToFormInitial(lease: PublicLease): Partial<{
-  propertyId: string;
-  tenantName: string;
-  startDate: string;
-  endDate: string;
-  monthlyRent: string;
-  deposit: string;
-  currency: string;
-}> {
+export function leaseToFormInitial(lease: PublicLease): Partial<FormValues> {
   return {
     propertyId: lease.propertyId,
     tenantName: lease.tenantName ?? '',
@@ -473,5 +673,19 @@ export function leaseToFormInitial(lease: PublicLease): Partial<{
     monthlyRent: String(Number(lease.monthlyRent)),
     deposit: String(Number(lease.deposit)),
     currency: lease.currency,
+    dueDay: String(lease.dueDay),
+    chargesAmount: String(Number(lease.chargesAmount)),
+    chargesMode: lease.chargesMode,
+    noticeMonthsTenant: String(lease.noticeMonthsTenant),
+    noticeMonthsLandlord: String(lease.noticeMonthsLandlord),
+    indexationRate: lease.indexationRate
+      ? String(Number(lease.indexationRate))
+      : '',
+    lateFeeAfterDays:
+      lease.lateFeeAfterDays === null ? '' : String(lease.lateFeeAfterDays),
+    lateFeeAmount: lease.lateFeeAmount
+      ? String(Number(lease.lateFeeAmount))
+      : '',
+    autoRenew: lease.autoRenew ? 'yes' : 'no',
   };
 }

@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -82,7 +83,20 @@ export class MaintenanceService {
       });
     }
 
-    const requiresOwnerApproval = this.computeRequiresOwnerApproval(input);
+    // Spec 03: a per-mandate `repairApprovalThreshold` replaces the legacy
+    // priority-only rule when present.
+    const mandateThreshold = input.mandateId
+      ? (
+          await this.prisma.mandate.findUnique({
+            where: { id: input.mandateId },
+            select: { repairApprovalThreshold: true },
+          })
+        )?.repairApprovalThreshold ?? null
+      : null;
+    const requiresOwnerApproval = this.computeRequiresOwnerApproval(
+      input,
+      mandateThreshold,
+    );
 
     if (requiresOwnerApproval && !input.mandateId) {
       throw new BadRequestException({
@@ -168,6 +182,9 @@ export class MaintenanceService {
       userId,
       existing.propertyId,
     );
+    if (input.status !== undefined && existing.requiresOwnerApproval) {
+      await this.assertRepairApproved(ticketId);
+    }
     const updated = await this.prisma.maintenanceTicket.update({
       where: { id: ticketId },
       data: {
@@ -207,6 +224,9 @@ export class MaintenanceService {
         code: 'ASSIGNEE_NOT_FOUND',
         message: 'Assignee does not exist',
       });
+    }
+    if (existing.requiresOwnerApproval) {
+      await this.assertRepairApproved(ticketId);
     }
     const updated = await this.prisma.maintenanceTicket.update({
       where: { id: ticketId },
@@ -262,10 +282,40 @@ export class MaintenanceService {
    */
   private computeRequiresOwnerApproval(
     input: CreateMaintenanceTicketInput,
+    mandateThreshold: Prisma.Decimal | null,
   ): boolean {
+    if (mandateThreshold !== null) {
+      return (
+        input.estimatedCost !== undefined &&
+        input.estimatedCost > mandateThreshold.toNumber()
+      );
+    }
     if (input.priority !== MaintenancePriority.URGENT) return false;
     if (input.estimatedCost === undefined) return false;
     return input.estimatedCost > URGENT_APPROVAL_THRESHOLD_XAF;
+  }
+
+  /**
+   * Spec 03 acceptance: while `requiresOwnerApproval` is set, transitioning
+   * the ticket (assign / status change) answers 409 OWNER_APPROVAL_REQUIRED
+   * until a MAJOR_REPAIR approval is APPROVED.
+   */
+  private async assertRepairApproved(ticketId: string): Promise<void> {
+    const approved = await this.prisma.mandateApproval.findFirst({
+      where: {
+        actionType: 'MAJOR_REPAIR',
+        status: 'APPROVED',
+        payload: { path: ['ticketId'], equals: ticketId },
+      },
+      select: { id: true },
+    });
+    if (!approved) {
+      throw new ConflictException({
+        code: 'OWNER_APPROVAL_REQUIRED',
+        message:
+          'The owner must approve the MAJOR_REPAIR request before this ticket can move forward',
+      });
+    }
   }
 
   private async assertCanReadTicket(

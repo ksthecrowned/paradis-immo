@@ -31,6 +31,37 @@ enum OrgMemberRole {
   ADMIN
 }
 
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  EXPIRED
+  REVOKED
+}
+
+enum MemberStatus {
+  ACTIVE
+  DISABLED
+}
+
+enum ReviewSourceType {
+  LEASE
+  BOOKING
+  SALE
+  VISIT
+}
+
+enum OrganizationRequestType {
+  AGENCY
+  OWNER
+}
+
+enum OrganizationRequestStatus {
+  PENDING
+  INVITED
+  REJECTED
+}
+
 enum GlobalRole {
   TENANT
   BUYER
@@ -127,8 +158,11 @@ enum BookingStatus {
 
 enum LeaseStatus {
   DRAFT
+  PENDING_SIGNATURE
   ACTIVE
+  TERMINATING
   TERMINATED
+  CANCELLED
 }
 
 enum RentScheduleStatus {
@@ -136,6 +170,49 @@ enum RentScheduleStatus {
   PAID
   OVERDUE
   PARTIAL
+  CANCELLED
+  WAIVED
+}
+
+enum RentScheduleKind {
+  RENT
+  DEPOSIT
+  CHARGES_ADJUSTMENT
+  LATE_FEE
+}
+
+enum ApplicationStatus {
+  SUBMITTED
+  UNDER_REVIEW
+  SOLVENCY_PENDING
+  ACCEPTED
+  REJECTED
+  WITHDRAWN
+}
+
+enum InspectionType {
+  CHECK_IN
+  CHECK_OUT
+}
+
+enum ItemCondition {
+  NEW
+  GOOD
+  WORN
+  DAMAGED
+  MISSING
+}
+
+enum DepositDeductionStatus {
+  PROPOSED
+  CONTESTED
+  ACCEPTED
+}
+
+enum TerminationInitiator {
+  TENANT
+  LANDLORD
+  MUTUAL
 }
 
 enum SaleInquiryStatus {
@@ -162,18 +239,57 @@ enum SaleInstallmentStatus {
 enum MandateStatus {
   ACTIVE
   REVOKED
+  PROPOSED
+  COUNTERED
+  TERMINATING
+  TERMINATED
+  EXPIRED
+  DECLINED
+}
+
+enum MandateScope {
+  LONG_TERM_RENTAL
+  SHORT_STAY
+  SALE
 }
 
 enum MandateActionType {
   LEASE_SIGN
   RENT_REDUCTION
+  RENT_INCREASE
   MAJOR_REPAIR
+  SALE_PRICE
+  SALE_OFFER_ACCEPT
+  EXPENSE
 }
 
 enum ApprovalStatus {
   PENDING
   APPROVED
   REJECTED
+  EXPIRED
+  CANCELLED
+}
+
+enum ExpenseStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  PAID
+}
+
+enum LedgerEntryType {
+  RENT_IN
+  DEPOSIT_IN
+  DEPOSIT_OUT
+  FEE
+  EXPENSE
+  PAYOUT
+  ADJUSTMENT
+  REFUND
+  STAY_IN
+  SALE_IN
 }
 
 enum PaymentMethod {
@@ -192,7 +308,11 @@ enum PaymentStatus {
   PENDING_VALIDATION
   VALIDATED
   FAILED
+  EXPIRED
+  CANCELLED
   DISPUTED
+  REFUNDED
+  PARTIALLY_REFUNDED
 }
 
 enum AllocatableType {
@@ -200,6 +320,39 @@ enum AllocatableType {
   BOOKING
   VISIT_BOOKING
   SALE_INSTALLMENT
+}
+
+/// Spec 05 — cycle de vie d'un remboursement.
+enum RefundStatus {
+  REQUESTED
+  APPROVED
+  PROCESSING
+  SUCCEEDED
+  FAILED
+  REJECTED
+}
+
+/// Spec 05 — contestation « débité mais non crédité » / doublon.
+enum DisputeStatus {
+  OPEN
+  AWAITING_MANAGER
+  ESCALATED
+  RESOLVED_ACCEPTED
+  RESOLVED_REJECTED
+}
+
+/// Spec 05 — reversement au propriétaire.
+enum PayoutStatus {
+  PENDING
+  PROCESSING
+  PAID
+  FAILED
+  CANCELLED
+}
+
+enum PayoutAccountType {
+  MOBILE_MONEY
+  BANK
 }
 
 enum MaintenancePriority {
@@ -226,6 +379,26 @@ enum NotificationChannel {
 enum MagicLinkPurpose {
   VERIFY_EMAIL
   RESET_PASSWORD
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  DELETED
+}
+
+enum DevicePlatform {
+  IOS
+  ANDROID
+  WEB
+  ADMIN
+}
+
+enum KycStatus {
+  NONE
+  PENDING
+  VERIFIED
+  REJECTED
 }
 
 enum SeekerIntent {
@@ -267,6 +440,8 @@ enum TenantDocumentType {
 enum LeaseDocumentType {
   SIGNED_LEASE
   AMENDMENT
+  /// Spec 04 — mise en demeure générée par le gestionnaire.
+  FORMAL_NOTICE
   OTHER_LEASE
 }
 
@@ -335,14 +510,27 @@ model User {
   name                   String?
   avatarUrl              String?
   fcmToken               String?
-  notificationChannel    NotificationChannel  @default(PUSH)
+  /// Spec WhatsApp: WhatsApp is the default delivery channel (PUSH = explicit opt-in).
+  notificationChannel    NotificationChannel  @default(WHATSAPP)
   seekerIntent           SeekerIntent?
   seekerExperience       SeekerExperience?
   budgetMinXaf           Int?
   budgetMaxXaf           Int?
   preferredQuartierIds   String[]             @default([])
   seekerSetupCompletedAt DateTime?
-  countryId              String
+  /// Account lifecycle — SUSPENDED blocks every authenticated route.
+  status                   UserStatus            @default(ACTIVE)
+  suspendedAt              DateTime?
+  suspendedReason          String?
+  /// Soft delete (spec 01): anonymised J+30 by a cron.
+  deletedAt                DateTime?
+  /// KYC (spec 01 — P1): identity verification badge.
+  kycStatus                KycStatus             @default(NONE)
+  /// Consentements versionnés (spec 01 — P2)
+  termsVersion             String?
+  termsAcceptedAt          DateTime?
+  marketingOptIn           Boolean               @default(false)
+  countryId                String
   country                Country              @relation(fields: [countryId], references: [id])
   createdAt              DateTime             @default(now())
   updatedAt              DateTime             @updatedAt
@@ -353,6 +541,8 @@ model User {
   visitBookings          VisitBooking[]
   bookings               Booking[]
   leases                 Lease[]              @relation("LeaseTenant")
+  coTenantLeases         LeaseTenant[]         @relation("LeaseCoTenant")
+  rentalApplications     RentalApplication[]   @relation("RentalApplicationApplicant")
   saleInquiries          SaleInquiry[]
   saleAgreementsBought   SaleAgreement[]      @relation("SaleAgreementBuyer")
   payments               Payment[]
@@ -363,6 +553,9 @@ model User {
   tenantDocuments        TenantDocument[]
   solvencyChecks         SolvencyCheck[]      @relation("SolvencyCheckTenant")
   buyerPaymentProofs     BuyerPaymentProof[]  @relation("BuyerPaymentProofBuyer")
+  phoneHistory           UserPhoneHistory[]
+  kycSubmissions         KycSubmission[]
+  dataExports            DataExportRequest[]
 
   @@unique([phone, countryId])
 }
@@ -384,28 +577,63 @@ model Organization {
   rating             Float?
   reviewCount        Int                  @default(0)
   dealSuccessPercent Int?
+  /// Spec 02 — legal / vitrine fields for an agency dossier.
+  legalName          String?
+  rccm               String?
+  niu                String?
+  email              String?
+  logoKey            String?
+  description        String?
+  openingHours       Json?
+  socialLinks        Json?
+  createdById        String?
+  approvedAt         DateTime?
+  approvedBy         String?
+  suspendedReason    String?
   countryId          String
   country            Country              @relation(fields: [countryId], references: [id])
   members            OrganizationMember[]
+  invitations        OrganizationInvitation[]
+  serviceAreas       OrganizationServiceArea[]
   properties         Property[]
   mandates           Mandate[]
+  leaseTemplates     LeaseTemplate[]
   solvencyChecks     SolvencyCheck[]
   saleAgreements     SaleAgreement[]
   buyerPaymentProofs BuyerPaymentProof[]
   reviews            OrganizationReview[]
+  kycSubmissions     KycSubmission[]
   createdAt          DateTime             @default(now())
+  /// Spec 05 — paramètres finance de l'org (bénéficiaire = propriétaire).
+  requireDualCashValidation Boolean           @default(false)
+  payoutFrequency           String            @default("MONTHLY") // MONTHLY | ON_DEMAND
+  minPayoutAmount           Decimal           @default(10000) @db.Decimal(12, 2)
+  /// Au-delà de ce montant, un ADMIN plateforme doit approuver un remboursement.
+  refundApprovalThreshold   Decimal           @default(100000) @db.Decimal(12, 2)
+  payoutAccounts            PayoutAccount[]
+  payouts                   Payout[]
 }
 
 model OrganizationReview {
-  id             String       @id @default(uuid())
+  id             String            @id @default(uuid())
   organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization   Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   authorName     String
   propertyTitle  String?
   body           String
   rating         Int
-  createdAt      DateTime     @default(now())
+  createdAt      DateTime          @default(now())
+  /// Spec 02 — real, eligible reviews. Nullable so seed rows keep working.
+  authorId       String?
+  sourceType     ReviewSourceType?
+  sourceId       String?
+  reply          String?
+  repliedAt      DateTime?
+  status         String            @default("PUBLISHED")
 
+  // One review per interaction per author (NULLs stay distinct in Postgres,
+  // so seeded legacy rows without a source are unaffected).
+  @@unique([sourceType, sourceId, authorId])
   @@index([organizationId, createdAt])
 }
 
@@ -414,10 +642,70 @@ model OrganizationMember {
   userId         String
   organizationId String
   role           OrgMemberRole
+  /// Spec 02 — a DISABLED member keeps the seat but loses every permission.
+  status         MemberStatus @default(ACTIVE)
+  invitedBy      String?
+  joinedAt       DateTime     @default(now())
   user           User         @relation(fields: [userId], references: [id])
   organization   Organization @relation(fields: [organizationId], references: [id])
 
   @@unique([userId, organizationId])
+  @@index([organizationId, role])
+}
+
+/// Spec 02 — invitation to join an agency, bound to a phone or an email.
+model OrganizationInvitation {
+  id             String           @id @default(uuid())
+  organizationId String
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  role           OrgMemberRole
+  phone          String?
+  email          String?
+  tokenHash      String           @unique
+  status         InvitationStatus @default(PENDING)
+  invitedById    String
+  expiresAt      DateTime
+  acceptedById   String?
+  createdAt      DateTime         @default(now())
+
+  @@index([organizationId, status])
+}
+
+/// Spec 02 — quartiers an agency covers (mandate recommendation, search).
+model OrganizationServiceArea {
+  organizationId String
+  quartierId     String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@id([organizationId, quartierId])
+}
+
+/**
+ * Public sign-up form (spec 02 — no self-service creation): a future agency
+ * founder or owner submits their dossier, then waits for the admin's
+ * invitation link. Nothing is granted before that invitation is accepted.
+ */
+model OrganizationRequest {
+  id              String                    @id @default(uuid())
+  type            OrganizationRequestType
+  name            String
+  legalName       String?
+  rccm            String?
+  niu             String?
+  address         String?
+  cityLabel       String?
+  phone           String?
+  email           String
+  description     String?
+  /// Set when the requester already had an account when they submitted.
+  submittedById   String?
+  status          OrganizationRequestStatus @default(PENDING)
+  reviewedBy      String?
+  reviewedAt      DateTime?
+  rejectionReason String?
+  createdAt       DateTime                  @default(now())
+
+  @@index([status, createdAt])
 }
 
 model UserRole {
@@ -430,13 +718,34 @@ model UserRole {
 }
 
 model RefreshToken {
-  id        String   @id @default(uuid())
-  userId    String
-  tokenHash String   @unique
-  expiresAt DateTime
-  revokedAt DateTime?
-  createdAt DateTime @default(now())
-  user      User     @relation(fields: [userId], references: [id])
+  id         String         @id @default(uuid())
+  userId     String
+  tokenHash  String         @unique
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  /// Rotation keeps familyId + deviceId so a replay can revoke the device.
+  /// dbgenerated (not @default(uuid)): those columns are added to an existing
+  /// table, and Prisma's client-side default cannot backfill live rows.
+  familyId   String         @default(dbgenerated("gen_random_uuid()"))
+  deviceId   String         @default(dbgenerated("gen_random_uuid()"))
+  deviceName String?
+  platform   DevicePlatform @default(WEB)
+  ipAddress  String?
+  userAgent  String?
+  lastUsedAt DateTime       @default(now())
+  createdAt  DateTime       @default(now())
+  user       User           @relation(fields: [userId], references: [id])
+
+  @@index([userId, revokedAt])
+  @@index([familyId])
+}
+
+/// Fixed-window counters shared by OTP and users/lookup rate limits.
+model RateLimitCounter {
+  key         String   @id
+  count       Int      @default(1)
+  windowEndAt DateTime
+  updatedAt   DateTime @updatedAt
 }
 
 model EmailMagicLink {
@@ -548,10 +857,12 @@ model Property {
   availability   AvailabilityBlock[]
   bookings       Booking[]
   leases         Lease[]
+  applications   RentalApplication[]
   saleInquiries  SaleInquiry[]
   saleAgreements SaleAgreement[]
   mandates       Mandate[]
   maintenance    MaintenanceTicket[]
+  expenses       Expense[]
   createdAt      DateTime            @default(now())
   updatedAt      DateTime            @updatedAt
 }
@@ -699,8 +1010,10 @@ model Lease {
   id             String         @id @default(uuid())
   propertyId     String
   property       Property       @relation(fields: [propertyId], references: [id])
-  tenantId       String
-  tenant         User           @relation("LeaseTenant", fields: [tenantId], references: [id])
+  /// Set until the invited tenant accepts (spec 04 — no silent User creation).
+  tenantId       String?
+  tenant         User?          @relation("LeaseTenant", fields: [tenantId], references: [id])
+  invitedPhone   String?
   startDate      DateTime
   endDate        DateTime
   monthlyRent    Decimal        @db.Decimal(12, 2)
@@ -709,8 +1022,38 @@ model Lease {
   status         LeaseStatus    @default(DRAFT)
   mandateId      String?
   mandate        Mandate?       @relation(fields: [mandateId], references: [id])
+  /// Spec 04 — contractual terms.
+  dueDay               Int      @default(5)
+  chargesAmount        Decimal  @default(0) @db.Decimal(12, 2)
+  chargesMode          String   @default("FLAT") // FLAT | PROVISION
+  noticeMonthsTenant   Int      @default(3)
+  noticeMonthsLandlord Int      @default(6)
+  indexationRate       Decimal? @db.Decimal(6, 4)
+  lateFeeAfterDays     Int?
+  lateFeeAmount        Decimal? @db.Decimal(12, 2)
+  lateFeeRate          Decimal? @db.Decimal(6, 4)
+  autoRenew            Boolean  @default(true)
+  /// Spec 05 — un payeur peut régler partiellement si activé (≥ minPartialAmount).
+  allowPartialPayments Boolean  @default(false)
+  minPartialAmount     Decimal? @db.Decimal(12, 2)
+  templateId           String?
+  tenantSignedAt       DateTime?
+  landlordSignedAt     DateTime?
+  landlordSignedById   String?
+  activatedAt          DateTime?
+  terminationInitiator TerminationInitiator?
+  terminationNoticeAt  DateTime?
+  terminationEffectiveAt DateTime?
+  terminationReason    String?
+  terminatedAt         DateTime?
   schedule       RentSchedule[]
   documents      LeaseDocument[]
+  coTenants      LeaseTenant[]
+  amendments     LeaseAmendment[]
+  inspections    Inspection[]
+  application    RentalApplication?
+  depositDeductions DepositDeduction[]
+  depositSettlement DepositSettlement?
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
 }
@@ -746,6 +1089,9 @@ model SolvencyCheck {
   id              String              @id @default(uuid())
   tenantUserId    String
   tenant          User                @relation("SolvencyCheckTenant", fields: [tenantUserId], references: [id])
+  /// Spec 04 — a check may target a rental application, not only a tenant.
+  applicationId   String?
+  application     RentalApplication?  @relation(fields: [applicationId], references: [id])
   requesterUserId String
   requesterOrgId  String
   organization    Organization        @relation(fields: [requesterOrgId], references: [id])
@@ -793,11 +1139,181 @@ model RentSchedule {
   dueDate   DateTime
   amount    Decimal           @db.Decimal(12, 2)
   currency  String
+  kind      RentScheduleKind  @default(RENT)
+  rentPart  Decimal           @default(0) @db.Decimal(12, 2)
+  chargesPart Decimal         @default(0) @db.Decimal(12, 2)
+  lateFee   Decimal           @default(0) @db.Decimal(12, 2)
+  amountPaid Decimal          @default(0) @db.Decimal(12, 2)
+  periodStart DateTime?
+  periodEnd   DateTime?
   status    RentScheduleStatus @default(PENDING)
   payments  PaymentAllocation[]
+  receipt   RentReceipt?
   createdAt DateTime          @default(now())
 
-  @@unique([leaseId, dueDate])
+  @@unique([leaseId, dueDate, kind])
+}
+
+/// Spec 04 — monthly rent receipt (quittance), sequential per org/year.
+model RentReceipt {
+  id             String      @id @default(uuid())
+  number         String      @unique
+  rentScheduleId String      @unique
+  rentSchedule   RentSchedule @relation(fields: [rentScheduleId], references: [id])
+  issuerOrgId    String
+  fileKey        String
+  issuedAt       DateTime    @default(now())
+}
+
+/// Spec 04 — locked sequence for receipt/quittance numbers:
+/// R-{ORG}-{AAAA}-{000001} / Q-{ORG}-{AAAA}-{000001}.
+model DocumentSequence {
+  organizationId String
+  kind           String
+  year           Int
+  last           Int
+  @@id([organizationId, kind, year])
+}
+
+/// Spec 04 — rental application (candidature).
+model RentalApplication {
+  id               String            @id @default(cuid())
+  propertyId       String
+  property         Property          @relation(fields: [propertyId], references: [id])
+  applicantId      String
+  applicant        User              @relation("RentalApplicationApplicant", fields: [applicantId], references: [id])
+  desiredMoveIn    DateTime
+  occupants        Int
+  occupation       String?
+  declaredIncome   Decimal?          @db.Decimal(12, 2)
+  message          String?
+  status           ApplicationStatus @default(SUBMITTED)
+  rejectionMessage String?
+  decidedById      String?
+  decidedAt        DateTime?
+  leaseId          String?           @unique
+  lease            Lease?            @relation(fields: [leaseId], references: [id])
+  solvencyChecks   SolvencyCheck[]
+  createdAt        DateTime          @default(now())
+
+  @@unique([propertyId, applicantId])
+}
+
+/// Spec 04 — co-tenants on a lease (colocation).
+model LeaseTenant {
+  leaseId   String
+  lease     Lease    @relation(fields: [leaseId], references: [id])
+  userId    String
+  user      User     @relation("LeaseCoTenant", fields: [userId], references: [id])
+  isPrimary Boolean  @default(false)
+
+  @@id([leaseId, userId])
+}
+
+/// Spec 04 — versioned lease amendment (avenant).
+model LeaseAmendment {
+  id              String    @id @default(cuid())
+  leaseId         String
+  lease           Lease     @relation(fields: [leaseId], references: [id])
+  version         Int
+  changes         Json      // { monthlyRent?, chargesAmount?, endDate?, coTenants? }
+  effectiveFrom   DateTime
+  reason          String?
+  documentKey     String?
+  tenantSignedAt   DateTime?
+  landlordSignedAt DateTime?
+  createdById     String
+  createdAt       DateTime  @default(now())
+
+  @@unique([leaseId, version])
+}
+
+/// Spec 04 — agency contract template (markdown body with variables).
+model LeaseTemplate {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  name           String
+  body           String
+  isDefault      Boolean      @default(false)
+  createdAt      DateTime     @default(now())
+}
+
+/// Spec 04 — état des lieux (entrée/sortie).
+model Inspection {
+  id            String         @id @default(cuid())
+  leaseId       String
+  lease         Lease          @relation(fields: [leaseId], references: [id])
+  type          InspectionType
+  performedById String
+  performedAt   DateTime
+  meters        Json?          // { water, electricity }
+  keys          Json?          // [{ label, count }]
+  generalComment String?
+  tenantSignedAt   DateTime?
+  managerSignedAt  DateTime?
+  reservesUntil DateTime?
+  documentKey   String?
+  rooms         InspectionRoom[]
+  reserves      InspectionReserve[]
+
+  @@unique([leaseId, type])
+}
+
+model InspectionRoom {
+  id           String         @id @default(cuid())
+  inspectionId String
+  inspection   Inspection     @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  name         String
+  position     Int
+  items        InspectionItem[]
+}
+
+model InspectionItem {
+  id        String        @id @default(cuid())
+  roomId    String
+  room      InspectionRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  label     String
+  condition ItemCondition
+  comment   String?
+  photoKeys String[]
+}
+
+model InspectionReserve {
+  id           String      @id @default(cuid())
+  inspectionId String
+  inspection   Inspection  @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  authorId     String
+  text         String
+  photoKeys    String[]
+  createdAt    DateTime    @default(now())
+}
+
+/// Spec 04 — deposit deduction proposals (retenues de caution).
+model DepositDeduction {
+  id             String                 @id @default(cuid())
+  leaseId        String
+  lease          Lease                  @relation(fields: [leaseId], references: [id])
+  label          String
+  amount         Decimal                @db.Decimal(12, 2)
+  evidenceItemId String?
+  evidenceKeys   String[]
+  status         DepositDeductionStatus @default(PROPOSED)
+  tenantComment  String?
+  createdAt      DateTime               @default(now())
+}
+
+/// Spec 04 — deposit settlement (restitution de caution).
+model DepositSettlement {
+  id           String    @id @default(cuid())
+  leaseId      String    @unique
+  lease        Lease     @relation(fields: [leaseId], references: [id])
+  heldAmount   Decimal   @db.Decimal(12, 2)
+  deducted     Decimal   @db.Decimal(12, 2)
+  refundAmount Decimal   @db.Decimal(12, 2)
+  contestUntil DateTime
+  payoutId     String?
+  settledAt    DateTime?
 }
 
 // =====================================================================
@@ -876,6 +1392,48 @@ model Mandate {
   leases           Lease[]
   approvals        MandateApproval[]
   createdAt        DateTime            @default(now())
+
+  // ---------------------------------------------------------------------------
+  // Spec 03 — Gérance : mandats, approbations et comptabilité propriétaire
+  // ---------------------------------------------------------------------------
+  scopes                     MandateScope[]
+  exclusive                  Boolean            @default(false)
+  /// Fraction des loyers encaissés (ex. 0.08 = 8 %).
+  managementFeeRate          Decimal?           @db.Decimal(8, 4)
+  lettingFee                 Decimal?           @db.Decimal(12, 2)
+  lettingFeeMonths           Decimal?           @db.Decimal(6, 2)
+  saleCommissionRate         Decimal?           @db.Decimal(8, 4)
+  stayCommissionRate         Decimal?           @db.Decimal(8, 4)
+  repairApprovalThreshold    Decimal?           @db.Decimal(12, 2)
+  rentChangeRequiresApproval Boolean            @default(true)
+  leaseSignRequiresApproval  Boolean            @default(true)
+  minSalePrice               Decimal?           @db.Decimal(12, 2)
+  approvalTtlDays            Int                @default(7)
+  noticeDays                 Int                @default(30)
+  tacitRenewal               Boolean            @default(true)
+  proposedById               String
+  acceptedById               String?
+  acceptedAt                 DateTime?
+  terminationRequestedAt     DateTime?
+  terminationEffectiveAt     DateTime?
+  terminationReason          String?
+  terminatedById             String?
+  signedDocumentKey          String?
+  ownerSignedAt              DateTime?
+  agencySignedAt             DateTime?
+  versions                   MandateVersion[]
+}
+
+model MandateVersion {
+  id         String   @id @default(cuid())
+  mandateId  String
+  mandate    Mandate  @relation(fields: [mandateId], references: [id], onDelete: Cascade)
+  /// Snapshot des conditions proposées (scopes, commissions, seuils…).
+  terms      Json
+  proposedBy String
+  createdAt  DateTime @default(now())
+
+  @@index([mandateId, createdAt])
 }
 
 model MandateApproval {
@@ -888,6 +1446,78 @@ model MandateApproval {
   decidedAt DateTime?
   decidedBy String?
   createdAt DateTime          @default(now())
+
+  // Spec 03
+  requestedById String
+  /// LEASE | MAINTENANCE_TICKET | SALE_OFFER | EXPENSE | PROPERTY
+  sourceType    String?
+  sourceId      String?
+  /// Motif visible par l'agent en cas de refus.
+  comment       String?
+  expiresAt     DateTime
+  appliedAt     DateTime?
+
+  @@index([status, expiresAt])
+}
+
+/// Dépense engagée par l'agence sur un bien (spec 03 — US 14).
+model Expense {
+  id          String        @id @default(cuid())
+  propertyId  String
+  property    Property      @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  mandateId   String?
+  ticketId    String?
+  /// REPAIR | TAX | INSURANCE | UTILITIES | OTHER
+  category    String
+  label       String
+  amount      Decimal       @db.Decimal(12, 2)
+  currency    String
+  invoiceKey  String?
+  status      ExpenseStatus @default(DRAFT)
+  createdById String
+  incurredAt  DateTime
+  createdAt   DateTime      @default(now())
+
+  @@index([propertyId, status])
+}
+
+/// Écriture immuable du grand livre par bien et par org propriétaire.
+/// Montant signé : + crédit propriétaire / − débit. Une correction se fait
+/// par écriture inverse (`reversesId`), jamais par modification.
+model LedgerEntry {
+  id             String          @id @default(cuid())
+  propertyId     String
+  mandateId      String?
+  ownerOrgId     String
+  agencyOrgId    String?
+  type           LedgerEntryType
+  amount         Decimal         @db.Decimal(12, 2)
+  currency       String
+  /// PAYMENT | EXPENSE | PAYOUT | REFUND | MANUAL
+  sourceType     String
+  sourceId       String
+  reversesId     String?
+  label          String
+  occurredAt     DateTime
+  createdAt      DateTime        @default(now())
+
+  @@index([ownerOrgId, occurredAt])
+  @@index([mandateId, occurredAt])
+  @@index([propertyId, occurredAt])
+}
+
+/// Relevé de gérance mensuel/régénéré (PDF) remis au propriétaire.
+model OwnerStatement {
+  id          String   @id @default(cuid())
+  mandateId   String?
+  ownerOrgId  String
+  periodStart DateTime
+  periodEnd   DateTime
+  totals      Json
+  fileKey     String
+  generatedAt DateTime @default(now())
+
+  @@index([ownerOrgId, periodStart])
 }
 
 // =====================================================================
@@ -908,10 +1538,28 @@ model Payment {
   validatedBy     String?
   validatedAt     DateTime?
   metadata        Json?
+  /// Spec 05 — cible séjour (les cibles loyer/vente/visite restent en metadata).
+  bookingId       String?
+  /// Numéro mobile money débité (affiché au payeur, relance du remboursement).
+  payerPhone      String?
+  /// Référence fournisseur — idempotence des webhooks (unique).
+  providerRef     String?
+  recordedById    String?
+  proofKey        String?
+  /// INITIATED sans confirmation → EXPIRED après 15 minutes.
+  expiresAt       DateTime?
+  failureReason   String?
+  refundedAmount  Decimal             @default(0) @db.Decimal(12, 2)
   allocations     PaymentAllocation[]
   receipt         Receipt?
+  events          PaymentEvent[]
+  refunds         Refund[]
+  disputes        PaymentDispute[]
   createdAt       DateTime            @default(now())
   updatedAt       DateTime            @updatedAt
+
+  @@index([status, expiresAt])
+  @@index([bookingId])
 }
 
 model PaymentAllocation {
@@ -932,7 +1580,134 @@ model Receipt {
   payment   Payment  @relation(fields: [paymentId], references: [id])
   url       String
   number    String   @unique
+  /// Spec 04 — org that issued the receipt (sequential numbering).
+  issuerOrgId String?
   createdAt DateTime @default(now())
+}
+
+/// Spec 05 — journal des échanges avec un fournisseur (brut, auditable).
+model PaymentEvent {
+  id             String    @id @default(cuid())
+  paymentId      String?
+  payment        Payment?  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  provider       String
+  /// INITIATE_REQUEST | INITIATE_RESPONSE | WEBHOOK | STATUS_POLL
+  kind           String
+  payload        Json
+  signatureValid Boolean?
+  createdAt      DateTime  @default(now())
+
+  @@index([paymentId, createdAt])
+}
+
+/// Spec 05 — remboursements (provider ou espèces avec justificatif).
+model Refund {
+  id            String       @id @default(cuid())
+  paymentId     String
+  payment       Payment      @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  amount        Decimal      @db.Decimal(12, 2)
+  reason        String
+  status        RefundStatus @default(REQUESTED)
+  /// PROVIDER | CASH
+  method        String
+  providerRef   String?
+  requestedById String
+  approvedById  String?
+  proofKey      String?
+  failureReason String?
+  createdAt     DateTime     @default(now())
+  processedAt   DateTime?
+
+  @@index([status, createdAt])
+}
+
+/// Spec 05 — contestation d'un paiement (débité mais non crédité, doublon).
+model PaymentDispute {
+  id           String        @id @default(cuid())
+  paymentId    String
+  payment      Payment       @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  openedById   String
+  /// NOT_CREDITED | DUPLICATE | WRONG_AMOUNT | OTHER
+  reason       String
+  description  String
+  evidenceKeys String[]
+  status       DisputeStatus @default(OPEN)
+  resolution   String?
+  resolvedById String?
+  createdAt    DateTime      @default(now())
+  resolvedAt   DateTime?
+
+  @@index([status, createdAt])
+}
+
+/// Spec 05 — compte de reversement vérifié du propriétaire.
+model PayoutAccount {
+  id             String            @id @default(cuid())
+  organizationId String
+  organization   Organization      @relation(fields: [organizationId], references: [id])
+  type           PayoutAccountType
+  provider       PaymentProvider?
+  phone          String?
+  bankName       String?
+  accountNumber   String?
+  holderName     String
+  verifiedAt     DateTime?
+  isDefault      Boolean           @default(false)
+  createdAt      DateTime          @default(now())
+  payouts        Payout[]
+
+  @@index([organizationId])
+}
+
+/// Spec 05 — reversement au propriétaire (net du ledger, hors litiges).
+model Payout {
+  id              String       @id @default(cuid())
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id])
+  payoutAccountId String
+  payoutAccount   PayoutAccount @relation(fields: [payoutAccountId], references: [id])
+  amount          Decimal      @db.Decimal(12, 2)
+  fee             Decimal      @default(0) @db.Decimal(12, 2)
+  currency        String
+  periodStart     DateTime?
+  periodEnd       DateTime?
+  /// OWNER_NET | DEPOSIT_REFUND
+  kind            String
+  status          PayoutStatus @default(PENDING)
+  providerRef     String?
+  failureReason   String?
+  createdAt       DateTime     @default(now())
+  paidAt          DateTime?
+
+  @@index([organizationId, status])
+}
+
+/// Spec 05 — import d'un relevé fournisseur (rapprochement).
+model ReconciliationRun {
+  id          String               @id @default(cuid())
+  provider    String
+  fileKey     String
+  periodStart DateTime
+  periodEnd   DateTime
+  summary     Json
+  createdById String
+  createdAt   DateTime             @default(now())
+  lines       ReconciliationLine[]
+}
+
+model ReconciliationLine {
+  id             String            @id @default(cuid())
+  runId          String
+  run            ReconciliationRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  providerRef    String?
+  paymentId      String?
+  /// MATCHED | MISSING_IN_DB | MISSING_AT_PROVIDER | AMOUNT_MISMATCH
+  kind           String
+  amountProvider Decimal?          @db.Decimal(12, 2)
+  amountDb       Decimal?          @db.Decimal(12, 2)
+  resolved       Boolean           @default(false)
+
+  @@index([runId])
 }
 
 // =====================================================================
@@ -987,6 +1762,59 @@ model OtpChallenge {
   expiresAt          DateTime
   requestCount       Int      @default(1)
   requestWindowEndAt DateTime
+  /// 60s min gap between two sends for the same number.
+  lastSentAt         DateTime?
+  /// Set after 5 failed verifications; blocks the number for 30 minutes.
+  lockedUntil        DateTime?
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
+}
+
+// =====================================================================
+// Account security & compliance (spec 01 — P1 / P2)
+// =====================================================================
+
+/// Audit trail of every phone number a user ever held (spec 01).
+model UserPhoneHistory {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  phone     String
+  changedAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+/// Identity / business verification dossier (spec 01 — P1).
+/// Attached either to a user (CNI, passport) or an organization (RCCM, NIU).
+model KycSubmission {
+  id              String       @id @default(uuid())
+  userId          String?
+  user            User?        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organizationId  String?
+  organization    Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  documentType    String
+  fileKey         String
+  status          KycStatus    @default(PENDING)
+  reviewedBy      String?
+  reviewedAt      DateTime?
+  rejectionReason String?
+  createdAt       DateTime     @default(now())
+
+  @@index([status, createdAt])
+  @@index([userId])
+  @@index([organizationId])
+}
+
+/// Async data-export job (spec 01 — P2). The file lives in private R2.
+model DataExportRequest {
+  id        String    @id @default(uuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status    String    @default("PENDING")
+  fileKey   String?
+  expiresAt DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, createdAt])
 }

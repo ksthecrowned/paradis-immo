@@ -5,11 +5,13 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import {
+  ListingStatus,
   MandateStatus,
   OrgMemberRole,
   OrganizationType,
   Prisma,
   Property,
+  PropertyMode,
   PropertyStatus,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -266,6 +268,9 @@ export class PropertiesService {
           organizationId: onBehalf.agencyOrganizationId,
           status: MandateStatus.ACTIVE,
           assignedAgentId: onBehalf.assignedAgentId,
+          // Spec 03: every mandate records who proposed it. Property created
+          // by the agency on behalf of the owner → the creating agent.
+          proposedById: userId,
         },
       });
     }
@@ -298,6 +303,12 @@ export class PropertiesService {
     const where: Prisma.PropertyWhereInput = {
       ...(filter.mode ? { mode: filter.mode } : {}),
       ...(filter.status ? { status: filter.status } : {}),
+      // Spec 04: a property under an active long-term lease leaves the
+      // marketplace (activated lease flips it to OCCUPIED).
+      ...(filter.mode === PropertyMode.RENT_LONG ||
+      !filter.mode
+        ? { listingStatus: { not: ListingStatus.OCCUPIED } }
+        : {}),
       ...(filter.quartierId ? { quartierId: filter.quartierId } : {}),
       ...(filter.arrondissementId
         ? { quartier: { arrondissementId: filter.arrondissementId } }

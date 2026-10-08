@@ -25,6 +25,8 @@ export type SolvencySnapshotItem = {
 export type PublicSolvencyCheck = {
   id: string;
   tenantUserId: string;
+  /** Spec 04 — set when the check targets a rental application. */
+  applicationId: string | null;
   requesterOrgId: string;
   organizationName: string;
   status: SolvencyCheckStatus;
@@ -140,6 +142,15 @@ export class SolvencyChecksService {
         expiresAt,
       },
       include: { organization: { select: { name: true } } },
+    });
+
+    // Spec 04 — a candidature-targeted check sends the application back to
+    // UNDER_REVIEW once the candidate has answered.
+    await this.events.emit(DOMAIN_EVENTS.SOLVENCY_CHECK_DECIDED, {
+      checkId,
+      tenantUserId,
+      status,
+      applicationId: row.applicationId ?? null,
     });
 
     return this.serialize(updated, {
@@ -312,6 +323,7 @@ export class SolvencyChecksService {
     row: {
       id: string;
       tenantUserId: string;
+      applicationId?: string | null;
       requesterOrgId: string;
       status: SolvencyCheckStatus;
       snapshot: Prisma.JsonValue | null;
@@ -329,6 +341,7 @@ export class SolvencyChecksService {
     return {
       id: row.id,
       tenantUserId: row.tenantUserId,
+      applicationId: row.applicationId ?? null,
       requesterOrgId: row.requesterOrgId,
       organizationName: row.organization.name,
       status: row.status,

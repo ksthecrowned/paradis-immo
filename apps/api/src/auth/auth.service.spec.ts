@@ -12,14 +12,24 @@ import { InfobipOtpService } from './infobip-otp.service';
 import { MagicLinkStore } from './magic-link.store';
 import { OtpStore } from './otp.store';
 import { PrismaService } from '../prisma/prisma.service';
-import { PARADIS_IMMO_ORG_ID } from '../common/constants/seed-ids';
 import { hashPassword } from './password.util';
+import { createHash } from 'node:crypto';
+
+/** Mirrors AuthService.hash — refresh tokens are stored hashed (sha256). */
+function hashToken(token: string): string {
+  return createHash('sha256').update(token).digest('hex');
+}
 
 describe('AuthService', () => {
   let service: AuthService;
   let prisma: PrismaService;
   let otpStore: OtpStore;
   const phone = '+242061234567';
+
+  // Fake JWT store: signAsync records the payload so verifyAsync can hand it
+  // back. Without this, refresh() would see an empty payload and the rotation
+  // / replay paths could not be exercised.
+  const issuedTokens = new Map<string, Record<string, unknown>>();
 
   async function cleanupPhone() {
     const users = await prisma.user.findMany({ where: { phone } });
@@ -29,6 +39,24 @@ describe('AuthService', () => {
       await prisma.user.delete({ where: { id: u.id } });
     }
     await prisma.otpChallenge.deleteMany({ where: { phone } });
+  }
+
+  /**
+   * OWNER organizations are invitation-only now (spec 02): an admin opens the
+   * account. Tests that need an existing owner grant one directly.
+   */
+  async function grantOwnerOrg(userId: string): Promise<void> {
+    const country = await prisma.country.findUniqueOrThrow({
+      where: { code: 'CG' },
+    });
+    await prisma.organization.create({
+      data: {
+        name: `Owner Org ${userId.slice(0, 8)}`,
+        type: OrganizationType.OWNER,
+        countryId: country.id,
+        members: { create: { userId, role: OrgMemberRole.OWNER } },
+      },
+    });
   }
 
   beforeAll(async () => {
@@ -43,11 +71,15 @@ describe('AuthService', () => {
         {
           provide: JwtService,
           useValue: {
-            signAsync: jest.fn(async (payload) => {
+            signAsync: jest.fn(async (payload: Record<string, unknown>) => {
               const uniq = `${payload.sub}-${payload.jti ?? 'access'}-${Date.now()}-${Math.random()}`;
-              return `token.${Buffer.from(uniq).toString('base64url')}`;
+              const token = `token.${Buffer.from(uniq).toString('base64url')}`;
+              issuedTokens.set(token, payload);
+              return token;
             }),
-            verifyAsync: jest.fn(async () => ({})),
+            verifyAsync: jest.fn(
+              async (token: string) => issuedTokens.get(token) ?? {},
+            ),
           },
         },
       ],
@@ -184,21 +216,19 @@ describe('AuthService', () => {
   it('fixed OTP phone always accepts 123456 without SMS', async () => {
     const qaPhone = '+242065152373';
     await prisma.otpChallenge.deleteMany({ where: { phone: qaPhone } });
+    // Never delete this user: it is the seeded QA tenant (stable UUID shared
+    // by e2e specs) and carries FK-restricted rows (favorites) on shared DBs.
     const existing = await prisma.user.findFirst({ where: { phone: qaPhone } });
-    if (existing) {
-      await prisma.refreshToken.deleteMany({ where: { userId: existing.id } });
-      await prisma.userRole.deleteMany({ where: { userId: existing.id } });
-      await prisma.user.delete({ where: { id: existing.id } });
-    }
+    const purpose: 'LOGIN' | 'REGISTER' = existing ? 'LOGIN' : 'REGISTER';
 
-    await service.requestOtp({ phone: qaPhone, purpose: 'REGISTER' });
+    await service.requestOtp({ phone: qaPhone, purpose });
     const stored = await otpStore.peek(qaPhone);
     expect(stored).toBe('123456');
 
     const result = await service.verifyOtp({
       phone: qaPhone,
       code: '123456',
-      purpose: 'REGISTER',
+      purpose,
     });
     expect(result.user.phone).toBe(qaPhone);
 
@@ -264,14 +294,25 @@ describe('AuthService', () => {
       await cleanupWebUser();
     });
 
-    it('persists OWNER membership so a second call returns the same org role', async () => {
+    it('refuses OWNER: the owner account is opened by an admin invitation (spec 02)', async () => {
       const user = await createWebUser();
-      const first = await service.setWebRole(user.id, 'OWNER');
-      expect(first.user.orgRoles).toContain(OrgMemberRole.OWNER);
+      await expect(service.setWebRole(user.id, 'OWNER')).rejects.toMatchObject({
+        response: { code: 'OWNER_REQUIRES_INVITATION' },
+      });
 
-      const second = await service.setWebRole(user.id, 'OWNER');
-      expect(second.user.orgRoles).toContain(OrgMemberRole.OWNER);
-      expect(second.user.id).toBe(user.id);
+      const members = await prisma.organizationMember.findMany({
+        where: { userId: user.id },
+      });
+      expect(members).toHaveLength(0);
+    });
+
+    it('returns existing org roles for an invited owner (idempotent)', async () => {
+      const user = await createWebUser();
+      await grantOwnerOrg(user.id);
+
+      const session = await service.setWebRole(user.id, 'OWNER');
+      expect(session.user.orgRoles).toContain(OrgMemberRole.OWNER);
+      expect(session.user.id).toBe(user.id);
 
       const members = await prisma.organizationMember.findMany({
         where: { userId: user.id },
@@ -280,18 +321,16 @@ describe('AuthService', () => {
       expect(members[0]!.role).toBe(OrgMemberRole.OWNER);
     });
 
-    it('persists AGENT membership against the platform org', async () => {
+    it('refuses AGENT: membership is never granted implicitly (spec 01)', async () => {
       const user = await createWebUser();
-      const first = await service.setWebRole(user.id, 'AGENT');
-      expect(first.user.orgRoles).toContain(OrgMemberRole.AGENT);
-
-      const second = await service.setWebRole(user.id, 'AGENT');
-      expect(second.user.orgRoles).toContain(OrgMemberRole.AGENT);
+      await expect(service.setWebRole(user.id, 'AGENT')).rejects.toMatchObject({
+        response: { code: 'AGENT_ROLE_REQUIRES_INVITATION' },
+      });
 
       const members = await prisma.organizationMember.findMany({
-        where: { userId: user.id, organizationId: PARADIS_IMMO_ORG_ID },
+        where: { userId: user.id },
       });
-      expect(members).toHaveLength(1);
+      expect(members).toHaveLength(0);
     });
   });
 
@@ -368,7 +407,7 @@ describe('AuthService', () => {
           passwordHash: 'salt:hash',
         },
       });
-      await service.setWebRole(emailUser.id, 'OWNER');
+      await grantOwnerOrg(emailUser.id);
 
       mockGoogleIdToken({
         sub: googleSub,
@@ -401,7 +440,9 @@ describe('AuthService', () => {
       const googleSession = await service.loginGoogleWeb({
         idToken: 'fake-id-token',
       });
-      await service.setWebRole(googleSession.user.id, 'AGENT');
+      // The OWNER organization is invitation-only — grant it directly so the
+      // session carries orgRoles for the assertions below.
+      await grantOwnerOrg(googleSession.user.id);
 
       const passwordHash = await hashPassword('Password123!');
       await prisma.user.update({
@@ -415,7 +456,7 @@ describe('AuthService', () => {
       });
 
       expect(passwordSession.user.id).toBe(googleSession.user.id);
-      expect(passwordSession.user.orgRoles).toContain(OrgMemberRole.AGENT);
+      expect(passwordSession.user.orgRoles).toContain(OrgMemberRole.OWNER);
     });
 
     it('registerWeb rejects when a Google account already exists for the email', async () => {
@@ -440,6 +481,304 @@ describe('AuthService', () => {
       const user = await prisma.user.findUnique({ where: { email: linkEmail } });
       expect(user).not.toBeNull();
       expect(user!.googleId).toBeNull();
+    });
+  });
+
+  describe('OTP rate limits (spec 01)', () => {
+    const limitedPhone = '+242061238888';
+
+    async function reset(phoneToReset: string): Promise<void> {
+      await prisma.otpChallenge.deleteMany({ where: { phone: phoneToReset } });
+    }
+
+    beforeAll(async () => {
+      await reset(limitedPhone);
+      for (const u of await prisma.user.findMany({
+        where: { phone: limitedPhone },
+      })) {
+        await prisma.refreshToken.deleteMany({ where: { userId: u.id } });
+        await prisma.userRole.deleteMany({ where: { userId: u.id } });
+        await prisma.user.delete({ where: { id: u.id } });
+      }
+    });
+
+    afterAll(async () => {
+      await reset(limitedPhone);
+      await prisma.rateLimitCounter.deleteMany({
+        where: { key: { startsWith: 'otp:ip:test-' } },
+      });
+    });
+
+    it('rejects a 4th request within 15 minutes with 429 OTP_RATE_LIMITED', async () => {
+      await reset(limitedPhone);
+      for (let i = 0; i < 3; i++) {
+        await service.requestOtp({
+          phone: limitedPhone,
+          purpose: 'REGISTER',
+        });
+        // Bypass the 60s gap: we are testing the window, not the cooldown.
+        await prisma.otpChallenge.update({
+          where: { phone: limitedPhone },
+          data: { lastSentAt: new Date(Date.now() - 61_000) },
+        });
+      }
+
+      await expect(
+        service.requestOtp({ phone: limitedPhone, purpose: 'REGISTER' }),
+      ).rejects.toMatchObject({
+        status: 429,
+        response: { code: 'OTP_RATE_LIMITED' },
+      });
+    });
+
+    it('refuses a second send within 60 seconds with OTP_COOLDOWN', async () => {
+      await reset(limitedPhone);
+      await service.requestOtp({ phone: limitedPhone, purpose: 'REGISTER' });
+      await expect(
+        service.requestOtp({ phone: limitedPhone, purpose: 'REGISTER' }),
+      ).rejects.toMatchObject({
+        status: 429,
+        response: { code: 'OTP_COOLDOWN' },
+      });
+    });
+
+    it('locks the number for 30 minutes after 5 failed verifications', async () => {
+      await reset(limitedPhone);
+      await service.requestOtp({ phone: limitedPhone, purpose: 'REGISTER' });
+
+      for (let i = 0; i < 5; i++) {
+        await expect(
+          service.verifyOtp({
+            phone: limitedPhone,
+            code: '000000',
+            purpose: 'REGISTER',
+          }),
+        ).rejects.toMatchObject({ response: { code: 'OTP_INVALID' } });
+      }
+
+      const row = await prisma.otpChallenge.findUnique({
+        where: { phone: limitedPhone },
+      });
+      expect(row!.attempts).toBe(5);
+      expect(row!.lockedUntil).not.toBeNull();
+      expect(row!.lockedUntil!.getTime()).toBeGreaterThan(Date.now());
+
+      await expect(
+        service.requestOtp({ phone: limitedPhone, purpose: 'REGISTER' }),
+      ).rejects.toMatchObject({
+        status: 429,
+        response: { code: 'OTP_LOCKED' },
+      });
+    });
+
+    it('caps sends per IP at 10 per hour', async () => {
+      const ip = 'test-203.0.113.9';
+      await prisma.rateLimitCounter.deleteMany({ where: { key: `otp:ip:${ip}` } });
+      await reset(limitedPhone);
+
+      let ipBlocked: unknown = null;
+      for (let i = 0; i < 11 && !ipBlocked; i++) {
+        const phoneX = `+2420612${(30000 + i).toString().padStart(5, '0')}`;
+        await prisma.otpChallenge.deleteMany({ where: { phone: phoneX } });
+        try {
+          await service.requestOtp({
+            phone: phoneX,
+            purpose: 'REGISTER',
+            ipAddress: ip,
+          });
+        } catch (err) {
+          ipBlocked = err;
+        }
+      }
+      expect(ipBlocked).toMatchObject({
+        status: 429,
+        response: { code: 'OTP_RATE_LIMITED' },
+      });
+    });
+  });
+
+  describe('sessions & logout (spec 01)', () => {
+    const sessionPhone = '+242061239999';
+    let sessionUserId: string;
+
+    /** Login through the real OTP path so a RefreshToken row exists. */
+    async function login(): Promise<{
+      accessToken: string;
+      refreshToken: string;
+    }> {
+      await prisma.otpChallenge.deleteMany({ where: { phone: sessionPhone } });
+      await service.requestOtp({ phone: sessionPhone, purpose: 'LOGIN' });
+      const code = await otpStore.peek(sessionPhone);
+      return service.verifyOtp({
+        phone: sessionPhone,
+        code: code!,
+        purpose: 'LOGIN',
+      });
+    }
+
+    beforeAll(async () => {
+      await prisma.otpChallenge.deleteMany({ where: { phone: sessionPhone } });
+      for (const u of await prisma.user.findMany({
+        where: { phone: sessionPhone },
+      })) {
+        await prisma.refreshToken.deleteMany({ where: { userId: u.id } });
+        await prisma.userRole.deleteMany({ where: { userId: u.id } });
+        await prisma.user.delete({ where: { id: u.id } });
+      }
+      const country = await prisma.country.findFirstOrThrow({
+        where: { code: 'CG' },
+      });
+      const user = await prisma.user.create({
+        data: {
+          phone: sessionPhone,
+          countryId: country.id,
+          roles: { create: { role: GlobalRole.TENANT } },
+        },
+      });
+      sessionUserId = user.id;
+    });
+
+    afterAll(async () => {
+      await prisma.refreshToken.deleteMany({ where: { userId: sessionUserId } });
+      await prisma.userRole.deleteMany({ where: { userId: sessionUserId } });
+      await prisma.user.deleteMany({ where: { id: sessionUserId } });
+      await prisma.otpChallenge.deleteMany({ where: { phone: sessionPhone } });
+    });
+
+    it('stores the device context on the refresh token', async () => {
+      const tokens = await login();
+      const row = await prisma.refreshToken.findFirst({
+        where: {
+          userId: sessionUserId,
+          tokenHash: hashToken(tokens.refreshToken),
+        },
+      });
+      expect(row).not.toBeNull();
+      expect(row!.deviceId).toBeTruthy();
+      expect(row!.familyId).toBeTruthy();
+      expect(row!.platform).toBe('WEB');
+      expect(row!.ipAddress).toBeNull();
+    });
+
+    it('persists the device metadata supplied at login', async () => {
+      await service.requestOtp({ phone: sessionPhone, purpose: 'LOGIN' });
+      const code = await otpStore.peek(sessionPhone);
+      const tokens = await service.verifyOtp({
+        phone: sessionPhone,
+        code: code!,
+        purpose: 'LOGIN',
+        device: {
+          deviceId: 'device-spec-01',
+          deviceName: 'Téléphone QA',
+          platform: 'ANDROID',
+          ipAddress: '10.0.0.7',
+        },
+      });
+      const row = await prisma.refreshToken.findFirst({
+        where: {
+          userId: sessionUserId,
+          tokenHash: hashToken(tokens.refreshToken),
+        },
+      });
+      expect(row).toMatchObject({
+        deviceId: 'device-spec-01',
+        deviceName: 'Téléphone QA',
+        platform: 'ANDROID',
+        ipAddress: '10.0.0.7',
+      });
+    });
+
+    it('logout revokes the token so a later refresh is 401', async () => {
+      const tokens = await login();
+      const out = await service.logout({ refreshToken: tokens.refreshToken });
+      expect(out.revoked).toBe(true);
+
+      await expect(
+        service.refresh({ refreshToken: tokens.refreshToken }),
+      ).rejects.toMatchObject({ response: { code: 'REFRESH_REPLAYED' } });
+    });
+
+    it('logout is idempotent for an unknown token', async () => {
+      await expect(
+        service.logout({ refreshToken: 'token.does-not-exist-at-all' }),
+      ).resolves.toEqual({ revoked: false });
+    });
+
+    it('rotation keeps the same familyId and device', async () => {
+      const first = await login();
+      const before = await prisma.refreshToken.findFirst({
+        where: { userId: sessionUserId, tokenHash: hashToken(first.refreshToken) },
+      });
+
+      const rotated = await service.refresh({
+        refreshToken: first.refreshToken,
+      });
+      const after = await prisma.refreshToken.findFirst({
+        where: { userId: sessionUserId, tokenHash: hashToken(rotated.refreshToken) },
+      });
+
+      expect(after!.familyId).toBe(before!.familyId);
+      expect(after!.deviceId).toBe(before!.deviceId);
+    });
+
+    it('replaying a rotated token revokes the whole device family', async () => {
+      const first = await login();
+      const rotated = await service.refresh({
+        refreshToken: first.refreshToken,
+      });
+
+      // Replay of the already-rotated token → every session of the device dies.
+      await expect(
+        service.refresh({ refreshToken: first.refreshToken }),
+      ).rejects.toMatchObject({ response: { code: 'REFRESH_REPLAYED' } });
+
+      const family = await prisma.refreshToken.findMany({
+        where: { userId: sessionUserId, tokenHash: hashToken(rotated.refreshToken) },
+      });
+      expect(family).toHaveLength(1);
+      expect(family[0]!.revokedAt).not.toBeNull();
+
+      await expect(
+        service.refresh({ refreshToken: rotated.refreshToken }),
+      ).rejects.toMatchObject({ response: { code: 'REFRESH_REPLAYED' } });
+    });
+
+    it('logout-all revokes every session of the user', async () => {
+      const a = await login();
+      const b = await login();
+
+      const result = await service.logoutAll(sessionUserId);
+      expect(result.revoked).toBeGreaterThanOrEqual(2);
+
+      const still = await prisma.refreshToken.count({
+        where: { userId: sessionUserId, revokedAt: null },
+      });
+      expect(still).toBe(0);
+
+      await expect(service.refresh({ refreshToken: a.refreshToken })).rejects
+        .toBeDefined();
+      await expect(service.refresh({ refreshToken: b.refreshToken })).rejects
+        .toBeDefined();
+    });
+
+    it('logout-all can keep the current session when asked', async () => {
+      const keep = await login();
+      await login();
+
+      const result = await service.logoutAll(sessionUserId, {
+        includeCurrent: false,
+        refreshToken: keep.refreshToken,
+      });
+      expect(result.revoked).toBeGreaterThanOrEqual(1);
+
+      const alive = await prisma.refreshToken.findMany({
+        where: { userId: sessionUserId, revokedAt: null },
+      });
+      expect(alive).toHaveLength(1);
+      expect(alive[0]!.tokenHash).toBe(hashToken(keep.refreshToken));
+
+      const rotated = await service.refresh({ refreshToken: keep.refreshToken });
+      expect(rotated.refreshToken).toBeTruthy();
     });
   });
 });
