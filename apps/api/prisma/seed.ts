@@ -1165,6 +1165,7 @@ async function seedTestUsers(
   });
 
   // Active mandates: rent-long assigned to field agent; sale unassigned (gérant-only).
+  // `proposedById` (spec 03) : le propriétaire propose le mandat à l'agence.
   await prisma.mandate.upsert({
     where: { id: SEED_IDS.mandateRentLong },
     update: {
@@ -1172,6 +1173,7 @@ async function seedTestUsers(
       organizationId: PARADIS_IMMO_ID,
       propertyId: DEMO_PROPERTY_ID,
       assignedAgentId: TEST_USER_IDS.agent,
+      proposedById: TEST_USER_IDS.owner,
       endDate: null,
     },
     create: {
@@ -1179,6 +1181,7 @@ async function seedTestUsers(
       propertyId: DEMO_PROPERTY_ID,
       organizationId: PARADIS_IMMO_ID,
       assignedAgentId: TEST_USER_IDS.agent,
+      proposedById: TEST_USER_IDS.owner,
       status: MandateStatus.ACTIVE,
     },
   });
@@ -1189,6 +1192,7 @@ async function seedTestUsers(
       organizationId: PARADIS_IMMO_ID,
       propertyId: DEMO_PROPERTY_SALE_ID,
       assignedAgentId: null,
+      proposedById: TEST_USER_IDS.owner,
       endDate: null,
     },
     create: {
@@ -1196,6 +1200,7 @@ async function seedTestUsers(
       propertyId: DEMO_PROPERTY_SALE_ID,
       organizationId: PARADIS_IMMO_ID,
       assignedAgentId: null,
+      proposedById: TEST_USER_IDS.owner,
       status: MandateStatus.ACTIVE,
     },
   });

@@ -4,6 +4,7 @@ import request from 'supertest';
 import { LeasesModule } from './leases.module';
 import { PrismaModule } from '../prisma/prisma.module';
 import { PrismaService } from '../prisma/prisma.service';
+import { purgeStaleFixture } from '../testing/stale-fixture-purge';
 
 /**
  * Spec 04 P2 — avenants (US 7): versioned, signed by both parties, applied on
@@ -58,16 +59,12 @@ describe('Leases HTTP — avenants (spec 04 P2)', () => {
     if (!quartier) throw new Error('Run seed first');
     bzvQuartierId = quartier.id;
 
-    const stale = await prisma.user.findMany({
-      where: { phone: { in: Object.values(phones) } },
-      select: { id: true },
+    // Self-healing: purge stale users (roles, notifications, memberships…)
+    // and leaked "Spec04 Amend Org" orgs before recreating the fixture.
+    await purgeStaleFixture(prisma, {
+      phones: Object.values(phones),
+      orgPrefixes: ['Spec04 Amend Org'],
     });
-    if (stale.length) {
-      await prisma.notification.deleteMany({
-        where: { userId: { in: stale.map((u) => u.id) } },
-      });
-    }
-    await prisma.user.deleteMany({ where: { phone: { in: Object.values(phones) } } });
     const mk = async (phone: string, name: string) =>
       prisma.user.create({
         data: { phone, countryId, name, roles: { create: { role: 'TENANT' } } },

@@ -11,6 +11,7 @@ import { EmailService } from '../auth/email.service';
 import { InfobipOtpService } from '../auth/infobip-otp.service';
 import { R2Service } from '../media/r2.service';
 import { AgencyService } from './agency.service';
+import { purgeStaleFixture } from '../testing/stale-fixture-purge';
 
 describe('AgencyService (spec 02)', () => {
   let agency: AgencyService;
@@ -72,18 +73,13 @@ describe('AgencyService (spec 02)', () => {
     const quartier = await prisma.quartier.findFirstOrThrow();
     quartierId = quartier.id;
 
-    // Defensive: remove leftovers from a previous run of this spec.
-    await prisma.organizationInvitation.deleteMany({
-      where: { organization: { name: 'Spec02 Immo' } },
-    });
-    await prisma.organizationMember.deleteMany({
-      where: { organization: { name: 'Spec02 Immo' } },
-    });
-    await prisma.organization.deleteMany({ where: { name: 'Spec02 Immo' } });
+    // Defensive: remove leftovers from a previous run of this spec — users,
+    // their roles, the org with its property/lease tree and invitations.
+    // (A bare organization.deleteMany is FK-blocked by owned properties.)
+    await purgeStaleFixture(prisma, { phones, orgPrefixes: ['Spec02 Immo'] });
     await prisma.organizationRequest.deleteMany({
       where: { name: 'Spec02 Immo' },
     });
-    await prisma.user.deleteMany({ where: { phone: { in: phones } } });
     const [manager, agent, outsider, admin] = await Promise.all(
       phones.map((phone, i) =>
         prisma.user.create({

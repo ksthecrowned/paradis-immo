@@ -8,6 +8,7 @@ import { RentScheduleGenerator } from '../leases/rent-schedule.generator.service
 import { R2Service } from '../media/r2.service';
 import { OtpStore } from '../auth/otp.store';
 import { InfobipOtpService } from '../auth/infobip-otp.service';
+import { purgeStaleFixture } from '../testing/stale-fixture-purge';
 
 describe('Mandate delegation + owner approval', () => {
   let mandates: MandatesService;
@@ -74,8 +75,11 @@ describe('Mandate delegation + owner approval', () => {
     if (!quartier) throw new Error('Run seed first');
     bzvQuartierId = quartier.id;
 
-    await prisma.user.deleteMany({
-      where: { phone: { in: ['+242072200001', '+242072200002'] } },
+    // Self-healing: purge users (and their roles/memberships) plus any
+    // leaked "Mandate Test" orgs from a crashed previous run first.
+    await purgeStaleFixture(prisma, {
+      phones: ['+242072200001', '+242072200002'],
+      orgPrefixes: ['Mandate Test'],
     });
     const owner = await prisma.user.create({
       data: {

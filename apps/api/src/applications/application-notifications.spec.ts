@@ -8,6 +8,7 @@ import { LeasesService } from '../leases/leases.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { RentalApplicationsService } from './rental-applications.service';
 import { ApplicationNotificationsProcessor } from './application-notifications.processor';
+import { purgeStaleFixture } from '../testing/stale-fixture-purge';
 
 /**
  * Spec 04 P1 — the candidature decision must actually reach the candidate.
@@ -100,8 +101,9 @@ describe('Application notifications (spec 04 P1)', () => {
     if (!quartier) throw new Error('Run seed first');
     bzvQuartierId = quartier.id;
 
-    await prisma.organization.deleteMany({ where: { name: { startsWith: 'App Notif Org' } } });
-    await prisma.user.deleteMany({ where: { phone: { in: phones } } });
+    // Self-healing: also removes leftovers (users + their roles, the org and
+    // its properties) of a crashed previous run before recreating them.
+    await purgeStaleFixture(prisma, { phones, orgPrefixes: ['App Notif Org'] });
 
     const owner = await prisma.user.create({
       data: {

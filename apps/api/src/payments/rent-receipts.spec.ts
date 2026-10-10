@@ -11,6 +11,7 @@ import { RentReceiptService } from '../leases/rent-receipt.service';
 import { R2Service } from '../media/r2.service';
 import { ReceiptService } from './receipts/receipt.service';
 import { UsersService } from '../users/users.service';
+import { purgeStaleFixture } from '../testing/stale-fixture-purge';
 
 /**
  * Spec 04 P1 — PARTIAL payments and sequential rent receipts:
@@ -87,7 +88,10 @@ describe('Rent receipts + PARTIAL payments (spec 04 P1)', () => {
     bzvQuartierId = quartier.id;
 
     const phones = ['+242070000031', '+242070000032'];
-    await prisma.user.deleteMany({ where: { phone: { in: phones } } });
+    // Leftovers from a crashed previous run would violate the unique phone
+    // constraint, and a bare user.deleteMany is FK-blocked (userRole, owned
+    // property, payments…) — purge the whole fixture tree first.
+    await purgeStaleFixture(prisma, { phones, orgPrefixes: ['Spec04 P1 Org'] });
     const owner = await prisma.user.create({
       data: {
         phone: phones[0],

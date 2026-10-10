@@ -22,7 +22,9 @@ if (!existsSync(OPENAPI)) {
 const result = spawnSync(
   'bunx',
   ['openapi-typescript', OPENAPI],
-  { encoding: 'utf-8', maxBuffer: 64 * 1024 * 1024 },
+  // shell: true — required on Windows where `bunx` is a .cmd shim that
+  // spawnSync cannot resolve without a shell (ENOENT).
+  { encoding: 'utf-8', maxBuffer: 64 * 1024 * 1024, shell: true },
 );
 
 if (result.status !== 0) {

@@ -479,7 +479,10 @@ describe('PayoutsService — spec 05 P1 (reversements)', () => {
       });
       expect(before).toBe(0);
 
-      await payouts.runMonthlyPayouts();
+      // Balayage restreint aux orgas du test (la base de données partagée
+      // contient des orgas résiduelles, le cron complet y passerait > 30 s).
+      const scope = [org1Id, org2Id, org3Id, org4Id];
+      await payouts.runMonthlyPayouts(scope);
 
       const org2Payouts = await prisma.payout.findMany({
         where: { organizationId: org2Id },
@@ -499,7 +502,7 @@ describe('PayoutsService — spec 05 P1 (reversements)', () => {
       ).toBe(0);
 
       // Re-run idempotent : solde déjà versé → pas de doublon.
-      await payouts.runMonthlyPayouts();
+      await payouts.runMonthlyPayouts(scope);
       expect(
         await prisma.payout.count({ where: { organizationId: org2Id } }),
       ).toBe(1);
@@ -507,7 +510,9 @@ describe('PayoutsService — spec 05 P1 (reversements)', () => {
   });
 
   describe('paramètres de reversement', () => {
-    it('met à jour fréquence et montant minimum (propriétaire uniquement)', async () => {
+    it('met à jour puis retourne les paramètres (propriétaire uniquement)', async () => {
+      // On fixe d'abord un état connu : getSettings ne dépend alors ni de
+      // l'ordre des tests ni d'un état résiduel de la base.
       const settings = await payouts.updateSettings(owner1Id, org1Id, {
         payoutFrequency: 'ON_DEMAND',
         minPayoutAmount: 5000,
@@ -517,42 +522,20 @@ describe('PayoutsService — spec 05 P1 (reversements)', () => {
         minPayoutAmount: '5000',
       });
 
+      const ok = await payouts.getSettings(owner1Id, org1Id);
+      expect(ok).toEqual({
+        payoutFrequency: 'ON_DEMAND',
+        minPayoutAmount: '5000',
+      });
+
       await expect(
         payouts.updateSettings(strangerId, org1Id, { minPayoutAmount: 1 }),
       ).rejects.toMatchObject({
         status: 403,
         response: { code: 'PAYOUT_ACCOUNT_FORBIDDEN' },
-      });
-    });
-
-    it('retourne les paramètres actuels (gestion autorisée uniquement)', async () => {
-      const ok = await payouts.getSettings(owner1Id, org1Id);
-      expect(ok).toEqual({
-        payoutFrequency: 'MONTHLY',
-        minPayoutAmount: '10000',
       });
 
       await expect(payouts.getSettings(owner4Id, org1Id)).rejects.toMatchObject({
-        status: 403,
-        response: { code: 'PAYOUT_ACCOUNT_FORBIDDEN' },
-      });
-    });
-  });
-
-  describe('paramètres de reversement', () => {
-    it('met à jour fréquence et montant minimum (propriétaire uniquement)', async () => {
-      const settings = await payouts.updateSettings(owner1Id, org1Id, {
-        payoutFrequency: 'ON_DEMAND',
-        minPayoutAmount: 5000,
-      });
-      expect(settings).toEqual({
-        payoutFrequency: 'ON_DEMAND',
-        minPayoutAmount: '5000',
-      });
-
-      await expect(
-        payouts.updateSettings(strangerId, org1Id, { minPayoutAmount: 1 }),
-      ).rejects.toMatchObject({
         status: 403,
         response: { code: 'PAYOUT_ACCOUNT_FORBIDDEN' },
       });

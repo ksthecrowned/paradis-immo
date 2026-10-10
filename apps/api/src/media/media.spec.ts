@@ -6,6 +6,7 @@ import { EventPublisher } from '../events/event.publisher';
 import { MediaController } from './media.controller';
 import { MediaService } from './media.service';
 import { R2Service, R2_KEY, MediaTypeError, UrlHostError } from './r2.service';
+import { AgencyAccessService } from '../mandates/agency-access.service';
 
 describe('Media (e2e)', () => {
   let app: INestApplication;
@@ -56,6 +57,10 @@ describe('Media (e2e)', () => {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         { provide: R2Service, useValue: fakeR2 as any },
         { provide: R2_KEY, useValue: {} },
+        // MediaService.assertCanWrite now delegates the authorization check
+        // to AgencyAccessService (owner / gérant / assigned agent). The real
+        // service only needs PrismaService and gives the spec its true 403s.
+        AgencyAccessService,
         PrismaService,
       ],
     })
