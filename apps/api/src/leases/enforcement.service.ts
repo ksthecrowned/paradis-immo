@@ -361,7 +361,7 @@ export class EnforcementService {
       totalDue: balance.overdueAmount,
       paymentDelayDays: input.paymentDelayDays ?? FORMAL_NOTICE_DAYS,
     });
-    const { url } = await this.r2.uploadLeaseFile({
+    const { key } = await this.r2.uploadPrivateLeaseFile({
       leaseId,
       filename: `mise-en-demeure-${reference}.pdf`,
       contentType: 'application/pdf',
@@ -372,7 +372,8 @@ export class EnforcementService {
       data: {
         leaseId,
         type: LeaseDocumentType.FORMAL_NOTICE,
-        url,
+        url: null,
+        fileKey: key,
         name: `Mise en demeure ${reference}`,
         uploadedBy: managerId,
       },
@@ -413,7 +414,7 @@ export class EnforcementService {
       id: document.id,
       leaseId,
       name: document.name,
-      url: document.url,
+      url: await this.r2.createPresignedDownload(key),
       totalDue: balance.overdueAmount,
       currency: balance.currency,
       overdueCount: balance.overdueCount,

@@ -207,14 +207,10 @@ export class KycService {
   ): Promise<KycSubmissionItem> {
     let fileUrl: string | null = null;
     if (withUrl && row.fileKey) {
-      try {
-        fileUrl = await this.r2.createPresignedDownload(
-          row.fileKey,
-          PRIVATE_DOWNLOAD_TTL_SECONDS,
-        );
-      } catch {
-        fileUrl = null;
-      }
+      fileUrl = await this.r2.createPresignedDownload(
+        row.fileKey,
+        PRIVATE_DOWNLOAD_TTL_SECONDS,
+      );
     }
     return {
       id: row.id,

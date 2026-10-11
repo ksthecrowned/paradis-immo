@@ -5,6 +5,7 @@ import {
   Injectable,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import { AdminRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { verifyTotp } from './totp';
 
@@ -92,14 +93,14 @@ export class AdminPermissionGuard implements CanActivate {
       where: { userId },
       select: { role: true, totpSecret: true, totpEnabledAt: true },
     });
-    let role = profile?.role;
+    let role: AdminRole | undefined = profile?.role;
     if (!role) {
       const user = await this.prisma.user.findUnique({
         where: { id: userId },
         select: { roles: { select: { role: true } } },
       });
       const isLegacyAdmin = user?.roles.some((r) => r.role === 'PLATFORM_ADMIN');
-      role = isLegacyAdmin ? 'SUPER_ADMIN' : null;
+      role = isLegacyAdmin ? AdminRole.SUPER_ADMIN : undefined;
     }
     if (!role) {
       throw new ForbiddenException({
@@ -116,17 +117,18 @@ export class AdminPermissionGuard implements CanActivate {
       });
     }
 
-    // Spec 15 B2 — 2FA OBLIGATOIRE sur les routes finance : si un TOTP est
-    // provisionné (setup fait), un code valide est exigé à chaque appel.
-    if (
-      profile?.totpEnabledAt &&
-      profile.totpSecret &&
-      required.startsWith('finance.')
-    ) {
+    // Finance routes require an enrolled TOTP profile and a fresh code on
+    // every request; a missing/unconfirmed profile must not bypass 2FA.
+    if (required.startsWith('finance.')) {
       const headers = (req as { headers?: Record<string, string | string[] | undefined> }).headers ?? {};
       const rawCode = headers['x-totp-code'];
       const code = (Array.isArray(rawCode) ? rawCode[0] : rawCode)?.trim();
-      if (!code || !verifyTotp(profile.totpSecret, code)) {
+      if (
+        !profile?.totpEnabledAt ||
+        !profile.totpSecret ||
+        !code ||
+        !verifyTotp(profile.totpSecret, code)
+      ) {
         throw new ForbiddenException({
           code: 'TOTP_CODE_REQUIRED',
           message: 'Un code TOTP valide (header x-totp-code) est requis',

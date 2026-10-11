@@ -8,16 +8,19 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';  import { IsEnum, IsOptional, IsString, MaxLength } from 'class-validator';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { IsEnum, IsOptional, IsString, MaxLength } from 'class-validator';
 import { KycStatus } from '@prisma/client';
 import { AppAuthGuard } from '../common/guards/auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
-import { AdminPermissionGuard } from '../admin/admin-permission.guard';
+import {
+  AdminPermission,
+  AdminPermissionGuard,
+} from '../admin/admin-permission.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { KycService } from './kyc.service';
-import { AdminPermissionGuard, AdminPermission } from '../admin/admin-permission.guard';
 
 class ReviewKycDto {
   @IsEnum(KycStatus)

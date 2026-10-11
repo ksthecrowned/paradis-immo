@@ -1,6 +1,5 @@
 import {
   BadRequestException,
-  ForbiddenException,
   Injectable,
   Logger,
   NotFoundException,
@@ -11,7 +10,7 @@ import { R2Service } from '../media/r2.service';
 import { DocumentSequenceService } from '../documents/document-sequence.service';
 import { renderRentReceiptPdf } from './rent-receipt-pdf';
 
-const R2_QUITTANCE_PREFIX = 'quittances';
+const R2_QUITTANCE_PREFIX = 'private/quittances';
 
 export interface PublicRentReceipt {
   id: string;
@@ -43,7 +42,9 @@ export class RentReceiptService {
    * Issue the quittance for a fully-paid schedule. Idempotent on
    * `rentScheduleId` (unique constraint).
    */
-  async issueForRentSchedule(rentScheduleId: string): Promise<PublicRentReceipt> {
+  async issueForRentSchedule(
+    rentScheduleId: string,
+  ): Promise<PublicRentReceipt> {
     const schedule = await this.prisma.rentSchedule.findUnique({
       where: { id: rentScheduleId },
       include: {
@@ -69,53 +70,53 @@ export class RentReceiptService {
         message: 'Rent schedule does not exist',
       });
     }
-    if (schedule.receipt) return this.toPublic(schedule.receipt);
-
-    const paid = await this.paidAmount(schedule.id);
-    if (schedule.status !== RentScheduleStatus.PAID) {
-      throw new BadRequestException({
-        code: 'RENT_SCHEDULE_NOT_PAID',
-        message: `A quittance is only issued for a settled schedule (status: ${schedule.status})`,
-      });
+    let receipt = schedule.receipt;
+    if (!receipt) {
+      const paid = await this.paidAmount(schedule.id);
+      if (schedule.status !== RentScheduleStatus.PAID) {
+        throw new BadRequestException({
+          code: 'RENT_SCHEDULE_NOT_PAID',
+          message: `A quittance is only issued for a settled schedule (status: ${schedule.status})`,
+        });
+      }
+      if (paid.lt(schedule.amount)) {
+        throw new BadRequestException({
+          code: 'RENT_SCHEDULE_NOT_PAID',
+          message: `Allocated ${paid.toString()} of ${schedule.amount.toString()}`,
+        });
+      }
     }
-    if (paid.lt(schedule.amount)) {
-      throw new BadRequestException({
-        code: 'RENT_SCHEDULE_NOT_PAID',
-        message: `Allocated ${paid.toString()} of ${schedule.amount.toString()}`,
-      });
-    }
 
-    const issuerOrgId = schedule.lease.property.organizationId;
-    const issuedAt = new Date();
     const landlord = await this.prisma.user.findUnique({
       where: { id: schedule.lease.property.ownerId },
       select: { name: true, phone: true },
     });
 
-    // Reserve the number and persist the row in one transaction so concurrent
-    // issuances can never share a number, and the PDF key is stable.
-    const created = await this.prisma.$transaction(async (tx) => {
-      const number = await this.sequences.nextNumber(tx, {
-        organizationId: issuerOrgId,
-        kind: 'QUITTANCE',
-        prefix: 'Q',
-        at: issuedAt,
+    if (!receipt) {
+      // Reserve the number and persist the row in one transaction so concurrent
+      // issuances can never share a number, and the PDF key is stable.
+      receipt = await this.prisma.$transaction(async (tx) => {
+        const number = await this.sequences.nextNumber(tx, {
+          organizationId: schedule.lease.property.organizationId,
+          kind: 'QUITTANCE',
+          prefix: 'Q',
+          at: new Date(),
+        });
+        return tx.rentReceipt.create({
+          data: {
+            number,
+            rentScheduleId: schedule.id,
+            issuerOrgId: schedule.lease.property.organizationId,
+            fileKey: `${R2_QUITTANCE_PREFIX}/${schedule.leaseId}/${schedule.id}/${number}.pdf`,
+          },
+        });
       });
-      return tx.rentReceipt.create({
-        data: {
-          number,
-          rentScheduleId: schedule.id,
-          issuerOrgId,
-          fileKey: `${R2_QUITTANCE_PREFIX}/${schedule.leaseId}/${schedule.id}/${number}.pdf`,
-          issuedAt,
-        },
-      });
-    });
+    }
 
     try {
       const buffer = await renderRentReceiptPdf({
-        number: created.number,
-        issuedAt,
+        number: receipt.number,
+        issuedAt: receipt.issuedAt,
         periodStart: schedule.periodStart ?? schedule.dueDate,
         periodEnd: schedule.periodEnd ?? schedule.dueDate,
         rentAmount: schedule.rentPart.toString(),
@@ -131,21 +132,25 @@ export class RentReceiptService {
         agencyName: schedule.lease.property.organization.name,
         propertyAddress: schedule.lease.property.address,
       });
-      await this.r2.uploadBuffer(
-        created.fileKey,
-        buffer,
-        'application/pdf',
-      );
+      const fileKey = receipt.fileKey.startsWith('private/')
+        ? receipt.fileKey
+        : `${R2_QUITTANCE_PREFIX}/${schedule.leaseId}/${schedule.id}/${receipt.number}.pdf`;
+      await this.r2.uploadPrivateFileAtKey(fileKey, buffer, 'application/pdf');
+      if (fileKey !== receipt.fileKey) {
+        receipt = await this.prisma.rentReceipt.update({
+          where: { id: receipt.id },
+          data: { fileKey },
+        });
+      }
     } catch (err) {
-      // The document row stays: a retry re-uses the same number and re-renders
-      // the PDF instead of burning a sequence value.
       this.logger.error(
-        `Quittance ${created.number} rendered but upload failed: ${String(err)}`,
+        `Quittance ${receipt.number} upload failed: ${String(err)}`,
       );
+      throw err;
     }
 
-    this.logger.log(`Issued quittance ${created.number}`);
-    return this.toPublic(created);
+    this.logger.log(`Issued quittance ${receipt.number}`);
+    return this.toPublic(receipt);
   }
 
   async listForLease(leaseId: string): Promise<PublicRentReceipt[]> {
@@ -181,7 +186,12 @@ export class RentReceiptService {
       where: { id: rentScheduleId },
       include: {
         lease: {
-          select: { id: true, tenantId: true, propertyId: true },
+          select: {
+            id: true,
+            tenantId: true,
+            propertyId: true,
+            coTenants: { select: { userId: true } },
+          },
         },
       },
     });
@@ -191,7 +201,10 @@ export class RentReceiptService {
         message: 'Rent schedule does not exist',
       });
     }
-    if (schedule.lease.tenantId !== userId) {
+    const isTenant =
+      schedule.lease.tenantId === userId ||
+      schedule.lease.coTenants.some((coTenant) => coTenant.userId === userId);
+    if (!isTenant) {
       await canOperate(userId, schedule.lease.propertyId);
     }
     return {
@@ -203,7 +216,13 @@ export class RentReceiptService {
 
   async listForUser(userId: string): Promise<PublicRentReceipt[]> {
     const rows = await this.prisma.rentReceipt.findMany({
-      where: { rentSchedule: { lease: { tenantId: userId } } },
+      where: {
+        rentSchedule: {
+          lease: {
+            OR: [{ tenantId: userId }, { coTenants: { some: { userId } } }],
+          },
+        },
+      },
       orderBy: { issuedAt: 'desc' },
     });
     return rows.map((r) => this.toPublic(r));

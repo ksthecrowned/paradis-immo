@@ -205,7 +205,7 @@ export class MandateApprovalService {
     // RENT_REDUCTION: build the avenant PDF first so its URL lands inside
     // the same transaction as the rent changes.
     let avenant:
-      | { url: string; key: string; name: string }
+      | { key: string; name: string }
       | undefined;
     if (approve && approval.actionType === 'RENT_REDUCTION') {
       avenant = await this.buildAvenant(approval);
@@ -270,7 +270,7 @@ export class MandateApprovalService {
     approval: MandateApproval & {
       mandate: Mandate & { property: { ownerId: string; title: string } };
     },
-    avenant: { url: string; key: string; name: string } | undefined,
+    avenant: { key: string; name: string } | undefined,
     decidedBy: string,
     postActions: Array<() => Promise<void>>,
   ): Promise<void> {
@@ -368,7 +368,8 @@ export class MandateApprovalService {
             data: {
               leaseId,
               type: 'AMENDMENT',
-              url: avenant.url,
+              url: null,
+              fileKey: avenant.key,
               name: avenant.name,
               uploadedBy: decidedBy,
             },
@@ -487,32 +488,26 @@ export class MandateApprovalService {
     approval: MandateApproval & {
       mandate: Mandate & { property: { ownerId: string; title: string } };
     },
-  ): Promise<{ url: string; key: string; name: string } | undefined> {
+  ): Promise<{ key: string; name: string } | undefined> {
     const payload = (approval.payload ?? {}) as Record<string, unknown>;
     const leaseId = String(payload.leaseId ?? '');
     if (!leaseId) return undefined;
-    try {
-      const pdf = await renderAmendmentPdf({
-        propertyTitle: approval.mandate.property.title,
-        previousRent: String(payload.previousMonthlyRent ?? ''),
-        newRent: String(payload.newMonthlyRent ?? ''),
-        currency: String(payload.currency ?? 'XAF'),
-        effectiveFrom: new Date(String(payload.effectiveFrom ?? '')),
-        decidedAt: new Date(),
-      });
-      const name = `Avenant de bail — ${approval.mandate.property.title}.pdf`;
-      const uploaded = await this.r2.uploadLeaseFile({
-        leaseId,
-        filename: name,
-        contentType: 'application/pdf',
-        body: pdf,
-      });
-      return { url: uploaded.url, key: uploaded.key, name };
-    } catch {
-      // Storage is not configured in some test environments: the approval
-      // still applies, only the generated document is skipped.
-      return undefined;
-    }
+    const pdf = await renderAmendmentPdf({
+      propertyTitle: approval.mandate.property.title,
+      previousRent: String(payload.previousMonthlyRent ?? ''),
+      newRent: String(payload.newMonthlyRent ?? ''),
+      currency: String(payload.currency ?? 'XAF'),
+      effectiveFrom: new Date(String(payload.effectiveFrom ?? '')),
+      decidedAt: new Date(),
+    });
+    const name = `Avenant de bail — ${approval.mandate.property.title}.pdf`;
+    const uploaded = await this.r2.uploadPrivateLeaseFile({
+      leaseId,
+      filename: name,
+      contentType: 'application/pdf',
+      body: pdf,
+    });
+    return { key: uploaded.key, name };
   }
 
   /**

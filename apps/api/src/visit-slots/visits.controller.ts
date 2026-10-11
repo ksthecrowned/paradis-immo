@@ -6,6 +6,7 @@ import {
   Param,
   Patch,
   Post,
+  Put,
   UseGuards,
 } from '@nestjs/common';
 import { IsOptional, IsString, Length, Matches } from 'class-validator';
@@ -14,6 +15,8 @@ import { AppAuthGuard } from '../common/guards/auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { VisitSlotsService } from './visit-slots.service';
+import { SaveVisitReportDto } from './dto/save-visit-report.dto';
+import { AssignVisitAgentDto } from './dto/assign-visit-agent.dto';
 
 class BookVisitDto {
   @IsString() slotId!: string;
@@ -66,6 +69,40 @@ export class VisitsController {
   @ApiOperation({ summary: 'Confirm a visit booking' })
   confirm(@CurrentUser() current: AuthenticatedUser, @Param('id') id: string) {
     return this.slots.confirmVisit(current.userId, id);
+  }
+
+  @Post(':id/complete')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Mark a visit as completed (agent or manager)' })
+  complete(@CurrentUser() current: AuthenticatedUser, @Param('id') id: string) {
+    return this.slots.completeVisit(current.userId, id);
+  }
+
+  @Post(':id/no-show')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Mark the visitor as absent (agent or manager)' })
+  noShow(@CurrentUser() current: AuthenticatedUser, @Param('id') id: string) {
+    return this.slots.markVisitNoShow(current.userId, id);
+  }
+
+  @Put(':id/report')
+  @ApiOperation({ summary: 'Save the visit report (agent or manager)' })
+  saveReport(
+    @CurrentUser() current: AuthenticatedUser,
+    @Param('id') id: string,
+    @Body() dto: SaveVisitReportDto,
+  ) {
+    return this.slots.saveVisitReport(current.userId, id, dto);
+  }
+
+  @Patch(':id/assign')
+  @ApiOperation({ summary: 'Assign or unassign an agent to a visit' })
+  assignAgent(
+    @CurrentUser() current: AuthenticatedUser,
+    @Param('id') id: string,
+    @Body() dto: AssignVisitAgentDto,
+  ) {
+    return this.slots.assignVisitAgent(current.userId, id, dto.agentId ?? null);
   }
 
   @Patch(':id/cancel')

@@ -9,6 +9,7 @@ import { VisitSlotsService } from './visit-slots.service';
 import { SlotGeneratorProcessor } from './slot-generator.processor';
 import { VisitSlotGenerator } from './slot-generator';
 import { HoldExpiryProcessor } from './hold-expiry.processor';
+import { VisitLifecycleProcessor } from './visit-lifecycle.processor';
 
 @Module({
   imports: [PrismaModule, EventModule, MandatesModule, UsersModule],
@@ -18,6 +19,7 @@ import { HoldExpiryProcessor } from './hold-expiry.processor';
     VisitSlotGenerator,
     SlotGeneratorProcessor,
     HoldExpiryProcessor,
+    VisitLifecycleProcessor,
   ],
   exports: [VisitSlotsService, VisitSlotGenerator],
 })

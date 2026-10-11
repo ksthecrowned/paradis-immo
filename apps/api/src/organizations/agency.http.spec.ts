@@ -54,7 +54,7 @@ describe('Agency request → invitation HTTP (spec 02)', () => {
           provide: InfobipOtpService,
           useValue: { sendText: async () => undefined, sendOtp: async () => undefined },
         },
-        { provide: R2Service, useValue: { uploadPrivateFile: jest.fn() } },
+        { provide: R2Service, useValue: { uploadOrganizationLogo: jest.fn() } },
       ],
     }).compile();
 

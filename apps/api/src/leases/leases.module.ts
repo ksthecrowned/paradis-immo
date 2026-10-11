@@ -14,6 +14,7 @@ import { LeasesController } from './leases.controller';
 import { InspectionsController } from './inspections.controller';
 import { InspectionsService } from './inspections.service';
 import { RentSchedulesController } from './rent-schedules.controller';
+import { RentReceiptsController } from './rent-receipts.controller';
 import { EnforcementService } from './enforcement.service';
 import { AmendmentsService } from './amendments.service';
 import { IndexationService } from './indexation.service';
@@ -42,6 +43,7 @@ import { LeaseTemplatesController } from './lease-templates.controller';
     InspectionsController,
     LeaseDocumentsController,
     RentSchedulesController,
+    RentReceiptsController,
     LeaseTemplatesController,
   ],
   providers: [

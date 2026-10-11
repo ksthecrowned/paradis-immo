@@ -18,11 +18,12 @@ describe('LeaseDocumentsService', () => {
   let leaseId: string;
   const phones = ['+242074000001', '+242074000002', '+242074000003'];
   const fakeR2 = {
-    uploadLeaseFile: jest.fn(async () => ({
-      url: 'https://cdn.test/leases/x/contrat.pdf',
-      key: 'leases/x/contrat.pdf',
+    uploadPrivateLeaseFile: jest.fn(async () => ({
+      key: 'lease-documents/x/contrat.pdf',
     })),
-    keyFromPublicUrl: jest.fn(() => 'leases/x/contrat.pdf'),
+    createPresignedDownload: jest.fn(
+      async (key: string) => `https://signed.test/${key}`,
+    ),
     deleteObject: jest.fn(async () => undefined),
   };
 

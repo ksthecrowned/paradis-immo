@@ -265,8 +265,8 @@ model DepositSettlement {
 | POST | `leases/:id/renew` | gestionnaire | Nouveau terme et nouveau loyer |
 | GET | `leases/:id/balance` | parties | Solde, échéances, pénalités |
 | POST | `rent-schedules/:id/waive-fee` | gestionnaire | Annule une pénalité |
-| GET | `rent-schedules/:id/receipt` | parties | Quittance PDF (URL signée) |
-| GET | `leases/:id/receipts` | parties | Toutes les quittances |
+| GET | `rent-schedules/:id/quittance` | locataire/co-locataire ou gestionnaire autorisé | URL signée de la quittance PDF ; implémenté |
+| GET | `leases/my/quittances` | locataire/co-locataire | Liste de ses quittances ; implémenté, sans exposer les clés de stockage |
 | GET | `leases/arrears` | gestionnaire | Tableau des impayés par ancienneté |
 | POST | `leases/:id/reminders` | gestionnaire | Relance manuelle (canal au choix) |
 | POST | `leases/:id/formal-notice` | gestionnaire | Génère une mise en demeure PDF |

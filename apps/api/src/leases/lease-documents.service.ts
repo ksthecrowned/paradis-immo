@@ -14,7 +14,7 @@ export type LeaseDocumentItem = {
   id: string;
   leaseId: string;
   type: string;
-  url: string;
+  url: string | null;
   name: string;
   uploadedBy: string;
   createdAt: string;
@@ -37,7 +37,7 @@ export class LeaseDocumentsService {
       where: { leaseId },
       orderBy: { createdAt: 'desc' },
     });
-    return rows.map((d) => this.toPublic(d));
+    return Promise.all(rows.map((d) => this.toPublic(d)));
   }
 
   async upload(
@@ -48,7 +48,7 @@ export class LeaseDocumentsService {
   ): Promise<LeaseDocumentItem> {
     await this.assertCanWrite(managerUserId, leaseId);
     this.assertFile(file);
-    const { url } = await this.r2.uploadLeaseFile({
+    const { key } = await this.r2.uploadPrivateLeaseFile({
       leaseId,
       filename: file.originalname || 'document.bin',
       contentType: file.mimetype,
@@ -58,7 +58,8 @@ export class LeaseDocumentsService {
       data: {
         leaseId,
         type: input.type,
-        url,
+        url: null,
+        fileKey: key,
         name: input.name?.trim() || file.originalname || 'Document',
         uploadedBy: managerUserId,
       },
@@ -81,15 +82,13 @@ export class LeaseDocumentsService {
         message: 'Document does not exist on this lease',
       });
     }
-    await this.prisma.leaseDocument.delete({ where: { id: documentId } });
-    const key = this.r2.keyFromPublicUrl(doc.url);
-    if (key) {
-      try {
-        await this.r2.deleteObject(key);
-      } catch {
-        // orphan R2 ok
-      }
+    if (doc.fileKey) {
+      await this.r2.deletePrivateObject(doc.fileKey);
+    } else if (doc.url) {
+      const legacyKey = this.r2.keyFromPublicUrl(doc.url);
+      if (legacyKey) await this.r2.deleteObject(legacyKey);
     }
+    await this.prisma.leaseDocument.delete({ where: { id: documentId } });
   }
 
   private async assertCanRead(userId: string, leaseId: string): Promise<void> {
@@ -152,20 +151,21 @@ export class LeaseDocumentsService {
     }
   }
 
-  private toPublic(d: {
+  private async toPublic(d: {
     id: string;
     leaseId: string;
     type: string;
-    url: string;
+    url: string | null;
+    fileKey: string | null;
     name: string;
     uploadedBy: string;
     createdAt: Date;
-  }): LeaseDocumentItem {
+  }): Promise<LeaseDocumentItem> {
     return {
       id: d.id,
       leaseId: d.leaseId,
       type: d.type,
-      url: d.url,
+      url: d.fileKey ? await this.r2.createPresignedDownload(d.fileKey) : null,
       name: d.name,
       uploadedBy: d.uploadedBy,
       createdAt: d.createdAt.toISOString(),

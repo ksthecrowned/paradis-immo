@@ -112,6 +112,7 @@ Les stubs, simulations ou webhooks génériques ne sont pas suffisants pour déc
 ### Environnements et changements
 
 - Séparer développement, préproduction et production, y compris bases de données, buckets, clés et comptes fournisseurs.
+- Configurer un bucket R2 privé distinct de celui des médias publics (`R2_PRIVATE_BUCKET`) avec accès public désactivé ; après sauvegarde, depuis `apps/api`, exécuter d'abord `bunx prisma migrate deploy`, puis `bun run storage:migrate-documents`. Cet outil migre les pièces de biens, locataires, baux, KYC, mandats, comptabilité, reçus et rapprochements ; il conserve les objets publics encore référencés par des médias ou des pièces jointes de messagerie, et échoue explicitement si une référence ne peut pas être migrée. Vérifier et traiter ces objets conservés avant de considérer le stockage sécurisé en production.
 - Exécuter les migrations de schéma selon une procédure reproductible, avec sauvegarde et stratégie de retour/compatibilité. Une migration non réversible doit documenter la restauration et le plan de reprise.
 - Déployer progressivement les changements à risque, avec feature flags ou mécanisme équivalent lorsque pertinent.
 - Conserver une procédure de rollback applicatif et de désactivation des intégrations sans corrompre les opérations déjà engagées.

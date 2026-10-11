@@ -11,10 +11,11 @@ Rôles : `SEEKER`, `AGENT` (visiteur terrain), `MANAGER`, `OWNER`.
 - Expiration des réservations temporaires, avec traitement local.
 
 ### Écarts
-- Les parcours agent de clôture (visite effectuée, absence), compte rendu et assignation ne sont pas complets.
-- La reprogrammation, les indisponibilités récurrentes, les rappels et le parcours complet de remboursement restent à faire.
+- Les parcours agent de compte rendu sont disponibles dans l'API. L'affectation au niveau réservation et ses notifications sont disponibles dans l'API ; l'affectation aux templates et l'agenda restent à faire.
+- La reprogrammation, les indisponibilités récurrentes et le parcours complet de remboursement restent à faire. Les rappels J-1/H-2 sont automatisés pour le chercheur et, si affecté, l'agent.
 - Il manque les écrans de réservation et de suivi côté mobile ainsi que l'agenda de gestion côté web.
 - Ne pas confondre API de blocage/ouverture existante avec la gestion des plages d'indisponibilité et le déplacement des visites affectées.
+- La clôture automatique H+24 notifie le propriétaire et l'agent affecté lorsqu'il existe.
 
 ## User stories
 1. En tant que chercheur, je réserve un créneau. S'il est payant, il est **bloqué 15 minutes** pendant le paiement, puis confirmé ; sinon il est libéré.
@@ -69,6 +70,7 @@ model VisitBooking {
   holdExpiresAt    DateTime?
   paymentId        String?
   agentId          String?
+  agentOrganizationId String?
   rescheduleCount  Int       @default(0)
   cancelledById    String?
   cancelReason     String?
@@ -110,7 +112,7 @@ model Organization {
 | POST | `visit-bookings/:id/complete` | AGENT / MANAGER | `{ report? }` |
 | POST | `visit-bookings/:id/no-show` | AGENT / MANAGER | |
 | PUT | `visit-bookings/:id/report` | AGENT / MANAGER | Compte rendu |
-| PATCH | `visit-bookings/:id/assign` | MANAGER | `{ agentId }` |
+| PATCH | `visits/:id/assign` | propriétaire / gestionnaire de l'agence | `{ agentId }` ; `null` désaffecte |
 | GET | `visit-bookings/managed` | gestionnaire | `?from&to&agentId&propertyId&status`, paginé, pour l'agenda |
 | GET | `visit-bookings/mine` | SEEKER | **Modifié** : paginé, avec les actions disponibles (`canCancel`, `canReschedule`, `refundPercent`) |
 | POST | `visit-blackouts` | gestionnaire | Bloque une plage |
@@ -137,15 +139,15 @@ model Organization {
 - Passer le bien en OCCUPIED annule les visites futures et notifie les chercheurs.
 
 ## Priorité
-- **P0** : [x] réservation et cycle de confirmation/annulation de base ; [x] expiration des réservations temporaires ; [ ] vérifier la réservation atomique des créneaux payants ; [ ] clôture COMPLETED/NO_SHOW et notification de confirmation fiable.
-- **P1** : [ ] annulation/remboursement et reprogrammation dans l'UI ; [ ] assignation d'agent, compte rendu et agenda web ; [ ] rappels J-1/H-2 et parcours de visite mobile.
+- **P0** : [x] réservation et cycle de confirmation/annulation de base ; [x] expiration des réservations temporaires ; [x] réservation atomique d'un créneau ; [x] clôture manuelle COMPLETED/NO_SHOW après le début ; [x] passage automatique H+24 en COMPLETED_UNCONFIRMED et relance au propriétaire et à l'agent affecté.
+- **P1** : [ ] annulation/remboursement et reprogrammation dans l'UI ; [x] affectation d'agent au booking via API ; [ ] affectation aux templates et agenda web ; [x] compte rendu API ; [x] rappels J-1/H-2 au chercheur et à l'agent affecté ; [ ] parcours mobile.
 - **P2** : [ ] capacité/groupes, indisponibilités avec traitement des visites affectées, pénalité de no-show et relances post-visite.
 
 ## Delta d'implémentation
 | ID | Priorité | Delta | État |
 |---|---|---|---|
-| 06.1 | P0 | Vérifier/finaliser le verrou de réservation pour les visites payantes ; garantir qu'un seul booking obtient le créneau. | À faire |
-| 06.2 | P0 | Ajouter la clôture effectuée/absence et fiabiliser les notifications de confirmation. | À faire |
-| 06.3 | P1 | Ajouter reprogrammation, calcul/remboursement, rappels et écrans mobiles de réservation/suivi. | À faire |
-| 06.4 | P1 | Ajouter affectation d'agent, compte rendu et agenda web. | À faire |
+| 06.1 | P0 | Vérifier/finaliser le verrou de réservation pour les visites payantes ; garantir qu'un seul booking obtient le créneau. | Implémenté : transition conditionnelle et création du booking dans une transaction ; test de concurrence ajouté. |
+| 06.2 | P0 | Ajouter la clôture effectuée/absence et fiabiliser les notifications de confirmation. | Partiel : routes de clôture autorisées après le début, transition concurrente protégée, cron H+24 et relance au propriétaire et à l'agent affecté. Vérification manuelle : `docs/checklists/verification-visites.md`. |
+| 06.3 | P1 | Ajouter reprogrammation, calcul/remboursement, rappels et écrans mobiles de réservation/suivi. | Partiel : rappels J-1/H-2 au chercheur implémentés, avec marqueurs d'idempotence ; reprogrammation, remboursements effectifs et UI restent à faire. |
+| 06.4 | P1 | Ajouter affectation d'agent, compte rendu et agenda web. | Partiel : affectation API d'un agent actif de l'agence sur un booking PENDING/CONFIRMED et compte rendu persistant après COMPLETED ; affectation aux templates et agenda web restent à faire. |
 | 06.5 | P2 | Compléter capacités, périodes d'indisponibilité, pénalités de no-show et relances post-visite. | À faire |

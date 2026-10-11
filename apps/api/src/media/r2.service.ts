@@ -29,12 +29,14 @@ export class R2Service {
   private readonly logger = new Logger(R2Service.name);
   private readonly client: S3Client;
   private readonly bucket: string;
+  private readonly privateBucket: string;
   private readonly publicUrl: string;
   private readonly accountId: string;
 
   constructor(@Inject(R2_KEY) client: S3Client) {
     this.client = client;
     this.bucket = process.env.R2_BUCKET ?? '';
+    this.privateBucket = process.env.R2_PRIVATE_BUCKET ?? '';
     this.publicUrl = (process.env.R2_PUBLIC_URL ?? '').replace(/\/$/, '');
     this.accountId = process.env.R2_ACCOUNT_ID ?? '';
   }
@@ -109,32 +111,72 @@ export class R2Service {
   }): Promise<{ url: string; key: string }> {
     const safeFilename = sanitizeFilename(params.filename);
     const key = `properties/${params.propertyId}/${Date.now()}-${randomToken(6)}-${safeFilename}`;
-    const { url } = await this.uploadBuffer(key, params.body, params.contentType);
+    const { url } = await this.uploadBuffer(
+      key,
+      params.body,
+      params.contentType,
+    );
     return { url, key };
   }
 
-  async uploadTenantFile(params: {
+  async uploadOrganizationLogo(params: {
+    organizationId: string;
+    filename: string;
+    contentType: string;
+    body: Buffer;
+  }): Promise<{ url: string; key: string }> {
+    const safeFilename = sanitizeFilename(params.filename);
+    const key = `organizations/${params.organizationId}/${Date.now()}-${randomToken(6)}-${safeFilename}`;
+    const { url } = await this.uploadBuffer(
+      key,
+      params.body,
+      params.contentType,
+    );
+    return { url, key };
+  }
+
+  async uploadPrivatePropertyFile(params: {
+    propertyId: string;
+    filename: string;
+    contentType: string;
+    body: Buffer;
+  }): Promise<{ key: string }> {
+    const safeFilename = sanitizeFilename(params.filename);
+    const key = `property-documents/${params.propertyId}/${Date.now()}-${randomToken(6)}-${safeFilename}`;
+    await this.uploadPrivateBuffer(key, params.body, params.contentType);
+    return { key };
+  }
+
+  async uploadPrivateTenantFile(params: {
     userId: string;
     filename: string;
     contentType: string;
     body: Buffer;
-  }): Promise<{ url: string; key: string }> {
+  }): Promise<{ key: string }> {
     const safeFilename = sanitizeFilename(params.filename);
-    const key = `tenants/${params.userId}/${Date.now()}-${randomToken(6)}-${safeFilename}`;
-    const { url } = await this.uploadBuffer(key, params.body, params.contentType);
-    return { url, key };
+    const key = `tenant-documents/${params.userId}/${Date.now()}-${randomToken(6)}-${safeFilename}`;
+    await this.uploadPrivateBuffer(key, params.body, params.contentType);
+    return { key };
   }
 
-  async uploadLeaseFile(params: {
+  async uploadPrivateLeaseFile(params: {
     leaseId: string;
     filename: string;
     contentType: string;
     body: Buffer;
-  }): Promise<{ url: string; key: string }> {
+  }): Promise<{ key: string }> {
     const safeFilename = sanitizeFilename(params.filename);
-    const key = `leases/${params.leaseId}/${Date.now()}-${randomToken(6)}-${safeFilename}`;
-    const { url } = await this.uploadBuffer(key, params.body, params.contentType);
-    return { url, key };
+    const key = `lease-documents/${params.leaseId}/${Date.now()}-${randomToken(6)}-${safeFilename}`;
+    await this.uploadPrivateBuffer(key, params.body, params.contentType);
+    return { key };
+  }
+
+  async uploadPrivateFileAtKey(
+    key: string,
+    body: Buffer,
+    contentType: string,
+  ): Promise<void> {
+    await this.uploadPrivateBuffer(key, body, contentType);
   }
 
   /**
@@ -149,8 +191,9 @@ export class R2Service {
     body: Buffer;
   }): Promise<{ url: string; key: string }> {
     const safeFilename = sanitizeFilename(params.filename);
-    const key = `${params.folder}/${params.ownerId}/${Date.now()}-${randomToken(6)}-${safeFilename}`;
-    const { url } = await this.uploadBuffer(key, params.body, params.contentType);
+    const key = `private/${params.folder}/${params.ownerId}/${Date.now()}-${randomToken(6)}-${safeFilename}`;
+    await this.uploadPrivateBuffer(key, params.body, params.contentType);
+    const url = await this.createPresignedDownload(key);
     return { url, key };
   }
 
@@ -162,7 +205,21 @@ export class R2Service {
     key: string,
     expiresIn = PRIVATE_DOWNLOAD_TTL_SECONDS,
   ): Promise<string> {
-    const command = new GetObjectCommand({ Bucket: this.bucket, Key: key });
+    const command = new GetObjectCommand({
+      Bucket: this.requirePrivateBucket(),
+      Key: key,
+    });
+    return getSignedUrl(this.client, command, { expiresIn });
+  }
+
+  async createPresignedPrivateDownload(
+    key: string,
+    expiresIn = PRIVATE_DOWNLOAD_TTL_SECONDS,
+  ): Promise<string> {
+    const command = new GetObjectCommand({
+      Bucket: this.requirePrivateBucket(),
+      Key: key,
+    });
     return getSignedUrl(this.client, command, { expiresIn });
   }
 
@@ -187,6 +244,16 @@ export class R2Service {
     if (!key) return;
     await this.client.send(
       new DeleteObjectCommand({ Bucket: this.bucket, Key: key }),
+    );
+  }
+
+  async deletePrivateObject(key: string): Promise<void> {
+    if (!key) return;
+    await this.client.send(
+      new DeleteObjectCommand({
+        Bucket: this.requirePrivateBucket(),
+        Key: key,
+      }),
     );
   }
 
@@ -236,6 +303,30 @@ export class R2Service {
     });
     await this.client.send(command);
     return { url: `${this.publicUrl}/${key}` };
+  }
+
+  private requirePrivateBucket(): string {
+    if (!this.privateBucket || this.privateBucket === this.bucket) {
+      throw new Error(
+        'Private R2 storage is not safely configured (set R2_PRIVATE_BUCKET to a dedicated bucket)',
+      );
+    }
+    return this.privateBucket;
+  }
+
+  private async uploadPrivateBuffer(
+    key: string,
+    body: Buffer,
+    contentType: string,
+  ): Promise<void> {
+    await this.client.send(
+      new PutObjectCommand({
+        Bucket: this.requirePrivateBucket(),
+        Key: key,
+        Body: body,
+        ContentType: contentType,
+      }),
+    );
   }
 }
 

@@ -288,12 +288,10 @@ export class AdminController {
       await this.prisma.adminProfile.create({
         data: { userId: current.userId, role: 'SUPER_ADMIN', ipAllowlist: [] },
       });
-      profile = {
-        userId: current.userId,
-        totpSecret: null,
-        totpEnabledAt: null,
-        role: 'SUPER_ADMIN',
-      } as { userId: string; totpSecret: string | null; totpEnabledAt: Date | null; role: string };
+      profile = await this.prisma.adminProfile.findUniqueOrThrow({
+        where: { userId: current.userId },
+        select: { userId: true, totpSecret: true, totpEnabledAt: true, role: true },
+      });
     }
 
     if (profile.totpEnabledAt) {
@@ -360,15 +358,13 @@ export class AdminController {
       },
     });
 
-    await this.audit.record({
+    await this.auditLog.record({
       actorId: current.userId,
       action: 'admin.totp.setup',
       targetType: 'ADMIN',
       targetId: current.userId,
       after: { totpEnabledAt: updated.totpEnabledAt?.toISOString() ?? null },
     });
-
-    return { statusCode: 200, data: { enabled: true } };
 
     return { statusCode: 200, data: { enabled: true } };
   }

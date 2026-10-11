@@ -420,12 +420,8 @@ export class AccountingService {
     } satisfies Prisma.LedgerEntryWhereInput;
   }
 
-  private async safePresign(key: string): Promise<string | null> {
-    try {
-      return await this.r2.createPresignedDownload(key);
-    } catch {
-      return null;
-    }
+  private async safePresign(key: string): Promise<string> {
+    return this.r2.createPresignedDownload(key);
   }
 }
 

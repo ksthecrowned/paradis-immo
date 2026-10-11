@@ -20,11 +20,12 @@ describe('TenantDocumentsService', () => {
   // two suites delete each other's leases/rent schedules when run in parallel.
   const phones = ['+242073000011', '+242073000012', '+242073000013'];
   const fakeR2 = {
-    uploadTenantFile: jest.fn(async () => ({
-      url: 'https://cdn.test/tenants/x/doc.pdf',
-      key: 'tenants/x/doc.pdf',
+    uploadPrivateTenantFile: jest.fn(async () => ({
+      key: 'tenant-documents/x/doc.pdf',
     })),
-    keyFromPublicUrl: jest.fn(() => 'tenants/x/doc.pdf'),
+    createPresignedDownload: jest.fn(
+      async (key: string) => `https://signed.test/${key}`,
+    ),
     deleteObject: jest.fn(async () => undefined),
   };
 

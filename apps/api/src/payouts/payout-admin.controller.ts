@@ -6,7 +6,6 @@ import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { PayoutsService } from './payouts.service';
 import { ListPayoutsQueryDto } from './dto/payouts.dto';
-import { AdminPermissionGuard, AdminPermission } from '../admin/admin-permission.guard';
 
 @ApiTags('Admin')
 @ApiBearerAuth()

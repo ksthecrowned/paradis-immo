@@ -829,7 +829,7 @@ export class AgencyService {
     });
   }
 
-  /** Store the agency logo in private R2 and keep the key on the org. */
+  /** Store the public agency logo and keep its key on the organization. */
   async uploadLogo(
     actorId: string,
     orgId: string,
@@ -842,9 +842,8 @@ export class AgencyService {
         message: 'Le logo doit être une image.',
       });
     }
-    const { url, key } = await this.r2.uploadPrivateFile({
-      folder: 'logos',
-      ownerId: orgId,
+    const { url, key } = await this.r2.uploadOrganizationLogo({
+      organizationId: orgId,
       filename: file.originalname || 'logo.png',
       contentType: file.mimetype,
       body: file.buffer,

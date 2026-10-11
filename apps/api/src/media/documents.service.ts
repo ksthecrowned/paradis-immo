@@ -14,7 +14,7 @@ export interface PropertyDocumentItem {
   propertyId: string;
   type: string;
   /** URL signée de 5 minutes (spéc 13 — jamais d'URL publique brute). */
-  url: string;
+  url: string | null;
   name: string;
   createdAt: string;
 }
@@ -52,7 +52,10 @@ export class DocumentsService {
     input: { type: DocumentType; name?: string },
   ): Promise<PropertyDocumentItem> {
     await this.assertCanWrite(userId, propertyId);
-    if (!file.mimetype.startsWith('image/') && file.mimetype !== 'application/pdf') {
+    if (
+      !file.mimetype.startsWith('image/') &&
+      file.mimetype !== 'application/pdf'
+    ) {
       throw new BadRequestException({
         code: 'UNSUPPORTED_CONTENT_TYPE',
         message: 'Documents must be PDF or image',
@@ -64,7 +67,7 @@ export class DocumentsService {
         message: 'Le document ne doit pas dépasser 15 Mo.',
       });
     }
-    const { url } = await this.r2.uploadPropertyFile({
+    const { key } = await this.r2.uploadPrivatePropertyFile({
       propertyId,
       filename: file.originalname || 'document.bin',
       contentType: file.mimetype,
@@ -74,7 +77,8 @@ export class DocumentsService {
       data: {
         propertyId,
         type: input.type,
-        url,
+        url: null,
+        fileKey: key,
         name: input.name?.trim() || file.originalname || 'Document',
       },
     });
@@ -96,40 +100,28 @@ export class DocumentsService {
         message: 'Document does not exist on this property',
       });
     }
-    await this.prisma.propertyDocument.delete({ where: { id: documentId } });
-    const key = this.r2.keyFromPublicUrl(doc.url);
-    if (key) {
-      try {
-        await this.r2.deleteObject(key);
-      } catch {
-        // orphan R2 ok for V1
-      }
+    if (doc.fileKey) {
+      await this.r2.deletePrivateObject(doc.fileKey);
     }
+    await this.prisma.propertyDocument.delete({ where: { id: documentId } });
   }
 
   private async toPublic(d: {
     id: string;
     propertyId: string;
     type: string;
-    url: string;
+    url: string | null;
+    fileKey: string | null;
     name: string;
     createdAt: Date;
   }): Promise<PropertyDocumentItem> {
-    // Signe les documents privés (titres fonciers, plans) de façon courte.
-    let signedUrl = d.url;
-    const key = this.r2.keyFromPublicUrl(d.url);
-    if (key) {
-      try {
-        signedUrl = await this.r2.createPresignedDownload(key);
-      } catch {
-        // fallback URL publique si la signature échoue (ne pas casser l'UI).
-      }
-    }
     return {
       id: d.id,
       propertyId: d.propertyId,
       type: d.type,
-      url: signedUrl,
+      url: d.fileKey
+        ? await this.r2.createPresignedPrivateDownload(d.fileKey)
+        : null,
       name: d.name,
       createdAt: d.createdAt.toISOString(),
     };

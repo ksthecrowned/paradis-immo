@@ -5,6 +5,7 @@ import { LeasesModule } from './leases.module';
 import { EnforcementService } from './enforcement.service';
 import { PrismaModule } from '../prisma/prisma.module';
 import { PrismaService } from '../prisma/prisma.service';
+import { R2Service } from '../media/r2.service';
 import { purgeStaleFixture } from '../testing/stale-fixture-purge';
 
 /**
@@ -33,9 +34,20 @@ describe('Leases HTTP — pénalités et mise en demeure (spec 04 P2)', () => {
   const DAY = 86_400_000;
 
   beforeAll(async () => {
-    const moduleRef = await Test.createTestingModule({
+    const testingModule = Test.createTestingModule({
       imports: [PrismaModule, LeasesModule],
-    }).compile();
+    });
+    const moduleRef = await testingModule
+      .overrideProvider(R2Service)
+      .useValue({
+        uploadPrivateLeaseFile: jest.fn(async () => ({
+          key: 'lease-documents/formal-notice.pdf',
+        })),
+        createPresignedDownload: jest.fn(
+          async (key: string) => `https://signed.test/${key}`,
+        ),
+      })
+      .compile();
 
     app = moduleRef.createNestApplication();
     app.setGlobalPrefix('api/v1');

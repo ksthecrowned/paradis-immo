@@ -38,9 +38,8 @@ describe('Rent receipts + PARTIAL payments (spec 04 P1)', () => {
   beforeAll(async () => {
     const uploaded: string[] = [];
     const r2 = {
-      uploadBuffer: jest.fn(async (key: string) => {
+      uploadPrivateFileAtKey: jest.fn(async (key: string) => {
         uploaded.push(key);
-        return { url: `https://fake.r2/${key}`, key };
       }),
       createPresignedDownload: jest.fn(async (key: string) => key),
     } as unknown as R2Service;
@@ -181,13 +180,19 @@ describe('Rent receipts + PARTIAL payments (spec 04 P1)', () => {
       .catch(() => undefined);
     await prisma.rentSchedule.deleteMany({ where: { leaseId } });
     await prisma.lease.deleteMany({ where: { id: leaseId } });
-    await prisma.documentSequence.deleteMany({ where: { organizationId: { startsWith: 'org-' } } });
-    await prisma.property.delete({ where: { id: propertyId } }).catch(() => undefined);
+    await prisma.documentSequence.deleteMany({
+      where: { organizationId: { startsWith: 'org-' } },
+    });
+    await prisma.property
+      .delete({ where: { id: propertyId } })
+      .catch(() => undefined);
     await prisma.organizationMember.deleteMany({
       where: { userId: { in: [ownerUserId, tenantUserId] } },
     });
     await prisma.organization.deleteMany({
-      where: { members: { some: { userId: { in: [ownerUserId, tenantUserId] } } } },
+      where: {
+        members: { some: { userId: { in: [ownerUserId, tenantUserId] } } },
+      },
     });
     await prisma.userRole.deleteMany({
       where: { userId: { in: [ownerUserId, tenantUserId] } },
@@ -199,14 +204,11 @@ describe('Rent receipts + PARTIAL payments (spec 04 P1)', () => {
   });
 
   it('a partial payment leaves the line PARTIAL and issues no quittance', async () => {
-    const payment = await payments.recordCashForRentSchedule(
-      ownerUserId,
-      {
-        rentScheduleId,
-        amount: 100000,
-        idempotencyKey: `spec04-partial-${Date.now()}`,
-      },
-    );
+    const payment = await payments.recordCashForRentSchedule(ownerUserId, {
+      rentScheduleId,
+      amount: 100000,
+      idempotencyKey: `spec04-partial-${Date.now()}`,
+    });
     createdPaymentIds.push(payment.id);
 
     const schedule = await prisma.rentSchedule.findUniqueOrThrow({
@@ -214,9 +216,9 @@ describe('Rent receipts + PARTIAL payments (spec 04 P1)', () => {
     });
     expect(schedule.status).toBe('PARTIAL');
     expect(schedule.amountPaid.toString()).toBe('100000');
-    expect(
-      await prisma.rentReceipt.count({ where: { rentScheduleId } }),
-    ).toBe(0);
+    expect(await prisma.rentReceipt.count({ where: { rentScheduleId } })).toBe(
+      0,
+    );
     await expect(
       receipts.issueForRentSchedule(rentScheduleId),
     ).rejects.toMatchObject({
@@ -258,14 +260,11 @@ describe('Rent receipts + PARTIAL payments (spec 04 P1)', () => {
       'QUITTANCE',
     );
 
-    const payment = await payments.recordCashForRentSchedule(
-      ownerUserId,
-      {
-        rentScheduleId,
-        amount: 50000,
-        idempotencyKey: `spec04-settle-${Date.now()}`,
-      },
-    );
+    const payment = await payments.recordCashForRentSchedule(ownerUserId, {
+      rentScheduleId,
+      amount: 50000,
+      idempotencyKey: `spec04-settle-${Date.now()}`,
+    });
     createdPaymentIds.push(payment.id);
 
     const schedule = await prisma.rentSchedule.findUniqueOrThrow({

@@ -23,6 +23,7 @@
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "prisma:seed": "ts-node --transpile-only prisma/seed.ts",
     "seed:upload-images": "ts-node --transpile-only scripts/upload-seed-images.ts",
+    "storage:migrate-documents": "ts-node --transpile-only scripts/migrate-private-documents.ts",
     "prisma:migrate": "prisma migrate dev",
     "prisma:generate": "prisma generate",
     "export:openapi": "ts-node --transpile-only scripts/export-openapi.ts"

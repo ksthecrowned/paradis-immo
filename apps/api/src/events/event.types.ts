@@ -38,6 +38,11 @@ export const DOMAIN_EVENTS = {
   MESSAGE_REPORTED: 'message.reported',
   /** Spec 06 — hold posé sur une visite payante (créneau HELD 15 min). */
   VISIT_BOOKING_HELD: 'visit_booking.held',
+  VISIT_BOOKING_COMPLETED: 'visit_booking.completed',
+  VISIT_BOOKING_NO_SHOW: 'visit_booking.no_show',
+  VISIT_BOOKING_UNCONFIRMED: 'visit_booking.completed_unconfirmed',
+  VISIT_AGENT_ASSIGNED: 'visit.agent.assigned',
+  VISIT_REMINDER: 'visit.reminder',
   /** Spec 07 — hold posé sur un séjour (PENDING_PAYMENT 15 min). */
   BOOKING_HELD: 'booking.held',
   /** Spec 07 — hold de séjour expiré (15 min sans paiement). */
@@ -107,7 +112,8 @@ export const DOMAIN_EVENTS = {
   RENT_REMINDER_DAILY: 'rent.reminder.daily',
 } as const;
 
-export type DomainEventName = (typeof DOMAIN_EVENTS)[keyof typeof DOMAIN_EVENTS];
+export type DomainEventName =
+  (typeof DOMAIN_EVENTS)[keyof typeof DOMAIN_EVENTS];
 
 export interface DomainEvent<T = unknown> {
   name: DomainEventName;
@@ -219,7 +225,11 @@ export type EventPayloadOf<E extends DomainEventName> = E extends
                           approvalId: string | null;
                         }
     : E extends typeof DOMAIN_EVENTS.MANDATE_ACTION_PENDING
-      ? { approvalId: string; mandateId: string; actionType: string }
+                          ? {
+                              approvalId: string;
+                              mandateId: string;
+                              actionType: string;
+                            }
       : E extends typeof DOMAIN_EVENTS.MANDATE_ACTION_DECIDED
         ? {
             approvalId: string;
@@ -233,7 +243,11 @@ export type EventPayloadOf<E extends DomainEventName> = E extends
               | typeof DOMAIN_EVENTS.MANDATE_ACCEPTED
               | typeof DOMAIN_EVENTS.MANDATE_DECLINED
               | typeof DOMAIN_EVENTS.MANDATE_EXPIRING
-          ? { mandateId: string; propertyId: string; organizationId: string }
+                              ? {
+                                  mandateId: string;
+                                  propertyId: string;
+                                  organizationId: string;
+                                }
           : E extends typeof DOMAIN_EVENTS.MANDATE_TERMINATED
             ? {
                 mandateId: string;
@@ -251,13 +265,51 @@ export type EventPayloadOf<E extends DomainEventName> = E extends
                     assignedBy: string;
                   }
                 : E extends typeof DOMAIN_EVENTS.VISIT_BOOKING_CONFIRMED
-        ? { bookingId: string; slotId: string; userId: string }
+                                      ? {
+                                          bookingId: string;
+                                          slotId: string;
+                                          userId: string;
+                                        }
+                                      : E extends typeof DOMAIN_EVENTS.VISIT_AGENT_ASSIGNED
+                                        ? {
+                                            bookingId: string;
+                                            agentId: string;
+                                            assignedBy: string;
+                                          }
+                                        : E extends
+                                              | typeof DOMAIN_EVENTS.VISIT_BOOKING_COMPLETED
+                                              | typeof DOMAIN_EVENTS.VISIT_BOOKING_NO_SHOW
+                                              | typeof DOMAIN_EVENTS.VISIT_BOOKING_UNCONFIRMED
+                                          ? {
+                                              bookingId: string;
+                                              slotId: string;
+                                              userId: string;
+                                              propertyId: string;
+                                            }
+                                          : E extends typeof DOMAIN_EVENTS.VISIT_REMINDER
+                                            ? {
+                                                bookingId: string;
+                                                slotId: string;
+                                                userId: string;
+                                                agentId: string | null;
+                                                kind: 'J1' | 'H2';
+                                              }
         : E extends typeof DOMAIN_EVENTS.MAINTENANCE_OPENED
-          ? { ticketId: string; propertyId: string; priority: string }
+                                              ? {
+                                                  ticketId: string;
+                                                  propertyId: string;
+                                                  priority: string;
+                                                }
           : E extends typeof DOMAIN_EVENTS.RENT_DUE_SOON
-            ? { rentScheduleId: string; dueDate: string }
+                                                ? {
+                                                    rentScheduleId: string;
+                                                    dueDate: string;
+                                                  }
             : E extends typeof DOMAIN_EVENTS.RENT_OVERDUE
-              ? { rentScheduleId: string; daysOverdue: number }
+                                                  ? {
+                                                      rentScheduleId: string;
+                                                      daysOverdue: number;
+                                                    }
               : E extends typeof DOMAIN_EVENTS.SOLVENCY_CHECK_REQUESTED
                 ? {
                     checkId: string;
@@ -272,7 +324,8 @@ export type EventPayloadOf<E extends DomainEventName> = E extends
                       checkId: string;
                       tenantUserId: string;
                       status: string;
-                      applicationId: string | null;
+                                                          applicationId:
+                                                            string | null;
                     }
                   : E extends typeof DOMAIN_EVENTS.APPLICATION_SUBMITTED
                     ? {
@@ -294,7 +347,8 @@ export type EventPayloadOf<E extends DomainEventName> = E extends
                         ? {
                             applicationId: string;
                             applicantId: string;
-                            rejectionMessage: string | null;
+                                                                rejectionMessage:
+                                                                  string | null;
                             /** True when auto-rejected by accepting a sibling. */
                             auto: boolean;
                           }
@@ -304,7 +358,8 @@ export type EventPayloadOf<E extends DomainEventName> = E extends
                               propertyId: string;
                               applicantId: string;
                               organizationId: string;
-                            }                  : E extends typeof DOMAIN_EVENTS.BUYER_PAYMENT_PROOF_REQUESTED
+                                                                }
+                                                              : E extends typeof DOMAIN_EVENTS.BUYER_PAYMENT_PROOF_REQUESTED
                     ? {
                         proofId: string;
                         buyerUserId: string;
@@ -316,7 +371,9 @@ export type EventPayloadOf<E extends DomainEventName> = E extends
                       ? {
                           leaseId: string;
                           deductionId: string;
-                          tenantId: string | null;
+                                                                      tenantId:
+                                                                        | string
+                                                                        | null;
                           label: string;
                           amount: string;
                         }
@@ -324,25 +381,35 @@ export type EventPayloadOf<E extends DomainEventName> = E extends
                         ? {
                             leaseId: string;
                             deductionId: string;
-                            tenantId: string | null;
+                                                                        tenantId:
+                                                                          | string
+                                                                          | null;
                             label: string;
                             amount: string;
-                            comment: string | null;
+                                                                        comment:
+                                                                          | string
+                                                                          | null;
                           }
                         : E extends typeof DOMAIN_EVENTS.DEPOSIT_SETTLED
                           ? {
                               leaseId: string;
                               settlementId: string;
-                              tenantId: string | null;
+                                                                          tenantId:
+                                                                            | string
+                                                                            | null;
                               deducted: string;
                               refundAmount: string;
                               currency: string;
-                              payoutId: string | null;
+                                                                          payoutId:
+                                                                            | string
+                                                                            | null;
                             }
                       : E extends typeof DOMAIN_EVENTS.DEPOSIT_REFUND_DUE
                         ? {
                             leaseId: string;
-                            tenantId: string | null;
+                                                                            tenantId:
+                                                                              | string
+                                                                              | null;
                             refundDeadline: string;
                             ownerId: string;
                           }
@@ -354,7 +421,9 @@ export type EventPayloadOf<E extends DomainEventName> = E extends
                               userId: string;
                               amount: string;
                               currency: string;
-                              reason: string | null;
+                                                                              reason:
+                                                                                | string
+                                                                                | null;
                             }
                           : E extends typeof DOMAIN_EVENTS.PAYMENT_DISPUTED
                             ? {
@@ -369,7 +438,8 @@ export type EventPayloadOf<E extends DomainEventName> = E extends
                                   refundId: string;
                                   amount: string;
                                   currency: string;
-                                }                                : E extends
+                                                                                }
+                                                                              : E extends
                                   | typeof DOMAIN_EVENTS.PAYOUT_PAID
                                   | typeof DOMAIN_EVENTS.PAYOUT_FAILED
                                 ? {
@@ -377,7 +447,9 @@ export type EventPayloadOf<E extends DomainEventName> = E extends
                                     organizationId: string;
                                     amount: string;
                                     currency: string;
-                                    reason: string | null;
+                                                                                    reason:
+                                                                                      | string
+                                                                                      | null;
                                   }
                                 : E extends
                                     | typeof DOMAIN_EVENTS.BOOKING_HELD
@@ -399,12 +471,18 @@ export type EventPayloadOf<E extends DomainEventName> = E extends
                                       holdExpiresAt?: string;
                                       refundPercent?: number;
                                       refundAmount?: string;
-                                      reason?: string | null;
+                                                                                      reason?:
+                                                                                        | string
+                                                                                        | null;
                                       reportId?: string;
                                       amount?: string;
                                     }
                                 : E extends typeof DOMAIN_EVENTS.SALE_INQUIRY_CREATED
-                                  ? { inquiryId: string; propertyId: string; buyerUserId: string }
+                                                                                    ? {
+                                                                                        inquiryId: string;
+                                                                                        propertyId: string;
+                                                                                        buyerUserId: string;
+                                                                                      }
                                 : E extends
                                     | typeof DOMAIN_EVENTS.SALE_OFFER_SUBMITTED
                                     | typeof DOMAIN_EVENTS.SALE_OFFER_DECIDED
@@ -416,4 +494,7 @@ export type EventPayloadOf<E extends DomainEventName> = E extends
                                       price: string;
                                       decision?: string;
                                     }
-                                : Record<string, unknown>;
+                                                                                      : Record<
+                                                                                          string,
+                                                                                          unknown
+                                                                                        >;

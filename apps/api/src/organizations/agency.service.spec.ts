@@ -47,9 +47,9 @@ describe('AgencyService (spec 02)', () => {
     sendOtp: jest.fn(async () => undefined),
   };
   const fakeR2 = {
-    uploadPrivateFile: jest.fn(async (p: { ownerId: string; filename: string }) => ({
-      url: `https://fake.r2/logos/${p.ownerId}/${p.filename}`,
-      key: `logos/${p.ownerId}/${p.filename}`,
+    uploadOrganizationLogo: jest.fn(async (p: { organizationId: string; filename: string }) => ({
+      url: `https://fake.r2/organizations/${p.organizationId}/${p.filename}`,
+      key: `organizations/${p.organizationId}/${p.filename}`,
     })),
     createPresignedDownload: jest.fn(async (key: string) => `https://fake.r2/${key}`),
   };

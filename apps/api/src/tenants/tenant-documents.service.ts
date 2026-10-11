@@ -13,7 +13,7 @@ export type TenantDocumentItem = {
   id: string;
   userId: string;
   type: string;
-  url: string;
+  url: string | null;
   name: string;
   uploadedBy: string;
   createdAt: string;
@@ -36,7 +36,7 @@ export class TenantDocumentsService {
       where: { userId: tenantUserId },
       orderBy: { createdAt: 'desc' },
     });
-    return rows.map((d) => this.toPublic(d));
+    return Promise.all(rows.map((d) => this.toPublic(d)));
   }
 
   async listMine(tenantUserId: string): Promise<TenantDocumentItem[]> {
@@ -44,7 +44,7 @@ export class TenantDocumentsService {
       where: { userId: tenantUserId },
       orderBy: { createdAt: 'desc' },
     });
-    return rows.map((d) => this.toPublic(d));
+    return Promise.all(rows.map((d) => this.toPublic(d)));
   }
 
   async upload(
@@ -55,7 +55,7 @@ export class TenantDocumentsService {
   ): Promise<TenantDocumentItem> {
     await this.assertManagerCanAccessTenant(managerUserId, tenantUserId);
     this.assertFile(file);
-    const { url } = await this.r2.uploadTenantFile({
+    const { key } = await this.r2.uploadPrivateTenantFile({
       userId: tenantUserId,
       filename: file.originalname || 'document.bin',
       contentType: file.mimetype,
@@ -65,7 +65,8 @@ export class TenantDocumentsService {
       data: {
         userId: tenantUserId,
         type: input.type,
-        url,
+        url: null,
+        fileKey: key,
         name: input.name?.trim() || file.originalname || 'Document',
         uploadedBy: managerUserId,
       },
@@ -88,15 +89,13 @@ export class TenantDocumentsService {
         message: 'Document does not exist for this tenant',
       });
     }
-    await this.prisma.tenantDocument.delete({ where: { id: documentId } });
-    const key = this.r2.keyFromPublicUrl(doc.url);
-    if (key) {
-      try {
-        await this.r2.deleteObject(key);
-      } catch {
-        // orphan R2 ok
-      }
+    if (doc.fileKey) {
+      await this.r2.deletePrivateObject(doc.fileKey);
+    } else if (doc.url) {
+      const legacyKey = this.r2.keyFromPublicUrl(doc.url);
+      if (legacyKey) await this.r2.deleteObject(legacyKey);
     }
+    await this.prisma.tenantDocument.delete({ where: { id: documentId } });
   }
 
   private async assertManagerCanAccessTenant(
@@ -144,20 +143,21 @@ export class TenantDocumentsService {
     }
   }
 
-  private toPublic(d: {
+  private async toPublic(d: {
     id: string;
     userId: string;
     type: string;
-    url: string;
+    url: string | null;
+    fileKey: string | null;
     name: string;
     uploadedBy: string;
     createdAt: Date;
-  }): TenantDocumentItem {
+  }): Promise<TenantDocumentItem> {
     return {
       id: d.id,
       userId: d.userId,
       type: d.type,
-      url: d.url,
+      url: d.fileKey ? await this.r2.createPresignedDownload(d.fileKey) : null,
       name: d.name,
       uploadedBy: d.uploadedBy,
       createdAt: d.createdAt.toISOString(),

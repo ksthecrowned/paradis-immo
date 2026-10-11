@@ -50,6 +50,9 @@ describe('Spec 03 — mandate lifecycle, termination and approval effects', () =
         {
           provide: R2Service,
           useValue: {
+            uploadPrivateLeaseFile: jest.fn(async () => ({
+              key: 'private/lease-documents/avenant.pdf',
+            })),
             uploadLeaseFile: jest.fn(async () => ({
               url: 'https://fake.r2/avenant.pdf',
               key: 'avenant.pdf',

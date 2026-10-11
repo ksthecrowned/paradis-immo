@@ -602,6 +602,8 @@ model User {
   refreshTokens          RefreshToken[]
   favorites              Favorite[]
   visitBookings          VisitBooking[]
+  assignedVisitBookings  VisitBooking[]       @relation("VisitBookingAssignee")
+  authoredVisitReports   VisitReport[]        @relation("VisitReportAuthor")
   bookings               Booking[]
   leases                 Lease[]              @relation("LeaseTenant")
   coTenantLeases         LeaseTenant[]         @relation("LeaseCoTenant")
@@ -664,6 +666,7 @@ model Organization {
   serviceAreas       OrganizationServiceArea[]
   properties         Property[]
   mandates           Mandate[]
+  visitBookings      VisitBooking[]        @relation("VisitBookingAgency")
   leaseTemplates     LeaseTemplate[]
   solvencyChecks     SolvencyCheck[]
   saleAgreements     SaleAgreement[]
@@ -891,9 +894,13 @@ model Property {
   visitType      VisitType?
   visitPrice     Decimal?            @db.Decimal(12, 2)
   visitDuration  Int?
-  /** Rent deposit expressed in months of rent (when applicable). */
+  /**
+   * Rent deposit expressed in months of rent (when applicable).
+   */
   depositMonths  Int?
-  /** One-time agency fee amount in listing currency (when applicable). */
+  /**
+   * One-time agency fee amount in listing currency (when applicable).
+   */
   agencyFeeAmount Decimal?           @db.Decimal(12, 2)
   bedrooms       Int?
   minNights      Int?
@@ -954,7 +961,8 @@ model PropertyDocument {
   propertyId String
   property   Property     @relation(fields: [propertyId], references: [id])
   type       DocumentType
-  url        String
+  url        String?
+  fileKey    String?
   name       String
   createdAt  DateTime     @default(now())
 }
@@ -1038,6 +1046,10 @@ model VisitBooking {
   property    Property          @relation(fields: [propertyId], references: [id])
   userId      String
   user        User              @relation(fields: [userId], references: [id])
+  agentId     String?
+  agent       User?             @relation("VisitBookingAssignee", fields: [agentId], references: [id], onDelete: SetNull)
+  agentOrganizationId String?
+  agentOrganization Organization? @relation("VisitBookingAgency", fields: [agentOrganizationId], references: [id], onDelete: SetNull)
   status      VisitBookingStatus @default(PENDING)
   /// Spec 06 — hold de 15 min sur les visites payantes (ZPT créneau HELD).
   holdExpiresAt DateTime?
@@ -1050,8 +1062,29 @@ model VisitBooking {
   cancelReason  String?
   cancelledAt   DateTime?
   completedAt   DateTime?
+  reminderJ1SentAt DateTime?
+  reminderH2SentAt DateTime?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  report           VisitReport?
+
+  @@index([agentOrganizationId, agentId, status])
+}
+
+model VisitReport {
+  id             String       @id @default(cuid())
+  visitBookingId String       @unique
+  visitBooking   VisitBooking @relation(fields: [visitBookingId], references: [id], onDelete: Cascade)
+  authorId       String
+  author         User         @relation("VisitReportAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  interestLevel  Int?
+  notes          String?
+  nextStep       String?
+  followUpAt     DateTime?
   createdAt   DateTime          @default(now())
   updatedAt   DateTime          @updatedAt
+
+  @@index([authorId])
 }
 
 // =====================================================================
@@ -1212,7 +1245,8 @@ model TenantDocument {
   userId     String
   user       User               @relation(fields: [userId], references: [id])
   type       TenantDocumentType
-  url        String
+  url        String?
+  fileKey    String?
   name       String
   uploadedBy String
   createdAt  DateTime           @default(now())
@@ -1225,7 +1259,8 @@ model LeaseDocument {
   leaseId    String
   lease      Lease             @relation(fields: [leaseId], references: [id])
   type       LeaseDocumentType
-  url        String
+  url        String?
+  fileKey    String?
   name       String
   uploadedBy String
   createdAt  DateTime          @default(now())
@@ -1321,6 +1356,7 @@ model DocumentSequence {
   kind           String
   year           Int
   last           Int
+
   @@id([organizationId, kind, year])
 }
 
