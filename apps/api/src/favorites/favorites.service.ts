@@ -5,6 +5,8 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { PropertiesService } from '../properties/properties.service';
+import type { PublicProperty } from '../properties/properties.service';
 
 export interface PublicFavorite {
   id: string;
@@ -12,16 +14,56 @@ export interface PublicFavorite {
   createdAt: string;
 }
 
+export interface PublicFavoriteWithProperty extends PublicFavorite {
+  property: PublicProperty;
+}
+
 @Injectable()
 export class FavoritesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly properties: PropertiesService,
+  ) {}
 
-  async list(userId: string): Promise<PublicFavorite[]> {
-    const rows = await this.prisma.favorite.findMany({
-      where: { userId },
-      orderBy: { createdAt: 'desc' },
+  async list(
+    userId: string,
+    includeProperty = false,
+  ): Promise<PublicFavorite[] | PublicFavoriteWithProperty[]> {
+    if (!includeProperty) {
+      const rows = await this.prisma.favorite.findMany({
+        where: { userId },
+        orderBy: { createdAt: 'desc' },
+      });
+      return rows.map((r) => this.toPublic(r));
+    }
+
+    // Spec 15 B3 — 30 favoris en 1 appel réseau : une seule requête
+    // favorites, une seule requête properties (include public) et la
+    // sérialisation de PropertiesService réutilisée.
+    const [rows, properties] = await Promise.all([
+      this.prisma.favorite.findMany({
+        where: { userId },
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.favorite.findMany({
+        where: { userId },
+        orderBy: { createdAt: 'desc' },
+        select: { property: true },
+      }),
+    ]);
+    const ids = rows.map((r) => r.propertyId);
+    const full = await this.prisma.property.findMany({
+      where: { id: { in: ids } },
+      include: this.properties.publicPropertyInclude(),
     });
-    return rows.map((r) => this.toPublic(r));
+    const byId = new Map(full.map((p) => [p.id, p]));
+    return rows.map((r) => {
+      const p = byId.get(r.propertyId);
+      return {
+        ...this.toPublic(r),
+        property: p ? this.properties.toPublic(p) : (null as never),
+      };
+    });
   }
 
   async add(userId: string, propertyId: string): Promise<PublicFavorite> {

@@ -7,7 +7,15 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
-import { IsIn, IsOptional, IsString, IsUUID } from 'class-validator';
+import {
+  IsIn,
+  IsNumber,
+  IsOptional,
+  IsString,
+  IsUUID,
+  Matches,
+} from 'class-validator';
+import { Type } from 'class-transformer';
 import { SaleInquiryStatus } from '@prisma/client';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AppAuthGuard } from '../common/guards/auth.guard';
@@ -18,6 +26,12 @@ import { SalesService } from './sales.service';
 class CreateInquiryDto {
   @IsUUID() propertyId!: string;
   @IsOptional() @IsString() message?: string;
+  /** Spec 08 — budget déclaré (XAF) et téléphone de contact. */
+  @IsOptional() @Type(() => Number) @IsNumber() budget?: number;
+  @IsOptional()
+  @IsString()
+  @Matches(/^\+\d{7,15}$/)
+  phone?: string;
 }
 
 class UpdateStatusDto {
@@ -47,6 +61,8 @@ export class SalesController {
       propertyId: dto.propertyId,
       userId: current.userId,
       message: dto.message,
+      budget: dto.budget,
+      phone: dto.phone,
     });
   }
 

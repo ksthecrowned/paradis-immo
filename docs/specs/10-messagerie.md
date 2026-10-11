@@ -4,10 +4,15 @@
 Remplacer le contact uniquement par `tel:` par une messagerie in-app traçable, rattachée aux objets métier (annonce, visite, bail, séjour, vente, ticket). Les numéros personnels ne sont plus exposés et l'historique est conservé pour les litiges.
 Rôles : tous. Une conversation réunit un ou plusieurs « côtés » : client, d'une part ; agence ou propriétaire, d'autre part.
 
-## État actuel (audit)
-- Aucun modèle `Conversation` ou `Message`. Le dossier `messaging/` ne contient que `infobip-sms.service.ts`, utilisé pour l'envoi de SMS sortants.
-- Mobile : le contact passe uniquement par `tel:`. L'écran support est un stub.
-- Web : aucune boîte de réception.
+## État actuel (audit local, 2026-10-11)
+### Déjà en place
+- API de messagerie locale : conversations, messages, lecture et compteur de non-lus.
+- Le périmètre constaté est l'API ; il ne comprend pas encore les parcours UI.
+
+### Écarts
+- Signalement et blocage d'utilisateurs, pièces jointes, réponses rapides et archivage ne sont pas implémentés.
+- Il n'y a pas d'interface web ou mobile de boîte de réception/conversation.
+- WebSocket, notifications/rappels et contrôles de visibilité des conversations restent à compléter ou valider.
 
 ## User stories
 1. En tant que chercheur, depuis une annonce, je clique « Envoyer un message ». Une conversation s'ouvre avec l'agence gestionnaire, ou avec le propriétaire en l'absence de mandat, et l'annonce est épinglée en contexte.
@@ -127,5 +132,14 @@ model MessageReport { id String @id @default(cuid()) messageId String reporterId
 - L'accès admin à une conversation crée une entrée d'audit (12).
 
 ## Priorité
-- **P1** : conversations contextuelles, boîte partagée de l'agence, pièces jointes, push et non-lus, support in-app.
-- **P2** : temps réel WebSocket (le polling suffit pour un MVP), masquage des coordonnées, réponses rapides, blocage et signalement, messages vocaux, relance par canal externe.
+- **P1** : [x] API de conversations, messages, lecture et non-lus ; [ ] interfaces web/mobile, boîte partagée et support in-app ; [ ] pièces jointes et notifications fiables.
+- **P2** : [ ] WebSocket, masquage des coordonnées, réponses rapides, archivage, blocage/signalement, messages vocaux et relance externe.
+
+## Delta d'implémentation
+| ID | Priorité | Delta | État |
+|---|---|---|---|
+| 10.1 | P1 | Créer les interfaces mobile/web de boîte de réception, conversation et support. | À faire |
+| 10.2 | P1 | Compléter l'accès partagé par contexte et l'assignation de conversation. | À faire / vérifier |
+| 10.3 | P1 | Ajouter pièces jointes, notifications et parcours de lecture cohérents. | À faire |
+| 10.4 | P2 | Ajouter signalement, blocage, réponses rapides et archivage. | À faire |
+| 10.5 | P2 | Ajouter le temps réel, masquage des coordonnées et relance externe. | À faire |

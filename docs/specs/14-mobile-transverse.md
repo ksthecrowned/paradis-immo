@@ -8,28 +8,22 @@ Rendre l'app Expo fiable et complète :
 - ajouter les deep links ;
 - offrir des espaces mobiles pour le propriétaire et l'agent.
 
-Les fonctionnalités métier sont détaillées dans les specs 01 à 13. Ce fichier couvre ce qui est propre au client mobile.
-Rôles : tous les utilisateurs de l'app. `OWNER`, `MANAGER` et `AGENT` reçoivent un nouvel espace dédié.
+Les fonctionnalités métier sont détaillées dans les specs 01 à 13. Ce fichier couvre ce qui est propre au client mobile. Le web est limité au site vitrine public et au portail authentifié des agents, propriétaires et administrateurs (agence et plateforme) ; aucun portail client web n'est prévu. Les clients finaux réalisent leurs parcours authentifiés dans l'application mobile.
+Rôles : tous les utilisateurs de l'app. `OWNER`, `MANAGER` et `AGENT` reçoivent les espaces mobiles correspondant à leurs responsabilités. Les prestataires externes n'ont pas d'accès direct au produit.
 
-## État actuel (audit)
-| Zone | Constat |
-|---|---|
-| `sale-inquiry` | Envoi **factice** (`setTimeout`, aucun appel API) |
-| `book.tsx` | `bookingId` non transmis à l'écran de paiement, ce qui casse le flux de paiement de séjour |
-| Annulations | `cancelBooking` et `cancelVisit` existent dans le client API mais **ne sont jamais appelés** dans l'UI |
-| Sessions | Tokens stockés en **AsyncStorage** (en clair) |
-| 360° | Vue « Visite 360° (bientôt) » factice |
-| Onboarding | Écrans placeholder |
-| Support | Écran stub |
-| Contact | Uniquement par `tel:` |
-| Upload | Aucun upload depuis le mobile (photos de ticket, pièces KYC, preuves de paiement, EDL) |
-| Listes | Pas de pagination (charge la première page seulement) |
-| Favoris | Chargement N+1 (un appel par bien) |
-| Rôles | Pas d'espace propriétaire ni agent : l'app est réservée au chercheur, au locataire et au voyageur |
-| Partage | Pas de deep link ni de lien universel |
-| Hors-ligne | Aucun cache ni file d'attente : un EDL est impossible sans réseau |
-| Versions | Pas de mise à jour forcée (`app/config` inexistant côté API) |
-| Push | Enregistrement du token FCM sans modèle `UserDevice` multi-appareils (11) |
+## État actuel (audit local, 2026-10-11)
+### Déjà en place
+- Tokens mobiles stockés dans SecureStore.
+- Enregistrement des appareils, endpoint `app/config` côté API et aperçu d'annulation présents localement.
+- Changements locaux dans les parcours de réservation et de demande de vente.
+- Chargement des favoris avec les biens associés en cours localement.
+
+### Écarts
+- Le mobile n'utilise pas encore `app/config`.
+- Il manque les espaces/tableaux de bord propriétaire et agent.
+- L'aperçu d'annulation des visites n'est pas disponible.
+- Les favoris embarquant les biens restent à terminer et à vérifier de bout en bout.
+- Les autres besoins transverses (pagination, uploads, liens profonds, hors-ligne, support, onboarding, écrans sécurité) restent à planifier par rapport aux specs métier.
 
 ## User stories
 1. En tant qu'acheteur, j'envoie une demande d'achat réelle et je la retrouve dans « Mes demandes » (08).
@@ -75,7 +69,7 @@ Rôles : tous les utilisateurs de l'app. `OWNER`, `MANAGER` et `AGENT` reçoiven
   - Mises à jour OTA via `expo-updates` pour les correctifs JS.
 - **Espaces par rôle**
   - Le sélecteur de rôle actif (s'il y en a plusieurs) détermine la barre d'onglets.
-    - Chercheur et locataire : Accueil, Recherche, Favoris, Messages, Profil.
+    - Chercheur, locataire, voyageur et acheteur : parcours client dans l'app (accueil, recherche, favoris, messages, profil et actions métier).
     - Propriétaire : Biens, Revenus, Approbations, Messages, Profil.
     - Agent : Agenda, Tickets, Biens, Messages, Profil.
   - La création et l'édition complète d'annonces restent sur le web au départ (P2 mobile). Sur mobile, l'agent peut mettre à jour le statut, les photos et la disponibilité.
@@ -147,19 +141,18 @@ Côté client : SQLite local (`drafts`, `upload_queue`, `mutation_queue`) et MMK
 - Un lien `https://<domaine>/p/:id` ouvre la fiche du bien dans l'app sur iOS et Android.
 - Avec `minSupportedVersion` supérieure à la version installée, l'app affiche l'écran bloquant.
 - Un utilisateur OWNER voit la barre d'onglets propriétaire et peut approuver une demande en attente.
+- Les parcours authentifiés d'un SEEKER, TENANT, GUEST ou BUYER sont accessibles dans l'app mobile ; aucune session ou page de portail client n'est disponible sur le web.
 
 ## Priorité
-- **P0** : `sale-inquiry` réel, `bookingId` dans `book.tsx`, SecureStore et mutex de refresh, `app/config` et mise à jour forcée.
-- **P1** :
-  - annulations visite et séjour dans l'UI ;
-  - pagination et défilement infini ;
-  - favoris sans N+1 ;
-  - upload de médias (ticket, preuves) ;
-  - deep links et partage ;
-  - messagerie et support (10) ;
-  - `UserDevice` ;
-  - suppression du 360° factice ;
-  - espace propriétaire (lecture et approbations) ;
-  - espace agent (agenda, visites, tickets) ;
-  - Sentry.
-- **P2** : EDL hors-ligne et file de mutations, biométrie, onboarding et choix du profil, i18n anglais, thème sombre, édition d'annonces sur mobile, OTA, analytics produit.
+- **P0** : [x] stockage sécurisé des tokens ; [x] endpoint `app/config` et aperçu d'annulation ; [ ] consommer `app/config` et appliquer la mise à jour forcée.
+- **P1** : [x] enregistrement des appareils et corrections locales de réservation/demande ; [ ] aperçu d'annulation des visites, pagination, favoris sans N+1, uploads, liens profonds, messagerie, tableaux de bord propriétaire/agent.
+- **P2** : [ ] EDL hors-ligne, biométrie, onboarding, anglais, thème sombre, édition d'annonces, OTA et analytics.
+
+## Delta d'implémentation
+| ID | Priorité | Delta | État |
+|---|---|---|---|
+| 14.1 | P0 | Brancher `app/config` au mobile et appliquer la politique de version minimale. | À faire |
+| 14.2 | P1 | Terminer favoris avec biens embarqués et aperçu d'annulation des visites. | Partiel / à faire |
+| 14.3 | P1 | Créer les espaces et tableaux de bord propriétaire et agent. | À faire |
+| 14.4 | P1 | Compléter pagination, uploads, deep links, messagerie et autres parcours transverses. | À faire |
+| 14.5 | P2 | Ajouter EDL hors-ligne, biométrie, onboarding, i18n, thème, OTA et analytics. | À faire |

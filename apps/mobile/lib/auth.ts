@@ -1,4 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+// Spec 14 (P0) — les tokens sont des secrets : stockage chiffré natif (Keychain
+// sur iOS / Keystore sur Android), pas d'AsyncStorage en clair. Le profil user
+// (non sensible) reste en AsyncStorage.
+import * as SecureStore from 'expo-secure-store';
 import { getApiUrl } from './config';
 
 const ACCESS_KEY = 'paradisImmo.accessToken';
@@ -88,19 +92,40 @@ function unwrapTokens(
 }
 
 export async function saveTokens(tokens: AuthTokens): Promise<void> {
-  await AsyncStorage.multiSet([
-    [ACCESS_KEY, tokens.accessToken],
-    [REFRESH_KEY, tokens.refreshToken],
-    [USER_KEY, JSON.stringify(tokens.user)],
+  // Tokens → SecureStore (chiffré). Profil user non sensible → AsyncStorage.
+  await Promise.all([
+    SecureStore.setItemAsync(ACCESS_KEY, tokens.accessToken),
+    SecureStore.setItemAsync(REFRESH_KEY, tokens.refreshToken),
+    AsyncStorage.setItem(USER_KEY, JSON.stringify(tokens.user)),
   ]);
+  // Nettoyage des éventuels anciens tokens en clair (migration depuis
+  // AsyncStorage des versions < spec 14).
+  await AsyncStorage.multiRemove([ACCESS_KEY, REFRESH_KEY]).catch(
+    () => undefined,
+  );
 }
 
 export async function getAccessToken(): Promise<string | null> {
-  return AsyncStorage.getItem(ACCESS_KEY);
+  const fromSecure = await SecureStore.getItemAsync(ACCESS_KEY);
+  if (fromSecure) return fromSecure;
+  // Migration à chaud : token resté en AsyncStorage (ancienne version).
+  const legacy = await AsyncStorage.getItem(ACCESS_KEY);
+  if (legacy) {
+    await SecureStore.setItemAsync(ACCESS_KEY, legacy).catch(() => undefined);
+    await AsyncStorage.removeItem(ACCESS_KEY).catch(() => undefined);
+  }
+  return legacy;
 }
 
 export async function getRefreshToken(): Promise<string | null> {
-  return AsyncStorage.getItem(REFRESH_KEY);
+  const fromSecure = await SecureStore.getItemAsync(REFRESH_KEY);
+  if (fromSecure) return fromSecure;
+  const legacy = await AsyncStorage.getItem(REFRESH_KEY);
+  if (legacy) {
+    await SecureStore.setItemAsync(REFRESH_KEY, legacy).catch(() => undefined);
+    await AsyncStorage.removeItem(REFRESH_KEY).catch(() => undefined);
+  }
+  return legacy;
 }
 
 export async function getStoredUser(): Promise<AuthUser | null> {
@@ -137,7 +162,11 @@ export async function clearSession(
 ): Promise<void> {
   sessionEpoch += 1;
   refreshInFlight = null;
-  await AsyncStorage.multiRemove([ACCESS_KEY, REFRESH_KEY, USER_KEY]);
+  await Promise.all([
+    SecureStore.deleteItemAsync(ACCESS_KEY).catch(() => undefined),
+    SecureStore.deleteItemAsync(REFRESH_KEY).catch(() => undefined),
+    AsyncStorage.multiRemove([ACCESS_KEY, REFRESH_KEY, USER_KEY]),
+  ]);
   emitSessionEnd(reason);
 }
 

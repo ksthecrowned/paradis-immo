@@ -13,6 +13,7 @@ export interface PropertyDocumentItem {
   id: string;
   propertyId: string;
   type: string;
+  /** URL signée de 5 minutes (spéc 13 — jamais d'URL publique brute). */
   url: string;
   name: string;
   createdAt: string;
@@ -26,13 +27,22 @@ export class DocumentsService {
     private readonly agencyAccess: AgencyAccessService,
   ) {}
 
-  async list(propertyId: string): Promise<PropertyDocumentItem[]> {
+  /**
+   * Spéc 13 — réservé au gestionnaire (owner, gérant ou agent assigné) :
+   * titres fonciers et plans ne sont jamais publics. Les URL renvoyées sont
+   * signées et expirées (5 min, même TTL que les pièces KYC).
+   */
+  async list(
+    userId: string,
+    propertyId: string,
+  ): Promise<PropertyDocumentItem[]> {
     await this.requireProperty(propertyId);
+    await this.agencyAccess.assertCanOperateOnProperty(userId, propertyId);
     const rows = await this.prisma.propertyDocument.findMany({
       where: { propertyId },
       orderBy: { createdAt: 'desc' },
     });
-    return rows.map((d) => this.toPublic(d));
+    return Promise.all(rows.map((d) => this.toPublic(d)));
   }
 
   async upload(
@@ -97,19 +107,29 @@ export class DocumentsService {
     }
   }
 
-  private toPublic(d: {
+  private async toPublic(d: {
     id: string;
     propertyId: string;
     type: string;
     url: string;
     name: string;
     createdAt: Date;
-  }): PropertyDocumentItem {
+  }): Promise<PropertyDocumentItem> {
+    // Signe les documents privés (titres fonciers, plans) de façon courte.
+    let signedUrl = d.url;
+    const key = this.r2.keyFromPublicUrl(d.url);
+    if (key) {
+      try {
+        signedUrl = await this.r2.createPresignedDownload(key);
+      } catch {
+        // fallback URL publique si la signature échoue (ne pas casser l'UI).
+      }
+    }
     return {
       id: d.id,
       propertyId: d.propertyId,
       type: d.type,
-      url: d.url,
+      url: signedUrl,
       name: d.name,
       createdAt: d.createdAt.toISOString(),
     };

@@ -8,13 +8,20 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import {
+  IsBoolean,
+  IsDateString,
   IsEnum,
   IsNumber,
   IsOptional,
   IsString,
   IsUUID,
+  MaxLength,
 } from 'class-validator';
-import { MaintenancePriority, MaintenanceStatus } from '@prisma/client';
+import {
+  MaintenanceCategory,
+  MaintenancePriority,
+  MaintenanceStatus,
+} from '@prisma/client';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AppAuthGuard } from '../common/guards/auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
@@ -31,10 +38,25 @@ class CreateTicketDto {
   @IsOptional() @IsNumber() estimatedCost?: number;
 
   @IsOptional() @IsUUID() mandateId?: string;
+
+  /** Spec 15 A1 — contexte, catégorie et disponibilités. */
+  @IsOptional() @IsUUID() leaseId?: string;
+  @IsOptional() @IsUUID() bookingId?: string;
+  @IsOptional() @IsEnum(MaintenanceCategory) category?: MaintenanceCategory;
+  @IsOptional() @IsString() @MaxLength(500) availability?: string;
+  @IsOptional() @IsBoolean() entryPermission?: boolean;
 }
 
+class TransitionTicketDto {
+  @IsEnum(MaintenanceStatus) to!: MaintenanceStatus;
+  @IsOptional() @IsString() @MaxLength(500) note?: string;
+  @IsOptional() @IsDateString() scheduledAt?: string;
+  @IsOptional() @IsNumber() actualCost?: number;
+  @IsOptional() @IsString() @MaxLength(500) cancelReason?: string;
+}
+
+// Spec 15 A1 — le statut ne passe plus par PATCH : POST …/transitions.
 class UpdateTicketDto {
-  @IsOptional() @IsEnum(MaintenanceStatus) status?: MaintenanceStatus;
   @IsOptional() @IsNumber() estimatedCost?: number;
 }
 
@@ -63,6 +85,30 @@ export class MaintenanceController {
       priority: dto.priority,
       estimatedCost: dto.estimatedCost,
       mandateId: dto.mandateId,
+      leaseId: dto.leaseId,
+      bookingId: dto.bookingId,
+      category: dto.category,
+      availability: dto.availability,
+      entryPermission: dto.entryPermission,
+    });
+  }
+
+  @Post('maintenance/tickets/:id/transitions')
+  @UseGuards(AppAuthGuard)
+  @ApiOperation({
+    summary: 'Machine à états : transition contrôlée (spec 15 A1)',
+  })
+  transition(
+    @CurrentUser() current: AuthenticatedUser,
+    @Param('id') id: string,
+    @Body() dto: TransitionTicketDto,
+  ) {
+    return this.maintenance.transition(current.userId, id, {
+      to: dto.to,
+      note: dto.note,
+      scheduledAt: dto.scheduledAt ? new Date(dto.scheduledAt) : undefined,
+      actualCost: dto.actualCost,
+      cancelReason: dto.cancelReason,
     });
   }
 
@@ -99,14 +145,13 @@ export class MaintenanceController {
 
   @Patch('maintenance/tickets/:id')
   @UseGuards(AppAuthGuard)
-  @ApiOperation({ summary: 'Update a ticket status or estimated cost' })
+  @ApiOperation({ summary: 'Update descriptive fields (estimatedCost) — statut via /transitions' })
   update(
     @CurrentUser() current: AuthenticatedUser,
     @Param('id') id: string,
     @Body() dto: UpdateTicketDto,
   ) {
     return this.maintenance.updateTicket(current.userId, id, {
-      status: dto.status,
       estimatedCost: dto.estimatedCost,
     });
   }

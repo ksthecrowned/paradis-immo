@@ -9,6 +9,13 @@ export interface PublicBooking {
   totalPrice: string;
   currency: string;
   status: string;
+  /** Spec 07 — hold 15 min (PENDING_PAYMENT) : compte à rebours checkout. */
+  holdExpiresAt?: string | null;
+  /** Devis server-side figé (facultatif si absent côté listing). */
+  quote?: {
+    total: string;
+    nights: number;
+  } | null;
   createdAt: string;
 }
 

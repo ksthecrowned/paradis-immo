@@ -7,6 +7,7 @@ import {
   AgencyController,
 } from './agency.controller';
 import { AgencyService } from './agency.service';
+import { AdminPermissionGuard } from '../admin/admin-permission.guard';
 import {
   InvitationsController,
   ReviewEligibilityController,
@@ -29,7 +30,7 @@ import {
     ReviewsController,
     ReviewEligibilityController,
   ],
-  providers: [AgencyService],
+  providers: [AgencyService, AdminPermissionGuard],
   exports: [AgencyService],
 })
 export class AgencyModule {}

@@ -15,6 +15,7 @@ import { ReceiptController } from './receipts/receipt.controller';
 import { PaymentValidatedProcessor } from './receipts/payment-validated.processor';
 import { ReconciliationService } from './reconciliation.service';
 import { ReconciliationController } from './reconciliation.controller';
+import { AdminPermissionGuard } from '../admin/admin-permission.guard';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { ReconciliationController } from './reconciliation.controller';
   ],
   controllers: [PaymentsController, ReceiptController, ReconciliationController],
   providers: [
+    AdminPermissionGuard,
     PaymentsService,
     CashProvider,
     MobileMoneyProvider,

@@ -11,6 +11,8 @@ import { NotificationsModule } from '../notifications/notifications.module';
 import { DocumentsModule } from '../documents/documents.module';
 import { RentReceiptService } from './rent-receipt.service';
 import { LeasesController } from './leases.controller';
+import { InspectionsController } from './inspections.controller';
+import { InspectionsService } from './inspections.service';
 import { RentSchedulesController } from './rent-schedules.controller';
 import { EnforcementService } from './enforcement.service';
 import { AmendmentsService } from './amendments.service';
@@ -37,12 +39,14 @@ import { LeaseTemplatesController } from './lease-templates.controller';
   ],
   controllers: [
     LeasesController,
+    InspectionsController,
     LeaseDocumentsController,
     RentSchedulesController,
     LeaseTemplatesController,
   ],
   providers: [
     LeasesService,
+    InspectionsService,
     ArrearsService,
     EnforcementService,
     AmendmentsService,
@@ -55,6 +59,7 @@ import { LeaseTemplatesController } from './lease-templates.controller';
   ],
   exports: [
     LeasesService,
+    InspectionsService,
     ArrearsService,
     EnforcementService,
     AmendmentsService,

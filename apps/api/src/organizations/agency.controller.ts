@@ -43,6 +43,7 @@ import {
 import { AppAuthGuard } from '../common/guards/auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
+import { AdminPermissionGuard, AdminPermission } from '../admin/admin-permission.guard';
 import { OrgContextGuard } from '../common/guards/org-context.guard';
 import { OrganizationContext } from '../common/decorators/org-context.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
@@ -289,12 +290,13 @@ class ReviewRequestDto {
 @ApiTags('Admin · Organization requests')
 @ApiBearerAuth()
 @Controller('admin/organization-requests')
-@UseGuards(AppAuthGuard, RolesGuard)
+@UseGuards(AppAuthGuard, RolesGuard, AdminPermissionGuard)
 @Roles('PLATFORM_ADMIN')
 export class AdminOrganizationRequestsController {
   constructor(private readonly agency: AgencyService) {}
 
   @Get()
+  @AdminPermission('orgs.read')
   @ApiOperation({ summary: 'List sign-up dossiers — spec 02' })
   list(@Query('status') status?: 'PENDING' | 'INVITED' | 'REJECTED') {
     return this.agency.listRequests(status);
@@ -302,6 +304,7 @@ export class AdminOrganizationRequestsController {
 
   @Patch(':id')
   @HttpCode(200)
+  @AdminPermission('orgs.manage')
   @ApiOperation({
     summary: 'Approve (create org + invitation link) or reject — spec 02',
   })

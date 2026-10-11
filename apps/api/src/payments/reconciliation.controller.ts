@@ -9,6 +9,7 @@ import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { ReconciliationService } from './reconciliation.service';
+import { AdminPermissionGuard, AdminPermission } from '../admin/admin-permission.guard';
 
 /** POST admin/reconciliation — import d'un relevé fournisseur. */
 class ImportReconciliationDto {
@@ -31,12 +32,13 @@ class ImportReconciliationDto {
 @ApiTags('Admin')
 @ApiBearerAuth()
 @Controller('admin/reconciliation')
-@UseGuards(AppAuthGuard, RolesGuard)
+@UseGuards(AppAuthGuard, RolesGuard, AdminPermissionGuard)
 @Roles('PLATFORM_ADMIN')
 export class ReconciliationController {
   constructor(private readonly reconciliation: ReconciliationService) {}
 
   @Post()
+  @AdminPermission('finance.reconcile')
   @ApiOperation({ summary: 'Import d’un relevé fournisseur (rapprochement)' })
   import(
     @CurrentUser() current: AuthenticatedUser,
@@ -46,6 +48,7 @@ export class ReconciliationController {
   }
 
   @Get(':id')
+  @AdminPermission('finance.read')
   @ApiOperation({ summary: 'Écarts d’un run de rapprochement' })
   getRun(@Param('id') id: string) {
     return this.reconciliation.getRun(id);

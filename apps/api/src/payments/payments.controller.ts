@@ -28,6 +28,7 @@ import {
 import type { Request as ExpressRequest, Response } from 'express';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AppAuthGuard } from '../common/guards/auth.guard';
+import { AdminPermissionGuard, AdminPermission } from '../admin/admin-permission.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { ListPaymentsQueryDto } from './dto/list-payments-query.dto';
 import type { AuthenticatedUser } from '../common/decorators/current-user.decorator';
@@ -64,6 +65,8 @@ class InitiatePaymentDto {
   @IsOptional() @IsString() rentScheduleId?: string;
   @IsOptional() @IsString() saleInstallmentId?: string;
   @IsOptional() @IsString() visitBookingId?: string;
+  /** Spec 07 — paiement de séjour (hold PENDING_PAYMENT). */
+  @IsOptional() @IsString() bookingId?: string;
 }
 
 class QuoteQueryDto {
@@ -347,7 +350,8 @@ export class PaymentsController {
   }
 
   @Patch('refunds/:id')
-  @UseGuards(AppAuthGuard)
+  @UseGuards(AppAuthGuard, AdminPermissionGuard)
+  @AdminPermission('finance.refund.approve')
   @HttpCode(200)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Approve or reject a refund above the threshold' })

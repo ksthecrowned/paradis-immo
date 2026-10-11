@@ -132,7 +132,9 @@ enum VisitType {
 
 enum VisitSlotStatus {
   AVAILABLE
+  HELD
   BOOKED
+  FULL
   BLOCKED
 }
 
@@ -146,14 +148,27 @@ enum VisitBookingStatus {
   CONFIRMED
   CANCELLED
   COMPLETED
+  COMPLETED_UNCONFIRMED
   NO_SHOW
+  EXPIRED
 }
 
 enum BookingStatus {
   PENDING
+  PENDING_PAYMENT
+  REQUESTED
+  ACCEPTED
+  DECLINED
   CONFIRMED
+  CHECKED_IN
+  CHECKED_OUT
   CANCELLED
+  /// Spec 07 — annulation par le voyageur (hôte profite d'un créneau libre).
+  CANCELLED_BY_GUEST
+  /// Spec 07 — annulation par l'hôte (remboursement 100 % voyageur).
+  CANCELLED_BY_HOST
   COMPLETED
+  EXPIRED
 }
 
 enum LeaseStatus {
@@ -220,6 +235,24 @@ enum SaleInquiryStatus {
   CONTACTED
   VISIT_SCHEDULED
   CLOSED
+}
+
+/// Spec 08 — mode de financement déclaré sur une demande ou une offre.
+enum FinancingType {
+  CASH
+  INSTALLMENTS
+  BANK_LOAN
+}
+
+/// Spec 08 — cycle de vie d'une offre d'achat.
+enum SaleOfferStatus {
+  SUBMITTED
+  FORWARDED
+  ACCEPTED
+  REJECTED
+  COUNTERED
+  EXPIRED
+  WITHDRAWN
 }
 
 enum SaleAgreementStatus {
@@ -362,12 +395,42 @@ enum MaintenancePriority {
   URGENT
 }
 
+/// Spec 15 A1 — catégorie déclarée par le locataire (09).
+enum MaintenanceCategory {
+  PLUMBING
+  ELECTRICAL
+  LOCKSMITH
+  HVAC
+  PESTS
+  STRUCTURE
+  APPLIANCE
+  GENERATOR
+  WATER_SUPPLY
+  OTHER
+}
+
+/// Spec 15 A1 — qui supporte le coût réel de l'intervention.
+enum ChargeTo {
+  OWNER
+  TENANT
+  AGENCY
+}
+
 enum MaintenanceStatus {
   OPEN
+  TRIAGED
+  AWAITING_QUOTE
+  AWAITING_APPROVAL
   ASSIGNED
+  SCHEDULED
   IN_PROGRESS
-  DONE
+  RESOLVED
+  REOPENED
   CLOSED
+  CANCELLED
+  // Legacy (avant machine à états, spec 15 bloc A1). Conservé pour la
+  // compat des données existantes ; DONE est traité comme RESOLVED.
+  DONE
 }
 
 enum NotificationChannel {
@@ -545,6 +608,7 @@ model User {
   rentalApplications     RentalApplication[]   @relation("RentalApplicationApplicant")
   saleInquiries          SaleInquiry[]
   saleAgreementsBought   SaleAgreement[]      @relation("SaleAgreementBuyer")
+  saleOffersMade         SaleOffer[]          @relation("SaleOfferBuyer")
   payments               Payment[]
   tickets                MaintenanceTicket[]  @relation("TicketReporter")
   assignedTickets        MaintenanceTicket[]  @relation("TicketAssignee")
@@ -556,6 +620,9 @@ model User {
   phoneHistory           UserPhoneHistory[]
   kycSubmissions         KycSubmission[]
   dataExports            DataExportRequest[]
+  devices                UserDevice[]
+  clientConversations    Conversation[]      @relation("ClientConversations")
+  sentMessages           Message[]           @relation("SentMessages")
 
   @@unique([phone, countryId])
 }
@@ -612,6 +679,7 @@ model Organization {
   refundApprovalThreshold   Decimal           @default(100000) @db.Decimal(12, 2)
   payoutAccounts            PayoutAccount[]
   payouts                   Payout[]
+  conversations             Conversation[]
 }
 
 model OrganizationReview {
@@ -856,10 +924,14 @@ model Property {
   visitBookings  VisitBooking[]
   availability   AvailabilityBlock[]
   bookings       Booking[]
+  staySettings   StayListingSettings?
+  seasonalRates  SeasonalRate[]
   leases         Lease[]
   applications   RentalApplication[]
   saleInquiries  SaleInquiry[]
   saleAgreements SaleAgreement[]
+  /// Spec 08 — offres d'achat posées sur le bien.
+  saleOffers     SaleOffer[]
   mandates       Mandate[]
   maintenance    MaintenanceTicket[]
   expenses       Expense[]
@@ -967,7 +1039,17 @@ model VisitBooking {
   userId      String
   user        User              @relation(fields: [userId], references: [id])
   status      VisitBookingStatus @default(PENDING)
+  /// Spec 06 — hold de 15 min sur les visites payantes (ZPT créneau HELD).
+  holdExpiresAt DateTime?
   paymentId   String?
+  /// Prix de visite facturé (quote figée au hold).
+  priceAmount Decimal?
+  currency    String?
+  rescheduleCount Int           @default(0)
+  cancelledById String?
+  cancelReason  String?
+  cancelledAt   DateTime?
+  completedAt   DateTime?
   createdAt   DateTime          @default(now())
   updatedAt   DateTime          @updatedAt
 }
@@ -987,8 +1069,75 @@ model Booking {
   totalPrice Decimal       @db.Decimal(12, 2)
   currency   String
   status     BookingStatus @default(PENDING)
+  /// Spec 07 — nombre de voyageurs et devis server-side figé au hold.
+  guests     Int           @default(1)
+  priceBreakdown Json?
+  depositAmount Decimal    @default(0) @db.Decimal(12, 2)
+  /// Hold 15 min (PENDING_PAYMENT) ou fenêtre de 2 h après acceptation d'une
+  /// demande (REQUESTED → ACCEPTED).
+  holdExpiresAt      DateTime?
+  requestExpiresAt   DateTime?
+  paymentId          String?
+  cancellationPolicy String?
+  cancelledById      String?
+  cancelReason       String?
+  cancelledAt        DateTime?
+  refundAmount       Decimal?   @db.Decimal(12, 2)
+  checkedInAt        DateTime?
+  checkedOutAt       DateTime?
   createdAt  DateTime      @default(now())
   updatedAt  DateTime      @updatedAt
+
+  @@index([propertyId, status])
+}
+
+/// Spec 07 — paramètres séjour par bien (tarifs, contraintes, politique).
+model StayListingSettings {
+  propertyId          String  @id
+  property            Property @relation(fields: [propertyId], references: [id])
+  baseNightlyRate     Decimal @db.Decimal(12, 2)
+  weekendNightlyRate  Decimal? @db.Decimal(12, 2)
+  /// Fractions en décimal : 0.10 = −10 %.
+  weeklyDiscount      Decimal? @db.Decimal(4, 2)
+  monthlyDiscount     Decimal? @db.Decimal(4, 2)
+  cleaningFee         Decimal  @default(0) @db.Decimal(12, 2)
+  baseGuests          Int      @default(2)
+  maxGuests           Int      @default(4)
+  extraGuestFee       Decimal  @default(0) @db.Decimal(12, 2)
+  minNights           Int      @default(1)
+  maxNights           Int      @default(90)
+  advanceNoticeHours  Int      @default(24)
+  bookingWindowDays   Int      @default(365)
+  instantBook         Boolean  @default(true)
+  /// FLEXIBLE | MODERATE | STRICT
+  cancellationPolicy  String   @default("MODERATE")
+  /// NONE | COLLECT_ON_BOOKING | ON_SITE
+  depositMode         String   @default("NONE")
+  depositAmount       Decimal  @default(0) @db.Decimal(12, 2)
+  /// Spec 07 — heures d'arrivée/départ + règles de maison.
+  checkInFrom         String   @default("14:00")
+  checkOutBefore      String   @default("11:00")
+  houseRules          String?
+  /// Révélées au voyageur seulement après confirmation.
+  arrivalInstructions String?
+  serviceFeeRate      Decimal  @default(0.07) @db.Decimal(4, 2)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
+/// Spec 07 — tarifs saisonniers (priorité sur week-end puis base).
+model SeasonalRate {
+  id          String   @id @default(uuid())
+  propertyId  String
+  property    Property @relation(fields: [propertyId], references: [id])
+  startDate   DateTime
+  endDate     DateTime
+  nightlyRate Decimal  @db.Decimal(12, 2)
+  minNights   Int?
+  label       String?
+  createdAt   DateTime @default(now())
+
+  @@index([propertyId, startDate])
 }
 
 model AvailabilityBlock {
@@ -1327,10 +1476,54 @@ model SaleInquiry {
   userId     String
   user       User              @relation(fields: [userId], references: [id])
   message    String?
+  /// Spec 08 — budget déclaré par l'acheteur + téléphone de contact.
+  budget     Decimal?          @db.Decimal(12, 2)
+  phone      String?
   status     SaleInquiryStatus @default(NEW)
   agreement  SaleAgreement?
+  /// Spec 08 — offres posées dans le cadre de cette demande.
+  offers     SaleOffer[]
   createdAt  DateTime          @default(now())
   updatedAt  DateTime          @updatedAt
+}
+
+/// Spec 08 P1 — offre d'achat et négociation (contre-offres liées).
+model SaleOffer {
+  id            String          @id @default(uuid())
+  propertyId    String
+  property      Property        @relation(fields: [propertyId], references: [id])
+  /// Demande d'origine à laquelle l'offre se rattache (optionnelle).
+  inquiryId     String?
+  inquiry       SaleInquiry?    @relation(fields: [inquiryId], references: [id])
+  buyerId       String
+  buyer         User            @relation("SaleOfferBuyer", fields: [buyerId], references: [id])
+  /// Contre-offre : chaîne de négociation (parent = offre contredite).
+  parentOfferId String?
+  parentOffer   SaleOffer?      @relation("SaleOfferThread", fields: [parentOfferId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  childOffers   SaleOffer[]     @relation("SaleOfferThread")
+  /// BUYER = offre posée par l'acheteur ; SELLER = contre-proposition du vendeur.
+  authorSide    String
+  price         Decimal         @db.Decimal(12, 2)
+  currency      String
+  financing     FinancingType
+  depositAmount Decimal?        @db.Decimal(12, 2)
+  installmentsCount Int?
+  conditions    String?
+  /// Validité par défaut : 7 jours (règle métier spec 08).
+  validUntil    DateTime
+  status        SaleOfferStatus @default(SUBMITTED)
+  /// Approbation mandat (SALE_OFFER_ACCEPT) si l'agent ne peut pas décider seul.
+  approvalId    String?
+  decidedById   String?
+  decidedAt     DateTime?
+  decisionNote  String?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  @@index([propertyId, status])
+  @@index([buyerId, status])
+  @@index([inquiryId])
+  @@index([parentOfferId])
 }
 
 model SaleAgreement {
@@ -1726,10 +1919,96 @@ model MaintenanceTicket {
   description          String
   priority             MaintenancePriority @default(MEDIUM)
   status               MaintenanceStatus   @default(OPEN)
+  /// Spec 15 A1 — machine à états et suivi.
+  leaseId              String?
+  bookingId            String?
+  category             MaintenanceCategory @default(OTHER)
+  availability         String?
+  entryPermission      Boolean             @default(false)
+  scheduledAt          DateTime?
+  startedAt            DateTime?
+  resolvedAt           DateTime?
+  closedAt             DateTime?
+  slaDueAt             DateTime?
+  actualCost           Decimal?            @db.Decimal(12, 2)
+  chargeTo             ChargeTo            @default(OWNER)
+  cancelReason         String?
   estimatedCost        Decimal?            @db.Decimal(12, 2)
   requiresOwnerApproval Boolean            @default(false)
+  history              MaintenanceStatusChange[]
+  comments             MaintenanceComment[]
   createdAt            DateTime            @default(now())
   updatedAt            DateTime            @updatedAt
+
+  @@index([propertyId, status])
+  @@index([reporterId, status])
+}
+
+/// Spec 15 A1 — journal immuable des transitions du ticket.
+model MaintenanceStatusChange {
+  id        String            @id @default(cuid())
+  ticketId  String
+  ticket    MaintenanceTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  from      MaintenanceStatus
+  to        MaintenanceStatus
+  actorId   String?
+  note      String?
+  createdAt DateTime          @default(now())
+
+  @@index([ticketId, createdAt])
+}
+
+/// Spec 15 A1 — commentaires avec visibilité.
+model MaintenanceComment {
+  id         String            @id @default(cuid())
+  ticketId   String
+  ticket     MaintenanceTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  authorId   String?
+  body       String
+  visibility String            @default("PUBLIC") // PUBLIC | INTERNAL
+  createdAt  DateTime          @default(now())
+
+  @@index([ticketId, createdAt])
+}
+
+/// Spec 15 B2 — rôle admin granulaire (12).
+enum AdminRole {
+  SUPER_ADMIN
+  OPS
+  FINANCE
+  READ_ONLY
+}
+
+model AdminProfile {
+  userId        String    @id
+  role          AdminRole
+  totpSecret    String?
+  totpEnabledAt DateTime?
+  ipAllowlist   String[]
+  createdAt     DateTime  @default(now())
+
+  @@index([role])
+}
+
+/// Spec 15 A3 — audit log append-only.
+model AuditLog {
+  id             String   @id @default(cuid())
+  actorId        String?
+  actorType      String   @default("ADMIN") // USER | ADMIN | SYSTEM | PROVIDER
+  impersonatedBy String?
+  action         String
+  targetType     String
+  targetId       String
+  before         Json?
+  after          Json?
+  metadata       Json?
+  ipAddress      String?
+  userAgent      String?
+  createdAt      DateTime @default(now())
+
+  @@index([targetType, targetId])
+  @@index([actorId, createdAt])
+  @@index([action, createdAt])
 }
 
 // =====================================================================
@@ -1817,4 +2096,142 @@ model DataExportRequest {
   createdAt DateTime  @default(now())
 
   @@index([userId, createdAt])
+}
+
+// =====================================================================
+// Push devices + platform configuration (specs 11 / 12 / 14)
+// =====================================================================
+
+/// Spec 11 — registered push target. Replaces the single `User.fcmToken`.
+model UserDevice {
+  id         String         @id @default(uuid())
+  userId     String
+  user       User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deviceId   String
+  fcmToken   String         @unique
+  platform   DevicePlatform
+  appVersion String?
+  locale     String?
+  lastSeenAt DateTime       @default(now())
+  createdAt  DateTime       @default(now())
+
+  @@unique([userId, deviceId])
+  @@index([userId])
+}
+
+/// Spec 12/14 — admin-written banner shown by web and mobile (`GET app/config`).
+model SystemAnnouncement {
+  id        String    @id @default(uuid())
+  title     String
+  body      String
+  /// ALL | SEEKERS | MANAGERS
+  audience  String    @default("ALL")
+  startsAt  DateTime
+  endsAt    DateTime?
+  active    Boolean   @default(true)
+  createdAt DateTime  @default(now())
+
+  @@index([active, startsAt])
+}
+
+/// Spec 14 — force-update policy per platform (`GET app/config`).
+model AppVersionPolicy {
+  platform       DevicePlatform @id
+  minVersion     String
+  latestVersion  String
+  storeUrl       String?
+  message        String?
+  updatedAt      DateTime       @updatedAt
+}
+
+// =====================================================================
+// Messaging (spec 10)
+// =====================================================================
+
+enum ConversationContext {
+  PROPERTY
+  VISIT
+  LEASE
+  BOOKING
+  SALE
+  MAINTENANCE
+  SUPPORT
+}
+
+enum ConversationStatus {
+  OPEN
+  ARCHIVED
+  CLOSED
+}
+
+/// Une conversation par (contexte, contexte-id, client). Réouvrir le même
+/// contexte réutilise la conversation existante.
+model Conversation {
+  id                 String              @id @default(uuid())
+  contextType        ConversationContext
+  contextId          String?
+  /// Référence du bien pour le périmètre partagé de l'agence.
+  propertyId         String?
+  clientUserId       String
+  clientUser         User                @relation("ClientConversations", fields: [clientUserId], references: [id], onDelete: Cascade)
+  /// Agence (ou org propriétaire) en charge côté gestion. Null = support.
+  organizationId     String?
+  organization       Organization?       @relation(fields: [organizationId], references: [id])
+  /// Agent assigné — le client voit « Répondu par … ».
+  assignedToId       String?
+  status             ConversationStatus  @default(OPEN)
+  lastMessageAt      DateTime?
+  lastMessagePreview String?
+  createdAt          DateTime            @default(now())
+  messages           Message[]
+  reads              ConversationRead[]
+
+  @@unique([contextType, contextId, clientUserId])
+  @@index([organizationId, lastMessageAt])
+  @@index([clientUserId, lastMessageAt])
+}
+
+/// Messages immutables : suppression par l'auteur sous 5 minutes (tombstone
+/// « Message supprimé »), jamais d'édition.
+model Message {
+  id             String       @id @default(uuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  /// Null = message système.
+  senderId       String?
+  sender         User?        @relation("SentMessages", fields: [senderId], references: [id], onDelete: SetNull)
+  body           String?
+  /// TEXT | ATTACHMENT | SYSTEM
+  kind           String       @default("TEXT")
+  /// [{ fileKey, mimeType, size, name }] — R2 privé, URL signée à la lecture.
+  attachments    Json?
+  /// Copie du corps masqué (PROPERTY avant visite confirmée).
+  maskedBody     String?
+  deletedAt      DateTime?
+  createdAt      DateTime     @default(now())
+  reports        MessageReport[]
+
+  @@index([conversationId, createdAt])
+}
+
+model ConversationRead {
+  conversation        Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  conversationId     String
+  userId             String
+  lastReadAt         DateTime @default(now())
+  lastReadMessageId  String?
+
+  @@id([conversationId, userId])
+}
+
+model MessageReport {
+  id          String   @id @default(uuid())
+  messageId   String
+  message     Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  reporterId  String
+  reason      String
+  status      String   @default("OPEN")
+  createdAt   DateTime @default(now())
+
+  @@index([status, createdAt])
 }

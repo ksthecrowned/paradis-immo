@@ -1,10 +1,12 @@
 import { Type } from 'class-transformer';
 import {
   IsDate,
+  IsInt,
   IsOptional,
   IsString,
   Length,
   Matches,
+  Min,
 } from 'class-validator';
 
 export class CreateBookingDto {
@@ -30,4 +32,10 @@ export class CreateBookingDto {
   @IsString()
   @Length(2, 120)
   guestName?: string;
+
+  /** Spec 07 — nombre de voyageurs (défaut 2). */
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  guests: number = 2;
 }

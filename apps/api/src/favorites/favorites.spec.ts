@@ -2,6 +2,7 @@ import { Test } from '@nestjs/testing';
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { FavoritesService } from './favorites.service';
+import { PropertiesService } from '../properties/properties.service';
 
 describe('FavoritesService', () => {
   let svc: FavoritesService;
@@ -12,7 +13,17 @@ describe('FavoritesService', () => {
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
-      providers: [FavoritesService, PrismaService],
+      // FavoritesService n'utilise PropertiesService que pour
+      // ?include=property (non testé ici) : stub léger évitant tout le
+      // graphe de dépendances de PropertiesService.
+      providers: [
+        FavoritesService,
+        PrismaService,
+        {
+          provide: PropertiesService,
+          useValue: { toPublic: jest.fn(), publicPropertyInclude: jest.fn() },
+        },
+      ],
     }).compile();
     svc = moduleRef.get(FavoritesService);
     prisma = moduleRef.get(PrismaService);

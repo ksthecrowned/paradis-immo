@@ -32,6 +32,48 @@ export const DOMAIN_EVENTS = {
   /** Spec 05 — reversement au propriétaire (succès / échec). */
   PAYOUT_PAID: 'payout.paid',
   PAYOUT_FAILED: 'payout.failed',
+  /** Spec 10 — un message a été envoyé dans une conversation. */
+  MESSAGE_CREATED: 'message.created',
+  /** Spec 10 — un message a été signalé (modération). */
+  MESSAGE_REPORTED: 'message.reported',
+  /** Spec 06 — hold posé sur une visite payante (créneau HELD 15 min). */
+  VISIT_BOOKING_HELD: 'visit_booking.held',
+  /** Spec 07 — hold posé sur un séjour (PENDING_PAYMENT 15 min). */
+  BOOKING_HELD: 'booking.held',
+  /** Spec 07 — hold de séjour expiré (15 min sans paiement). */
+  BOOKING_HOLD_EXPIRED: 'booking.hold.expired',
+  /** Spec 07 — demande de réservation sans instant book. */
+  BOOKING_REQUESTED: 'booking.requested',
+  /** Spec 07 — annulation avec politique de remboursement. */
+  BOOKING_CANCELLED: 'booking.cancelled',
+  /** Spec 07 — hôte a accepté une demande (hold 2 h pour payer). */
+  BOOKING_ACCEPTED: 'booking.accepted',
+  /** Spec 07 — hôte a refusé une demande. */
+  BOOKING_DECLINED: 'booking.declined',
+  /** Spec 07 — demande restée sans réponse 24 h. */
+  BOOKING_EXPIRED: 'booking.expired',
+  /** Spec 07 — paiement validé, séjour confirmé. */
+  BOOKING_CONFIRMED: 'booking.confirmed',
+  /** Spec 07 — arrivée du voyageur (hôte). */
+  BOOKING_CHECKED_IN: 'booking.checked_in',
+  /** Spec 07 — départ du voyageur (hôte). */
+  BOOKING_CHECKED_OUT: 'booking.checked_out',
+  /** Spec 07 — séjour terminé. */
+  BOOKING_COMPLETED: 'booking.completed',
+  /** Spec 07 — dommage signalé sous 48 h (retenue caution). */
+  BOOKING_DAMAGE_REPORTED: 'booking.damage_reported',
+  /** Spec 15 A2 — une annonce a été modérée (motif inclus). */
+  PROPERTY_MODERATED: 'property.moderated',
+  /** Spec 08 — nouvelle demande d'achat sur un bien à vendre. */
+  SALE_INQUIRY_CREATED: 'sale_inquiry.created',
+  /** Spec 08 P1 — offre d'achat posée (acheteur ou contre-offre des deux côtés). */
+  SALE_OFFER_SUBMITTED: 'sale_offer.submitted',
+  /** Spec 08 P1 — décision sur une offre (acceptée, refusée, contre-proposée). */
+  SALE_OFFER_DECIDED: 'sale_offer.decided',
+  /** Spec 08 P1 — offre transmise au propriétaire par l'agent. */
+  SALE_OFFER_FORWARDED: 'sale_offer.forwarded',
+  /** Spec 07 — dates bloquées importées d'un iCal. */
+  BOOKING_PICKED: 'booking.picked',
   MANDATE_ACTION_PENDING: 'mandate.action.pending',
   MANDATE_ACTION_DECIDED: 'mandate.action.decided',
   MANDATE_PROPOSED: 'mandate.proposed',
@@ -327,8 +369,7 @@ export type EventPayloadOf<E extends DomainEventName> = E extends
                                   refundId: string;
                                   amount: string;
                                   currency: string;
-                                }
-                              : E extends
+                                }                                : E extends
                                   | typeof DOMAIN_EVENTS.PAYOUT_PAID
                                   | typeof DOMAIN_EVENTS.PAYOUT_FAILED
                                 ? {
@@ -338,4 +379,41 @@ export type EventPayloadOf<E extends DomainEventName> = E extends
                                     currency: string;
                                     reason: string | null;
                                   }
+                                : E extends
+                                    | typeof DOMAIN_EVENTS.BOOKING_HELD
+                                    | typeof DOMAIN_EVENTS.BOOKING_HOLD_EXPIRED
+                                    | typeof DOMAIN_EVENTS.BOOKING_REQUESTED
+                                    | typeof DOMAIN_EVENTS.BOOKING_CANCELLED
+                                    | typeof DOMAIN_EVENTS.BOOKING_ACCEPTED
+                                    | typeof DOMAIN_EVENTS.BOOKING_DECLINED
+                                    | typeof DOMAIN_EVENTS.BOOKING_EXPIRED
+                                    | typeof DOMAIN_EVENTS.BOOKING_CONFIRMED
+                                    | typeof DOMAIN_EVENTS.BOOKING_CHECKED_IN
+                                    | typeof DOMAIN_EVENTS.BOOKING_CHECKED_OUT
+                                    | typeof DOMAIN_EVENTS.BOOKING_COMPLETED
+                                    | typeof DOMAIN_EVENTS.BOOKING_DAMAGE_REPORTED
+                                  ? {
+                                      bookingId: string;
+                                      userId: string;
+                                      propertyId?: string;
+                                      holdExpiresAt?: string;
+                                      refundPercent?: number;
+                                      refundAmount?: string;
+                                      reason?: string | null;
+                                      reportId?: string;
+                                      amount?: string;
+                                    }
+                                : E extends typeof DOMAIN_EVENTS.SALE_INQUIRY_CREATED
+                                  ? { inquiryId: string; propertyId: string; buyerUserId: string }
+                                : E extends
+                                    | typeof DOMAIN_EVENTS.SALE_OFFER_SUBMITTED
+                                    | typeof DOMAIN_EVENTS.SALE_OFFER_DECIDED
+                                    | typeof DOMAIN_EVENTS.SALE_OFFER_FORWARDED
+                                  ? {
+                                      offerId: string;
+                                      propertyId: string;
+                                      buyerId: string;
+                                      price: string;
+                                      decision?: string;
+                                    }
                                 : Record<string, unknown>;

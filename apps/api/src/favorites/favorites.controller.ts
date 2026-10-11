@@ -6,6 +6,7 @@ import {
   HttpCode,
   Param,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { IsString } from 'class-validator';
@@ -28,9 +29,17 @@ export class FavoritesController {
   constructor(private readonly favorites: FavoritesService) {}
 
   @Get()
-  @ApiOperation({ summary: "List the authenticated user's favorite properties" })
-  list(@CurrentUser() current: AuthenticatedUser) {
-    return this.favorites.list(current.userId);
+  @ApiOperation({
+    summary: "Favoris de l'utilisateur (?include=property pour biens embarqués)",
+  })
+  list(
+    @CurrentUser() current: AuthenticatedUser,
+    @Query('include') include?: string,
+  ) {
+    return this.favorites.list(
+      current.userId,
+      include === 'property',
+    );
   }
 
   @Post()

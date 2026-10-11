@@ -305,10 +305,16 @@ export class PropertiesService {
       ...(filter.status ? { status: filter.status } : {}),
       // Spec 04: a property under an active long-term lease leaves the
       // marketplace (activated lease flips it to OCCUPIED).
+      // Spec 13: a SOLD or UNDER_OFFER listing leaves the marketplace too
+      // (spec 08: complete()/offer-acceptance flips the listingStatus);
+      // UNDER_OFFER stays visible per spec 13 visibilité publique, so only
+      // OCCUPIED and SOLD are excluded.
       ...(filter.mode === PropertyMode.RENT_LONG ||
       !filter.mode
-        ? { listingStatus: { not: ListingStatus.OCCUPIED } }
-        : {}),
+        ? { listingStatus: { notIn: [ListingStatus.OCCUPIED, ListingStatus.SOLD] } }
+        : filter.mode === PropertyMode.SALE
+          ? { listingStatus: { notIn: [ListingStatus.SOLD] } }
+          : {}),
       ...(filter.quartierId ? { quartierId: filter.quartierId } : {}),
       ...(filter.arrondissementId
         ? { quartier: { arrondissementId: filter.arrondissementId } }
@@ -334,13 +340,52 @@ export class PropertiesService {
             },
           }
         : {}),
+      // Spec 15 B4 — filtres complets (spec 13 P1).
+      ...(filter.type ? { type: filter.type } : {}),
+      ...(filter.minBedrooms !== undefined
+        ? { bedrooms: { gte: filter.minBedrooms } }
+        : {}),
+      ...(filter.minBathrooms !== undefined
+        ? { bathrooms: { gte: filter.minBathrooms } }
+        : {}),
+      ...(filter.minSurface !== undefined
+        ? { surface: { gte: filter.minSurface } }
+        : {}),
+      ...(filter.furnished !== undefined &&
+      filter.furnished !== ''
+        ? {
+            furnished: filter.furnished === 'true',
+          }
+        : {}),
+      ...(filter.features
+        ? {
+            features: {
+              // JSON array descriptif : tous les éléments requis (AND).
+              contains: String(filter.features)
+                .split(',')
+                .map((f) => f.trim())
+                .filter(Boolean),
+            } as Prisma.PropertyWhereInput['features'],
+          }
+        : {}),
     };
+
+    // Tri (13 P1) : défaut createdAt desc.
+    const sort = filter.sort;
+    const orderBy: Prisma.PropertyOrderByWithRelationInput[] =
+      sort === 'price_asc'
+        ? [{ price: 'asc' }]
+        : sort === 'price_desc'
+          ? [{ price: 'desc' }]
+          : sort === 'surface'
+            ? [{ surface: 'desc' }]
+            : [{ createdAt: 'desc' }];
 
     const [rows, total] = await Promise.all([
       this.prisma.property.findMany({
         where,
         include: this.publicInclude(),
-        orderBy: { createdAt: 'desc' },
+        orderBy,
         take: limit,
         skip: offset,
       }),
@@ -812,6 +857,11 @@ export class PropertiesService {
     return { ownerId, agencyOrganizationId, assignedAgentId };
   }
 
+  /** Spec 15 B3 — include public exposé (favoris embarqués). */
+  publicPropertyInclude(): Prisma.PropertyInclude {
+    return this.publicInclude();
+  }
+
   private publicInclude(): Prisma.PropertyInclude {
     return {
       quartier: {
@@ -846,7 +896,8 @@ export class PropertiesService {
     return value.filter((item): item is string => typeof item === 'string');
   }
 
-  private toPublic(
+  /** Spec 15 B3 — sérialisation publique réutilisable (favoris embarqués). */
+  toPublic(
     p: Property & {
       quartier: {
         id: string;

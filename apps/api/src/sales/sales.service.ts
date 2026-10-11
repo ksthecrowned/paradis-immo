@@ -2,14 +2,21 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
+  ConflictException,
 } from '@nestjs/common';
-import { SaleInquiry, SaleInquiryStatus } from '@prisma/client';
+import { Prisma, SaleInquiry, SaleInquiryStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { EventPublisher } from '../events/event.publisher';
+import { DOMAIN_EVENTS } from '../events/event.types';
+import { AgencyAccessService } from '../mandates/agency-access.service';
 
 export interface CreateInquiryInput {
   propertyId: string;
   userId: string;
   message?: string;
+  /** Spec 08 — budget déclaré (XAF) + téléphone de contact E.164. */
+  budget?: number | string;
+  phone?: string;
 }
 
 export interface UpdateInquiryStatusInput {
@@ -30,7 +37,11 @@ export interface PublicSaleInquiry {
 
 @Injectable()
 export class SalesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly events: EventPublisher,
+    private readonly agencyAccess: AgencyAccessService,
+  ) {}
 
   async createInquiry(input: CreateInquiryInput): Promise<PublicSaleInquiry> {
     const property = await this.prisma.property.findUnique({
@@ -50,12 +61,44 @@ export class SalesService {
       });
     }
 
+    // Spec 08 — anti-doublon : au plus une demande ouverte par (property, user).
+    const openStatuses: SaleInquiryStatus[] = [
+      SaleInquiryStatus.NEW,
+      SaleInquiryStatus.CONTACTED,
+      SaleInquiryStatus.VISIT_SCHEDULED,
+    ];
+    const existing = await this.prisma.saleInquiry.findFirst({
+      where: {
+        propertyId: input.propertyId,
+        userId: input.userId,
+        status: { in: openStatuses },
+      },
+      select: { id: true },
+    });
+    if (existing) {
+      throw new ConflictException({
+        code: 'INQUIRY_ALREADY_OPEN',
+        message:
+          'Une demande est déjà ouverte pour ce bien — suivez-la depuis « Mes demandes ».',
+      });
+    }
+
     const created = await this.prisma.saleInquiry.create({
       data: {
         propertyId: input.propertyId,
         userId: input.userId,
         ...(input.message ? { message: input.message } : {}),
+        ...(input.budget !== undefined && input.budget !== null
+          ? { budget: new Prisma.Decimal(input.budget) }
+          : {}),
+        ...(input.phone ? { phone: input.phone } : {}),
       },
+    });
+    // Spec 08 — le propriétaire est notifié de la nouvelle demande.
+    await this.events.emit(DOMAIN_EVENTS.SALE_INQUIRY_CREATED, {
+      inquiryId: created.id,
+      propertyId: input.propertyId,
+      buyerUserId: input.userId,
     });
     return this.toPublic(created);
   }
@@ -65,23 +108,21 @@ export class SalesService {
   ): Promise<PublicSaleInquiry> {
     const inquiry = await this.prisma.saleInquiry.findUnique({
       where: { id: input.inquiryId },
-      include: {
-        property: { select: { ownerId: true, organizationId: true } },
-      },
+      select: { propertyId: true },
     });
-    if (!inquiry) {
-      throw new NotFoundException({
+    if (!inquiry) {      throw new NotFoundException({
         code: 'INQUIRY_NOT_FOUND',
         message: 'Inquiry does not exist',
       });
     }
 
     // Only the property owner or an agent in the property's organization
+
     // can mutate the inquiry status. To avoid leaking the existence of an
     // inquiry to unauthorized actors, treat "forbidden" as "not found".
     const allowed = await this.actorManagesProperty(
       input.actorUserId,
-      inquiry.property,
+      inquiry.propertyId,
     );
     if (!allowed) {
       throw new NotFoundException({
@@ -100,24 +141,13 @@ export class SalesService {
   async listInquiriesForManager(
     actorUserId: string,
   ): Promise<PublicSaleInquiry[]> {
-    // The actor manages every property whose ownerId they are, or whose
-    // organizationId they belong to with role AGENT.
-    const managed = await this.prisma.property.findMany({
-      where: {
-        OR: [
-          { ownerId: actorUserId },
-          {
-            organization: {
-              members: {
-                some: { userId: actorUserId, role: 'AGENT' },
-              },
-            },
-          },
-        ],
-      },
-      select: { id: true },
-    });
-    const managedIds = managed.map((p) => p.id);
+    // Spec 08 P0 — le périmètre gestionnaire passe par AgencyAccessService
+    // (propriétaire, gérant de l'agence mandatée, agent assigné, gérant/owner
+    // de l'org d'un bien sans mandat) et non plus la seule appartenance à
+    // l'org du bien en tant que AGENT.
+    const managedIds = await this.agencyAccess.listOperablePropertyIds(
+      actorUserId,
+    );
     if (managedIds.length === 0) return [];
 
     const rows = await this.prisma.saleInquiry.findMany({
@@ -136,24 +166,19 @@ export class SalesService {
   }
 
   /**
-   * Returns true if the actor is the property owner, or an AGENT in the
-   * property's organization. Returns false (and the caller treats the
-   * inquiry as not found) for anyone else.
+   * Same manager perimeter as listInquiriesForManager, through
+   * AgencyAccessService: owner, mandated agency (gérant or assigned agent),
+   * or org gérant on unmandated properties. Unauthorized actors get a
+   * "not found" so the existence of the inquiry never leaks.
    */
   private async actorManagesProperty(
     actorUserId: string,
-    property: { ownerId: string; organizationId: string },
+    propertyId: string,
   ): Promise<boolean> {
-    if (property.ownerId === actorUserId) return true;
-    const member = await this.prisma.organizationMember.findFirst({
-      where: {
-        userId: actorUserId,
-        organizationId: property.organizationId,
-        role: 'AGENT',
-      },
-      select: { id: true },
-    });
-    return member !== null;
+    const operable = await this.agencyAccess.listOperablePropertyIds(
+      actorUserId,
+    );
+    return operable.includes(propertyId);
   }
 
   private toPublic(r: SaleInquiry): PublicSaleInquiry {

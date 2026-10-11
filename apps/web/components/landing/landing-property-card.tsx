@@ -17,11 +17,16 @@ const PLACEHOLDERS = [
 
 const MUTED = '#6B7280';
 
+// Badge UNDER_OFFER : distinct des annonces mortes (gris) — ton "sous offre"
+// ambre, aligné sur le StatusPill warning de la fiche bien.
+const UNDER_OFFER_BADGE_CLASS =
+  'bg-[#F59E0B]/90 text-[#1F2937]';
+
 function isGrayscale(property: PublicProperty): boolean {
   const status = property.listingStatus;
-  return (
-    status === 'SOLD' || status === 'UNDER_OFFER' || status === 'OCCUPIED'
-  );
+  // UNDER_OFFER reste une annonce vivante (négociation en cours) : elle garde
+  // sa couleur et un badge attractif ; seules les annonces mortes grisent.
+  return status === 'SOLD' || status === 'OCCUPIED';
 }
 
 type Amenity = { icon: string; label: string };
@@ -62,6 +67,7 @@ export function LandingPropertyCard({
   href,
 }: LandingPropertyCardProps): React.JSX.Element {
   const grayscale = isGrayscale(property);
+  const isUnderOffer = property.listingStatus === 'UNDER_OFFER';
   const cover =
     propertyCoverUrl(property) ??
     PLACEHOLDERS[placeholderIndex % PLACEHOLDERS.length];
@@ -82,9 +88,11 @@ export function LandingPropertyCard({
         />
         <span
           className={`absolute inset-s-4 top-4 max-w-[70%] truncate rounded-full px-4 py-1.5 text-sm font-bold ${
-            grayscale
-              ? 'bg-[#6B7280]/75 text-[#FEFEFE]'
-              : 'bg-(--lp-primary) text-(--lp-on-primary)'
+            isUnderOffer
+              ? UNDER_OFFER_BADGE_CLASS
+              : grayscale
+                ? 'bg-[#6B7280]/75 text-[#FEFEFE]'
+                : 'bg-(--lp-primary) text-(--lp-on-primary)'
           }`}
         >
           {badge}

@@ -80,15 +80,19 @@ export default function BookScreen(): React.JSX.Element {
     setSubmitting(true);
     setSubmitError(null);
     try {
-      await createBooking({
+      // Spec 07 — la réservation crée un hold PENDING_PAYMENT de 15 minutes ;
+      // le paiement cible ce booking (montant server-side) puis confirme.
+      const booking = await createBooking({
         propertyId: property.id,
         startDate: new Date(`${startIso}T00:00:00.000Z`),
         endDate: new Date(`${endIso}T00:00:00.000Z`),
       });
       const qs = new URLSearchParams({
         propertyId: property.id,
-        amount: String(quote.totalAmount),
-        currency: 'XAF',
+        bookingId: booking.id,
+        holdExpiresAt: booking.holdExpiresAt ?? '',
+        amount: String(booking.quote?.total ?? quote.totalAmount),
+        currency: booking.currency ?? 'XAF',
         title: `Séjour · ${property.title}`,
       });
       router.push(`/payment/checkout?${qs.toString()}`);

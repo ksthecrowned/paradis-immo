@@ -7,6 +7,11 @@ import { SalesService } from './sales.service';
 import { SalesController } from './sales.controller';
 import { SaleAgreementsService } from './sale-agreements.service';
 import { BuyerPaymentProofsService } from './buyer-payment-proofs.service';
+import { SaleOffersService } from './sale-offers.service';
+import {
+  SaleOffersActionsController,
+  SaleOffersPropertyController,
+} from './sale-offers.controller';
 import {
   MeSaleAgreementsController,
   SaleAgreementsController,
@@ -24,8 +29,20 @@ import {
     MeSaleAgreementsController,
     SaleAgreementPaymentProofsController,
     MeBuyerPaymentProofsController,
+    SaleOffersPropertyController,
+    SaleOffersActionsController,
   ],
-  providers: [SalesService, SaleAgreementsService, BuyerPaymentProofsService],
-  exports: [SalesService, SaleAgreementsService, BuyerPaymentProofsService],
+  providers: [
+    SalesService,
+    SaleAgreementsService,
+    BuyerPaymentProofsService,
+    SaleOffersService,
+  ],
+  exports: [
+    SalesService,
+    SaleAgreementsService,
+    BuyerPaymentProofsService,
+    SaleOffersService,
+  ],
 })
 export class SalesModule {}

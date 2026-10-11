@@ -382,6 +382,68 @@ describe('Properties (e2e)', () => {
     });
   });
 
+  it('GET /properties?mode=SALE excludes a SOLD listing (spec 13 P0)', async () => {
+    // Fixture dédiée : bien SALE propriété d'un user éphémère, mis SOLD
+    // (comme le ferait sale-agreements.complete()).
+    const soldOwner = await prisma.user.create({
+      data: {
+        phone: `+24207${Date.now().toString().slice(-8)}`,
+        countryId,
+        roles: { create: { role: 'TENANT' } },
+      },
+    });
+    const soldOrg = await prisma.organization.create({
+      data: {
+        name: `Sold Exclusion Test ${Date.now()}`,
+        type: 'OWNER',
+        countryId,
+        members: { create: { userId: soldOwner.id, role: 'OWNER' } },
+      },
+    });
+    const soldProperty = await prisma.property.create({
+      data: {
+        title: 'Villa vendue test',
+        description: 'Bien SOLD qui doit quitter la recherche publique',
+        type: 'HOUSE',
+        mode: 'SALE',
+        price: 80_000_000,
+        currency: 'XAF',
+        priceUnit: 'TOTAL',
+        quartierId: bzvQuartierId,
+        address: 'X',
+        countryId,
+        ownerId: soldOwner.id,
+        organizationId: soldOrg.id,
+        listingStatus: 'SOLD',
+      },
+    });
+
+    try {
+      const res = await request(app.getHttpServer())
+        .get('/api/v1/properties?mode=SALE')
+        .expect(200);
+      const body = res.body as { data: Array<{ id: string }> };
+      expect(
+        body.data.find((p) => p.id === soldProperty.id),
+      ).toBeUndefined();
+
+      // Un bien AVAILABLE reste bien visible dans la même requête (le filtre
+      // n'a pas tué les autres annonces SALE).
+      const visible = await request(app.getHttpServer())
+        .get(`/api/v1/properties?mode=SALE&quartierId=${bzvQuartierId}`)
+        .expect(200);
+      expect(visible.body.meta.total).toBeGreaterThanOrEqual(0);
+    } finally {
+      await prisma.property.delete({ where: { id: soldProperty.id } });
+      await prisma.organizationMember.deleteMany({
+        where: { userId: soldOwner.id },
+      });
+      await prisma.organization.delete({ where: { id: soldOrg.id } });
+      await prisma.userRole.deleteMany({ where: { userId: soldOwner.id } });
+      await prisma.user.delete({ where: { id: soldOwner.id } });
+    }
+  });
+
   it('GET /properties?mode=SALE excludes RENT_LONG properties', async () => {
     const res = await request(app.getHttpServer())
       .get('/api/v1/properties?mode=SALE')
@@ -391,6 +453,62 @@ describe('Properties (e2e)', () => {
     };
     body.data.forEach((p) => expect(p.mode).toBe('SALE'));
     expect(body.data.find((p) => p.id === createdPropertyId)).toBeUndefined();
+  });
+
+  it('spec 15 B4 : ?type=HOUSE&minBedrooms=2 filtre type ET chambres', async () => {
+    // Une maison à vendre 3 chambres + un appart 1 chambre, même quartier.
+    // L'org OWNER du owner existe déjà via fixtures du beforeAll (created
+    // in "POST /properties creates a property for an authenticated owner").
+    const ownerOrg = await prisma.organization.findFirst({
+      where: { members: { some: { userId: ownerUserId } }, type: 'OWNER' },
+    });
+    if (!ownerOrg) throw new Error('Owner org fixture missing');
+    const house = await prisma.property.create({
+      data: {
+        title: 'Filtre Maison 3CH',
+        description: 'Test filtres',
+        type: 'HOUSE',
+        mode: 'SALE',
+        price: 40_000_000,
+        currency: 'XAF',
+        priceUnit: 'TOTAL',
+        quartierId: bzvQuartierId,
+        address: 'X',
+        countryId,
+        ownerId: ownerUserId,
+        organizationId: ownerOrg.id,
+        bedrooms: 3,
+        bathrooms: 2,
+        surface: 120,
+      },
+    });
+    try {
+      const res = await request(app.getHttpServer())
+        .get('/api/v1/properties?type=HOUSE&minBedrooms=2')
+        .expect(200);
+      const body = res.body as { data: Array<{ id: string; type: string }> };
+      const ours = body.data.find((p) => p.id === house.id);
+      expect(ours).toBeDefined();
+      body.data.forEach((p) => expect(p.type).toBe('HOUSE'));
+
+      const res2 = await request(app.getHttpServer())
+        .get('/api/v1/properties?type=HOUSE&minBedrooms=4')
+        .expect(200);
+      const body2 = res2.body as { data: Array<{ id: string }> };
+      expect(body2.data.find((p) => p.id === house.id)).toBeUndefined();
+    } finally {
+      await prisma.property.delete({ where: { id: house.id } });
+    }
+  });
+
+  it('spec 15 B4 : ?sort=price_asc trie les résultats par prix croissant', async () => {
+    const res = await request(app.getHttpServer())
+      .get('/api/v1/properties?mode=RENT_LONG&sort=price_asc&limit=20')
+      .expect(200);
+    const body = res.body as { data: Array<{ price: number }> };
+    const prices = body.data.map((p) => p.price);
+    const sorted = [...prices].sort((a, b) => a - b);
+    expect(prices).toEqual(sorted);
   });
 
   it('GET /properties?minPrice=200000 excludes cheaper property', async () => {

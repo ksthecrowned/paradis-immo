@@ -5,7 +5,7 @@ Donner à chaque utilisateur le contrôle de son compte (sessions, téléphone, 
 Concerne tous les rôles. `PLATFORM_ADMIN` intervient pour la suspension et le KYC.
 
 ## État actuel (audit)
-- `auth` : OTP mobile (5 tentatives max), magic link et Google pour le web, mot de passe et Google pour l'admin. Rotation du refresh token sur `POST auth/refresh`.
+- `auth` : OTP mobile (5 tentatives max), magic link et Google pour le portail web de gestion, mot de passe et Google pour l'admin plateforme. Rotation du refresh token sur `POST auth/refresh`. Aucun portail web client final n'est prévu.
 - Il n'existe ni `logout`, ni révocation, ni liste des sessions. Le refresh token reste valide jusqu'à expiration s'il est volé.
 - Aucun rate limit propre à `otp/request`, en dehors du throttle global de 100 req/min. Risque de spam SMS (coût Infobip).
 - `GET users/lookup?phone=` est accessible à tout utilisateur authentifié et renvoie le nom : énumération possible.
@@ -132,10 +132,10 @@ model DataExportRequest {
 | GET | `kyc/submissions/mine` | Mes soumissions |
 | GET | `users/lookup` | **Modifié** : guard org, rate limit, réponse masquée |
 
-`auth/otp/verify`, `auth/web/*` et `auth/admin/*` acceptent en plus `{ deviceId, deviceName, platform }`.
+`auth/otp/verify`, `auth/web/*` et `auth/admin/*` acceptent en plus `{ deviceId, deviceName, platform }`. `auth/web/*` ne sert qu'aux comptes du portail de gestion (agents, propriétaires, admins d'agence) ; les chercheurs, locataires, voyageurs et acheteurs utilisent l'app mobile.
 
 ## Écrans
-- **Web, tous rôles** : `/settings/account` avec profil, téléphone, e-mail, sessions, export, suppression et KYC. Le menu `sidebar-user-menu` y donne accès et propose « Se déconnecter » (avec appel à `auth/logout`).
+- **Portail web de gestion uniquement** : `/settings/account` pour agents, propriétaires et admins d'agence, avec profil, téléphone, e-mail, sessions, export, suppression et KYC. Le menu `sidebar-user-menu` y donne accès et propose « Se déconnecter » (avec appel à `auth/logout`). Les clients finaux gèrent leur compte depuis l'app mobile ; aucun espace compte client web n'est inclus.
 - **Mobile** :
   - `profile/security` : sessions, changement de numéro, déconnexion de tous les appareils ;
   - `profile/delete-account` : obligatoire pour la publication sur l'App Store (exigence 5.1.1(v)) et Google Play ;

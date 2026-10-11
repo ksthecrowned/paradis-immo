@@ -18,7 +18,12 @@ import {
 } from '@/lib/payments';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -43,12 +48,14 @@ function buildIdempotencyKey(opts: {
   rentScheduleId?: string;
   saleInstallmentId?: string;
   visitBookingId?: string;
+  bookingId?: string;
   propertyId: string;
   amount: number;
 }): string {
   if (opts.rentScheduleId) return `mm-rent-${opts.rentScheduleId}`;
   if (opts.saleInstallmentId) return `mm-sale-${opts.saleInstallmentId}`;
   if (opts.visitBookingId) return `mm-visit-${opts.visitBookingId}`;
+  if (opts.bookingId) return `mm-booking-${opts.bookingId}`;
   return `mm-pay-${opts.propertyId}-${opts.amount}`;
 }
 
@@ -59,6 +66,8 @@ export default function PaymentScreen(): React.JSX.Element {
     id: string;
     propertyId?: string;
     visitBookingId?: string;
+    bookingId?: string;
+    holdExpiresAt?: string;
     amount?: string;
     currency?: string;
     rentScheduleId?: string;
@@ -71,6 +80,8 @@ export default function PaymentScreen(): React.JSX.Element {
 
   const propertyId = paramValue(params.propertyId);
   const visitBookingId = paramValue(params.visitBookingId) || undefined;
+  const bookingId = paramValue(params.bookingId) || undefined;
+  const holdExpiresAtIso = paramValue(params.holdExpiresAt) || undefined;
   const rentScheduleId = paramValue(params.rentScheduleId) || undefined;
   const saleInstallmentId = paramValue(params.saleInstallmentId) || undefined;
   const titleParam = paramValue(params.title);
@@ -83,6 +94,22 @@ export default function PaymentScreen(): React.JSX.Element {
 
   const [ready, setReady] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  /** Spec 07 — compte à rebours du hold de séjour (15 min ou 2 h). */
+  const [holdRemainingSec, setHoldRemainingSec] = useState<number | null>(
+    holdExpiresAtIso ? Math.max(0, Math.floor((new Date(holdExpiresAtIso).getTime() - Date.now()) / 1000)) : null,
+  );
+
+  useEffect(() => {
+    if (!holdExpiresAtIso) return;
+    const target = new Date(holdExpiresAtIso).getTime();
+    const tick = (): void => {
+      const remaining = Math.max(0, Math.floor((target - Date.now()) / 1000));
+      setHoldRemainingSec(remaining);
+    };
+    tick();
+    const timer = setInterval(tick, 1000);
+    return () => clearInterval(timer);
+  }, [holdExpiresAtIso]);
   const [done, setDone] = useState(false);
   const [provider, setProvider] = useState<MobileProvider>('AIRTEL');
   const [phone, setPhone] = useState('');
@@ -96,6 +123,8 @@ export default function PaymentScreen(): React.JSX.Element {
     if (amount > 0) qs.set('amount', String(amount));
     if (currency) qs.set('currency', currency);
     if (visitBookingId) qs.set('visitBookingId', visitBookingId);
+    if (bookingId) qs.set('bookingId', bookingId);
+    if (holdExpiresAtIso) qs.set('holdExpiresAt', holdExpiresAtIso);
     if (rentScheduleId) qs.set('rentScheduleId', rentScheduleId);
     if (saleInstallmentId) qs.set('saleInstallmentId', saleInstallmentId);
     if (titleParam) qs.set('title', titleParam);
@@ -107,6 +136,8 @@ export default function PaymentScreen(): React.JSX.Element {
     amount,
     currency,
     visitBookingId,
+    bookingId,
+    holdExpiresAtIso,
     rentScheduleId,
     saleInstallmentId,
     titleParam,
@@ -195,12 +226,14 @@ export default function PaymentScreen(): React.JSX.Element {
           rentScheduleId,
           saleInstallmentId,
           visitBookingId,
+          bookingId,
           propertyId,
           amount,
         }),
         ...(rentScheduleId ? { rentScheduleId } : {}),
         ...(saleInstallmentId ? { saleInstallmentId } : {}),
         ...(visitBookingId ? { visitBookingId } : {}),
+        ...(bookingId ? { bookingId } : {}),
       });
       setExisting(payment);
       setDone(true);
@@ -295,6 +328,26 @@ export default function PaymentScreen(): React.JSX.Element {
         keyboardShouldPersistTaps="handled"
       >
         {property ? <PropertySummaryCard property={property} /> : null}
+
+        {bookingId && holdRemainingSec !== null ? (
+          <View style={styles.holdBanner}>
+            <Ionicons
+              name={holdRemainingSec > 0 ? 'time-outline' : 'warning-outline'}
+              size={18}
+              color={holdRemainingSec > 0 ? colors.primary : '#b91c1c'}
+            />
+            <Text
+              style={[
+                styles.holdText,
+                holdRemainingSec === 0 && styles.holdExpiredText,
+              ]}
+            >
+              {holdRemainingSec > 0
+                ? `Dates bloquées encore ${Math.floor(holdRemainingSec / 60)} min ${holdRemainingSec % 60} s`
+                : 'Hold expiré — retournez au bien pour refaire une réservation.'}
+            </Text>
+          </View>
+        ) : null}
 
         <View style={styles.amountCard}>
           <Text style={styles.amountLabel}>{payTitle}</Text>
@@ -444,6 +497,26 @@ const styles = StyleSheet.create({
   },
   spacer: { width: 54 },
   content: { paddingHorizontal: spacing.md, gap: spacing.md },
+  holdBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: colors.surface ?? '#fff',
+    borderColor: colors.border ?? '#e2e2e2',
+    borderWidth: 1,
+    borderRadius: radii.sm,
+    padding: 10,
+    marginBottom: 10,
+  },
+  holdText: {
+    flex: 1,
+    fontSize: 12,
+    color: colors.muted,
+  },
+  holdExpiredText: {
+    color: '#b91c1c',
+    fontWeight: '700' as const,
+  },
   amountCard: {
     padding: 16,
     borderRadius: radii.lg,

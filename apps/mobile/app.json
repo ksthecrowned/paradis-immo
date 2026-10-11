@@ -75,7 +75,8 @@
         }
       ],
       "expo-video",
-      "expo-font"
+      "expo-font",
+      "expo-secure-store"
     ],
     "owner": "kysr_styve",
     "runtimeVersion": {

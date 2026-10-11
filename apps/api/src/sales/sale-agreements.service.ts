@@ -245,12 +245,19 @@ export class SaleAgreementsService {
         message: 'Seul un dossier actif peut être complété',
       });
     }
-    await this.prisma.saleAgreement.update({
-      where: { id },
-      data: {
-        status: SaleAgreementStatus.COMPLETED,
-        completedAt: new Date(),
-      },
+    // Spec 08 — la clôture d'un compromis actif passe le bien en SOLD.
+    await this.prisma.$transaction(async (tx) => {
+      await tx.saleAgreement.update({
+        where: { id },
+        data: {
+          status: SaleAgreementStatus.COMPLETED,
+          completedAt: new Date(),
+        },
+      });
+      await tx.property.update({
+        where: { id: existing.propertyId },
+        data: { listingStatus: ListingStatus.SOLD },
+      });
     });
     return this.getOne(managerUserId, id);
   }
@@ -269,9 +276,23 @@ export class SaleAgreementsService {
         message: 'Ce dossier ne peut plus être annulé',
       });
     }
-    await this.prisma.saleAgreement.update({
-      where: { id },
-      data: { status: SaleAgreementStatus.CANCELLED },
+    // Spec 08 — annulation : le bien repasse en AVAILABLE (s'il n'est pas
+    // déjà vendu par un autre dossier).
+    await this.prisma.$transaction(async (tx) => {
+      await tx.saleAgreement.update({
+        where: { id },
+        data: { status: SaleAgreementStatus.CANCELLED },
+      });
+      const property = await tx.property.findUniqueOrThrow({
+        where: { id: existing.propertyId },
+        select: { listingStatus: true },
+      });
+      if (property.listingStatus === ListingStatus.UNDER_OFFER) {
+        await tx.property.update({
+          where: { id: existing.propertyId },
+          data: { listingStatus: ListingStatus.AVAILABLE },
+        });
+      }
     });
     return this.getOne(managerUserId, id);
   }

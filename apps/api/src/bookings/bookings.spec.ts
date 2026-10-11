@@ -2,6 +2,7 @@ import { Test } from '@nestjs/testing';
 import { PrismaService } from '../prisma/prisma.service';
 import { EventPublisher } from '../events/event.publisher';
 import { BookingsService } from './bookings.service';
+import { PricingService } from './pricing.service';
 import { AvailabilityService } from './availability.service';
 import { UsersService } from '../users/users.service';
 
@@ -21,6 +22,7 @@ describe('BookingsService — short-term', () => {
     const moduleRef = await Test.createTestingModule({
       providers: [
         BookingsService,
+        PricingService,
         AvailabilityService,
         PrismaService,
         UsersService,
@@ -113,6 +115,18 @@ describe('BookingsService — short-term', () => {
       },
     });
     shortPropertyId = shortProp.id;
+    // Spec 07 — settings de séjour (tarifs = property.price, pas de frais
+    // additifs pour garder les montants lisibles dans les assertions).
+    await prisma.stayListingSettings.create({
+      data: {
+        propertyId: shortPropertyId,
+        baseNightlyRate: 25000,
+        cleaningFee: 0,
+        extraGuestFee: 0,
+        serviceFeeRate: 0,
+        cancellationPolicy: 'MODERATE',
+      },
+    });
     const longProp = await prisma.property.create({
       data: {
         title: 'Booking Long',
@@ -140,6 +154,9 @@ describe('BookingsService — short-term', () => {
     }
     const propIds = [shortPropertyId, longPropertyId].filter(Boolean);
     if (propIds.length) {
+      await prisma.stayListingSettings
+        .deleteMany({ where: { propertyId: { in: propIds } } })
+        .catch(() => undefined);
       await prisma.availabilityBlock
         .deleteMany({ where: { propertyId: { in: propIds } } })
         .catch(() => undefined);
@@ -184,16 +201,49 @@ describe('BookingsService — short-term', () => {
     });
     createdBookingIds.push(result.id);
 
-    expect(result.status).toBe('CONFIRMED');
+    // Spec 07 — hold PENDING_PAYMENT (instantBook), devis figé, hold 15 min.
+    expect(result.status).toBe('PENDING_PAYMENT');
     // 3 nights × 25 000 = 75 000 XAF
     expect(Number(result.totalPrice)).toBe(75000);
     expect(result.currency).toBe('XAF');
+    expect(result.quote).not.toBeNull();
+    expect(result.quote!.nights).toBe(3);
+    expect(result.holdExpiresAt).not.toBeNull();
 
     const blocks = await prisma.availabilityBlock.findMany({
       where: { propertyId: shortPropertyId },
     });
     expect(blocks).toHaveLength(1);
     expect(blocks[0].refId).toBe(result.id);
+  });
+
+  it('expires a lapsed PENDING_PAYMENT hold and frees the dates', async () => {
+    const start = new Date('2026-07-14T00:00:00Z');
+    const end = new Date('2026-07-17T00:00:00Z');
+
+    const result = await bookings.createBooking(tenantUserId, {
+      propertyId: shortPropertyId,
+      startDate: start,
+      endDate: end,
+    });
+    createdBookingIds.push(result.id);
+    expect(result.status).toBe('PENDING_PAYMENT');
+
+    // Simulate a lapsed hold.
+    await prisma.booking.update({
+      where: { id: result.id },
+      data: { holdExpiresAt: new Date(Date.now() - 60_000) },
+    });
+    const expired = await bookings.expireHolds();
+    expect(expired).toBeGreaterThanOrEqual(1);
+
+    const row = await prisma.booking.findUnique({ where: { id: result.id } });
+    expect(row?.status).toBe('EXPIRED');
+    expect(row?.holdExpiresAt).toBeNull();
+    const blocks = await prisma.availabilityBlock.findMany({
+      where: { refId: result.id },
+    });
+    expect(blocks).toHaveLength(0);
   });
 
   it('rejects a stay shorter than minNights', async () => {
@@ -254,7 +304,7 @@ describe('BookingsService — short-term', () => {
     });
     createdBookingIds.push(result.id);
 
-    expect(result.status).toBe('CONFIRMED');
+    expect(result.status).toBe('PENDING_PAYMENT');
     expect(Number(result.totalPrice)).toBe(50000);
   });
 
@@ -351,7 +401,9 @@ describe('BookingsService — short-term', () => {
     createdBookingIds.push(booking.id);
 
     const cancelled = await bookings.cancelBooking(tenantUserId, booking.id);
-    expect(cancelled.status).toBe('CANCELLED');
+    expect(cancelled.status).toBe('CANCELLED_BY_GUEST');
+    // MODERATE, arrivée à J+22 : remboursement 100 %.
+    expect(cancelled.refundPercent).toBe(100);
 
     const blocks = await prisma.availabilityBlock.findMany({
       where: { propertyId: shortPropertyId, refId: booking.id },
@@ -388,13 +440,159 @@ describe('BookingsService — short-term', () => {
       id: created.id,
       propertyId: shortPropertyId,
       userId: tenantUserId,
-      status: 'CONFIRMED',
+      status: 'PENDING_PAYMENT',
       currency: 'XAF',
     });
     expect(typeof found!.startDate).toBe('string');
     expect(typeof found!.endDate).toBe('string');
     expect(typeof found!.totalPrice).toBe('string');
     expect(typeof found!.createdAt).toBe('string');
+  });
+
+  it('runs the full lifecycle: accept → preview → host cancel 100 %', async () => {
+    // Demande (instantBook off pour ce test via REQUESTED direct ? simple :
+    // on crée un hold PENDING_PAYMENT puis on le fait accepter comme si).
+    const booking = await bookings.createBooking(tenantUserId, {
+      propertyId: shortPropertyId,
+      startDate: new Date('2027-02-01T00:00:00Z'),
+      endDate: new Date('2027-02-04T00:00:00Z'),
+    });
+    createdBookingIds.push(booking.id);
+    expect(booking.status).toBe('PENDING_PAYMENT');
+
+    // L'owner identifié via assertCanManageProperty (owner du bien).
+    await expect(
+      bookings.cancelByHost(tenantUserId, booking.id),
+    ).rejects.toMatchObject({
+      response: { code: 'NOT_ASSIGNED_AGENT' },
+    });
+
+    const cancelled = await bookings.cancelByHost(ownerUserId, booking.id);
+    expect(cancelled.status).toBe('CANCELLED_BY_HOST');
+    expect(cancelled.refundPercent).toBe(100);
+
+    // Blocage libéré.
+    const blocks = await prisma.availabilityBlock.findMany({
+      where: { refId: booking.id },
+    });
+    expect(blocks).toHaveLength(0);
+  });
+
+  it('exposes a cancellation preview matching the policy', async () => {
+    const booking = await bookings.createBooking(tenantUserId, {
+      propertyId: shortPropertyId,
+      startDate: new Date('2027-03-01T00:00:00Z'),
+      endDate: new Date('2027-03-04T00:00:00Z'),
+    });
+    createdBookingIds.push(booking.id);
+
+    // MODERATE, arrivée à ~4 mois : 100 %.
+    const preview = await bookings.cancellationPreview(
+      tenantUserId,
+      booking.id,
+    );
+    expect(preview.refundPercent).toBe(100);
+    expect(Number(preview.refundAmount)).toBe(Number(booking.totalPrice));
+  });
+
+  it('checks in, checks out and marks the stay COMPLETED', async () => {
+    // On force un CONFIRMED (le paiement est hors périmètre de ce spec).
+    const booking = await bookings.createBooking(tenantUserId, {
+      propertyId: shortPropertyId,
+      startDate: new Date('2026-10-05T00:00:00Z'),
+      endDate: new Date('2026-10-08T00:00:00Z'),
+    });
+    createdBookingIds.push(booking.id);
+    await prisma.booking.update({
+      where: { id: booking.id },
+      data: { status: 'CONFIRMED' },
+    });
+
+    // Le voyageur ne peut pas check-in.
+    await expect(bookings.checkIn(tenantUserId, booking.id)).rejects.toMatchObject(
+      { response: { code: 'NOT_ASSIGNED_AGENT' } },
+    );
+
+    const checkedIn = await bookings.checkIn(ownerUserId, booking.id);
+    expect(checkedIn.status).toBe('CHECKED_IN');
+
+    const checkedOut = await bookings.checkOut(ownerUserId, booking.id);
+    expect(checkedOut.status).toBe('COMPLETED');
+
+    const row = await prisma.booking.findUnique({ where: { id: booking.id } });
+    expect(row?.checkedInAt).not.toBeNull();
+    expect(row?.checkedOutAt).not.toBeNull();
+    const blocks = await prisma.availabilityBlock.findMany({
+      where: { refId: booking.id },
+    });
+    expect(blocks).toHaveLength(0);
+  });
+
+  it('reports a damage within 48 h and refuses after the window', async () => {
+    const booking = await bookings.createBooking(tenantUserId, {
+      propertyId: shortPropertyId,
+      startDate: new Date('2026-11-05T00:00:00Z'),
+      endDate: new Date('2026-11-08T00:00:00Z'),
+    });
+    createdBookingIds.push(booking.id);
+
+    // Pas encore COMPLETED : refus.
+    await expect(
+      bookings.reportDamage(ownerUserId, booking.id, {
+        description: 'Vitre cassée',
+        amount: '15000',
+      }),
+    ).rejects.toMatchObject({ response: { code: 'BOOKING_NOT_COMPLETED' } });
+
+    await prisma.booking.update({
+      where: { id: booking.id },
+      data: { status: 'COMPLETED', checkedOutAt: new Date() },
+    });
+    const report = await bookings.reportDamage(ownerUserId, booking.id, {
+      description: 'Vitre cassée',
+      amount: '15000',
+    });
+    expect(report.reportId).toMatch(/^dmg_/);
+    const row = await prisma.booking.findUnique({ where: { id: booking.id } });
+    expect(row?.cancelReason).toContain('DAMAGE_REPORT:');
+  });
+
+  it('masks arrival details more than 48 h before check-in', async () => {
+    const booking = await bookings.createBooking(tenantUserId, {
+      propertyId: shortPropertyId,
+      startDate: new Date('2027-06-01T00:00:00Z'),
+      endDate: new Date('2027-06-04T00:00:00Z'),
+    });
+    createdBookingIds.push(booking.id);
+    await prisma.booking.update({
+      where: { id: booking.id },
+      data: { status: 'CONFIRMED' },
+    });
+
+    const masked = await bookings.getArrival(tenantUserId, booking.id);
+    expect(masked.maskedBefore).toBe(true);
+    expect(masked.arrivalInstructions).toBeNull();
+    expect(masked.address).toBeNull();
+    expect(masked.checkInFrom).toBe('14:00');
+  });
+
+  it('expires a lapsed REQUESTED and ACCEPTED booking', async () => {
+    const booking = await bookings.createBooking(tenantUserId, {
+      propertyId: shortPropertyId,
+      startDate: new Date('2027-04-01T00:00:00Z'),
+      endDate: new Date('2027-04-04T00:00:00Z'),
+    });
+    createdBookingIds.push(booking.id);
+
+    // Simule une ACCEPTED dont le hold 2 h a expiré.
+    await prisma.booking.update({
+      where: { id: booking.id },
+      data: { status: 'ACCEPTED', holdExpiresAt: new Date(Date.now() - 60_000) },
+    });
+    const expired = await bookings.expireRequestsAndAccepted();
+    expect(expired).toBeGreaterThanOrEqual(1);
+    const row = await prisma.booking.findUnique({ where: { id: booking.id } });
+    expect(row?.status).toBe('EXPIRED');
   });
 
   it('returns an empty managed list for a user who owns no properties', async () => {

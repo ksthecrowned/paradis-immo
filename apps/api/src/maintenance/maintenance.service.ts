@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -15,6 +16,7 @@ import { EventPublisher } from '../events/event.publisher';
 import { DOMAIN_EVENTS } from '../events/event.types';
 import { MandateApprovalService } from '../mandates/mandate-approval.service';
 import { AgencyAccessService } from '../mandates/agency-access.service';
+import { AuditLogService } from '../common/audit-log.service';
 
 /**
  * MVP rule: URGENT priority combined with an estimated cost above this
@@ -32,6 +34,12 @@ export interface CreateMaintenanceTicketInput {
   description: string;
   priority?: MaintenancePriority;
   estimatedCost?: number;
+  /** Spec 15 A1 — contexte et catégorie. */
+  leaseId?: string;
+  bookingId?: string;
+  category?: import('@prisma/client').MaintenanceCategory;
+  availability?: string;
+  entryPermission?: boolean;
   /**
    * If the ticket will require owner approval, the caller must supply the
    * ACTIVE mandate ID that authorizes this agency/agent. We use it to
@@ -43,6 +51,55 @@ export interface CreateMaintenanceTicketInput {
 export interface UpdateMaintenanceTicketInput {
   status?: MaintenanceStatus;
   estimatedCost?: number;
+}
+
+/** SLA par priorité — première action, en heures (spec 09). */
+const SLA_FIRST_RESPONSE_HOURS: Record<MaintenancePriority, number> = {
+  URGENT: 4,
+  HIGH: 24,
+  MEDIUM: 48,
+  LOW: 72,
+};
+
+/**
+ * Spec 15 A1 — table de transitions seule (remplace le PATCH de statut
+ * libre). Reopen modélisé RESOLVED→OPEN (statut REOPENED conservé dans
+ * l'enum pour compat schéma spec 09).
+ */
+const ALLOWED_TRANSITIONS: ReadonlySet<string> = new Set([
+  'OPEN->TRIAGED',
+  'OPEN->AWAITING_QUOTE',
+  'OPEN->ASSIGNED',
+  'OPEN->CANCELLED',
+  'TRIAGED->AWAITING_QUOTE',
+  'TRIAGED->ASSIGNED',
+  'TRIAGED->CANCELLED',
+  'AWAITING_QUOTE->AWAITING_APPROVAL',
+  'AWAITING_QUOTE->ASSIGNED',
+  'AWAITING_QUOTE->CANCELLED',
+  'AWAITING_APPROVAL->ASSIGNED',
+  'AWAITING_APPROVAL->TRIAGED',
+  'AWAITING_APPROVAL->CANCELLED',
+  'ASSIGNED->SCHEDULED',
+  'ASSIGNED->IN_PROGRESS',
+  'ASSIGNED->CANCELLED',
+  'SCHEDULED->IN_PROGRESS',
+  'SCHEDULED->CANCELLED',
+  'IN_PROGRESS->RESOLVED',
+  'IN_PROGRESS->CANCELLED',
+  'RESOLVED->CLOSED',
+  'RESOLVED->OPEN',
+  'REOPENED->TRIAGED',
+  'REOPENED->CANCELLED',
+]);
+
+export function computeSlaDueAt(
+  createdAt: Date,
+  priority: MaintenancePriority,
+): Date {
+  return new Date(
+    createdAt.getTime() + SLA_FIRST_RESPONSE_HOURS[priority] * 3_600_000,
+  );
 }
 
 export interface PublicMaintenanceTicket {
@@ -67,14 +124,217 @@ export class MaintenanceService {
     private readonly events: EventPublisher,
     private readonly approvals: MandateApprovalService,
     private readonly agencyAccess: AgencyAccessService,
+    private readonly audit: AuditLogService,
   ) {}
 
+  /**
+   * Spec 15 A1 — contrôle d'éligibilité à l'ouverture (09) : locataire du
+   * bail ACTIVE/TERMINATING, voyageur CHECKED_IN, gestionnaire via
+   * AgencyAccessService, propriétaire. Sinon 403 NOT_ALLOWED_ON_PROPERTY.
+   */
+  private async assertCanOpenTicket(
+    propertyId: string,
+    reporterId: string,
+  ): Promise<void> {
+    const property = await this.prisma.property.findUnique({
+      where: { id: propertyId },
+      select: { ownerId: true },
+    });
+    if (property?.ownerId === reporterId) return;
+
+    const canManage = await this.agencyAccess.canOperateOnProperty(
+      reporterId,
+      propertyId,
+    );
+    if (canManage) return;
+
+    const lease = await this.prisma.lease.findFirst({
+      where: {
+        propertyId,
+        status: { in: ['ACTIVE', 'TERMINATING'] },
+        OR: [
+          { tenantId: reporterId },
+          { coTenants: { some: { userId: reporterId } } },
+        ],
+      },
+      select: { id: true },
+    });
+    if (lease) return;
+
+    const booking = await this.prisma.booking.findFirst({
+      where: {
+        propertyId,
+        userId: reporterId,
+        status: 'CHECKED_IN',
+      },
+      select: { id: true },
+    });
+    if (booking) return;
+
+    throw new ForbiddenException({
+      code: 'NOT_ALLOWED_ON_PROPERTY',
+      message:
+        'Seuls le locataire du bail, le voyageur en cours de séjour, le propriétaire ou le gestionnaire peuvent ouvrir un ticket sur ce bien.',
+    });
+  }
+
+  private async recordTransition(
+    ticketId: string,
+    from: MaintenanceStatus | null,
+    to: MaintenanceStatus,
+    actorId: string | null,
+    note?: string,
+  ): Promise<void> {
+    await this.prisma.maintenanceStatusChange.create({
+      data: {
+        ticketId,
+        from: from ?? MaintenanceStatus.OPEN,
+        to,
+        actorId,
+        ...(note ? { note } : {}),
+      },
+    });
+  }
+
+  /**
+   * Spec 15 A1 — transition contrôlée par la table. Chaque transition
+   * valide écrit un MaintenanceStatusChange dans la même transaction.
+   */
+  async transition(
+    userId: string,
+    ticketId: string,
+    input: {
+      to: MaintenanceStatus;
+      note?: string;
+      scheduledAt?: Date;
+      actualCost?: number;
+      cancelReason?: string;
+    },
+  ): Promise<PublicMaintenanceTicket> {
+    const ticket = await this.prisma.maintenanceTicket.findUnique({
+      where: { id: ticketId },
+    });
+    if (!ticket) {
+      throw new NotFoundException({
+        code: 'TICKET_NOT_FOUND',
+        message: 'Ticket does not exist',
+      });
+    }
+    const from = ticket.status;
+    const key = `${from}->${input.to}`;
+    if (!ALLOWED_TRANSITIONS.has(key)) {
+      throw new ConflictException({
+        code: 'INVALID_TRANSITION',
+        message: `Transition ${key} non permise`,
+      });
+    }
+
+    // Qui a le droit ? Le côté vente/gestion pour tout, le déclarant pour
+    // CANCELLED / reopen / CLOSED.
+    const isReporter = ticket.reporterId === userId;
+    const isManager = await this.agencyAccess.canOperateOnProperty(
+      userId,
+      ticket.propertyId,
+    );
+    if (!isManager && !isReporter) {
+      throw new ForbiddenException({
+        code: 'NOT_TICKET_PARTY',
+        message: 'Ni déclarant ni gestionnaire de ce ticket',
+      });
+    }
+    if (
+      !isManager &&
+      !(input.to === 'CANCELLED' || input.to === 'CLOSED' || from === 'RESOLVED')
+    ) {
+      throw new ForbiddenException({
+        code: 'NOT_TICKET_PARTY',
+        message:
+          "Le déclarant ne peut qu'annuler, confirmer la résolution ou rouvrir",
+      });
+    }
+
+    // Verrou approbation : une transition qui débloque le travail exige
+    // l'APPROVED si requiresOwnerApproval (spec 09).
+    if (
+      (input.to === 'ASSIGNED' || input.to === 'SCHEDULED' || input.to === 'IN_PROGRESS') &&
+      ticket.requiresOwnerApproval
+    ) {
+      await this.assertRepairApproved(ticketId);
+    }
+
+    if (input.to === 'SCHEDULED' && !input.scheduledAt) {
+      throw new BadRequestException({
+        code: 'SCHEDULED_AT_REQUIRED',
+        message: 'La transition SCHEDULED exige scheduledAt',
+      });
+    }
+    if (input.to === 'CANCELLED' && !input.cancelReason && !input.note) {
+      throw new BadRequestException({
+        code: 'CANCEL_REASON_REQUIRED',
+        message: 'Un motif est requis pour annuler un ticket',
+      });
+    }
+
+    const now = new Date();
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const row = await tx.maintenanceTicket.update({
+        where: { id: ticketId },
+        data: {
+          status: input.to,
+          ...(input.to === 'SCHEDULED' && input.scheduledAt
+            ? { scheduledAt: input.scheduledAt }
+            : {}),
+          ...(input.to === 'IN_PROGRESS' ? { startedAt: now } : {}),
+          ...(input.to === 'RESOLVED' ? { resolvedAt: now } : {}),
+          ...(input.to === 'RESOLVED' && input.actualCost !== undefined
+            ? { actualCost: new Prisma.Decimal(input.actualCost) }
+            : {}),
+          ...(input.to === 'CLOSED' ? { closedAt: now } : {}),
+          ...(input.to === 'CANCELLED'
+            ? { cancelReason: input.cancelReason ?? input.note ?? null }
+            : {}),
+        },
+      });
+      await tx.maintenanceStatusChange.create({
+        data: {
+          ticketId,
+          from,
+          to: input.to,
+          actorId: userId,
+          ...(input.note || input.cancelReason
+            ? { note: input.note ?? input.cancelReason }
+            : {}),
+        },
+      });
+      return row;
+    });
+
+    await this.audit.record({
+      actorId: userId,
+      actorType: 'USER',
+      action: 'maintenance.ticket.transition',
+      targetType: 'MAINTENANCE_TICKET',
+      targetId: ticketId,
+      before: { status: from },
+      after: { status: input.to },
+      metadata: input.note ? { note: input.note } : undefined,
+    });
+
+    return this.toPublic(updated);
+  }
+
   async createTicket(
-    input: CreateMaintenanceTicketInput,
+    input: CreateMaintenanceTicketInput & {
+      leaseId?: string;
+      bookingId?: string;
+      category?: import('@prisma/client').MaintenanceCategory;
+      availability?: string;
+      entryPermission?: boolean;
+    },
   ): Promise<PublicMaintenanceTicket> {
     const property = await this.prisma.property.findUnique({
       where: { id: input.propertyId },
-      select: { id: true },
+      select: { id: true, ownerId: true, organizationId: true },
     });
     if (!property) {
       throw new NotFoundException({
@@ -82,6 +342,10 @@ export class MaintenanceService {
         message: 'Property does not exist',
       });
     }
+
+    // Spec 15 A1 — contrôle d'éligibilité à l'ouverture : locataire du bail
+    // ACTIVE/TERMINATING, voyageur CHECKED_IN, gestionnaire, propriétaire.
+    await this.assertCanOpenTicket(input.propertyId, input.reporterId);
 
     // Spec 03: a per-mandate `repairApprovalThreshold` replaces the legacy
     // priority-only rule when present.
@@ -106,19 +370,43 @@ export class MaintenanceService {
       });
     }
 
+    const priority = input.priority ?? MaintenancePriority.MEDIUM;
     const ticket = await this.prisma.maintenanceTicket.create({
       data: {
         propertyId: input.propertyId,
         reporterId: input.reporterId,
         title: input.title,
         description: input.description,
-        priority: input.priority ?? MaintenancePriority.MEDIUM,
+        priority,
         status: MaintenanceStatus.OPEN,
+        slaDueAt: computeSlaDueAt(new Date(), priority),
         ...(input.estimatedCost !== undefined
           ? { estimatedCost: new Prisma.Decimal(input.estimatedCost) }
           : {}),
+        ...(input.leaseId ? { leaseId: input.leaseId } : {}),
+        ...(input.bookingId ? { bookingId: input.bookingId } : {}),
+        ...(input.category ? { category: input.category } : {}),
+        ...(input.availability ? { availability: input.availability } : {}),
+        ...(input.entryPermission !== undefined
+          ? { entryPermission: input.entryPermission }
+          : {}),
         requiresOwnerApproval,
       },
+    });
+    await this.recordTransition(
+      ticket.id,
+      null,
+      MaintenanceStatus.OPEN,
+      input.reporterId,
+      'Ouverture du ticket',
+    );
+    await this.audit.record({
+      actorId: input.reporterId,
+      actorType: 'USER',
+      action: 'maintenance.ticket.open',
+      targetType: 'MAINTENANCE_TICKET',
+      targetId: ticket.id,
+      metadata: { propertyId: ticket.propertyId, priority },
     });
 
     if (requiresOwnerApproval && input.mandateId) {
@@ -137,6 +425,16 @@ export class MaintenanceService {
         requestedByUserId: input.reporterId,
       });
     }
+
+    // Spec 15 A3 — l'ouverture du ticket est auditée.
+    await this.audit.record({
+      actorId: input.reporterId,
+      actorType: 'USER',
+      action: 'maintenance.ticket.open',
+      targetType: 'MAINTENANCE_TICKET',
+      targetId: ticket.id,
+      metadata: { propertyId: ticket.propertyId, priority },
+    });
 
     await this.events.emit(DOMAIN_EVENTS.MAINTENANCE_OPENED, {
       ticketId: ticket.id,
@@ -182,13 +480,11 @@ export class MaintenanceService {
       userId,
       existing.propertyId,
     );
-    if (input.status !== undefined && existing.requiresOwnerApproval) {
-      await this.assertRepairApproved(ticketId);
-    }
+    // Spec 15 A1 — le statut ne se change plus ici : passer par
+    // `transition()` (POST …/transitions). Champs descriptifs uniquement.
     const updated = await this.prisma.maintenanceTicket.update({
       where: { id: ticketId },
       data: {
-        ...(input.status !== undefined ? { status: input.status } : {}),
         ...(input.estimatedCost !== undefined
           ? { estimatedCost: new Prisma.Decimal(input.estimatedCost) }
           : {}),

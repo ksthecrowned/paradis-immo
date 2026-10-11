@@ -1,7 +1,9 @@
 import { Test } from '@nestjs/testing';
-import { NotFoundException } from '@nestjs/common';
+import { ConflictException, NotFoundException } from '@nestjs/common';
 import { SaleInquiryStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { EventPublisher } from '../events/event.publisher';
+import { AgencyAccessService } from '../mandates/agency-access.service';
 import { SalesService } from './sales.service';
 
 describe('SalesService', () => {
@@ -20,7 +22,23 @@ describe('SalesService', () => {
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
-      providers: [SalesService, PrismaService],
+      providers: [
+        SalesService,
+        PrismaService,
+        { provide: EventPublisher, useValue: { emit: jest.fn() } },
+        {
+          provide: AgencyAccessService,
+          useValue: {
+            listOperablePropertyIds: jest
+              .fn()
+              .mockImplementation((userId: string) =>
+                // The test fixtures grant everyone the same OWNER org; the
+                // owned property exists only for the real owner.
+                Promise.resolve(userId === ownerUserId ? [salePropertyId] : []),
+              ),
+          },
+        },
+      ],
     }).compile();
     sales = moduleRef.get(SalesService);
     prisma = moduleRef.get(PrismaService);
@@ -205,15 +223,24 @@ describe('SalesService', () => {
   });
 
   it('updates inquiry status NEW → CONTACTED for the property owner', async () => {
+    // Anti-doublon (spec 08) : un seul utilisateur n'a qu'une demande ouverte
+    // par bien ; ce test la réutilise (celle créée par le premier test).
     const created = await sales.createInquiry({
       propertyId: salePropertyId,
       userId: buyerUserId,
       message: 'Encore moi',
-    });
-    createdInquiryIds.push(created.id);
+    }).catch(() => null);
+    const inquiryId =
+      created?.id ??
+      (await sales.listInquiriesForBuyer(buyerUserId)).find(
+        (i) =>
+          i.propertyId === salePropertyId &&
+          i.status === SaleInquiryStatus.NEW,
+      )?.id;
+    expect(inquiryId).toBeDefined();
 
     const updated = await sales.updateInquiryStatus({
-      inquiryId: created.id,
+      inquiryId: inquiryId!,
       actorUserId: ownerUserId,
       newStatus: SaleInquiryStatus.CONTACTED,
     });
@@ -222,15 +249,7 @@ describe('SalesService', () => {
   });
 
   it('rejects update from a user with no relation to the property', async () => {
-    const created = await sales.createInquiry({
-      propertyId: salePropertyId,
-      userId: buyerUserId,
-      message: 'Troisième passage',
-    });
-    createdInquiryIds.push(created.id);
-
-    // The agent doesn't belong to the property's owner org, so they cannot
-    // mutate the inquiry. Use a fresh user with no org membership instead.
+    // Reuse the still-open inquiry (anti-doublon spec 08 prevents a second).
     const stranger = await prisma.user.create({
       data: {
         phone: `+24207${Date.now().toString().slice(-8)}`,
@@ -238,10 +257,19 @@ describe('SalesService', () => {
         roles: { create: { role: 'TENANT' } },
       },
     });
+    const openInquiryId = (
+      await sales.listInquiriesForBuyer(buyerUserId)
+    ).find(
+      (i) =>
+        i.propertyId === salePropertyId &&
+        i.status !== SaleInquiryStatus.CLOSED,
+    )?.id;
+    expect(openInquiryId).toBeDefined();
+
     try {
       await expect(
         sales.updateInquiryStatus({
-          inquiryId: created.id,
+          inquiryId: openInquiryId!,
           actorUserId: stranger.id,
           newStatus: SaleInquiryStatus.CONTACTED,
         }),
@@ -254,6 +282,27 @@ describe('SalesService', () => {
         .delete({ where: { id: stranger.id } })
         .catch(() => undefined);
     }
+  });
+
+  it('rejects a second open inquiry with 409 INQUIRY_ALREADY_OPEN', async () => {
+    const first = await sales.createInquiry({
+      propertyId: salePropertyId,
+      userId: buyerUserId,
+      message: 'Première demande —',
+    }).catch(async () => {
+      // Une demande ouverte existe déjà (run précédent) : on récupère l'ID
+      // pour la purge, puis l'anti-doublon doit toujours lever 409.
+      return null;
+    });
+    if (first) createdInquiryIds.push(first.id);
+
+    await expect(
+      sales.createInquiry({
+        propertyId: salePropertyId,
+        userId: buyerUserId,
+        message: 'Doublon',
+      }),
+    ).rejects.toBeInstanceOf(ConflictException);
   });
 
   it('lists inquiries for the managed properties of an actor', async () => {

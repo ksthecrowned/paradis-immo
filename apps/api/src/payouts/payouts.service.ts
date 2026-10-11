@@ -443,15 +443,22 @@ export class PayoutsService {
   // Cron mensuel (le 10)
   // -------------------------------------------------------------------------
 
-  /** Public for direct invocation from tests. */
-  async runMonthlyPayouts(): Promise<{
+  /**
+   * Cron mensuel du 10. Un scope d'organisations peut être passé (utile aux
+   * specs et aux reprises limitées) : la base est partagée, et un balayage
+   * global des orgas résiduelles peut dépasser largement 30 s.
+   */
+  async runMonthlyPayouts(scope?: string[]): Promise<{
     orgs: number;
     created: number;
     paid: number;
     failed: number;
   }> {
     const orgs = await this.prisma.organization.findMany({
-      where: { payoutFrequency: 'MONTHLY' },
+      where: {
+        payoutFrequency: 'MONTHLY',
+        ...(scope && scope.length > 0 ? { id: { in: scope } } : {}),
+      },
       select: { id: true, minPayoutAmount: true },
     });
     let created = 0;

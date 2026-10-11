@@ -8,11 +8,17 @@ import { VisitsController } from './visits.controller';
 import { VisitSlotsService } from './visit-slots.service';
 import { SlotGeneratorProcessor } from './slot-generator.processor';
 import { VisitSlotGenerator } from './slot-generator';
+import { HoldExpiryProcessor } from './hold-expiry.processor';
 
 @Module({
   imports: [PrismaModule, EventModule, MandatesModule, UsersModule],
   controllers: [VisitSlotsController, VisitsController],
-  providers: [VisitSlotsService, VisitSlotGenerator, SlotGeneratorProcessor],
+  providers: [
+    VisitSlotsService,
+    VisitSlotGenerator,
+    SlotGeneratorProcessor,
+    HoldExpiryProcessor,
+  ],
   exports: [VisitSlotsService, VisitSlotGenerator],
 })
 export class VisitSlotsModule {}

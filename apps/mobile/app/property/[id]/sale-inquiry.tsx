@@ -5,6 +5,8 @@ import { colors, radii, spacing } from '@/constants/theme';
 import { useCatalogProperty } from '@/hooks/use-catalog-property';
 import { getStoredUser } from '@/lib/auth';
 import { ensureAuthenticated } from '@/lib/auth-guard';
+import { getErrorMessage } from '@/lib/feedback';
+import { createSaleInquiry } from '@/lib/sales';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useState } from 'react';
@@ -56,14 +58,28 @@ export default function SaleInquiryScreen(): React.JSX.Element {
 
   const canSubmit = message.trim().length >= 10;
 
-  const handleSubmit = (): void => {
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
+  const handleSubmit = async (): Promise<void> => {
     setTried(true);
     if (!canSubmit) return;
     setSubmitting(true);
-    setTimeout(() => {
-      setSubmitting(false);
+    setSubmitError(null);
+    try {
+      // Spec 08 — vraie demande d'achat (message, budget, téléphone).
+      const budgetDigits = budget.replace(/[^0-9]/g, '');
+      await createSaleInquiry({
+        propertyId,
+        message: message.trim(),
+        ...(budgetDigits ? { budget: Number(budgetDigits) } : {}),
+        ...(phone.trim() ? { phone: phone.trim() } : {}),
+      });
       setDone(true);
-    }, 400);
+    } catch (err) {
+      setSubmitError(getErrorMessage(err, "Impossible d'envoyer la demande"));
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   if (!property) {
@@ -127,6 +143,7 @@ export default function SaleInquiryScreen(): React.JSX.Element {
         {tried && !canSubmit ? (
           <Text style={styles.error}>Minimum 10 caractères.</Text>
         ) : null}
+        {submitError ? <Text style={styles.error}>{submitError}</Text> : null}
 
         <Text style={styles.label}>Budget indicatif (optionnel)</Text>
         <TextInput

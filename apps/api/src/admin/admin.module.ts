@@ -1,8 +1,12 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
 import { PrismaModule } from '../prisma/prisma.module';
+import { EventModule } from '../events/event.module';
+import { AuditLogModule } from '../common/audit-log.module';
+import { AuditLogService } from '../common/audit-log.service';
 import { AdminController } from './admin.controller';
 import { AdminService } from './admin.service';
+import { AdminPermissionGuard } from './admin-permission.guard';
 
 /**
  * Back-office endpoints restricted to PLATFORM_ADMIN.
@@ -16,8 +20,9 @@ import { AdminService } from './admin.service';
  * All routes are guarded by `AppAuthGuard + RolesGuard(PLATFORM_ADMIN)`.
  */
 @Module({
-  imports: [PrismaModule, AuthModule],
+  imports: [PrismaModule, AuthModule, EventModule, AuditLogModule],
   controllers: [AdminController],
-  providers: [AdminService],
+  providers: [AdminService, AuditLogService, AdminPermissionGuard],
+  exports: [AdminService, AuditLogService],
 })
 export class AdminModule {}

@@ -1,9 +1,12 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import {
   PropertyReportStatus,
   PropertyStatus,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { EventPublisher } from '../events/event.publisher';
+import { DOMAIN_EVENTS } from '../events/event.types';
+import { AuditLogService } from '../common/audit-log.service';
 
 export interface AdminStats {
   totalUsers: number;
@@ -54,7 +57,27 @@ export interface AdminReportListResult {
  */
 @Injectable()
 export class AdminService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly events: EventPublisher,
+    private readonly audit: AuditLogService,
+  ) {}
+
+  /** Spec 15 A3 — suspension/levée de suspension utilisateur auditée. */
+  async auditSuspension(
+    adminUserId: string,
+    targetUserId: string,
+    action: 'SUSPEND' | 'UNSUSPEND',
+    reason?: string,
+  ): Promise<void> {
+    await this.audit.record({
+      actorId: adminUserId,
+      action: `admin.user.${action.toLowerCase()}`,
+      targetType: 'USER',
+      targetId: targetUserId,
+      metadata: reason ? { reason } : undefined,
+    });
+  }
 
   /**
    * Aggregated counters shown on the admin dashboard.
@@ -137,7 +160,16 @@ export class AdminService {
    * Returns the updated record (camelCased, with neighborhood
    * included) so the admin UI can update without a follow-up GET.
    */
-  async moderateProperty(id: string, target: PropertyStatus) {
+  /**
+   * Spec 15 A2 — la modération porte un motif obligatoire pour un refus,
+   * et notifie le propriétaire (LISTING_MODERATED avec le motif).
+   */
+  async moderateProperty(
+    id: string,
+    target: PropertyStatus,
+    adminUserId: string,
+    reason?: string,
+  ) {
     const existing = await this.prisma.property.findUnique({ where: { id } });
     if (!existing) {
       throw new NotFoundException({
@@ -145,9 +177,38 @@ export class AdminService {
         message: `Property ${id} not found`,
       });
     }
+    // Spec 15 A2 — PropertyStatus n'a pas de REJECTED : le « refus »
+    // correspond à ARCHIVED (retiré du marché) — le motif est obligatoire,
+    // la notification porte ce motif.
+    const isRejection = target === PropertyStatus.ARCHIVED;
+    if (isRejection && !reason?.trim()) {
+      throw new BadRequestException({
+        code: 'MODERATION_REASON_REQUIRED',
+        message: 'Un motif est requis pour refuser (ARCHIVED) une annonce',
+      });
+    }
     const updated = await this.prisma.property.update({
       where: { id },
       data: { status: target },
+    });
+
+    await this.audit.record({
+      actorId: adminUserId,
+      action: 'admin.property.moderate',
+      targetType: 'PROPERTY',
+      targetId: id,
+      before: { status: existing.status },
+      after: { status: target },
+      metadata: reason ? { reason } : undefined,
+    });
+
+    // Notifier le propriétaire avec le motif (12).
+    await this.events.emit(DOMAIN_EVENTS.PROPERTY_MODERATED, {
+      propertyId: id,
+      ownerId: existing.ownerId,
+      status: target,
+      reason: reason ?? null,
+      title: existing.title,
     });
     return updated;
   }

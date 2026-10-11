@@ -54,6 +54,8 @@ export interface InitiatePaymentInput {
   rentScheduleId?: string;
   saleInstallmentId?: string;
   visitBookingId?: string;
+  /** Spec 07 — paiement de séjour via le booking (hold PENDING_PAYMENT). */
+  bookingId?: string;
   /** Spec 05 — `{ type, id }` form accepted by `POST payments`. */
   target?: PaymentTargetInput;
   metadata?: Record<string, unknown>;
@@ -385,6 +387,9 @@ export class PaymentsService {
     }
     if (input.visitBookingId) {
       return { type: 'VISIT_BOOKING', id: input.visitBookingId };
+    }
+    if (input.bookingId) {
+      return { type: 'BOOKING', id: input.bookingId };
     }
     return null;
   }

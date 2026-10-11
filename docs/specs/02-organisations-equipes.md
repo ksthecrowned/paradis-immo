@@ -7,7 +7,7 @@ Permettre à une agence de s'inscrire, d'être affiliée, de gérer son équipe 
 ## État actuel (audit)
 - `Organization` contient `type` (PLATFORM, AGENCY, OWNER), `affiliationStatus` (PENDING, APPROVED, SUSPENDED), `verified`, et des champs vitrine (shortName, tagline, logoColor, foundedYear, `rating`, `reviewCount`, `dealSuccessPercent`).
 - Aucun endpoint de création ou de modification d'organisation. Aucune invitation, aucune gestion des membres.
-- Le choix du rôle web (`auth/web/role`) crée l'org implicitement. Pour l'agent, il rattache au mécanisme `ensureAgentMembership` (faille, voir 01).
+- Le choix du rôle dans le parcours web de gestion (`auth/web/role`) crée l'org implicitement. Pour l'agent, il rattache au mécanisme `ensureAgentMembership` (faille, voir 01). Ce parcours est réservé aux propriétaires et membres d'agence, pas aux clients finaux.
 - `OrganizationReview` est seedé : `authorName` en texte libre, `rating` et `reviewCount` statiques sur l'org, pas de `POST`.
 - Pas de logo (seulement une couleur), pas de zones d'intervention, pas d'horaires.
 
@@ -134,7 +134,7 @@ model OrganizationReview {
   - `/agent/settings/team` : membres, invitations, rôles ;
   - `/agent/reviews` : avis et réponses.
 - **Web, onboarding** : `onboarding/role` → « Je crée mon agence » (formulaire RCCM et NIU) ou « Je rejoins une agence » (saisie du code d'invitation). Plus d'affiliation automatique.
-- **Web, public** : `/invitations/[token]` pour accepter.
+- **Portail web de gestion** : `/invitations/[token]` est un flux ponctuel d'acceptation d'invitation d'équipe, pas un portail client. Après acceptation, le membre accède au portail selon son rôle.
 - **Mobile** :
   - fiche agence : avis paginés, CTA « Laisser un avis » si éligible ;
   - `profile/reviews` : avis à donner, après chaque interaction terminée.

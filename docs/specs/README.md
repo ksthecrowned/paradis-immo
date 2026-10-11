@@ -1,7 +1,7 @@
 # Specs fonctionnelles — Paradis Immo
 
 Specs des fonctionnalités à ajouter à la plateforme (API `apps/api`, dashboards `apps/web`, app `apps/mobile`).
-Elles s'appuient sur un audit du code au 2026-10 et ne contiennent aucun code applicatif, seulement des contrats : règles, modèle de données, endpoints, écrans et critères d'acceptation.
+Elles s'appuient sur un audit du code au 2026-10 et ne contiennent aucun code applicatif, seulement des contrats : règles, modèle de données, endpoints, écrans, critères d'acceptation et deltas d'implémentation.
 
 ## Index
 
@@ -21,9 +21,13 @@ Elles s'appuient sur un audit du code au 2026-10 et ne contiennent aucun code ap
 | 12 | [12-admin-back-office.md](12-admin-back-office.md) | Utilisateurs, organisations, paiements, modération, audit log, configuration |
 | 13 | [13-recherche-annonces.md](13-recherche-annonces.md) | Filtres, recherche texte et géo, tri, alertes, documents du bien |
 | 14 | [14-mobile-transverse.md](14-mobile-transverse.md) | Corrections des écrans factices, stockage sécurisé, deep links, offline, espace gestionnaire |
+| 15 | [15-consolidation.md](15-consolidation.md) | Index des chantiers transverses restants, référencés dans les deltas canoniques |
+| 16 | [16-preparation-lancement-et-exigences-transverses.md](16-preparation-lancement-et-exigences-transverses.md) | Isolation multi-agences, parcours mobiles, validations financières, exploitation et porte de lancement |
 
 ## Conventions
 
+- **Périmètre web et mobile.** Le web comprend uniquement (1) le site vitrine public — découverte, recherche et consultation des annonces — et (2) le portail authentifié de gestion réservé aux agents, propriétaires, administrateurs d'agence et administrateurs de la plateforme. Il n'existe pas de portail web client pour les chercheurs, locataires, voyageurs ou acheteurs. Leurs parcours authentifiés (compte, favoris privés, candidatures, visites, réservations, paiements, messagerie et suivi) se font dans l'app mobile. Les pages publiques d'annonces et le flux ponctuel d'acceptation d'une invitation d'équipe ne constituent pas un portail client.
+- **Sessions web.** Une session web sert exclusivement au portail de gestion. Les routes `auth/web/*` et les pages protégées ne doivent pas donner accès à un espace privé de client final ; les clients utilisent l'authentification mobile.
 - **Priorités.**
   - **P0** : bug, faille ou flux cassé ; à faire avant toute mise en production réelle.
   - **P1** : fonctionnalité attendue d'une plateforme de gestion complète.
@@ -36,7 +40,6 @@ Elles s'appuient sur un audit du code au 2026-10 et ne contiennent aucun code ap
   - `OWNER` : propriétaire, membre OWNER d'une org de type OWNER.
   - `MANAGER` : membre ADMIN d'une agence.
   - `AGENT` : membre AGENT d'une agence.
-  - `PROVIDER` : prestataire de maintenance, nouveau rôle.
   - `PLATFORM_ADMIN`.
 - **Accès gestionnaire.** Il passe toujours par `AgencyAccessService` (propriétaire, gérant de l'agence mandatée, agent assigné, ou membre de l'org d'un bien sans mandat). Toute liste « managed » doit utiliser ce même périmètre, et non la seule appartenance à l'org du bien (incohérence relevée dans bookings, maintenance et sales).
 - **Endpoints.** Préfixe `api/v1`. Pagination standard `?limit=&offset=` avec réponse `{ data, meta: { total, limit, offset } }`, comme dans `properties`.
@@ -44,7 +47,9 @@ Elles s'appuient sur un audit du code au 2026-10 et ne contiennent aucun code ap
 - **Montants.** `Decimal` en XAF, sans centimes. La devise est portée par l'objet.
 - **Dates.** Stockage en UTC. Affichage et crons en `Africa/Brazzaville`.
 
-## Constats transverses (P0)
+## Constats transverses initiaux (à revalider)
+
+Les constats ci-dessous décrivent l'audit de base et peuvent être dépassés par les changements locaux. Pour l'état local courant, consulter les sections « Déjà en place », « Écarts » et « Delta d'implémentation » des specs, puis l'index 15.
 
 À traiter en priorité, quel que soit le domaine :
 

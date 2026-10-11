@@ -7,6 +7,7 @@ import { DataExportController } from './data-export.controller';
 import { DataExportService } from './data-export.service';
 import { KycController } from './kyc.controller';
 import { KycService } from './kyc.service';
+import { AdminPermissionGuard } from '../admin/admin-permission.guard';
 
 /**
  * Spec 01 — account compliance surface:
@@ -16,6 +17,6 @@ import { KycService } from './kyc.service';
 @Module({
   imports: [PrismaModule, MediaModule, AuthModule],
   controllers: [DataExportController, KycController, AdminKycController],
-  providers: [DataExportService, KycService],
+  providers: [DataExportService, KycService, AdminPermissionGuard],
 })
 export class AccountModule {}

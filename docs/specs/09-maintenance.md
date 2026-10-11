@@ -2,19 +2,20 @@
 
 ## Objectif et rôles
 Gérer les demandes d'intervention, du signalement par le locataire jusqu'à la facture et l'imputation comptable : prestataires, devis, approbation du propriétaire, suivi, et maintenance préventive.
-Rôles : `TENANT` (déclarant), `AGENT` et `MANAGER`, `OWNER`, `PROVIDER` (nouveau : artisan ou prestataire externe).
+Rôles : `TENANT` (déclarant), `AGENT` et `MANAGER`, `OWNER`. Les prestataires externes n'ont pas de compte ni d'accès direct au système : l'agence pilote les échanges et met à jour le ticket pour leur compte.
 
-## État actuel (audit)
-- `MaintenanceTicket`
-  - Champs : title, description, priority (LOW, MEDIUM, HIGH, URGENT), status (OPEN, ASSIGNED, IN_PROGRESS, DONE, CLOSED), estimatedCost, requiresOwnerApproval, assigneeId.
-  - `updateTicket` accepte n'importe quel statut : il n'y a **pas de machine à états**.
-  - `assigneeId` peut désigner n'importe quel user : aucune notion de prestataire.
-  - `computeRequiresOwnerApproval` (URGENT ou montant) crée une approbation MAJOR_REPAIR, mais celle-ci ne débloque rien (03).
-- `createTicket` (controller et service) vérifie seulement que le bien existe. **N'importe quel utilisateur connecté peut ouvrir un ticket sur n'importe quel bien**, puisqu'aucun contrôle de bail n'est fait.
-- `listForActor` est basé sur l'org et non sur le mandat.
-- Pas de commentaires, de photos, de coût réel, de facture, de catégorie, de créneau d'intervention ni de satisfaction.
-- `MAINTENANCE_OPENED` est émis sans listener.
-- Web : liste, détail, ajout et édition côté owner et agent. Mobile : signalement côté locataire, sans upload de photos.
+## État actuel (audit local, 2026-10-11)
+### Déjà en place
+- Tickets de maintenance et transitions par machine à états (changements locaux).
+- Assignation de tickets.
+- L'événement d'ouverture existe ; son traitement de notification doit être confirmé et raccordé au handler approprié.
+- Des changements locaux touchent le module de maintenance ; cette liste décrit les capacités constatées, pas leur validation par tests.
+
+### Écarts
+- Il reste à contrôler les droits d'ouverture par lien au bien et le périmètre des listes via mandat.
+- Commentaires, pièces jointes, devis, coûts réels, notation et annuaire de prestataires ne sont pas réalisés.
+- Les plans préventifs, l'historique consolidé et l'automatisation des transitions liées à l'approbation restent à couvrir.
+- Les écrans utilisateurs et l'upload mobile restent incomplets.
 
 ## User stories
 1. En tant que locataire, je signale un problème : catégorie (plomberie, électricité, serrurerie, climatisation, nuisibles, structure, autre), description, photos ou vidéo, urgence, disponibilités pour l'intervention, et autorisation d'entrer en mon absence.
@@ -22,7 +23,7 @@ Rôles : `TENANT` (déclarant), `AGENT` et `MANAGER`, `OWNER`, `PROVIDER` (nouve
 3. En tant que gestionnaire, je qualifie le ticket (catégorie, priorité, responsabilité locataire ou bailleur) et je l'assigne à un agent interne ou à un prestataire de mon annuaire.
 4. Je demande un ou plusieurs devis aux prestataires, je compare et je choisis. Au-delà du seuil du mandat, le devis choisi part en approbation MAJOR_REPAIR chez le propriétaire.
 5. En tant que propriétaire, j'approuve ou je refuse le devis depuis le push ou l'app. L'approbation débloque l'intervention.
-6. En tant que prestataire, je reçois la mission par SMS ou WhatsApp avec un lien (pas de compte obligatoire), j'indique la date d'intervention, puis je la marque terminée avec photos et facture.
+6. En tant que gestionnaire, je contacte le prestataire hors plateforme, puis j'enregistre dans le ticket la date d'intervention, son devis, les photos et la facture reçus. Le prestataire n'accède pas à l'application ni à un portail web.
 7. En tant que gestionnaire, je valide l'intervention, je saisis le coût réel et la facture. Une `Expense` est créée et imputée au propriétaire, ou au locataire si la responsabilité lui incombe (refacturation par échéance spéciale).
 8. Le locataire note l'intervention (1 à 5).
 9. En tant que gestionnaire, je planifie une maintenance préventive récurrente (entretien de la climatisation tous les 6 mois, vidange de fosse, groupe électrogène) : les tickets sont générés automatiquement.
@@ -43,9 +44,9 @@ Rôles : `TENANT` (déclarant), `AGENT` et `MANAGER`, `OWNER`, `PROVIDER` (nouve
   | AWAITING_APPROVAL | ASSIGNED | système | approbation APPROVED |
   | AWAITING_APPROVAL | TRIAGED | système | approbation REJECTED |
   | TRIAGED / AWAITING_QUOTE | ASSIGNED | gestionnaire | coût sous le seuil, ou pas d'approbation requise |
-  | ASSIGNED | SCHEDULED | gestionnaire / prestataire | date fixée |
-  | SCHEDULED / ASSIGNED | IN_PROGRESS | intervenant | |
-  | IN_PROGRESS | RESOLVED | intervenant | photos « après » obligatoires si catégorie ≠ AUTRE |
+  | ASSIGNED | SCHEDULED | gestionnaire | date fixée avec le prestataire |
+  | SCHEDULED / ASSIGNED | IN_PROGRESS | gestionnaire | confirme le début de l'intervention |
+  | IN_PROGRESS | RESOLVED | gestionnaire | enregistre la fin et les éléments reçus du prestataire ; photos « après » obligatoires si catégorie ≠ AUTRE |
   | RESOLVED | CLOSED | déclarant ou auto à J+5 | |
   | RESOLVED | REOPENED → TRIAGED | déclarant | sous 5 jours |
   | * (avant IN_PROGRESS) | CANCELLED | déclarant / gestionnaire | motif |
@@ -55,10 +56,11 @@ Rôles : `TENANT` (déclarant), `AGENT` et `MANAGER`, `OWNER`, `PROVIDER` (nouve
 - **Seuil d'approbation** : `Mandate.repairApprovalThreshold` (03), appliqué au montant du devis retenu (et non plus à `estimatedCost` saisi librement).
 - **Prestataires**
   - Annuaire par org : nom, métier(s), téléphone, zone, tarif indicatif, note moyenne.
-  - Accès à la mission par lien signé (token de 30 jours), limité au ticket : description, adresse, contact du locataire si autorisé, upload de photos, de devis et de facture.
+  - L'agence contacte le prestataire par ses propres canaux (téléphone, SMS, WhatsApp ou e-mail). Les demandes de devis, devis reçus, dates, photos et factures sont enregistrés par un membre autorisé de l'agence.
+  - Aucun compte, rôle, token d'accès, lien de mission ni portail prestataire web ou mobile. Les communications directes avec le prestataire sont hors plateforme.
 - **Coût réel** : à `RESOLVED`, le gestionnaire saisit `actualCost` et la facture. Cela crée `Expense` (03) en APPROVED si `actualCost ≤ devis × 1,1`, sinon une nouvelle approbation est requise.
 - **Imputation** : `chargeTo = OWNER | TENANT | AGENCY`. Si TENANT, une échéance `kind = CHARGES_ADJUSTMENT` est créée sur le bail (04).
-- **Visibilité des commentaires** : `PUBLIC` (déclarant, gestionnaire, prestataire) ou `INTERNAL` (gestionnaire et propriétaire seulement).
+- **Visibilité des commentaires** : `PUBLIC` (déclarant et gestionnaire) ou `INTERNAL` (gestionnaire et propriétaire seulement). Les prestataires externes ne sont pas participants au fil.
 - **Préventif** : `MaintenancePlan` (bien, catégorie, périodicité en mois, prochaine date). Un cron quotidien crée le ticket à J-7, en statut TRIAGED.
 - **Périmètre de liste** : `listForActor` via `AgencyAccessService` et non plus via la seule appartenance à l'org.
 - **Événements** : `MAINTENANCE_OPENED` (handler à créer), `MAINTENANCE_STATUS_CHANGED`, `MAINTENANCE_COMMENT_ADDED`, `MAINTENANCE_SLA_BREACHED`.
@@ -99,11 +101,11 @@ model MaintenanceTicket {
   history           MaintenanceStatusChange[]
 }
 
-model MaintenanceComment { id String @id @default(cuid()) ticketId String authorId String? providerId String? body String visibility String @default("PUBLIC") createdAt DateTime @default(now()) }
+model MaintenanceComment { id String @id @default(cuid()) ticketId String authorId String body String visibility String @default("PUBLIC") createdAt DateTime @default(now()) }
 
-model MaintenanceAttachment { id String @id @default(cuid()) ticketId String commentId String? kind String /* BEFORE | AFTER | QUOTE | INVOICE | OTHER */ fileKey String mimeType String uploadedById String? uploadedByProviderId String? createdAt DateTime @default(now()) }
+model MaintenanceAttachment { id String @id @default(cuid()) ticketId String commentId String? kind String /* BEFORE | AFTER | QUOTE | INVOICE | OTHER */ fileKey String mimeType String uploadedById String createdAt DateTime @default(now()) }
 
-model MaintenanceStatusChange { id String @id @default(cuid()) ticketId String from MaintenanceStatus to MaintenanceStatus actorId String? providerId String? note String? createdAt DateTime @default(now()) }
+model MaintenanceStatusChange { id String @id @default(cuid()) ticketId String from MaintenanceStatus to MaintenanceStatus actorId String? note String? createdAt DateTime @default(now()) }
 
 model ServiceProvider {
   id             String   @id @default(cuid())
@@ -134,8 +136,6 @@ model MaintenanceQuote {
   createdAt  DateTime    @default(now())
 }
 
-model ProviderAccessToken { id String @id @default(cuid()) providerId String ticketId String tokenHash String @unique expiresAt DateTime revokedAt DateTime? }
-
 model MaintenancePlan {
   id           String              @id @default(cuid())
   propertyId   String
@@ -165,10 +165,6 @@ model MaintenancePlan {
 | POST | `maintenance/tickets/:id/costs` | gestionnaire | `{ actualCost, invoiceKey, chargeTo }` : crée l'Expense |
 | POST | `maintenance/tickets/:id/rating` | déclarant | `{ satisfaction, comment }` |
 | CRUD | `organizations/:id/providers` | gestionnaire | Annuaire des prestataires |
-| GET | `provider-portal/:token` | prestataire (lien) | Vue de la mission |
-| POST | `provider-portal/:token/quote` | prestataire | Soumet un devis |
-| POST | `provider-portal/:token/transition` | prestataire | SCHEDULED, IN_PROGRESS ou RESOLVED, avec photos |
-| POST | `provider-portal/:token/attachments` | prestataire | Upload |
 | CRUD | `properties/:id/maintenance-plans` | gestionnaire | Préventif |
 | GET | `properties/:id/maintenance-history` | OWNER / gestionnaire | Historique et coûts |
 
@@ -182,19 +178,28 @@ model MaintenancePlan {
   - `maintenance/[id]` : timeline, commentaires (onglets Public et Interne), devis comparés, approbation liée (lien vers `/owner/mandate`), coûts et facture.
   - `/agent/providers` : annuaire.
   - Fiche du bien : onglet « Entretien », avec plans préventifs et historique.
-- **Portail prestataire** : `/p/[token]`, page web mobile-first sans compte (mission, devis, photos, statut).
+- **Portail web de gestion** : l'agent ou l'admin d'agence contacte et choisit le prestataire, consigne les échanges et téléverse dans le ticket les devis, photos et factures reçus. Les opérations restent effectuées par l'équipe de gestion ; aucun accès prestataire direct.
 
 ## Critères d'acceptation
 - Un utilisateur sans bail ni séjour actif sur le bien reçoit 403 en ouvrant un ticket.
 - La transition `OPEN → RESOLVED` directe renvoie 409 `INVALID_TRANSITION`. Chaque transition valide crée un `MaintenanceStatusChange`.
 - Un devis de 500 000 XAF pour un seuil de 200 000 passe le ticket en AWAITING_APPROVAL. Après approbation, il passe en ASSIGNED automatiquement (test d'intégration avec 03).
 - Un ticket URGENT notifie le gestionnaire par push et SMS en moins d'une minute (`MAINTENANCE_OPENED`).
-- Un commentaire INTERNAL n'est jamais renvoyé au déclarant ni au prestataire.
-- Le token prestataire ne donne accès qu'à son ticket. Après révocation ou expiration, il renvoie 410.
+- Un commentaire INTERNAL n'est jamais renvoyé au déclarant. Un prestataire externe ne peut consulter ni modifier les tickets.
+- Un devis, une photo ou une facture ajoutés au ticket sont associés au membre de l'agence qui les a téléversés et à leur origine déclarée.
 - `actualCost` et la facture créent une `Expense` et une écriture `EXPENSE` dans le ledger du propriétaire, ou une échéance au locataire si `chargeTo = TENANT`.
 - Un plan semestriel crée un ticket 7 jours avant `nextDueAt`, puis décale `nextDueAt` de 6 mois.
 
 ## Priorité
-- **P0** : contrôle d'éligibilité à l'ouverture, machine à états, déblocage par approbation, listener `MAINTENANCE_OPENED`, périmètre mandat.
-- **P1** : commentaires et photos (y compris l'upload mobile), annuaire et assignation des prestataires, devis, coût réel, facture et imputation, SLA.
-- **P2** : portail prestataire, maintenance préventive, satisfaction, refacturation au locataire.
+- **P0** : [x] tickets, transitions par machine à états et assignation ; [ ] contrôle d'éligibilité, périmètre mandat, vérification de l'approbation propriétaire et notification d'ouverture.
+- **P1** : [ ] commentaires/photos, devis, coûts/factures/imputation et SLA ; [ ] annuaire et suivi des prestataires par l'agence.
+- **P2** : [ ] maintenance préventive, satisfaction, historique détaillé et refacturation au locataire.
+
+## Delta d'implémentation
+| ID | Priorité | Delta | État |
+|---|---|---|---|
+| 09.1 | P0 | Vérifier l'éligibilité à l'ouverture, le périmètre mandat, le déblocage par approbation et la notification d'ouverture. | À faire / vérifier |
+| 09.2 | P1 | Ajouter commentaires, pièces jointes et parcours mobile d'upload. | À faire |
+| 09.3 | P1 | Ajouter devis, approbation, coût réel, facture et imputation comptable. | À faire |
+| 09.4 | P1 | Ajouter les SLA, l'annuaire prestataire et le suivi des échanges/devis par l'agence. | À faire |
+| 09.5 | P2 | Ajouter plans préventifs, notation, historique et refacturation au locataire. | À faire |

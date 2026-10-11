@@ -46,6 +46,12 @@ export interface PublicVisitBooking {
   userId: string;
   status: string;
   paymentId: string | null;
+  /** Spec 06 — hold 15 min sur une visite payante. */
+  holdExpiresAt: string | null;
+  priceAmount: string | null;
+  currency: string | null;
+  /** Spec 06 — remboursement calculé à l'annulation (politique 24h/2h). */
+  refundPercent?: number;
   createdAt: string;
   slotStartAt?: string;
   slotEndAt?: string;
@@ -313,6 +319,7 @@ export class VisitSlotsService {
         id: true,
         visitType: true,
         visitEnabled: true,
+        visitPrice: true,
       },
     });
     if (!property || !property.visitEnabled) {
@@ -339,9 +346,12 @@ export class VisitSlotsService {
     }
 
     const isFree = property.visitType === 'FREE';
+    const now = new Date();
 
-    // Atomic transition: only an AVAILABLE slot can move to BOOKED.
-    // For paid visits the slot stays AVAILABLE until payment is validated.
+    // Spec 06 — atomic transition: free visits flip the slot straight to
+    // BOOKED; paid visits lock it to HELD for a 15-minute hold in the same
+    // transaction as the booking creation. The conditional updateMany acts
+    // as the concurrency lock (bookedCount < capacity equivalent).
     let updatedCount = 1;
     if (isFree) {
       const updateResult = await this.prisma.visitSlot.updateMany({
@@ -353,6 +363,17 @@ export class VisitSlotsService {
         data: { status: VisitSlotStatus.BOOKED },
       });
       updatedCount = updateResult.count;
+    } else {
+      // Paid: lock the slot to HELD for the 15-minute hold.
+      const holdResult = await this.prisma.visitSlot.updateMany({
+        where: {
+          id: input.slotId,
+          propertyId: input.propertyId,
+          status: VisitSlotStatus.AVAILABLE,
+        },
+        data: { status: VisitSlotStatus.HELD },
+      });
+      updatedCount = holdResult.count;
     }
     if (updatedCount === 0) {
       throw new ConflictException({
@@ -362,6 +383,7 @@ export class VisitSlotsService {
     }
 
     try {
+      const holdExpiresAt = isFree ? null : new Date(now.getTime() + 15 * 60 * 1000);
       const booking = await this.prisma.visitBooking.create({
         data: {
           slotId: input.slotId,
@@ -370,21 +392,37 @@ export class VisitSlotsService {
           status: isFree
             ? VisitBookingStatus.CONFIRMED
             : VisitBookingStatus.PENDING,
+          holdExpiresAt,
+          // Quote frozen at hold time (spec 06): visit price.
+          priceAmount: isFree ? null : property.visitPrice ?? null,
+          currency: isFree ? null : 'XAF',
         },
       });
-      return this.bookingToPublic(booking);
-    } catch (err) {
       if (isFree) {
-        // Roll back the slot flip on failure.
-        await this.prisma.visitSlot.updateMany({
-          where: {
-            id: input.slotId,
-            status: VisitSlotStatus.BOOKED,
-            booking: null,
-          },
-          data: { status: VisitSlotStatus.AVAILABLE },
+        await this.events.emit(DOMAIN_EVENTS.VISIT_BOOKING_CONFIRMED, {
+          bookingId: booking.id,
+          slotId: booking.slotId,
+          userId: booking.userId,
+        });
+      } else {
+        await this.events.emit(DOMAIN_EVENTS.VISIT_BOOKING_HELD, {
+          bookingId: booking.id,
+          slotId: booking.slotId,
+          userId: booking.userId,
+          holdExpiresAt: booking.holdExpiresAt?.toISOString() ?? null,
         });
       }
+      return this.bookingToPublic(booking);
+    } catch (err) {
+      // Roll back the slot flip / hold on failure.
+      await this.prisma.visitSlot.updateMany({
+        where: {
+          id: input.slotId,
+          status: { in: [VisitSlotStatus.BOOKED, VisitSlotStatus.HELD] },
+          booking: null,
+        },
+        data: { status: VisitSlotStatus.AVAILABLE },
+      });
       throw err;
     }
   }
@@ -438,6 +476,12 @@ export class VisitSlotsService {
   /**
    * Cancel a booking. Either the tenant who created it or a property
    * manager (owner / org member) can cancel. Slot is freed.
+   *
+   * Spec 06 — politique de remboursement (visite payante) : par le chercheur,
+   * 100 % au-delà de 24 h avant le début, 50 % entre 24 h et 2 h, 0 % sous
+   * 2 h ; par l'agence, toujours 100 %. La fraction est renvoyée dans
+   * `refundPercent` ; le déclenchement effectif du refund (05) reste à
+   * scanner côté paiement.
    */
   async cancelVisit(
     userId: string,
@@ -445,6 +489,7 @@ export class VisitSlotsService {
   ): Promise<PublicVisitBooking> {
     const booking = await this.prisma.visitBooking.findUnique({
       where: { id: bookingId },
+      include: { slot: { select: { startAt: true } } },
     });
     if (!booking) {
       throw new NotFoundException({
@@ -452,12 +497,13 @@ export class VisitSlotsService {
         message: 'Visit booking does not exist',
       });
     }
-    if (booking.userId !== userId) {
+    const isManager = booking.userId !== userId;
+    if (isManager) {
       await this.assertCanManageProperty(userId, booking.propertyId);
     }
     if (
       booking.status === VisitBookingStatus.CANCELLED ||
-      booking.status === VisitBookingStatus.COMPLETED
+      booking.status === VisitBookingStatus.EXPIRED
     ) {
       throw new ConflictException({
         code: 'BOOKING_NOT_CANCELLABLE',
@@ -465,10 +511,24 @@ export class VisitSlotsService {
       });
     }
 
+    const hoursBefore =
+      (booking.slot.startAt.getTime() - Date.now()) / 3_600_000;
+    let refundPercent = 0;
+    if (!isManager && booking.priceAmount && booking.paymentId) {
+      refundPercent =
+        hoursBefore >= 24 ? 100 : hoursBefore >= 2 ? 50 : 0;
+    } else if (isManager) {
+      refundPercent = 100;
+    }
+
     const updated = await this.prisma.$transaction(async (tx) => {
       const b = await tx.visitBooking.update({
         where: { id: bookingId },
-        data: { status: VisitBookingStatus.CANCELLED },
+        data: {
+          status: VisitBookingStatus.CANCELLED,
+          cancelledById: userId,
+          cancelledAt: new Date(),
+        },
       });
       await tx.visitSlot.update({
         where: { id: booking.slotId },
@@ -476,7 +536,35 @@ export class VisitSlotsService {
       });
       return b;
     });
-    return this.bookingToPublic(updated);
+    return { ...this.bookingToPublic(updated), refundPercent };
+  }
+
+  /**
+   * Spec 06 — expiration des holds : a `PENDING` paid booking whose
+   * `holdExpiresAt` has lapsed becomes `EXPIRED` and its slot returns to
+   * `AVAILABLE`. Public for direct invocation from tests / the minutely cron.
+   */
+  async expireHolds(now = new Date()): Promise<number> {
+    const stale = await this.prisma.visitBooking.findMany({
+      where: {
+        status: VisitBookingStatus.PENDING,
+        holdExpiresAt: { lte: now },
+      },
+      select: { id: true, slotId: true },
+    });
+    for (const b of stale) {
+      await this.prisma.$transaction(async (tx) => {
+        await tx.visitBooking.update({
+          where: { id: b.id },
+          data: { status: VisitBookingStatus.EXPIRED },
+        });
+        await tx.visitSlot.updateMany({
+          where: { id: b.slotId, status: VisitSlotStatus.HELD, booking: { id: b.id } },
+          data: { status: VisitSlotStatus.AVAILABLE },
+        });
+      });
+    }
+    return stale.length;
   }
 
   async listMyBookings(userId: string): Promise<PublicVisitBooking[]> {
@@ -606,6 +694,9 @@ export class VisitSlotsService {
       userId: b.userId,
       status: b.status,
       paymentId: b.paymentId,
+      holdExpiresAt: b.holdExpiresAt?.toISOString() ?? null,
+      priceAmount: b.priceAmount?.toString() ?? null,
+      currency: b.currency ?? null,
       createdAt: b.createdAt.toISOString(),
     };
   }

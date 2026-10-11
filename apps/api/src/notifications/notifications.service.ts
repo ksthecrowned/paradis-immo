@@ -1,5 +1,10 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { Notification, NotificationChannel, Prisma } from '@prisma/client';
+import {
+  Notification,
+  NotificationChannel,
+  NotificationStatus,
+  Prisma,
+} from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { InfobipService } from './infobip.service';
 import { FcmService } from './fcm.service';
@@ -14,6 +19,24 @@ export interface PublicNotification {
   sentAt: string | null;
   readAt: string | null;
   createdAt: string;
+}
+
+/** Spec 11 — upsert payload for `POST users/me/devices`. */
+export interface RegisterDeviceInput {
+  deviceId: string;
+  fcmToken: string;
+  platform: 'IOS' | 'ANDROID' | 'WEB' | 'ADMIN';
+  appVersion?: string;
+  locale?: string;
+}
+
+/** Spec 11 — a registered push target as returned to the client. */
+export interface PublicUserDevice {
+  deviceId: string;
+  platform: string;
+  appVersion: string | null;
+  locale: string | null;
+  lastSeenAt: string;
 }
 
 export interface SendInput {
@@ -271,12 +294,87 @@ export class NotificationsService {
           'effectiveFrom',
         )}. Validation requise.`;
       case 'VISIT_CONFIRMED':
-        return `Paradis Immo — votre visite est confirmée.`;
-      case 'MAINTENANCE_OPENED':
-        return `Paradis Immo — votre demande de maintenance a bien été enregistrée (priorité ${this.stringField(
+        return `Paradis Immo — votre visite de ${
+          this.stringField(payload, 'propertyTitle') || 'du bien'
+        } est confirmée (${this.stringField(payload, 'startAt')}).`;
+      case 'VISIT_HOLD':
+        return `Paradis Immo — créneau de visite réservé. Vous avez 15 minutes pour payer (jusqu'à ${this.stringField(
           payload,
-          'priority',
+          'holdExpiresAt',
         )}).`;
+      case 'STAY_HOLD':
+        return `Paradis Immo — réservation en attente : les dates sont bloquées 15 minutes. Terminez votre paiement avant ${this.stringField(
+          payload,
+          'holdExpiresAt',
+        )}.`;
+      case 'MAINTENANCE_OPENED':
+        return this.stringField(payload, 'propertyTitle')
+          ? `Paradis Immo — un ticket de maintenance a été ouvert sur ${this.stringField(
+              payload,
+              'propertyTitle',
+            )} (priorité ${this.stringField(payload, 'priority')}).`
+          : `Paradis Immo — votre demande de maintenance a bien été enregistrée (priorité ${this.stringField(
+            payload,
+            'priority',
+          )}).`;
+      case 'PAYMENT_INITIATED':
+        return `Paradis Immo — paiement de ${this.stringField(
+          payload,
+          'amount',
+        )} ${this.stringField(
+          payload,
+          'currency',
+          'XAF',
+        )} initié : finalisez-le sur votre téléphone avant expiration.`;
+      case 'PAYOUT_PAID':
+        return `Paradis Immo — reversement de ${this.stringField(
+          payload,
+          'amount',
+        )} XAF envoyé.`;
+      case 'PAYOUT_FAILED':
+        return `Paradis Immo — le reversement de ${this.stringField(
+          payload,
+          'amount',
+        )} ${this.stringField(
+          payload,
+          'currency',
+          'XAF',
+        )} a échoué${this.stringField(payload, 'reason') ? ` : ${this.stringField(payload, 'reason')}` : ''}. Une nouvelle tentative aura lieu.`;
+      case 'MANDATE_PROPOSED':
+        return `Paradis Immo — une proposition de mandat de gestion vous attend sur ${this.stringField(
+          payload,
+          'propertyId',
+        )}. Ouvrez l’app pour la consulter.`;
+      case 'MESSAGE_RECEIVED':
+        return `Paradis Immo — vous avez un nouveau message. Ouvrez l’app pour le lire.`;
+      case 'SALE_INQUIRY_CREATED':
+        return `Paradis Immo — nouvelle demande d’achat sur ${this.stringField(
+          payload,
+          'propertyTitle',
+        )}${this.stringField(payload, 'budget') ? ` (budget ${this.stringField(payload, 'budget')} XAF` : ''}${this.stringField(payload, 'phone') ? `, contact ${this.stringField(payload, 'phone')})` : this.stringField(payload, 'budget') ? ')' : ''}.`;
+      case 'LISTING_MODERATED':
+        return `Paradis Immo — votre annonce « ${this.stringField(
+          payload,
+          'propertyTitle',
+        )} » a été modérée (${payload.status ?? ''}). Motif : ${this.stringField(payload, 'reason', 'non précisé')}.`;
+      case 'SALE_OFFER_RECEIVED':
+        return `Paradis Immo — nouvelle offre d’achat de ${this.stringField(
+          payload,
+          'price',
+        )} XAF sur ${this.stringField(payload, 'propertyTitle')}. Ouvrez l’app pour répondre.`;
+      case 'SALE_OFFER_FORWARDED':
+        return `Paradis Immo — une offre de ${this.stringField(
+          payload,
+          'price',
+        )} XAF sur ${this.stringField(
+          payload,
+          'propertyTitle',
+        )} vous est transmise par votre agence.`;
+      case 'SALE_OFFER_DECIDED':
+        return `Paradis Immo — votre offre sur ${this.stringField(
+          payload,
+          'propertyTitle',
+        )} a été ${payload.decision === 'ACCEPTED' ? 'acceptée' : 'refusée'}${payload.decision === 'ACCEPTED' ? '. Prochaine étape : le compromis.' : ''}.`;
       case 'APPROVAL_PENDING':
         return `Paradis Immo — une action requiert votre approbation.`;
       case 'BUYER_PAYMENT_PROOF_REQUESTED':
@@ -457,14 +555,35 @@ export class NotificationsService {
 
   private async markFailed(
     id: string,
-    _reason: string,
+    reason: string,
   ): Promise<PublicNotification> {
-    const row = await this.prisma.notification.findUnique({ where: { id } });
-    if (!row) {
-      throw new Error(`Notification ${id} disappeared mid-send`);
-    }
-    this.logger.warn(`Notification ${id} delivery failed (${_reason})`);
+    // Spec 11 — le statut doit refléter l'échec (sinon la ligne reste
+    // PENDING à jamais et aucune relance/audit n'est possible).
+    const row = await this.prisma.notification.update({
+      where: { id },
+      data: {
+        status: NotificationStatus.FAILED,
+        payload: { ...(await this.notificationPayload(id)), failReason: reason },
+      },
+    }).catch(async (err) => {
+      // La ligne a pu disparaître entre-temps (nettoyage) : pas bloquant.
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2025') {
+        this.logger.warn(`Notification ${id} disappeared mid-fail`);
+        const fallback = await this.prisma.notification.findUnique({ where: { id } });
+        if (fallback) return fallback;
+      }
+      throw err;
+    });
+    this.logger.warn(`Notification ${id} delivery failed (${reason})`);
     return this.toPublic(row);
+  }
+
+  private async notificationPayload(id: string): Promise<Record<string, unknown>> {
+    const row = await this.prisma.notification.findUnique({
+      where: { id },
+      select: { payload: true },
+    });
+    return (row?.payload as Record<string, unknown>) ?? {};
   }
 
   private toPublic(n: Notification): PublicNotification {
@@ -478,6 +597,77 @@ export class NotificationsService {
       sentAt: n.sentAt?.toISOString() ?? null,
       readAt: n.readAt?.toISOString() ?? null,
       createdAt: n.createdAt.toISOString(),
+    };
+  }
+
+  // ------------------------------------------------------------------------
+  // Devices — specs 11/14. The push target replaces the legacy
+  // `User.fcmToken` column: push is sent to every registered device and the
+  // token is claimed on (fcmToken) so a second account installing on the
+  // same phone revokes it from the first.
+  // ------------------------------------------------------------------------
+
+  async registerDevice(
+    userId: string,
+    input: RegisterDeviceInput,
+  ): Promise<PublicUserDevice> {
+    // A token is claimed at most once: if another account already registered
+    // this phone, its registration is invalidated first.
+    await this.prisma.userDevice.deleteMany({
+      where: { fcmToken: input.fcmToken, userId: { not: userId } },
+    });
+
+    const row = await this.prisma.userDevice.upsert({
+      where: {
+        userId_deviceId: { userId, deviceId: input.deviceId },
+      },
+      create: {
+        userId,
+        deviceId: input.deviceId,
+        fcmToken: input.fcmToken,
+        platform: input.platform,
+        appVersion: input.appVersion,
+        locale: input.locale,
+      },
+      update: {
+        fcmToken: input.fcmToken,
+        platform: input.platform,
+        appVersion: input.appVersion,
+        locale: input.locale,
+        lastSeenAt: new Date(),
+      },
+    });
+    return this.deviceToPublic(row);
+  }
+
+  async listDevices(userId: string): Promise<PublicUserDevice[]> {
+    const rows = await this.prisma.userDevice.findMany({
+      where: { userId },
+      orderBy: { lastSeenAt: 'desc' },
+    });
+    return rows.map((r) => this.deviceToPublic(r));
+  }
+
+  /** Deleted on logout (spec 14): the app unregisters its own token. */
+  async removeDevice(userId: string, deviceId: string): Promise<void> {
+    await this.prisma.userDevice.deleteMany({
+      where: { userId, deviceId },
+    });
+  }
+
+  private deviceToPublic(row: {
+    deviceId: string;
+    platform: string;
+    appVersion: string | null;
+    locale: string | null;
+    lastSeenAt: Date;
+  }): PublicUserDevice {
+    return {
+      deviceId: row.deviceId,
+      platform: row.platform,
+      appVersion: row.appVersion,
+      locale: row.locale,
+      lastSeenAt: row.lastSeenAt.toISOString(),
     };
   }
 }

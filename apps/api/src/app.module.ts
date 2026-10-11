@@ -18,10 +18,12 @@ import { LeasesModule } from './leases/leases.module';
 import { LocationsModule } from './locations/locations.module';
 import { MaintenanceModule } from './maintenance/maintenance.module';
 import { MandatesModule } from './mandates/mandates.module';
+import { MessagingModule } from './messaging/messaging.module';
 import { MediaModule } from './media/media.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { PaymentsModule } from './payments/payments.module';
 import { PayoutsModule } from './payouts/payouts.module';
+import { PlatformConfigModule } from './platform-config/platform-config.module';
 import { SalesModule } from './sales/sales.module';
 import { OrganizationsModule } from './organizations/organizations.module';
 import { OwnerModule } from './owner/owner.module';
@@ -60,11 +62,13 @@ import { VisitSlotsModule } from './visit-slots/visit-slots.module';
     TenantsModule,
     MaintenanceModule,
     MandatesModule,
+    MessagingModule,
     MediaModule,
     NotificationsModule,
     PaymentsModule,
     PayoutsModule,
     SalesModule,
+    PlatformConfigModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

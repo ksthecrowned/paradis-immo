@@ -5,17 +5,28 @@ export interface PublicSaleInquiry {
   propertyId: string;
   userId: string;
   message: string | null;
+  /** Spec 08 — budget déclaré (XAF) + téléphone de contact. */
+  budget?: string | null;
+  phone?: string | null;
   status: string;
   createdAt: string;
 }
 
-export async function createSaleInquiry(
-  propertyId: string,
-  message?: string,
-): Promise<void> {
-  await apiFetch('/sales/inquiries', {
+/** Spec 08 — `POST sales/inquiries` (formulaire réel, plus de setTimeout). */
+export async function createSaleInquiry(input: {
+  propertyId: string;
+  message: string;
+  budget?: number;
+  phone?: string;
+}): Promise<PublicSaleInquiry> {
+  return apiFetch<PublicSaleInquiry>('/sales/inquiries', {
     method: 'POST',
-    body: { propertyId, ...(message ? { message } : {}) },
+    body: {
+      propertyId: input.propertyId,
+      message: input.message,
+      ...(input.budget !== undefined ? { budget: input.budget } : {}),
+      ...(input.phone ? { phone: input.phone } : {}),
+    },
   });
 }
 
@@ -36,8 +47,14 @@ export function saleInquiryStatusLabel(status: string): string {
 export function saleInquiryStatusTone(
   status: string,
 ): 'success' | 'warning' | 'danger' | 'neutral' {
-  if (status === 'CONTACTED') return 'success';
-  if (status === 'NEW') return 'warning';
-  if (status === 'CLOSED') return 'neutral';
-  return 'neutral';
+  const map: Record<
+    string,
+    'success' | 'warning' | 'danger' | 'neutral'
+  > = {
+    NEW: 'warning',
+    CONTACTED: 'success',
+    VISIT_SCHEDULED: 'success',
+    CLOSED: 'neutral',
+  };
+  return map[status] ?? 'neutral';
 }

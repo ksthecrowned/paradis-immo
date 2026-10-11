@@ -9,6 +9,7 @@ import {
   PayoutSettingsController,
 } from './payout-accounts.controller';
 import { PayoutCronProcessor } from './payout-cron.processor';
+import { AdminPermissionGuard } from '../admin/admin-permission.guard';
 
 @Module({
   imports: [PrismaModule, EventModule],
@@ -18,7 +19,7 @@ import { PayoutCronProcessor } from './payout-cron.processor';
     PayoutAccountsController,
     PayoutSettingsController,
   ],
-  providers: [PayoutsService, PayoutCronProcessor],
+  providers: [AdminPermissionGuard, PayoutsService, PayoutCronProcessor],
   exports: [PayoutsService],
 })
 export class PayoutsModule {}

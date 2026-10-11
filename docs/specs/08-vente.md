@@ -11,19 +11,17 @@ Couvrir le parcours de vente :
 
 Rôles : `BUYER` / `SEEKER`, `AGENT`, `MANAGER`, `OWNER`.
 
-## État actuel (audit)
-- **Mobile** : `sale-inquiry.tsx` simule l'envoi (`setTimeout`) ; `createSaleInquiry` n'est jamais appelée. Budget et téléphone ne sont pas envoyés.
-- **`SaleInquiry`**
-  - Modèle limité à `message` et `status` (NEW, CONTACTED, VISIT_SCHEDULED, CLOSED). Pas de budget, de téléphone, de financement, d'anti-doublon ni de notification à l'agence.
-  - `listInquiriesForManager` ne retient que les membres AGENT de l'org du bien : le gérant ADMIN et l'agence mandatée sont exclus.
-- **`SaleAgreement`** : DRAFT, ACTIVE, COMPLETED, CANCELLED.
-  - `complete()` ne passe pas le bien en `SOLD`.
-  - `cancel()` ne remet pas `UNDER_OFFER` en `AVAILABLE`.
-  - `listMine` (acheteur) masque les DRAFT.
-- Pas d'offre ou de contre-offre, pas de validation du propriétaire, pas d'approbation de prix pour le mandat.
-- `BuyerPaymentProof` (consentement à la preuve de fonds) : flux existant avec notification.
-- `SaleInstallment` : échéancier payable via `payments`.
-- Pas de documents de vente (compromis signé, acte notarié, attestation de paiement), ni de notaire ou d'étapes de transfert de titre.
+## État actuel (audit local, 2026-10-11)
+### Déjà en place
+- Demandes de vente avec champs complémentaires et flux de justificatifs de paiement.
+- API de négociation d'offres (dont contre-offre, acceptation et retrait) ajoutée localement.
+- Les changements locaux étendent le parcours de demande et l'intégration mobile ; les offres restent sans interface.
+
+### Écarts
+- La signature du compromis, les jalons de vente, les documents et l'attestation de paiement ne sont pas implémentés.
+- L'acheteur ne dispose pas encore de l'écran « Mes demandes » complet.
+- Il n'y a ni écran web ni écran mobile pour créer et suivre les offres et contre-offres.
+- La disponibilité de l'offre en API ne vaut pas réalisation de son parcours utilisateur.
 
 ## User stories
 1. En tant qu'acheteur, j'envoie une demande sur un bien en vente avec mon message, mon budget, mon mode de financement (comptant, échelonné, crédit) et mon téléphone (prérempli, modifiable). L'agence est notifiée immédiatement.
@@ -187,6 +185,14 @@ model Mandate {
 - `cancel()` remet `AVAILABLE` et génère un remboursement de l'acompte selon la clause.
 
 ## Priorité
-- **P0** : branchement réel du formulaire mobile, champs budget et téléphone, statut SOLD ou AVAILABLE à la clôture ou à l'annulation, périmètre gestionnaire corrigé, notification de nouvelle demande.
-- **P1** : offres et contre-offres, validation du propriétaire et approbation de prix, anti-doublon, signature du compromis, étapes et documents.
-- **P2** : pipeline kanban, attestation de paiement, gestion du défaut de paiement et de la mise en demeure.
+- **P0** : [x] demande de vente et champs de qualification côté API ; [x] premiers changements locaux du formulaire mobile et de l'API ; [ ] vérifier le parcours complet « Mes demandes » et les notifications.
+- **P1** : [x] API des offres/contre-offres et décisions principales ; [ ] interfaces web/mobile des offres ; [ ] signature du compromis, jalons et documents.
+- **P2** : [ ] pipeline kanban, attestation de paiement, défaut de paiement et mise en demeure.
+
+## Delta d'implémentation
+| ID | Priorité | Delta | État |
+|---|---|---|---|
+| 08.1 | P0 | Finaliser le formulaire mobile et le suivi des demandes de vente, avec confirmation des champs et notifications. | Partiel |
+| 08.2 | P1 | Construire les interfaces d'offres/contre-offres pour acheteur, agent et propriétaire. | À faire |
+| 08.3 | P1 | Signer le compromis et gérer ses jalons et documents. | À faire |
+| 08.4 | P2 | Ajouter le pipeline de gestion, l'attestation de paiement et le traitement du défaut de paiement. | À faire |

@@ -10,6 +10,7 @@ import { RentScheduleGenerator } from '../leases/rent-schedule.generator.service
 import { R2Service } from '../media/r2.service';
 import { OtpStore } from '../auth/otp.store';
 import { InfobipOtpService } from '../auth/infobip-otp.service';
+import { AuditLogService } from '../common/audit-log.service';
 import { MaintenanceService } from './maintenance.service';
 
 describe('MaintenanceService', () => {
@@ -25,6 +26,7 @@ describe('MaintenanceService', () => {
   let agentOrgId: string;
   let mandateId: string;
   let rentPropertyId: string;
+  let tenantLeaseId: string;
   const createdTicketIds: string[] = [];
   const createdApprovalIds: string[] = [];
   const emittedEvents: Array<{ name: string; payload: unknown }> = [];
@@ -61,6 +63,7 @@ describe('MaintenanceService', () => {
         },
         { provide: InfobipOtpService, useValue: { sendText: jest.fn() } },
         { provide: EventPublisher, useValue: eventBus },
+        { provide: AuditLogService, useValue: { record: jest.fn(), recordIn: jest.fn() } },
       ],
     }).compile();
     maintenance = moduleRef.get(MaintenanceService);
@@ -177,6 +180,24 @@ describe('MaintenanceService', () => {
       },
     });
     mandateId = mandate.id;
+
+    // Spec 15 A1 : le locataire doit avoir un bail ACTIVE sur le bien pour
+    // être éligible à l'ouverture d'un ticket.
+    const lease = await prisma.lease.create({
+      data: {
+        propertyId: rentPropertyId,
+        tenantId: tenantUserId,
+        monthlyRent: 200_000,
+        chargesAmount: 0,
+        currency: 'XAF',
+        startDate: new Date(Date.now() - 30 * 86_400_000),
+        endDate: new Date(Date.now() + 300 * 86_400_000),
+        status: 'ACTIVE',
+        dueDay: 5,
+        deposit: 400_000,
+      },
+    });
+    tenantLeaseId = lease.id;
   });
 
   afterAll(async () => {
@@ -191,6 +212,11 @@ describe('MaintenanceService', () => {
         .catch(() => undefined);
     }
     if (rentPropertyId) {
+      if (tenantLeaseId) {
+        await prisma.lease
+          .delete({ where: { id: tenantLeaseId } })
+          .catch(() => undefined);
+      }
       await prisma.maintenanceTicket
         .deleteMany({ where: { propertyId: rentPropertyId } })
         .catch(() => undefined);
@@ -387,7 +413,7 @@ describe('MaintenanceService', () => {
     ).rejects.toBeInstanceOf(ForbiddenException);
   });
 
-  it('updateTicket allows owner to set status and cost', async () => {
+  it('updateTicket allows owner to set cost, statut via transitions', async () => {
     const t = await maintenance.createTicket({
       propertyId: rentPropertyId,
       reporterId: tenantUserId,
@@ -395,11 +421,15 @@ describe('MaintenanceService', () => {
       description: 'Mur',
     });
     createdTicketIds.push(t.id);
+    // Machine à états (spec 15 A1) : le statut passe par /transitions.
+    const assigned = await maintenance.transition(ownerUserId, t.id, {
+      to: MaintenanceStatus.ASSIGNED,
+    });
+    expect(assigned.status).toBe(MaintenanceStatus.ASSIGNED);
     const updated = await maintenance.updateTicket(ownerUserId, t.id, {
-      status: MaintenanceStatus.IN_PROGRESS,
       estimatedCost: 75000,
     });
-    expect(updated.status).toBe(MaintenanceStatus.IN_PROGRESS);
+    expect(updated.status).toBe(MaintenanceStatus.ASSIGNED);
     expect(updated.estimatedCost).toBe('75000');
   });
 
@@ -492,9 +522,10 @@ describe('MaintenanceService', () => {
     await expect(
       maintenance.assignTicket(ownerUserId, t.id, agentUserId),
     ).rejects.toMatchObject({ response: { code: 'OWNER_APPROVAL_REQUIRED' } });
+    // (spec 15 A1 : le statut passe par /transitions — même verrou)
     await expect(
-      maintenance.updateTicket(ownerUserId, t.id, {
-        status: MaintenanceStatus.IN_PROGRESS,
+      maintenance.transition(ownerUserId, t.id, {
+        to: MaintenanceStatus.ASSIGNED,
       }),
     ).rejects.toMatchObject({ response: { code: 'OWNER_APPROVAL_REQUIRED' } });
 
@@ -511,5 +542,98 @@ describe('MaintenanceService', () => {
     );
     expect(assigned.status).toBe(MaintenanceStatus.ASSIGNED);
     expect(assigned.requiresOwnerApproval).toBe(false);
+  });
+
+  describe('spec 15 A1 — machine à états et éligibilité', () => {
+    it('une transition non prévue par la table renvoie 409 INVALID_TRANSITION', async () => {
+      const t = await maintenance.createTicket({
+        propertyId: rentPropertyId,
+        reporterId: tenantUserId,
+        title: 'Robinet',
+        description: 'Goutte',
+      });
+      createdTicketIds.push(t.id);
+      // OPEN → RESOLVED directe : interdite (09).
+      await expect(
+        maintenance.transition(ownerUserId, t.id, {
+          to: MaintenanceStatus.RESOLVED,
+        }),
+      ).rejects.toMatchObject({
+        response: { code: 'INVALID_TRANSITION' },
+      });
+      // OPEN → TRIAGED : permise, et chaque transition crée un
+      // MaintenanceStatusChange.
+      const triaged = await maintenance.transition(ownerUserId, t.id, {
+        to: MaintenanceStatus.TRIAGED,
+      });
+      expect(triaged.status).toBe(MaintenanceStatus.TRIAGED);
+      const history = await prisma.maintenanceStatusChange.findMany({
+        where: { ticketId: t.id },
+        orderBy: { createdAt: 'asc' },
+      });
+      expect(history.length).toBeGreaterThanOrEqual(2); // ouverture + triaged
+      expect(history[history.length - 1].to).toBe('TRIAGED');
+    });
+
+    it('un étranger sans bail ni séjour ne peut pas ouvrir un ticket (403)', async () => {
+      const stranger = await prisma.user.create({
+        data: {
+          phone: `+24207${Date.now().toString().slice(-8)}`,
+          countryId,
+          roles: { create: { role: 'TENANT' } },
+        },
+      });
+      try {
+        await expect(
+          maintenance.createTicket({
+            propertyId: rentPropertyId,
+            reporterId: stranger.id,
+            title: 'Ticket intrus',
+            description: 'Pas chez moi',
+          }),
+        ).rejects.toMatchObject({
+          response: { code: 'NOT_ALLOWED_ON_PROPERTY' },
+        });
+      } finally {
+        await prisma.userRole
+          .deleteMany({ where: { userId: stranger.id } })
+          .catch(() => undefined);
+        await prisma.user
+          .delete({ where: { id: stranger.id } })
+          .catch(() => undefined);
+      }
+    });
+
+    it('SCHEDULED exige scheduledAt, CANCELLED exige un motif', async () => {
+      const t = await maintenance.createTicket({
+        propertyId: rentPropertyId,
+        reporterId: tenantUserId,
+        title: 'Évier bouché',
+        description: 'Eau stagnante',
+      });
+      createdTicketIds.push(t.id);
+      await maintenance.transition(ownerUserId, t.id, {
+        to: MaintenanceStatus.ASSIGNED,
+      });
+      await expect(
+        maintenance.transition(ownerUserId, t.id, {
+          to: MaintenanceStatus.SCHEDULED,
+        }),
+      ).rejects.toMatchObject({
+        response: { code: 'SCHEDULED_AT_REQUIRED' },
+      });
+      await expect(
+        maintenance.transition(ownerUserId, t.id, {
+          to: MaintenanceStatus.CANCELLED,
+        }),
+      ).rejects.toMatchObject({
+        response: { code: 'CANCEL_REASON_REQUIRED' },
+      });
+      const scheduled = await maintenance.transition(ownerUserId, t.id, {
+        to: MaintenanceStatus.SCHEDULED,
+        scheduledAt: new Date(Date.now() + 86_400_000),
+      });
+      expect(scheduled.status).toBe(MaintenanceStatus.SCHEDULED);
+    });
   });
 });

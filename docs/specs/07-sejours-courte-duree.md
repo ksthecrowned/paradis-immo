@@ -4,16 +4,17 @@
 Offrir un parcours de réservation de type Airbnb fiable : disponibilité exacte, tarification complète, réservation bloquée seulement après paiement, annulation et remboursement, arrivée, départ, caution et avis.
 Rôles : `GUEST`, `OWNER`, `MANAGER`, `AGENT` (hôte opérationnel).
 
-## État actuel (audit)
-- `Booking` est créé **directement CONFIRMED avant paiement** : les dates sont bloquées même sans paiement, et aucun hold n'expire.
-- Le contrôle de chevauchement se fait hors transaction (condition de course).
-- Les `AvailabilityBlock` manuels (MAINTENANCE, MANUAL) ne sont pas vérifiés à la création.
-- `PAYMENT_INITIATED` émis avec `paymentId: booking.id // placeholder`. Le module paiements n'accepte pas de `bookingId` (05).
-- Seul le client peut annuler, sans remboursement. Aucune confirmation ni annulation côté gestionnaire.
-- `listManaged` est basé sur l'org et non sur le mandat.
-- Pas de nombre de voyageurs, de frais de ménage, de taxe de séjour, de caution, de minimum ou maximum de nuits, de tarifs saisonniers, d'heures d'arrivée et de départ, ni de règlement intérieur.
-- Mobile : `book.tsx` ne transmet pas `bookingId` au checkout, et `cancelBooking` n'est utilisé par aucun écran.
-- Web : `/owner/bookings` et `/agent/bookings` existent ; pas de calendrier de disponibilité éditable ni de synchronisation iCal.
+## État actuel (audit local, 2026-10-11)
+### Déjà en place
+- Cycle de réservation avec acceptation/refus, arrivée, départ et annulation par l'hôte.
+- Déclaration de dégâts, aperçu des frais d'annulation, devis, tarifs saisonniers et réglages de séjour.
+- Le parcours mobile de réservation et de paiement a reçu des changements locaux ; le devis est également pris en charge côté API.
+
+### Écarts
+- Changement de dates et gestion des blocages de disponibilité ne sont pas implémentés.
+- La synchronisation iCal (import/export) n'est pas disponible.
+- Aucun écran web ne permet encore de gérer les réglages du séjour.
+- Vérifier séparément la disponibilité transactionnelle et l'intégration des blocages avant de considérer les réservations robustes en concurrence.
 
 ## User stories
 1. En tant que voyageur, je choisis mes dates sur un calendrier qui grise les nuits indisponibles (réservations, blocages, minimum de séjour), et j'indique le nombre de voyageurs.
@@ -176,6 +177,14 @@ model CityTax { cityId String @id perPersonPerNight Decimal currency String }
 - Un événement iCal importé bloque les dates en moins de 30 minutes.
 
 ## Priorité
-- **P0** : hold avant paiement, transaction ou contrainte anti-chevauchement, vérification des blocages, paiement par `bookingId`, transmission du `bookingId` sur mobile, annulation exposée.
-- **P1** : devis complet (frais, taxes, voyageurs), politiques d'annulation et remboursement, annulation par l'hôte, périmètre mandat, calendrier web, check-in et check-out.
-- **P2** : réservation sur demande, tarifs saisonniers, iCal, caution et dommages, modification de dates.
+- **P0** : [x] réservation/paiement avec transmission locale du `bookingId` et aperçu d'annulation ; [x] cycle hôte (acceptation/refus, check-in/out, annulation) ; [ ] confirmer l'atomicité de la disponibilité et le traitement des blocages.
+- **P1** : [x] devis, paramètres et tarifs saisonniers ; [x] déclaration de dégâts ; [ ] modification des dates ; [ ] écrans web de réglages et gestion du calendrier.
+- **P2** : [ ] synchronisation iCal, gestion complète des blocages et automatisation de la caution/dommages.
+
+## Delta d'implémentation
+| ID | Priorité | Delta | État |
+|---|---|---|---|
+| 07.1 | P0 | Garantir l'exclusion des chevauchements et vérifier les blocages de disponibilité au moment de réserver. | À vérifier / compléter |
+| 07.2 | P1 | Permettre au voyageur de changer les dates avec nouveau devis et ajustement de prix. | À faire |
+| 07.3 | P1 | Ajouter les écrans web de réglages du séjour et de gestion du calendrier. | À faire |
+| 07.4 | P2 | Implémenter les blocages de disponibilité et la synchronisation iCal import/export. | À faire |

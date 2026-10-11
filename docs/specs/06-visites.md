@@ -4,14 +4,17 @@
 Fiabiliser la prise de rendez-vous de visite (gratuite ou payante), son déroulé et son suivi commercial.
 Rôles : `SEEKER`, `AGENT` (visiteur terrain), `MANAGER`, `OWNER`.
 
-## État actuel (audit)
-- `VisitSlotTemplate` génère des `VisitSlot` (via `slot-generator`). Les créneaux manuels sont possibles. `VisitType` : FREE ou PAID.
-- `VisitBooking` : PENDING, CONFIRMED, CANCELLED, COMPLETED, NO_SHOW.
-  - Une visite payante reste PENDING sans réserver le créneau : **double réservation possible**.
-  - Aucun endpoint pour passer en COMPLETED ou NO_SHOW. Pas de reprogrammation ni de rappel.
-- `VISIT_BOOKING_CONFIRMED` est émis sans listener.
-- Mobile : `cancelVisit` existe dans la lib mais aucun écran ne l'utilise.
-- Pas de capacité par créneau (une seule personne), pas d'agent assigné à la visite, pas de compte rendu, pas de lien entre visite et candidature ou offre.
+## État actuel (audit local, 2026-10-11)
+### Déjà en place
+- Modèles et API de créneaux, templates, génération et réservation.
+- Confirmation et annulation de réservation, blocage et ouverture de créneaux.
+- Expiration des réservations temporaires, avec traitement local.
+
+### Écarts
+- Les parcours agent de clôture (visite effectuée, absence), compte rendu et assignation ne sont pas complets.
+- La reprogrammation, les indisponibilités récurrentes, les rappels et le parcours complet de remboursement restent à faire.
+- Il manque les écrans de réservation et de suivi côté mobile ainsi que l'agenda de gestion côté web.
+- Ne pas confondre API de blocage/ouverture existante avec la gestion des plages d'indisponibilité et le déplacement des visites affectées.
 
 ## User stories
 1. En tant que chercheur, je réserve un créneau. S'il est payant, il est **bloqué 15 minutes** pendant le paiement, puis confirmé ; sinon il est libéré.
@@ -134,6 +137,15 @@ model Organization {
 - Passer le bien en OCCUPIED annule les visites futures et notifie les chercheurs.
 
 ## Priorité
-- **P0** : hold du créneau pour les visites payantes et verrou de concurrence, annulation exposée sur mobile, endpoints COMPLETED et NO_SHOW, listener de confirmation.
-- **P1** : reprogrammation, rappels, politique de remboursement, agenda web, assignation d'agent, compte rendu.
-- **P2** : capacité ou visites groupées, plages bloquées, pénalité de no-show, relances post-visite.
+- **P0** : [x] réservation et cycle de confirmation/annulation de base ; [x] expiration des réservations temporaires ; [ ] vérifier la réservation atomique des créneaux payants ; [ ] clôture COMPLETED/NO_SHOW et notification de confirmation fiable.
+- **P1** : [ ] annulation/remboursement et reprogrammation dans l'UI ; [ ] assignation d'agent, compte rendu et agenda web ; [ ] rappels J-1/H-2 et parcours de visite mobile.
+- **P2** : [ ] capacité/groupes, indisponibilités avec traitement des visites affectées, pénalité de no-show et relances post-visite.
+
+## Delta d'implémentation
+| ID | Priorité | Delta | État |
+|---|---|---|---|
+| 06.1 | P0 | Vérifier/finaliser le verrou de réservation pour les visites payantes ; garantir qu'un seul booking obtient le créneau. | À faire |
+| 06.2 | P0 | Ajouter la clôture effectuée/absence et fiabiliser les notifications de confirmation. | À faire |
+| 06.3 | P1 | Ajouter reprogrammation, calcul/remboursement, rappels et écrans mobiles de réservation/suivi. | À faire |
+| 06.4 | P1 | Ajouter affectation d'agent, compte rendu et agenda web. | À faire |
+| 06.5 | P2 | Compléter capacités, périodes d'indisponibilité, pénalités de no-show et relances post-visite. | À faire |

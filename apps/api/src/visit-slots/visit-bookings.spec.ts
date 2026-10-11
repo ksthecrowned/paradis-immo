@@ -245,7 +245,7 @@ describe('VisitSlotsService — booking flow', () => {
     });
   });
 
-  it('books a paid visit: booking is PENDING and slot stays AVAILABLE until confirmation', async () => {
+  it('books a paid visit: hold 15 min, slot HELD, quote figée', async () => {
     const { startAt, endAt } = createAvailableSlot(96);
     const seeded = await prisma.visitSlot.create({
       data: {
@@ -264,13 +264,15 @@ describe('VisitSlotsService — booking flow', () => {
     });
     createdBookingIds.push(result.id);
 
+    // Spec 06 — hold 15 min (PENDING + holdExpiresAt), créneau HELD de suite.
     expect(result.status).toBe('PENDING');
-    expect(result.paymentId).toBeNull();
+    expect(result.holdExpiresAt).not.toBeNull();
+    expect(result.priceAmount).not.toBeNull();
 
     const slot = await prisma.visitSlot.findUnique({
       where: { id: seeded.id },
     });
-    expect(slot?.status).toBe('AVAILABLE');
+    expect(slot?.status).toBe('HELD');
   });
 
   it('confirms a paid booking: slot becomes BOOKED and booking becomes CONFIRMED', async () => {

@@ -26,6 +26,8 @@ export interface PublicPayment {
 }
 
 export interface InitiatePaymentInput {
+  /** Spec 05 — amount is computed server-side; kept for the checkout display
+   * and legacy fallback only. */
   amount: number;
   currency: string;
   method: PaymentMethod;
@@ -35,6 +37,8 @@ export interface InitiatePaymentInput {
   rentScheduleId?: string;
   saleInstallmentId?: string;
   visitBookingId?: string;
+  /** Spec 07 — short-stay payment target (hold 15 min / window 2 h). */
+  bookingId?: string;
 }
 
 export async function initiatePayment(

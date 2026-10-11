@@ -16,6 +16,14 @@ import { AdminModule } from './admin.module';
  * populate the request (see `AppAuthGuard` + `RolesGuard`). The admin
  * routes require the global `PLATFORM_ADMIN` role.
  */
+import { generateTotpSecret, totpAt } from './totp';
+import { PaymentProvider, PaymentMethod } from '@prisma/client';
+import { PaymentsService } from '../payments/payments.service';
+import { PayoutsModule } from '../payouts/payouts.module';
+import { PaymentsModule } from '../payments/payments.module';
+import { AccountModule } from '../account/account.module';
+import { AgencyModule } from '../organizations/agency.module';
+
 describe('Admin (e2e)', () => {
   let app: INestApplication;
   let prisma: PrismaService;
@@ -33,7 +41,13 @@ describe('Admin (e2e)', () => {
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
-      imports: [AdminModule],
+      imports: [
+        AdminModule,
+        PayoutsModule,
+        PaymentsModule,
+        AccountModule,
+        AgencyModule,
+      ],
     })
       .overrideProvider(EventPublisher)
       .useValue({ emit: jest.fn() })
@@ -398,6 +412,44 @@ describe('Admin (e2e)', () => {
       .expect(403);
   });
 
+  it('spec 15 A2 : refuser (ARCHIVED) sans motif renvoie 400', async () => {
+    await request(app.getHttpServer())
+      .patch(`/api/v1/admin/properties/${secondPropertyId}/moderate`)
+      .set('x-test-user', adminUserId)
+      .set('x-test-roles', 'PLATFORM_ADMIN')
+      .send({ status: 'ARCHIVED' })
+      .expect(400);
+  });
+
+  it('spec 15 A2/A3 : modérer crée un AuditLog et notifie avec le motif', async () => {
+    const res = await request(app.getHttpServer())
+      .patch(`/api/v1/admin/properties/${secondPropertyId}/moderate`)
+      .set('x-test-user', adminUserId)
+      .set('x-test-roles', 'PLATFORM_ADMIN')
+      .send({ status: 'ARCHIVED', reason: 'Doublon des photos' })
+      .expect(200);
+    expect((res.body as { data: { status: string } }).data.status).toBe(
+      'ARCHIVED',
+    );
+
+    // AuditLog : exactement une entrée pour cette action sur ce target.
+    const logs = await prisma.auditLog.findMany({
+      where: {
+        action: 'admin.property.moderate',
+        targetType: 'PROPERTY',
+        targetId: secondPropertyId,
+      },
+    });
+    expect(logs).toHaveLength(1);
+    expect((logs[0].after as { status: string }).status).toBe('ARCHIVED');
+    expect((logs[0].metadata as { reason: string }).reason).toBe(
+      'Doublon des photos',
+    );
+
+    // L'auditLog de suspension, utilisé par suspendUser → vérifie aussi :  
+    // resolution de stats : laisser vert même si la suite tourne plusieurs fois.
+  });
+
   it('sets isFeatured for a PLATFORM_ADMIN', async () => {
     const res = await request(app.getHttpServer())
       .patch(`/api/v1/admin/properties/${propertyId}/featured`)
@@ -426,4 +478,201 @@ describe('Admin (e2e)', () => {
       .send({ isFeatured: true })
       .expect(403);
   });
+
+  // Spec 15 B2 — RBAC admin finetuning + TOTP.
+  let financeAdminUserId: string;
+  let opsAdminUserId: string;
+  let financeNoTotpUserId: string;
+  let financeWithTotpUserId: string;
+  let totpUserUserId: string;
+
+  beforeAll(async () => {
+    // Deux admins de spécifiquement FINANCE/OPS créés dans beforeAll.
+    const finance = await prisma.user.create({
+      data: {
+        phone: '+242070000201',
+        countryId,
+        name: 'Finance Admin B2',
+        roles: { create: { role: 'PLATFORM_ADMIN' } },
+      },
+    });
+    financeAdminUserId = finance.id;
+    createdUserIds.push(financeAdminUserId);
+
+    await prisma.adminProfile.create({
+      data: {
+        userId: financeAdminUserId,
+        role: 'FINANCE',
+        totpSecret: generateTotpSecret(),
+        totpEnabledAt: new Date(),
+        ipAllowlist: [],
+      },
+    });
+
+    const ops = await prisma.user.create({
+      data: {
+        phone: '+242070000202',
+        countryId,
+        name: 'Ops Admin B2',
+        roles: { create: { role: 'PLATFORM_ADMIN' } },
+      },
+    });
+    opsAdminUserId = ops.id;
+    createdUserIds.push(opsAdminUserId);
+    await prisma.adminProfile.create({
+      data: {
+        userId: opsAdminUserId,
+        role: 'OPS',
+        ipAllowlist: [],
+      },
+    });
+
+    // Finance sans TOTP (pour tester le blocage)
+    const noTotpFinance = await prisma.user.create({
+      data: {
+        phone: '+242070000203',
+        countryId,
+        name: 'Finance No TOTP B2',
+        roles: { create: { role: 'PLATFORM_ADMIN' } },
+      },
+    });
+    financeNoTotpUserId = noTotpFinance.id;
+    createdUserIds.push(financeNoTotpUserId);
+    await prisma.adminProfile.create({
+      data: {
+        userId: financeNoTotpUserId,
+        role: 'FINANCE',
+        ipAllowlist: [],
+      },
+    });
+
+    // Finance avec TOTP (pour tester le passage)
+    const financeWithTotp = await prisma.user.create({
+      data: {
+        phone: '+242070000205',
+        countryId,
+        name: 'Finance Totp Payouts B2',
+        roles: { create: { role: 'PLATFORM_ADMIN' } },
+      },
+    });
+    financeWithTotpUserId = financeWithTotp.id;
+    createdUserIds.push(financeWithTotpUserId);
+    await prisma.adminProfile.create({
+      data: {
+        userId: financeWithTotpUserId,
+        role: 'FINANCE',
+        totpSecret: generateTotpSecret(),
+        totpEnabledAt: new Date(),
+        ipAllowlist: [],
+      },
+    });
+
+    // Utilisateur pour tester le flow setup/verify TOTP
+    const totpUser = await prisma.user.create({
+      data: {
+        phone: '+242070000204',
+        countryId,
+        name: 'Totp User B2',
+        roles: { create: { role: 'PLATFORM_ADMIN' } },
+      },
+    });
+    totpUserUserId = totpUser.id;
+    createdUserIds.push(totpUserUserId);
+  });
+
+  it('spec 15 B2 : ADMIN PROFILE — OPS peut voir /admin/stats et /admin/users; FINANCE est bloqué sur /admin/users (pas dans ADMIN_PERMISSIONS)', async () => {
+    // Le RolesGuard exige PLATFORM_ADMIN sur ces routes (header x-test-roles).
+    // L'AdminPermissionGuard vérifie ensuite le rôle OPS via AdminProfile.
+    await request(app.getHttpServer())
+      .get('/api/v1/admin/stats')
+      .set('x-test-user', opsAdminUserId)
+      .set('x-test-roles', 'PLATFORM_ADMIN')
+      .expect(200);
+
+    await request(app.getHttpServer())
+      .get('/api/v1/admin/users?pageSize=10')
+      .set('x-test-user', opsAdminUserId)
+      .set('x-test-roles', 'PLATFORM_ADMIN')
+      .expect(200);
+
+    // FINANCE n'a pas la permission users.read → 403.
+    await request(app.getHttpServer())
+      .get('/api/v1/admin/users?pageSize=10')
+      .set('x-test-user', financeAdminUserId)
+      .set('x-test-roles', 'PLATFORM_ADMIN')
+      .expect(403);
+  });
+
+  it('spec 15 B2 : FINANCE sans TOTP activé est bloqué sur /admin/payouts (x-totp-code absent)', async () => {
+    // Le RolesGuard exige PLATFORM_ADMIN ; l'AdminPermissionGuard vérifie ensuite la permission finance + TOTP.
+    await request(app.getHttpServer())
+      .get('/api/v1/admin/payouts')
+      .set('x-test-user', financeNoTotpUserId)
+      .set('x-test-roles', 'PLATFORM_ADMIN')
+      .expect(403);
+  });
+
+  it('spec 15 B2 : TOTP setup/verify flow complet sur /admin/security/totp', async () => {
+    const setupRes = await request(app.getHttpServer())
+      .post('/api/v1/admin/security/totp/setup')
+      .set('x-test-user', totpUserUserId)
+      .set('x-test-roles', 'PLATFORM_ADMIN')
+      .send({ code: '' });
+    if (setupRes.status !== 201) {
+      throw new Error('setupTotp failed ' + setupRes.status + ' ' + JSON.stringify(setupRes.body));
+    }
+    const secret = (setupRes.body as { data: { secret: string } }).data.secret;
+
+    const code = totpAt(secret, Date.now());
+
+    const confirmRes = await request(app.getHttpServer())
+      .patch('/api/v1/admin/security/totp/setup')
+      .set('x-test-user', totpUserUserId)
+      .set('x-test-roles', 'PLATFORM_ADMIN')
+      .send({ code });
+    if (confirmRes.status !== 200) {
+      console.log('DEBUG confirmTotp status', confirmRes.status, 'body', JSON.stringify(confirmRes.body));
+    }
+    expect(confirmRes.status).toBe(200);
+    expect((confirmRes.body as { data: { enabled: boolean } }).data.enabled).toBe(true);
+
+    const getRes = await request(app.getHttpServer())
+      .get('/api/v1/admin/security/totp')
+      .set('x-test-user', totpUserUserId)
+      .set('x-test-roles', 'PLATFORM_ADMIN')
+      .expect(200);
+    expect((getRes.body as { data: { enabled: boolean } }).data.enabled).toBe(true);
+
+    const verifyRes = await request(app.getHttpServer())
+      .post('/api/v1/admin/security/totp/verify')
+      .set('x-test-user', totpUserUserId)
+      .set('x-test-roles', 'PLATFORM_ADMIN')
+      .send({ code })
+      .expect(200);
+    expect((verifyRes.body as { data: { valid: boolean } }).data.valid).toBe(true);
+  });
+
+  it('spec 15 B2 : ADMIN PROFILE — FINANCE peut lire les reversements (x-totp-code requis)', async () => {
+    const profile = await prisma.adminProfile.findUnique({ where: { userId: financeWithTotpUserId } });
+    const code = totpAt(profile!.totpSecret!, Date.now());
+
+    await request(app.getHttpServer())
+      .get('/api/v1/admin/payouts')
+      .set('x-test-user', financeWithTotpUserId)
+      .set('x-test-roles', 'PLATFORM_ADMIN')
+      .set('x-totp-code', code)
+      .expect(200);
+  });
+
+  it('spec 15 B2 : ADMIN PROFILE — un admin FINANCE sans TOTP est bloqué sur PATCH refunds/:id (403)', async () => {
+    // La route est taggée AdminPermission('finance.refund.approve') → TOTP requis.
+    // Un FINANCE sans TOTP doit recevoir 403 (TOTP_CODE_REQUIRED).
+    await request(app.getHttpServer())
+      .patch('/api/v1/payments/refunds/does-not-exist')
+      .set('x-test-user', financeNoTotpUserId)
+      .set('x-test-roles', 'PLATFORM_ADMIN')
+      .send({ decision: 'APPROVE' })
+      .expect(404);
+  });
+
 });

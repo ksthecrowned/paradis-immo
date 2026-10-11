@@ -42,9 +42,11 @@ export class DocumentsController {
   constructor(private readonly documents: DocumentsService) {}
 
   @Get()
-  @ApiOperation({ summary: 'List documents for a property' })
-  list(@Param('id') id: string) {
-    return this.documents.list(id);
+  @UseGuards(AppAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'List documents for a property (gestionnaire)' })
+  list(@CurrentUser() current: AuthenticatedUser, @Param('id') id: string) {
+    return this.documents.list(current.userId, id);
   }
 
   @Post('upload')

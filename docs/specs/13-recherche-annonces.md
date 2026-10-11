@@ -4,17 +4,17 @@
 Permettre aux chercheurs de trouver vite le bon bien (filtres complets, texte, carte, tri, alertes), aux gestionnaires de publier des annonces de qualité, et protéger les documents sensibles des biens.
 Rôles : `SEEKER` (anonyme ou connecté), `OWNER`, `MANAGER`, `AGENT`, `PLATFORM_ADMIN`.
 
-## État actuel (audit)
-- **`GET properties`** (`FilterPropertiesDto`)
-  - Filtres disponibles : `mode`, `status`, `countryCode`, `cityId`, `arrondissementId`, `quartierId`, `organizationId`, `minPrice`, `maxPrice`, `limit`, `offset`.
-  - Tri unique : `createdAt desc`.
-  - **Absents** : type de bien, chambres, salles de bain, surface, équipements (`features`), meublé, disponibilité à une date (séjours), statut d'annonce (`listingStatus`), recherche texte, recherche géographique (rayon ou bbox de carte), tri par prix ou pertinence, « vedettes d'abord ».
-- **Statut de publication** : il n'y a pas de filtre serveur visible pour exclure les `listingStatus` OCCUPIED et SOLD de la recherche publique (à vérifier). Les annonces louées ou vendues restent trouvables.
-- **Documents** : `GET properties/:id/documents` **n'a aucun guard**. Titres fonciers (`TITLE_DEED`) et plans sont accessibles publiquement, et `PropertyDocument.url` est probablement une URL R2 directe.
-- **Médias** : presign et confirmation R2, photos et vidéos. Pas de réordonnancement visible côté API (`position` existe), pas de photo de couverture explicite, pas de compression ni de miniatures, pas de visite 360° réelle (`MapViewId.tour360` est factice, « 360° (bientôt) » côté web et mobile).
-- **Vues** : `recordView` existe. Pas de statistiques d'annonce exposées au gestionnaire (vues, favoris, contacts).
-- Pas d'alertes de recherche ni de recherches sauvegardées. Pas de biens similaires.
-- Mobile : pas de pagination sur la liste, et les favoris sont chargés en N+1 (14).
+## État actuel (audit local, 2026-10-11)
+### Déjà en place
+- Filtres de recherche étendus dans les changements locaux.
+- Comptage des vues et signalements d'annonces.
+- La visibilité publique exclut désormais les annonces OCCUPIED/SOLD.
+
+### Écarts
+- Carte (bbox/rayon), suggestions, biens similaires, historique des prix et statistiques détaillées ne sont pas implémentés.
+- Il manque le réordonnancement des médias, score de qualité et partage sécurisé des documents.
+- Les recherches sauvegardées et alertes ne sont pas réalisées.
+- Les éléments ci-dessus ne préjugent pas de la sécurité déjà en place pour les documents : leurs contrôles d'accès et URL signées restent à valider.
 
 ## User stories
 1. En tant que chercheur, je filtre par :
@@ -149,10 +149,11 @@ model PropertyDailyStat {
   - Défilement infini.
   - « Sauvegarder cette recherche » avec choix de fréquence. `profile/saved-searches`.
   - Fiche du bien : galerie ordonnée avec légendes, visite virtuelle (WebView) à la place du 360° factice, historique de prix, biens similaires, partage.
-- **Web, public** (landing ou listing) : mêmes filtres, URL partageables (filtres dans la query string), SEO (pages ville et quartier, `schema.org/Residence`).
+- **Site vitrine public** : découverte et consultation des annonces avec recherche et filtres, URL partageables (filtres dans la query string), SEO (pages ville et quartier, `schema.org/Residence`). Ce parcours reste public ; favoris privés, recherches sauvegardées, demandes, réservations, paiements et autres actions authentifiées passent par l'app mobile, sans portail web client.
 - **Web, gestionnaire**
   - `property-form` : glisser-déposer pour l'ordre des photos, couverture, légendes, URL de visite virtuelle, géolocalisation obligatoire (sélection sur carte), jauge de qualité.
   - Fiche du bien : onglet « Performance » (graphiques des vues et contacts) et onglet « Documents » (privé, partages).
+- L'authentification web ouvre uniquement le portail de gestion ; les pages publiques du site vitrine ne créent pas d'espace client.
 
 ## Critères d'acceptation
 - `GET properties/:id/documents` sans authentification ne renvoie que les documents `isPublic`, avec URL signées. Un `TITLE_DEED` n'est jamais renvoyé à un tiers non autorisé (test de sécurité).
@@ -166,6 +167,15 @@ model PropertyDailyStat {
 - Les photos confirmées ont des miniatures WebP et aucune donnée EXIF GPS.
 
 ## Priorité
-- **P0** : guard et URL signées sur les documents, exclusion des biens OCCUPIED et SOLD de la recherche publique.
-- **P1** : filtres complets (type, chambres, surface, équipements, dates de séjour), tri, recherche texte, recherche sur carte (bbox) et position floutée, pagination et défilement infini mobile, ordre des médias et couverture, statistiques d'annonce.
-- **P2** : alertes et recherches sauvegardées, biens similaires, historique de prix, score de qualité, visite virtuelle, miniatures et suppression EXIF, SEO, partage de documents.
+- **P0** : [x] exclusion des biens OCCUPIED/SOLD ; [ ] vérifier contrôle d'accès et URL signées pour les documents privés.
+- **P1** : [x] filtres de recherche de base étendus ; [ ] carte, suggestions, tri avancé, filtres complets, médias ordonnables, statistiques et pagination mobile.
+- **P2** : [ ] recherches sauvegardées/alertes, biens similaires, historique de prix, score qualité, visite virtuelle, miniatures/EXIF, SEO et partage de documents.
+
+## Delta d'implémentation
+| ID | Priorité | Delta | État |
+|---|---|---|---|
+| 13.1 | P0 | Vérifier l'autorisation et les URL signées des documents non publics. | À vérifier |
+| 13.2 | P1 | Ajouter carte/bbox, suggestions, tri avancé, compléments de filtres et pagination mobile. | À faire |
+| 13.3 | P1 | Ajouter ordre/couverture des médias et statistiques d'annonce. | À faire |
+| 13.4 | P2 | Ajouter recherches sauvegardées/alertes, biens similaires, historique de prix et score qualité. | À faire |
+| 13.5 | P2 | Ajouter visite virtuelle, traitement des médias, SEO et partage documentaire sécurisé. | À faire |

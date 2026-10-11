@@ -11,16 +11,18 @@ Donner à l'équipe Paradis Immo les outils pour opérer la plateforme :
 
 Rôles : `PLATFORM_ADMIN`, à découper en sous-rôles : `SUPER_ADMIN`, `OPS` (modération et support), `FINANCE`, `READ_ONLY`.
 
-## État actuel (audit)
-- **API `admin`**
-  - `GET stats`, `GET users` (sans recherche ni filtres), `GET reports`, `PATCH reports/:id`, `PATCH properties/:id/moderate`, `PATCH properties/:id/featured`.
-  - La modération change le statut **sans motif ni notification** au propriétaire.
-  - Il manque : suspension et gestion des rôles, organisations et affiliation, paiements et finance, audit log, configuration.
-- **Web admin**
-  - Pages : dashboard (statistiques basiques), moderation, reports, users (liste), config.
-  - `config` n'affiche que les URL des stores, en lecture seule depuis les variables d'environnement.
-- **Signalements** : `PropertyReport` (OPEN, REVIEWED, DISMISSED, ACTIONED), sans suivi pour le déclarant.
-- **Rôles admin** : un seul `GlobalRole.PLATFORM_ADMIN`, sans granularité.
+## État actuel (audit local, 2026-10-11)
+### Déjà en place
+- API admin pour utilisateurs, suspension, signalements, statistiques et modération avec motif.
+- Journal d'audit et authentification admin par TOTP présents dans les changements locaux.
+- L'interface admin couvre seulement une partie des fonctions d'exploitation.
+
+### Écarts
+- Fiche 360° utilisateur, impersonation, gestion des rôles admin et RBAC complet restent à faire ou à intégrer.
+- Les vues finance (paiements, remboursements, litiges, reversements, rapprochement, exports) et la gestion complète des organisations/KYC ne sont pas achevées.
+- Le journal d'audit et le TOTP doivent être raccordés à toutes les routes/actions requises et à leurs écrans web.
+- Configuration métier, référentiels, annonces/version d'application et KPI avancés ne sont pas complets.
+- La modération avec motif existe localement ; la notification du résultat et son motif doivent encore être vérifiés.
 
 ## User stories
 ### Utilisateurs
@@ -106,7 +108,7 @@ model AdminProfile {
 model AuditLog {
   id          String   @id @default(cuid())
   actorId     String?
-  actorType   String   // USER | ADMIN | SYSTEM | PROVIDER
+  actorType   String   // USER | ADMIN | SYSTEM
   impersonatedBy String?
   action      String   // ex. "payment.refund.approve"
   targetType  String
@@ -207,6 +209,14 @@ model AppVersionPolicy { platform DevicePlatform @id minVersion String latestVer
 - La recherche `admin/users?q=0612` trouve par téléphone partiel.
 
 ## Priorité
-- **P0** : suspension d'utilisateur, motif et notification de modération, 2FA admin, audit log des actions financières et admin.
-- **P1** : recherche et fiche 360°, affiliation et KYC, suspension d'organisation, finance admin, RBAC admin, `ModerationCase` générique, suivi du déclarant, configuration éditable, référentiels géographiques.
-- **P2** : impersonation, détection de doublons et fraude, annonces système, force update, KPI avancés.
+- **P0** : [x] suspension, modération avec motif, base du journal d'audit et TOTP présents localement ; [ ] confirmer notification de modération et couverture des actions sensibles.
+- **P1** : [ ] fiche 360°, gestion organisations/KYC, finance, RBAC complet, dossiers de modération génériques et configuration éditable.
+- **P2** : [ ] impersonation, détection de fraude/doublons, annonces système, force update et KPI avancés.
+
+## Delta d'implémentation
+| ID | Priorité | Delta | État |
+|---|---|---|---|
+| 12.1 | P0 | Vérifier la notification de modération avec motif et couvrir toutes les actions sensibles dans le journal d'audit. | À vérifier / compléter |
+| 12.2 | P1 | Compléter les écrans admin utilisateurs, organisations/KYC, finance et RBAC. | À faire |
+| 12.3 | P1 | Terminer les dossiers de modération génériques, le suivi déclarant et la configuration/référentiels. | À faire |
+| 12.4 | P2 | Ajouter impersonation, détection fraude/doublons, annonces, politiques de version et KPI avancés. | À faire |
