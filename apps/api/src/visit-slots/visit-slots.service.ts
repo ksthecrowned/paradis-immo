@@ -63,6 +63,11 @@ export interface PublicVisitBooking {
   slotEndAt?: string;
 }
 
+export interface PublicAssignableVisitAgent {
+  userId: string;
+  name: string | null;
+}
+
 @Injectable()
 export class VisitSlotsService {
   constructor(
@@ -775,6 +780,29 @@ export class VisitSlotsService {
       });
     }
     return this.bookingToPublic(updated);
+  }
+
+  async listAssignableVisitAgents(
+    userId: string,
+    propertyId: string,
+  ): Promise<PublicAssignableVisitAgent[]> {
+    const organizationId = await this.getVisitAssignmentOrganization(
+      userId,
+      propertyId,
+    );
+    const members = await this.prisma.organizationMember.findMany({
+      where: {
+        organizationId,
+        role: OrgMemberRole.AGENT,
+        status: MemberStatus.ACTIVE,
+      },
+      include: { user: { select: { id: true, name: true } } },
+      orderBy: { joinedAt: 'asc' },
+    });
+    return members.map((member) => ({
+      userId: member.user.id,
+      name: member.user.name,
+    }));
   }
 
   /**

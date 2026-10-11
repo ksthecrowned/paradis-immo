@@ -1,5 +1,10 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { MandateStatus, OrgMemberRole, Prisma } from '@prisma/client';
+import {
+  MandateStatus,
+  MemberStatus,
+  OrgMemberRole,
+  Prisma,
+} from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
 /**
@@ -53,6 +58,7 @@ export class AgencyAccessService {
             members: {
               some: {
                 userId,
+                status: MemberStatus.ACTIVE,
                 role: { in: [OrgMemberRole.ADMIN, OrgMemberRole.OWNER] },
               },
             },
@@ -70,8 +76,9 @@ export class AgencyAccessService {
           organizationId: mandate.organizationId,
         },
       },
+      select: { role: true, status: true },
     });
-    if (!member) return false;
+    if (!member || member.status !== MemberStatus.ACTIVE) return false;
     if (member.role === OrgMemberRole.ADMIN) return true;
     if (
       member.role === OrgMemberRole.AGENT &&
@@ -114,8 +121,13 @@ export class AgencyAccessService {
       where: {
         userId_organizationId: { userId, organizationId },
       },
+      select: { role: true, status: true },
     });
-    if (!member || member.role !== OrgMemberRole.ADMIN) {
+    if (
+      !member ||
+      member.status !== MemberStatus.ACTIVE ||
+      member.role !== OrgMemberRole.ADMIN
+    ) {
       throw new ForbiddenException({
         code: 'NOT_AGENCY_GERANT',
         message: 'Only the agency gérant can perform this action',
@@ -142,11 +154,26 @@ export class AgencyAccessService {
             {
               organization: {
                 members: {
-                  some: { userId, role: OrgMemberRole.ADMIN },
+                  some: {
+                    userId,
+                    status: MemberStatus.ACTIVE,
+                    role: OrgMemberRole.ADMIN,
+                  },
                 },
               },
             },
-            { assignedAgentId: userId },
+            {
+              assignedAgentId: userId,
+              organization: {
+                members: {
+                  some: {
+                    userId,
+                    status: MemberStatus.ACTIVE,
+                    role: OrgMemberRole.AGENT,
+                  },
+                },
+              },
+            },
           ],
         },
         select: { propertyId: true },
@@ -157,6 +184,7 @@ export class AgencyAccessService {
             members: {
               some: {
                 userId,
+                status: MemberStatus.ACTIVE,
                 role: {
                   in: [OrgMemberRole.ADMIN, OrgMemberRole.OWNER],
                 },

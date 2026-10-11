@@ -139,7 +139,7 @@ model MessageReport { id String @id @default(cuid()) messageId String reporterId
 | ID | Priorité | Delta | État |
 |---|---|---|---|
 | 10.1 | P1 | Créer les interfaces mobile/web de boîte de réception, conversation et support. | À faire |
-| 10.2 | P1 | Compléter l'accès partagé par contexte et l'assignation de conversation. | À faire / vérifier |
+| 10.2 | P1 | Compléter l'accès partagé par contexte et l'assignation de conversation. | Partiel : l'ouverture d'un contexte LEASE/BOOKING/VISIT/MAINTENANCE/SALE vérifie maintenant que l'appelant est le participant lié ; la lecture gestionnaire par identifiant réutilise `AgencyAccessService`. L'assignation et les autres contrôles de contexte restent à compléter. |
 | 10.3 | P1 | Ajouter pièces jointes, notifications et parcours de lecture cohérents. | À faire |
 | 10.4 | P2 | Ajouter signalement, blocage, réponses rapides et archivage. | À faire |
 | 10.5 | P2 | Ajouter le temps réel, masquage des coordonnées et relance externe. | À faire |

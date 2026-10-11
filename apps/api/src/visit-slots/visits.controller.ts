@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -7,6 +8,7 @@ import {
   Patch,
   Post,
   Put,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { IsOptional, IsString, Length, Matches } from 'class-validator';
@@ -103,6 +105,24 @@ export class VisitsController {
     @Body() dto: AssignVisitAgentDto,
   ) {
     return this.slots.assignVisitAgent(current.userId, id, dto.agentId ?? null);
+  }
+
+  @Get('assignable-agents')
+  @ApiOperation({ summary: 'List active agents available for visit assignment' })
+  assignableAgents(
+    @CurrentUser() current: AuthenticatedUser,
+    @Query('propertyId') propertyId: string,
+  ) {
+    if (!propertyId?.trim()) {
+      throw new BadRequestException({
+        code: 'PROPERTY_ID_REQUIRED',
+        message: 'propertyId is required',
+      });
+    }
+    return this.slots.listAssignableVisitAgents(
+      current.userId,
+      propertyId.trim(),
+    );
   }
 
   @Patch(':id/cancel')

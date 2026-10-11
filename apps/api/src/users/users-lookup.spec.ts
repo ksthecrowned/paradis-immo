@@ -5,7 +5,7 @@ import {
   HttpException,
   NotFoundException,
 } from '@nestjs/common';
-import { OrgMemberRole } from '@prisma/client';
+import { MemberStatus, OrgMemberRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { UsersService } from './users.service';
 
@@ -161,6 +161,29 @@ describe('UsersService.lookupForManager (spec 01)', () => {
     expect(found.exists).toBe(false);
     expect(found.userId).toBeNull();
     expect(found.displayName).toBeNull();
+  });
+
+  it('rejects a disabled organization member', async () => {
+    await prisma.organizationMember.update({
+      where: {
+        userId_organizationId: { userId: managerId, organizationId: orgId },
+      },
+      data: { status: MemberStatus.DISABLED },
+    });
+    try {
+      await expect(
+        users.lookupForManager(managerId, targetPhone),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      const organizations = await users.listMyOrganizations(managerId);
+      expect(organizations.some((org) => org.id === orgId)).toBe(false);
+    } finally {
+      await prisma.organizationMember.update({
+        where: {
+          userId_organizationId: { userId: managerId, organizationId: orgId },
+        },
+        data: { status: MemberStatus.ACTIVE },
+      });
+    }
   });
 
   it('rate limits an org member at 20 lookups per hour', async () => {

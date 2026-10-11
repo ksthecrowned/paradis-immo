@@ -6,6 +6,7 @@ import { EventPublisher } from '../../events/event.publisher';
 import { R2Service } from '../../media/r2.service';
 import { DocumentSequenceService } from '../../documents/document-sequence.service';
 import { ReceiptService } from './receipt.service';
+import { AgencyAccessService } from '../../mandates/agency-access.service';
 
 describe('ReceiptService', () => {
   let receipts: ReceiptService;
@@ -22,6 +23,7 @@ describe('ReceiptService', () => {
   let paymentId: string;
   let ownerOrgId: string;
   let agentOrgId: string;
+  let mandateId: string;
   const createdReceiptIds: string[] = [];
   const createdPaymentIds: string[] = [];
 
@@ -35,6 +37,7 @@ describe('ReceiptService', () => {
     const moduleRef = await Test.createTestingModule({
       providers: [
         ReceiptService,
+        AgencyAccessService,
         PrismaService,
         // Spec 04 P1 — receipts carry a sequential per-org number.
         DocumentSequenceService,
@@ -147,6 +150,16 @@ describe('ReceiptService', () => {
       },
     });
     propertyId = prop.id;
+    const mandate = await prisma.mandate.create({
+      data: {
+        propertyId,
+        organizationId: agentOrgId,
+        status: 'ACTIVE',
+        assignedAgentId: agentUserId,
+        proposedById: ownerUserId,
+      },
+    });
+    mandateId = mandate.id;
 
     const lease = await prisma.lease.create({
       data: {
@@ -202,6 +215,11 @@ describe('ReceiptService', () => {
   });
 
   afterAll(async () => {
+    if (mandateId) {
+      await prisma.mandate
+        .delete({ where: { id: mandateId } })
+        .catch(() => undefined);
+    }
     if (createdReceiptIds.length) {
       await prisma.receipt
         .deleteMany({ where: { id: { in: createdReceiptIds } } })
@@ -301,6 +319,46 @@ describe('ReceiptService', () => {
     expect(persisted?.issuerOrgId).toBe(ownerOrgId);
   });
 
+  it('limits receipt access to the payer, property owner and assigned active agent', async () => {
+    const receipt = await receipts.generateForPayment(paymentId);
+    createdReceiptIds.push(receipt.receiptId);
+
+    await expect(
+      receipts.findByIdForUser(receipt.receiptId, tenantUserId),
+    ).resolves.toMatchObject({ id: receipt.receiptId });
+    await expect(
+      receipts.findByIdForUser(receipt.receiptId, ownerUserId),
+    ).resolves.toMatchObject({ id: receipt.receiptId });
+    await expect(
+      receipts.findByIdForUser(receipt.receiptId, agentUserId),
+    ).resolves.toMatchObject({ id: receipt.receiptId });
+
+    await prisma.organizationMember.update({
+      where: {
+        userId_organizationId: {
+          userId: agentUserId,
+          organizationId: agentOrgId,
+        },
+      },
+      data: { status: 'DISABLED' },
+    });
+    try {
+      await expect(
+        receipts.findByIdForUser(receipt.receiptId, agentUserId),
+      ).rejects.toThrow(ForbiddenException);
+    } finally {
+      await prisma.organizationMember.update({
+        where: {
+          userId_organizationId: {
+            userId: agentUserId,
+            organizationId: agentOrgId,
+          },
+        },
+        data: { status: 'ACTIVE' },
+      });
+    }
+  });
+
   it('is idempotent on paymentId — re-running returns the same receipt without re-uploading', async () => {
     const first = await receipts.generateForPayment(paymentId);
     const callsAfterFirst = uploadSpy.mock.calls.length;
@@ -318,6 +376,7 @@ describe('ReceiptService', () => {
     } as any;
     const svc = new ReceiptService(
       fakePrisma as any,
+      undefined as any,
       undefined as any,
       undefined as any,
     );
@@ -339,12 +398,12 @@ describe('ReceiptService', () => {
           },
         }),
       },
-      organizationMember: { findUnique: jest.fn() },
     } as any;
     const svc = new ReceiptService(
       fakePrisma as any,
       undefined as any,
       undefined as any,
+      { canOperateOnProperty: jest.fn().mockResolvedValue(false) } as any,
     );
     await expect(svc.findByIdForUser('r1', 'other-user')).rejects.toThrow(
       ForbiddenException,

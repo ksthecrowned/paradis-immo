@@ -6,6 +6,7 @@ export interface PublicVisitBooking {
   propertyId: string;
   userId: string;
   status: string;
+  agentId: string | null;
   paymentId: string | null;
   createdAt: string;
   // The /visits/managed endpoint joins VisitBooking with its slot and returns
@@ -15,8 +16,31 @@ export interface PublicVisitBooking {
   slotEndAt?: string;
 }
 
+export interface PublicAssignableVisitAgent {
+  userId: string;
+  name: string | null;
+}
+
 export async function listManagedVisits(): Promise<PublicVisitBooking[]> {
   return apiFetch<PublicVisitBooking[]>('/visits/managed');
+}
+
+export async function listAssignableVisitAgents(
+  propertyId: string,
+): Promise<PublicAssignableVisitAgent[]> {
+  return apiFetch<PublicAssignableVisitAgent[]>(
+    `/visits/assignable-agents?propertyId=${encodeURIComponent(propertyId)}`,
+  );
+}
+
+export async function assignVisitAgent(
+  id: string,
+  agentId: string | null,
+): Promise<PublicVisitBooking> {
+  return apiFetch<PublicVisitBooking>(`/visits/${id}/assign`, {
+    method: 'PATCH',
+    body: { agentId },
+  });
 }
 
 export async function bookVisit(input: {

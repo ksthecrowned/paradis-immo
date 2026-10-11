@@ -107,6 +107,7 @@ export class OrganizationsService {
       include: {
         members: {
           where: {
+            status: MemberStatus.ACTIVE,
             role: { in: [OrgMemberRole.AGENT, OrgMemberRole.ADMIN] },
           },
           include: {

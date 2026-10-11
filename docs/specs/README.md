@@ -47,11 +47,11 @@ Elles s'appuient sur un audit du code au 2026-10 et ne contiennent aucun code ap
 - **Montants.** `Decimal` en XAF, sans centimes. La devise est portée par l'objet.
 - **Dates.** Stockage en UTC. Affichage et crons en `Africa/Brazzaville`.
 
-## Constats transverses initiaux (à revalider)
+## Constats de l'audit initial — historiques, non contractuels
 
-Les constats ci-dessous décrivent l'audit de base et peuvent être dépassés par les changements locaux. Pour l'état local courant, consulter les sections « Déjà en place », « Écarts » et « Delta d'implémentation » des specs, puis l'index 15.
+Les constats ci-dessous décrivent uniquement l'audit de départ. Ils sont conservés comme historique et **ne doivent pas être utilisés pour déduire l'état du code courant** : certains peuvent avoir été corrigés ou dépassés par les changements locaux. Consulter d'abord le tableau « Delta d'implémentation » de la spec source, puis l'index consolidé 15. Pour les specs 01–05, les nouveaux deltas restent explicitement « à revalider » tant que l'audit ciblé correspondant n'a pas été fait.
 
-À traiter en priorité, quel que soit le domaine :
+Éléments relevés lors de cet audit initial :
 
 1. `OrganizationsService.ensureAgentMembership` rend n'importe quel utilisateur AGENT de Paradis Immo, ce qui ouvre une escalade de privilèges (01, 02).
 2. `GET properties/:id/documents` n'a aucun guard : titres fonciers et plans sont publics (13).

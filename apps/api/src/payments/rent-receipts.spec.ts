@@ -41,6 +41,9 @@ describe('Rent receipts + PARTIAL payments (spec 04 P1)', () => {
       uploadPrivateFileAtKey: jest.fn(async (key: string) => {
         uploaded.push(key);
       }),
+      uploadBuffer: jest.fn(async (key: string) => ({
+        url: `https://fake.r2/${key}`,
+      })),
       createPresignedDownload: jest.fn(async (key: string) => key),
     } as unknown as R2Service;
 

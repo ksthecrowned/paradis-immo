@@ -7,6 +7,7 @@ import {
 import {
   ListingStatus,
   MandateStatus,
+  MemberStatus,
   OrgMemberRole,
   OrganizationType,
   Prisma,
@@ -735,7 +736,9 @@ export class PropertiesService {
           },
         },
       });
-      if (membership) return { counted: false };
+      if (membership?.status === MemberStatus.ACTIVE) {
+        return { counted: false };
+      }
     }
 
     const viewerKey = userId ? `user:${userId}` : `device:${deviceId}`;
@@ -783,6 +786,7 @@ export class PropertiesService {
     const agencyMemberships = await this.prisma.organizationMember.findMany({
       where: {
         userId,
+        status: MemberStatus.ACTIVE,
         role: { in: [OrgMemberRole.AGENT, OrgMemberRole.ADMIN] },
         organization: { type: OrganizationType.AGENCY },
       },
@@ -874,7 +878,7 @@ export class PropertiesService {
       organization: {
         include: {
           members: {
-            where: { role: 'AGENT' },
+            where: { role: 'AGENT', status: MemberStatus.ACTIVE },
             take: 1,
             include: { user: true },
           },

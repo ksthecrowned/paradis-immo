@@ -1,5 +1,10 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { LedgerEntryType, OrgMemberRole, Prisma } from '@prisma/client';
+import {
+  LedgerEntryType,
+  MemberStatus,
+  OrgMemberRole,
+  Prisma,
+} from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { R2Service } from '../media/r2.service';
 import { renderStatementPdf } from './statement-pdf';
@@ -258,7 +263,11 @@ export class AccountingService {
     total: string;
   }> {
     const memberships = await this.prisma.organizationMember.findMany({
-      where: { userId, role: OrgMemberRole.ADMIN },
+      where: {
+        userId,
+        role: OrgMemberRole.ADMIN,
+        status: MemberStatus.ACTIVE,
+      },
       select: { organizationId: true },
     });
     const orgIds = memberships.map((m) => m.organizationId);
@@ -307,7 +316,11 @@ export class AccountingService {
     const isOwner = (await this.ownerOrgIds(userId)).length > 0;
     const isManager =
       (await this.prisma.organizationMember.count({
-        where: { userId, role: OrgMemberRole.ADMIN },
+        where: {
+          userId,
+          role: OrgMemberRole.ADMIN,
+          status: MemberStatus.ACTIVE,
+        },
       })) > 0;
     if (!isOwner && !isManager) {
       throw new BadRequestException({
@@ -322,7 +335,11 @@ export class AccountingService {
           agencyOrgId: {
             in: (
               await this.prisma.organizationMember.findMany({
-                where: { userId, role: OrgMemberRole.ADMIN },
+                where: {
+                  userId,
+                  role: OrgMemberRole.ADMIN,
+                  status: MemberStatus.ACTIVE,
+                },
                 select: { organizationId: true },
               })
             ).map((m) => m.organizationId),

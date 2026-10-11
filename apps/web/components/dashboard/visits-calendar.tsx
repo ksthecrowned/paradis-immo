@@ -5,6 +5,7 @@ import type { PublicVisitSlot } from '@/lib/owner/visit-slots';
 import {
     visitStatusLabel,
     visitStatusTone,
+    type PublicAssignableVisitAgent,
     type PublicVisitBooking,
 } from '@/lib/visits';
 import { Icon } from '@iconify/react';
@@ -35,6 +36,10 @@ export interface VisitsCalendarProps {
   onCancel?: (id: string) => void | Promise<void>;
   /** Id currently being mutated — disables the matching action button. */
   busyId?: string | null;
+  /** Active agents grouped by the property they can manage. */
+  agentsByProperty?: Record<string, PublicAssignableVisitAgent[]>;
+  /** Called when a manager changes the agent assigned to a visit. */
+  onAssignAgent?: (bookingId: string, agentId: string | null) => void | Promise<void>;
   /** Optional: called when the user clicks an empty day to create a new visit. */
   onDayCreate?: (date: Date) => void;
 }
@@ -154,6 +159,8 @@ export function VisitsCalendar({
   onConfirm,
   onCancel,
   busyId = null,
+  agentsByProperty,
+  onAssignAgent,
   onDayCreate,
 }: VisitsCalendarProps): React.JSX.Element {
   const today = useMemo(() => {
@@ -421,6 +428,43 @@ export function VisitsCalendar({
                     label={visitStatusLabel(booking.status)}
                     tone={visitStatusTone(booking.status)}
                   />
+                  {onAssignAgent &&
+                  agentsByProperty &&
+                  (booking.status === 'PENDING' ||
+                    booking.status === 'CONFIRMED') ? (
+                    <label className="flex items-center gap-2 text-xs text-muted">
+                      Agent
+                      <select
+                        aria-label="Agent affecté à la visite"
+                        value={booking.agentId ?? ''}
+                        disabled={busyId === booking.id}
+                        onChange={(event) =>
+                          void onAssignAgent(
+                            booking.id,
+                            event.target.value || null,
+                          )
+                        }
+                        className="max-w-48 rounded-md border border-input-border bg-search px-2 py-1.5 text-sm text-foreground"
+                      >
+                        <option value="">Non affecté</option>
+                        {booking.agentId &&
+                        !(agentsByProperty[booking.propertyId] ?? []).some(
+                          (agent) => agent.userId === booking.agentId,
+                        ) ? (
+                          <option value={booking.agentId}>
+                            Agent non disponible
+                          </option>
+                        ) : null}
+                        {(agentsByProperty[booking.propertyId] ?? []).map(
+                          (agent) => (
+                            <option key={agent.userId} value={agent.userId}>
+                              {agent.name || 'Agent'}
+                            </option>
+                          ),
+                        )}
+                      </select>
+                    </label>
+                  ) : null}
                   <div className="flex items-center gap-1.5">
                     {isPending && onConfirm ? (
                       <Button

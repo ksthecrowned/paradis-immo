@@ -256,7 +256,7 @@ export class InspectionsService {
   ): Promise<InspectionPublic> {
     const inspection = await this.prisma.inspection.findUnique({
       where: { id: inspectionId },
-      include: { lease: { select: { tenantId: true } } },
+      include: { lease: { select: { propertyId: true, tenantId: true } } },
     });
     if (!inspection) {
       throw new BadRequestException({
@@ -264,7 +264,13 @@ export class InspectionsService {
         message: "L'EDL n'existe pas",
       });
     }
-    if (inspection.lease.tenantId !== userId && !(await this.agencyAccess.canOperateOnProperty(userId, inspectionId))) {
+    if (
+      inspection.lease.tenantId !== userId &&
+      !(await this.agencyAccess.canOperateOnProperty(
+        userId,
+        inspection.lease.propertyId,
+      ))
+    ) {
       // ok: la réserves est un droit locataire principal (les gestionnaires
       // peuvent aussi en ajouter, mais pas un tiers).
       throw new ForbiddenException({

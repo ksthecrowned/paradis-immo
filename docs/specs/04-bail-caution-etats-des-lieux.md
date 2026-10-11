@@ -16,7 +16,7 @@ Couvrir tout le cycle de la location longue durée :
 
 Rôles : `SEEKER` (candidat), `TENANT`, `OWNER`, `MANAGER`, `AGENT`.
 
-## État actuel (audit)
+## Audit initial — état local à revalider
 - `Lease` : statuts DRAFT, ACTIVE, TERMINATED, mais aucun passage à TERMINATED. Pas de résiliation, de préavis ni de renouvellement.
 - L'activation ne vérifie pas les chevauchements de baux sur le bien et ne passe pas le bien en `OCCUPIED`.
 - Le locataire est créé automatiquement à partir de son téléphone, sans invitation ni notification (`LEASE_CREATED` n'a pas de listener).
@@ -311,3 +311,13 @@ model DepositSettlement {
 - **P0** : chevauchement, statut du bien, résiliation et clôture (`TERMINATED`), invitation au lieu de la création silencieuse, pagination.
 - **P1** : candidature et solvabilité du candidat, signature, quittances séquentielles, paiements partiels, caution (encaissement et restitution), EDL, impayés.
 - **P2** : avenants versionnés, révision annuelle, pénalités, modèles de bail, colocation, mise en demeure.
+
+## Delta d'implémentation
+| ID | Priorité | Delta | État |
+|---|---|---|---|
+| 04.1 | P0 | Sécuriser l'activation (concurrence, chevauchements, statut du bien), invitation du locataire, fin de bail et pagination des listes. | **Partiel.** Activation vérifie les chevauchements avec baux et réservations confirmés, met à jour le bien et génère l'échéancier ; invitation, résiliation et clôture existent. Vérifier les courses entre activations concurrentes, pagination et transitions de fin de bail. |
+| 04.2 | P1 | Finaliser candidatures/solvabilité, signatures, paiements partiels et génération séquentielle des reçus/quittances. | **Partiel.** Signature OTP du bail, paiements partiels/allocation et génération des quittances sont présents ; la récupération des quittances manquantes est aussi prévue. Candidature/solvabilité et séquences de génération doivent être confirmées par des tests dédiés. |
+| 04.3 | P1 | Compléter caution, retenues, contestations, restitutions et états des lieux signés avec preuves/documentation privées. | **Partiel.** États des lieux, signatures des parties, réserves et documents bail/locataire en stockage privé avec URLs signées sont implémentés ; l'autorisation d'ajout de réserve gestionnaire vérifie maintenant le bien lié au bail. Finaliser la caution et ses retenues/contestations/restitutions ; confirmer l'immuabilité après signature et les autorisations des médias de preuve. |
+| 04.4 | P2 | Ajouter avenants, révision annuelle, pénalités, modèles, colocation et mise en demeure. | **Partiel.** Avenants et renouvellement avec prolongation sont présents via les approbations de mandat. Révision annuelle automatisée, pénalités, modèles, colocation et mise en demeure restent à faire. |
+
+État établi par inspection du code local ; les contrôles de stockage privé, de signature et de scénarios financiers de bout en bout restent dans les vérifications manuelles de lancement.

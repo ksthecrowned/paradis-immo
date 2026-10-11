@@ -13,6 +13,7 @@ import { AvailabilityService } from './availability.service';
 import { UsersService } from '../users/users.service';
 import { PricingService } from './pricing.service';
 import type { PricingQuote } from './pricing.service';
+import { AgencyAccessService } from '../mandates/agency-access.service';
 
 export interface PublicBooking {
   id: string;
@@ -50,6 +51,7 @@ export class BookingsService {
     private readonly events: EventPublisher,
     private readonly users: UsersService,
     private readonly pricing: PricingService,
+    private readonly agencyAccess: AgencyAccessService,
   ) {}
 
   async createBooking(
@@ -116,21 +118,7 @@ export class BookingsService {
     let guestUserId = userId;
     if (input.guestPhone) {
       if (property.ownerId !== userId) {
-        const membership = await this.prisma.organizationMember.findUnique({
-          where: {
-            userId_organizationId: {
-              userId,
-              organizationId: property.organizationId,
-            },
-          },
-        });
-        if (!membership) {
-          throw new ForbiddenException({
-            code: 'NOT_PROPERTY_OWNER',
-            message:
-              'Only the owner or a member of the managing org can book on behalf of a guest',
-          });
-        }
+        await this.agencyAccess.assertCanOperateOnProperty(userId, property.id);
       }
       const guest = await this.users.resolveOrCreateByPhone(
         input.guestPhone,
@@ -277,21 +265,7 @@ export class BookingsService {
   }
 
   async listManaged(userId: string): Promise<PublicBooking[]> {
-    const accessible = await this.prisma.property.findMany({
-      where: {
-        OR: [
-          { ownerId: userId },
-          {
-            organization: {
-              members: { some: { userId } },
-            },
-          },
-        ],
-      },
-      select: { id: true },
-      take: 500,
-    });
-    const propertyIds = accessible.map((p) => p.id);
+    const propertyIds = await this.agencyAccess.listOperablePropertyIds(userId);
     if (propertyIds.length === 0) return [];
     const rows = await this.prisma.booking.findMany({
       where: { propertyId: { in: propertyIds } },
@@ -807,15 +781,9 @@ export class BookingsService {
     }
     if (property.ownerId === userId) return;
     if (property.organizationId) {
-      const member = await this.prisma.organizationMember.findUnique({
-        where: {
-          userId_organizationId: {
-            userId,
-            organizationId: property.organizationId,
-          },
-        },
-      });
-      if (member) return;
+      if (await this.agencyAccess.canOperateOnProperty(userId, propertyId)) {
+        return;
+      }
     }
     throw new ForbiddenException({
       code: 'NOT_ASSIGNED_AGENT',

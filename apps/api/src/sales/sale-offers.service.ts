@@ -7,6 +7,7 @@ import {
 import {
   ListingStatus,
   MandateActionType,
+  MemberStatus,
   OrgMemberRole,
   Prisma,
   SaleOffer,
@@ -687,10 +688,27 @@ export class SaleOffersService {
         status: 'ACTIVE',
         scopes: { has: 'SALE' },
         OR: [
-          { assignedAgentId: userId },
+          {
+            assignedAgentId: userId,
+            organization: {
+              members: {
+                some: {
+                  userId,
+                  status: MemberStatus.ACTIVE,
+                  role: OrgMemberRole.AGENT,
+                },
+              },
+            },
+          },
           {
             organization: {
-              members: { some: { userId, role: OrgMemberRole.ADMIN } },
+              members: {
+                some: {
+                  userId,
+                  role: OrgMemberRole.ADMIN,
+                  status: MemberStatus.ACTIVE,
+                },
+              },
             },
           },
         ],
@@ -703,6 +721,7 @@ export class SaleOffersService {
     const orgMember = await this.prisma.organizationMember.findFirst({
       where: {
         userId,
+        status: MemberStatus.ACTIVE,
         organizationId: property.organizationId,
         role: { in: [OrgMemberRole.ADMIN, OrgMemberRole.OWNER] },
       },

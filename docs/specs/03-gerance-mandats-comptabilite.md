@@ -8,7 +8,7 @@ Formaliser la relation propriétaire–agence :
 
 Rôles : `OWNER`, `MANAGER`, `AGENT`, `PLATFORM_ADMIN` (consultation).
 
-## État actuel (audit)
+## Audit initial — état local à revalider
 - `Mandate` : `status` ACTIVE ou REVOKED, `startDate`, `endDate?`, `assignedAgentId`. Il est actif dès la création par le propriétaire, sans acceptation de l'agence.
 - Pas de type de mandat (gestion locative, vente, séjours), pas de commission, pas d'exclusivité, pas de document signé.
 - `revokeMandate` existe dans le service, mais aucune route ne l'expose. Aucun `GET` ne liste les mandats du propriétaire.
@@ -242,3 +242,13 @@ model OwnerStatement {
 - **P0** : route de résiliation, effets réels des approbations, listener `MANDATE_ACTION_PENDING`, flux `RENT_REDUCTION`.
 - **P1** : acceptation par l'agence, commissions, ledger, dépenses, relevés, pages mandats côté agent.
 - **P2** : contre-proposition versionnée, signature électronique, renouvellement tacite, export CSV.
+
+## Delta d'implémentation
+| ID | Priorité | Delta | État |
+|---|---|---|---|
+| 03.1 | P0 | Compléter le cycle du mandat, ses autorisations, la résiliation et les effets transactionnels des approbations. | **Partiel.** Proposition, acceptation/refus, résiliation, expiration, affectation d'agent et contrôles d'accès existent. Les membres désactivés n'accèdent plus aux portefeuilles, détails, affectations, approbations, comptes de reversement ou exports financiers ; les rôles de gestion et agents affectés sont filtrés sur les surfaces sensibles. Compléter les tests de concurrence et auditer les transitions restantes. |
+| 03.2 | P0 | Garantir que toute approbation validée applique son effet métier et que les transitions associées sont idempotentes et auditées. | **Partiel.** Décisions et effets sont transactionnels pour plusieurs actions (bail, loyer, réparation, prix/offre de vente, dépense) ; l'expiration des demandes est implémentée. Couvrir les actions sans effet, les transitions rejouées et l'idempotence concurrente par contrainte de base de données. |
+| 03.3 | P1 | Finaliser commissions, ledger immuable, dépenses, reversements calculés et relevés propriétaires. | **Partiel.** Dépenses approuvées, écritures de paiement/remboursement, calcul de solde et relevés existent localement. Vérifier l'unicité/idempotence du ledger sous concurrence, les commissions et le rapprochement complet avec les reversements réels. |
+| 03.4 | P2 | Ajouter contre-propositions versionnées, signature électronique, renouvellement tacite et export CSV. | **Partiel.** Avenants et prolongation de bail sont produits lors de certaines approbations. Contre-propositions versionnées, signature électronique du mandat, renouvellement tacite et export CSV restent à compléter/confirmer. |
+
+État établi par inspection du code local ; aucun rapprochement financier de production ni validation bancaire n'a été effectué.

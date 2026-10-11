@@ -4,6 +4,7 @@ import {
   ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
+import { MemberStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { R2Service } from '../media/r2.service';
 import { KycService } from './kyc.service';
@@ -67,7 +68,12 @@ describe('KycService (spec 01 — P1)', () => {
         name: `KYC Spec Org ${Date.now()}`,
         type: 'OWNER',
         countryId,
-        members: { create: { userId: ownerId, role: 'OWNER' } },
+        members: {
+          create: [
+            { userId: ownerId, role: 'OWNER' },
+            { userId: strangerId, role: 'AGENT' },
+          ],
+        },
       },
     });
     orgId = org.id;
@@ -146,6 +152,12 @@ describe('KycService (spec 01 — P1)', () => {
       organizationId: orgId,
     });
     expect(created.organizationId).toBe(orgId);
+    expect((await kyc.mine(ownerId)).map((item) => item.id)).toContain(
+      created.id,
+    );
+    expect((await kyc.mine(strangerId)).map((item) => item.id)).not.toContain(
+      created.id,
+    );
 
     await kyc.review('admin-user', created.id, {
       status: 'VERIFIED',
@@ -155,6 +167,32 @@ describe('KycService (spec 01 — P1)', () => {
     const sub = await prisma.kycSubmission.findUniqueOrThrow({ where: { id: created.id } });
     expect(sub.status).toBe('VERIFIED');
     expect(sub.reviewedAt).not.toBeNull();
+  });
+
+  it('does not expose organization KYC to a disabled manager', async () => {
+    await prisma.organizationMember.update({
+      where: {
+        userId_organizationId: { userId: ownerId, organizationId: orgId },
+      },
+      data: { status: MemberStatus.DISABLED },
+    });
+    try {
+      const mine = await kyc.mine(ownerId);
+      expect(mine.some((item) => item.organizationId === orgId)).toBe(false);
+      await expect(
+        kyc.submit(ownerId, file('disabled.pdf'), {
+          documentType: 'RCCM',
+          organizationId: orgId,
+        }),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    } finally {
+      await prisma.organizationMember.update({
+        where: {
+          userId_organizationId: { userId: ownerId, organizationId: orgId },
+        },
+        data: { status: MemberStatus.ACTIVE },
+      });
+    }
   });
 
   it('requires a reason when rejecting', async () => {

@@ -586,6 +586,46 @@ describe('VisitSlotsService atomic booking', () => {
     expect(prisma.visitBooking.updateMany).not.toHaveBeenCalled();
   });
 
+  it('lists only active agency agents for an owner-managed property', async () => {
+    const prisma = {
+      property: {
+        findUnique: jest.fn().mockResolvedValue({
+          ownerId: 'owner-1',
+          organizationId: 'owner-org-1',
+        }),
+      },
+      mandate: {
+        findFirst: jest.fn().mockResolvedValue({
+          organizationId: 'agency-1',
+        }),
+      },
+      organizationMember: {
+        findMany: jest.fn().mockResolvedValue([
+          { user: { id: 'agent-1', name: 'Agent actif' } },
+        ]),
+      },
+    } as unknown as PrismaService;
+    const service = new VisitSlotsService(
+      prisma,
+      { emit: jest.fn() } as unknown as EventPublisher,
+      {} as AgencyAccessService,
+      {} as UsersService,
+    );
+
+    await expect(
+      service.listAssignableVisitAgents('owner-1', 'property-1'),
+    ).resolves.toEqual([{ userId: 'agent-1', name: 'Agent actif' }]);
+    expect(prisma.organizationMember.findMany).toHaveBeenCalledWith({
+      where: {
+        organizationId: 'agency-1',
+        role: 'AGENT',
+        status: 'ACTIVE',
+      },
+      include: { user: { select: { id: true, name: true } } },
+      orderBy: { joinedAt: 'asc' },
+    });
+  });
+
   it('lists assigned visits only while the assigned agency mandate is active', async () => {
     const slot = {
       startAt: new Date('2026-10-12T12:00:00Z'),

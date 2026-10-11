@@ -11,6 +11,7 @@ import { FcmService } from './fcm.service';
 import { NotificationsService } from './notifications.service';
 import { ReceiptService } from '../payments/receipts/receipt.service';
 import { DocumentSequenceService } from '../documents/document-sequence.service';
+import { AgencyAccessService } from '../mandates/agency-access.service';
 import { PaymentValidatedProcessor } from './processors/payment-validated.processor';
 
 describe('Notifications — PAYMENT_VALIDATED processor', () => {
@@ -60,6 +61,7 @@ describe('Notifications — PAYMENT_VALIDATED processor', () => {
         PaymentValidatedProcessor,
         NotificationsService,
         ReceiptService,
+        AgencyAccessService,
         PrismaService,
         // Spec 04 P1 — receipts carry a sequential per-org number.
         DocumentSequenceService,

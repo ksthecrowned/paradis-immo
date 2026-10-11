@@ -260,14 +260,24 @@ describe('InspectionsService (spec 15 B1)', () => {
   });
 
   it('réserves du locataire dans la fenêtre', async () => {
+    const byManager = await inspections.addReserve(
+      ownerUserId,
+      inspectionInId,
+      'Trace signalée par le gestionnaire',
+      ['manager-reserve.jpg'],
+    );
+    expect(byManager.reserves).toHaveLength(1);
+
     const updated = await inspections.addReserve(
       tenantUserId,
       inspectionInId,
       'Rayure non signalée au fond du salon',
       ['reserve.jpg'],
     );
-    expect(updated.reserves).toHaveLength(1);
-    expect(updated.reserves[0].text).toContain('Rayure');
+    expect(updated.reserves).toHaveLength(2);
+    expect(updated.reserves.some((reserve) => reserve.text.includes('Rayure'))).toBe(
+      true,
+    );
   });
 
   it('crée un CHECK_OUT, compare renvoie les écarts (peinture GOOD→DAMAGED)', async () => {

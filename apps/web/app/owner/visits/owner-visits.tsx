@@ -15,9 +15,12 @@ import {
 import { ApiError } from '@/lib/api';
 import {
   bookVisit,
+  assignVisitAgent,
   cancelVisit,
   confirmVisit,
+  listAssignableVisitAgents,
   listManagedVisits,
+  type PublicAssignableVisitAgent,
   type PublicVisitBooking,
 } from '@/lib/visits';
 import { listMyProperties } from '@/lib/owner/properties';
@@ -38,6 +41,9 @@ export function OwnerVisitsPage(): React.JSX.Element {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [agentsByProperty, setAgentsByProperty] = useState<
+    Record<string, PublicAssignableVisitAgent[]>
+  >({});
   const [showCreate, setShowCreate] = useState(false);
   const [properties, setProperties] = useState<
     Array<{ id: string; title: string }>
@@ -54,6 +60,15 @@ export function OwnerVisitsPage(): React.JSX.Element {
     setLoading(true);
     try {
       const data = await listManagedVisits();
+      const assignableAgents = await Promise.allSettled(
+        [...new Set(data.map((booking) => booking.propertyId))].map(
+          async (id) => [id, await listAssignableVisitAgents(id)] as const,
+        ),
+      );
+      const agentRosters = assignableAgents.flatMap((result) =>
+        result.status === 'fulfilled' ? [result.value] : [],
+      );
+      setAgentsByProperty(Object.fromEntries(agentRosters));
       setBookings(
         data
           .filter(
@@ -70,7 +85,11 @@ export function OwnerVisitsPage(): React.JSX.Element {
             slotEndAt: b.slotEndAt,
           })),
       );
-      setError(null);
+      setError(
+        assignableAgents.some((result) => result.status === 'rejected')
+          ? 'Certaines listes d’agents disponibles n’ont pas pu être chargées.'
+          : null,
+      );
     } catch (err) {
       setError(
         err instanceof ApiError
@@ -203,6 +222,25 @@ export function OwnerVisitsPage(): React.JSX.Element {
     [load],
   );
 
+  const handleAssignAgent = useCallback(
+    async (bookingId: string, agentId: string | null) => {
+      setBusyId(bookingId);
+      try {
+        await assignVisitAgent(bookingId, agentId);
+        await load();
+      } catch (err) {
+        setError(
+          err instanceof ApiError
+            ? err.message
+            : "Impossible de modifier l'agent affecté.",
+        );
+      } finally {
+        setBusyId(null);
+      }
+    },
+    [load],
+  );
+
   if (!ready) {
     return <p className="text-sm text-muted">Chargement de la session…</p>;
   }
@@ -309,6 +347,10 @@ export function OwnerVisitsPage(): React.JSX.Element {
         onConfirm={(id) => void handleConfirm(id)}
         onCancel={(id) => void handleCancel(id)}
         busyId={busyId}
+        agentsByProperty={agentsByProperty}
+        onAssignAgent={(id, agentId) =>
+          void handleAssignAgent(id, agentId)
+        }
       />
     </section>
   );

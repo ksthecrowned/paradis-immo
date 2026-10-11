@@ -1,6 +1,10 @@
 import { Test } from '@nestjs/testing';
 import { ForbiddenException } from '@nestjs/common';
-import { OrgMemberRole, OrganizationType } from '@prisma/client';
+import {
+  MemberStatus,
+  OrgMemberRole,
+  OrganizationType,
+} from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AgencyAccessService } from './agency-access.service';
 
@@ -179,6 +183,66 @@ describe('AgencyAccessService', () => {
     await expect(
       access.assertCanOperateOnProperty(unassignedAgentId, propertyId),
     ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it('revokes property access and portfolio visibility when membership is disabled', async () => {
+    await prisma.organizationMember.update({
+      where: {
+        userId_organizationId: {
+          userId: assignedAgentId,
+          organizationId: agencyOrgId,
+        },
+      },
+      data: { status: MemberStatus.DISABLED },
+    });
+    try {
+      await expect(
+        access.assertCanOperateOnProperty(assignedAgentId, propertyId),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      await expect(
+        access.listOperablePropertyIds(assignedAgentId),
+      ).resolves.not.toContain(propertyId);
+    } finally {
+      await prisma.organizationMember.update({
+        where: {
+          userId_organizationId: {
+            userId: assignedAgentId,
+            organizationId: agencyOrgId,
+          },
+        },
+        data: { status: MemberStatus.ACTIVE },
+      });
+    }
+  });
+
+  it('revokes a disabled manager access to mandated properties', async () => {
+    await prisma.organizationMember.update({
+      where: {
+        userId_organizationId: {
+          userId: gerantUserId,
+          organizationId: agencyOrgId,
+        },
+      },
+      data: { status: MemberStatus.DISABLED },
+    });
+    try {
+      await expect(
+        access.assertCanOperateOnProperty(gerantUserId, propertyId),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      await expect(
+        access.listOperablePropertyIds(gerantUserId),
+      ).resolves.not.toContain(propertyId);
+    } finally {
+      await prisma.organizationMember.update({
+        where: {
+          userId_organizationId: {
+            userId: gerantUserId,
+            organizationId: agencyOrgId,
+          },
+        },
+        data: { status: MemberStatus.ACTIVE },
+      });
+    }
   });
 
   it('listOperablePropertyIds excludes unassigned field agents', async () => {

@@ -1,4 +1,5 @@
 import { Test } from '@nestjs/testing';
+import { MemberStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { EventPublisher } from '../events/event.publisher';
 import { MandatesService } from './mandates.service';
@@ -209,6 +210,46 @@ describe('Mandate delegation + owner approval', () => {
     expect(await access.canOperateOnProperty(agentUserId, propertyId)).toBe(
       true,
     );
+  });
+
+  it('revokes mandate access and actions for a disabled agency member', async () => {
+    const mandateId = createdMandateIds[0];
+    await prisma.organizationMember.update({
+      where: {
+        userId_organizationId: {
+          userId: agentUserId,
+          organizationId: agentOrgId,
+        },
+      },
+      data: { status: MemberStatus.DISABLED },
+    });
+    try {
+      const listed = await mandates.listManagedMandates(agentUserId);
+      expect(listed.some((mandate) => mandate.id === mandateId)).toBe(false);
+      await expect(
+        mandates.getMandateDetail(agentUserId, mandateId),
+      ).rejects.toMatchObject({
+        response: { code: 'NOT_MANDATE_PARTY' },
+      });
+      await expect(
+        approvals.createApproval(agentUserId, mandateId, {
+          actionType: 'EXPENSE',
+          payload: { expenseId: 'expense-test' },
+        }),
+      ).rejects.toMatchObject({
+        response: { code: 'NOT_MANDATE_ACTOR' },
+      });
+    } finally {
+      await prisma.organizationMember.update({
+        where: {
+          userId_organizationId: {
+            userId: agentUserId,
+            organizationId: agentOrgId,
+          },
+        },
+        data: { status: MemberStatus.ACTIVE },
+      });
+    }
   });
 
   it('rejects a second proposal on the same property+scope (409 MANDATE_CONFLICT)', async () => {

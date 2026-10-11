@@ -11,7 +11,7 @@ Rendre les flux d'argent réels, sûrs et traçables :
 
 Rôles : payeurs (`TENANT`, `GUEST`, `BUYER`, `SEEKER` pour une visite payante), `MANAGER` et `AGENT` (validation espèces), `OWNER` (bénéficiaire), `PLATFORM_ADMIN` (finance).
 
-## État actuel (audit)
+## Audit initial — état local à revalider
 - `MobileMoneyProvider.initiate` est un **stub** qui renvoie une fausse session. Le webhook vérifie un HMAC générique, sans contrat réel Airtel ni MTN.
 - `initiatePayment` :
   - le **montant vient du client** et n'est pas comparé au reste dû ;
@@ -245,3 +245,13 @@ model Organization {
 - **P0** : intégration réelle Airtel et MoMo, montant calculé côté serveur, contrôle du payeur, expiration, paiement de séjour (`bookingId`), correction du placeholder d'événement.
 - **P1** : remboursements, liste et filtres côté gestionnaire, reversements aux propriétaires, comptes de reversement, litiges.
 - **P2** : double validation espèces, rapprochement, export CSV.
+
+## Delta d'implémentation
+| ID | Priorité | Delta | État |
+|---|---|---|---|
+| 05.1 | P0 | Calculer les montants côté serveur, vérifier le payeur et la cible, rendre les paiements et événements idempotents, corriger le cycle d'expiration. | **Partiel.** Devis et montants calculés côté serveur, contrôle du payeur/cible, clés d'idempotence, journal d'événements et expiration avec interrogation fournisseur sont présents. Vérifier la résistance aux créations concurrentes et aux callbacks rejoués dans les tests ciblés. |
+| 05.2 | P0 | Implémenter et valider les adaptateurs Airtel Money/MTN MoMo ainsi que le paiement des séjours, visites et échéances de vente. | **Partiel.** Adaptateurs de collecte Airtel/MoMo, webhooks vérifiés et cibles de paiement sont implémentés ; sans identifiants, le code retombe sur un stub sandbox. Aucune validation fournisseur/production ; remboursements fournisseur et transferts sortants réels ne sont pas implémentés. |
+| 05.3 | P1 | Compléter remboursements, litiges, comptes bénéficiaires et reversements sur la base du ledger. | **Partiel.** Remboursements, approbation au-dessus d'un seuil, litiges, comptes bénéficiaires, soldes et demandes de reversement existent. L'exécution du remboursement et du reversement est locale/simulée (pas d'appel réel au fournisseur) ; vérifier aussi la réconciliation avec le ledger avant activation financière. |
+| 05.4 | P2 | Ajouter validation croisée espèces, rapprochement, export et outils de réconciliation. | **Présent localement.** Double validation des espèces configurable, export CSV et import/consultation de rapprochement sont implémentés, avec tests ciblés locaux. Le rapprochement des relevés réels reste à faire manuellement. |
+
+État établi par inspection du code et des tests locaux disponibles ; les intégrations financières de production ne sont pas déclarées opérationnelles ni vérifiées.

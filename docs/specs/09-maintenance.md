@@ -198,7 +198,7 @@ model MaintenancePlan {
 ## Delta d'implémentation
 | ID | Priorité | Delta | État |
 |---|---|---|---|
-| 09.1 | P0 | Vérifier l'éligibilité à l'ouverture, le périmètre mandat, le déblocage par approbation et la notification d'ouverture. | À faire / vérifier |
+| 09.1 | P0 | Vérifier l'éligibilité à l'ouverture, le périmètre mandat, le déblocage par approbation et la notification d'ouverture. | **Partiel.** L'éligibilité des actions et les listes de tickets utilisent maintenant les biens opérables selon le mandat, le rôle et l'affectation ACTIVE ; tests couvrent le gérant actif et l'agent non affecté. Compléter la matrice d'accès par scénario et confirmer notifications/déblocage. |
 | 09.2 | P1 | Ajouter commentaires, pièces jointes et parcours mobile d'upload. | À faire |
 | 09.3 | P1 | Ajouter devis, approbation, coût réel, facture et imputation comptable. | À faire |
 | 09.4 | P1 | Ajouter les SLA, l'annuaire prestataire et le suivi des échanges/devis par l'agence. | À faire |

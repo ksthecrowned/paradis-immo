@@ -4,7 +4,7 @@
 Permettre à une agence de s'inscrire, d'être affiliée, de gérer son équipe et sa vitrine publique. Le propriétaire particulier dispose de son organisation de type OWNER.
 - Rôles : `MANAGER`, qui administre l'agence ; `AGENT` ; `OWNER` ; `PLATFORM_ADMIN`, qui valide l'affiliation.
 
-## État actuel (audit)
+## Audit initial — état local à revalider
 - `Organization` contient `type` (PLATFORM, AGENCY, OWNER), `affiliationStatus` (PENDING, APPROVED, SUSPENDED), `verified`, et des champs vitrine (shortName, tagline, logoColor, foundedYear, `rating`, `reviewCount`, `dealSuccessPercent`).
 - Aucun endpoint de création ou de modification d'organisation. Aucune invitation, aucune gestion des membres.
 - Le choix du rôle dans le parcours web de gestion (`auth/web/role`) crée l'org implicitement. Pour l'agent, il rattache au mécanisme `ensureAgentMembership` (faille, voir 01). Ce parcours est réservé aux propriétaires et membres d'agence, pas aux clients finaux.
@@ -152,3 +152,13 @@ model OrganizationReview {
 - **P0** : création d'agence et invitations (en remplacement de l'affiliation automatique).
 - **P1** : gestion des membres, avis réels, vitrine et logo.
 - **P2** : zones d'intervention, réponses aux avis, `dealSuccessPercent` calculé.
+
+## Delta d'implémentation
+| ID | Priorité | Delta | État |
+|---|---|---|---|
+| 02.1 | P0 | Remplacer la création implicite d'organisation par la création/affiliation explicite, avec contrôle d'approbation. | **Présent localement.** Demandes d'organisation, décisions d'approbation et invitation/adhésion explicites sont implémentées. Tester les transitions et les notifications sur les parcours web/mobile avant lancement. |
+| 02.2 | P0 | Sécuriser invitations, rôles, retrait/désactivation des membres et réassignation des mandats ; interdire toute adhésion implicite. | **Partiel.** Invitations à cible unique avec jeton haché, expiration, révocation et contrôle de correspondance ; gestion des membres, protection du dernier administrateur et réaffectation des mandats existent. Les accès portefeuille/mandat/KYC et la vitrine filtrent désormais les appartenances ACTIVE ; auditer les autres routes et l'acceptation concurrente/à usage unique. |
+| 02.3 | P1 | Terminer la vitrine, avis éligibles/modérés et recalcul des indicateurs. | **Présent localement.** Vitrine, avis liés à une interaction éligible, filtre automatique, réponses et recalcul des métriques sont implémentés. La modération humaine et la cohérence des métriques restent à valider selon les règles produit. |
+| 02.4 | P2 | Compléter zones d'intervention, réponses/signalements d'avis et taux de succès calculé. | **Partiel.** Zones d'intervention, réponses et calcul du taux de succès sont présents ; compléter/vérifier le signalement et le traitement de modération des avis. |
+
+État établi par inspection du code local ; la couverture automatisée et les contrôles d'accès négatifs doivent être confirmés avant de clôturer les critères de lancement.

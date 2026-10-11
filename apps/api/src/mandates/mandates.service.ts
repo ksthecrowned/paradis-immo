@@ -9,6 +9,7 @@ import {
   Mandate,
   MandateScope,
   MandateStatus,
+  MemberStatus,
   OrgMemberRole,
   Prisma,
 } from '@prisma/client';
@@ -618,7 +619,7 @@ export class MandatesService {
     filter: ListManagedMandatesFilter = {},
   ): Promise<PublicMandate[]> {
     const memberships = await this.prisma.organizationMember.findMany({
-      where: { userId },
+      where: { userId, status: MemberStatus.ACTIVE },
       select: { organizationId: true, role: true },
     });
     if (memberships.length === 0) return [];
@@ -687,8 +688,10 @@ export class MandatesService {
       });
     }
     const isOwner = mandate.property.ownerId === userId;
-    const isAgency = await this.isAgencyMember(userId, mandate.organizationId);
-    const isAssigned = mandate.assignedAgentId === userId;
+    const isAgency = await this.isAgencyGerant(userId, mandate.organizationId);
+    const isAssigned =
+      mandate.assignedAgentId === userId &&
+      (await this.isActiveAgencyAgent(userId, mandate.organizationId));
     if (!isOwner && !isAgency && !isAssigned) {
       throw new ForbiddenException({
         code: 'NOT_MANDATE_PARTY',
@@ -730,8 +733,10 @@ export class MandatesService {
       });
     }
     const isOwner = mandate.property.ownerId === userId;
-    const isAgency = await this.isAgencyMember(userId, mandate.organizationId);
-    const isAssigned = mandate.assignedAgentId === userId;
+    const isAgency = await this.isAgencyGerant(userId, mandate.organizationId);
+    const isAssigned =
+      mandate.assignedAgentId === userId &&
+      (await this.isActiveAgencyAgent(userId, mandate.organizationId));
     if (!isOwner && !isAgency && !isAssigned) {
       throw new ForbiddenException({
         code: 'NOT_MANDATE_PARTY',
@@ -784,6 +789,7 @@ export class MandatesService {
       });
       if (
         !member ||
+        member.status !== MemberStatus.ACTIVE ||
         (member.role !== OrgMemberRole.AGENT &&
           member.role !== OrgMemberRole.ADMIN)
       ) {
@@ -911,17 +917,23 @@ export class MandatesService {
     const member = await this.prisma.organizationMember.findUnique({
       where: { userId_organizationId: { userId, organizationId } },
     });
-    return member?.role === OrgMemberRole.ADMIN;
+    return (
+      member?.status === MemberStatus.ACTIVE &&
+      member.role === OrgMemberRole.ADMIN
+    );
   }
 
-  private async isAgencyMember(
+  private async isActiveAgencyAgent(
     userId: string,
     organizationId: string,
   ): Promise<boolean> {
     const member = await this.prisma.organizationMember.findUnique({
       where: { userId_organizationId: { userId, organizationId } },
     });
-    return member !== null;
+    return (
+      member?.status === MemberStatus.ACTIVE &&
+      member.role === OrgMemberRole.AGENT
+    );
   }
 
   private snapshotTerms(data: Record<string, unknown>): Prisma.InputJsonValue {

@@ -6,6 +6,7 @@ import {
   VisitBookingStatus,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { AgencyAccessService } from '../mandates/agency-access.service';
 
 export interface OwnerStats {
   activeProperties: number;
@@ -16,15 +17,14 @@ export interface OwnerStats {
 
 @Injectable()
 export class OwnerStatsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly agencyAccess: AgencyAccessService,
+  ) {}
 
   async getStats(userId: string): Promise<OwnerStats> {
-    const propertyScope = {
-      OR: [
-        { ownerId: userId },
-        { organization: { members: { some: { userId } } } },
-      ],
-    };
+    const propertyIds = await this.agencyAccess.listOperablePropertyIds(userId);
+    const propertyScope = { id: { in: propertyIds } };
 
     const [
       activeProperties,

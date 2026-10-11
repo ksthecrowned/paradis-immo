@@ -4,6 +4,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { R2Service } from '../../media/r2.service';
 import { DocumentSequenceService } from '../../documents/document-sequence.service';
 import { renderReceiptPdf } from './receipt-pdf';
+import { AgencyAccessService } from '../../mandates/agency-access.service';
 
 const R2_RECEIPT_PREFIX = 'receipts';
 
@@ -36,6 +37,7 @@ export class ReceiptService {
     private readonly prisma: PrismaService,
     private readonly r2: R2Service,
     private readonly sequences: DocumentSequenceService,
+    private readonly agencyAccess: AgencyAccessService,
   ) {}
 
   async generateForPayment(
@@ -140,7 +142,7 @@ export class ReceiptService {
                     lease: {
                       select: {
                         property: {
-                          select: { ownerId: true, organizationId: true },
+                          select: { id: true, ownerId: true },
                         },
                       },
                     },
@@ -158,20 +160,14 @@ export class ReceiptService {
     // 1. Payer can always read their own receipt
     if (payment.userId === userId) return this.toPublic(receipt);
 
-    // 2. Property owner or org member of any lease-allocation can read
+    // 2. Property owner or an authorized manager/assigned agent can read
     for (const alloc of payment.allocations) {
       const property = alloc.rentSchedule?.lease?.property;
       if (!property) continue;
       if (property.ownerId === userId) return this.toPublic(receipt);
-      const membership = await this.prisma.organizationMember.findUnique({
-        where: {
-          userId_organizationId: {
-            userId,
-            organizationId: property.organizationId,
-          },
-        },
-      });
-      if (membership) return this.toPublic(receipt);
+      if (await this.agencyAccess.canOperateOnProperty(userId, property.id)) {
+        return this.toPublic(receipt);
+      }
     }
 
     throw new ForbiddenException({
@@ -199,7 +195,7 @@ export class ReceiptService {
                     lease: {
                       select: {
                         property: {
-                          select: { ownerId: true, organizationId: true },
+                          select: { id: true, ownerId: true },
                         },
                       },
                     },

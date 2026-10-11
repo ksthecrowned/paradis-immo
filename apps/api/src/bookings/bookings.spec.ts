@@ -5,6 +5,7 @@ import { BookingsService } from './bookings.service';
 import { PricingService } from './pricing.service';
 import { AvailabilityService } from './availability.service';
 import { UsersService } from '../users/users.service';
+import { AgencyAccessService } from '../mandates/agency-access.service';
 
 describe('BookingsService — short-term', () => {
   let bookings: BookingsService;
@@ -24,6 +25,7 @@ describe('BookingsService — short-term', () => {
         BookingsService,
         PricingService,
         AvailabilityService,
+        AgencyAccessService,
         PrismaService,
         UsersService,
         { provide: EventPublisher, useValue: { emit: jest.fn() } },

@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 import {
   GlobalRole,
+  MemberStatus,
   NotificationChannel,
   OrgMemberRole,
   SeekerExperience,
@@ -448,7 +449,11 @@ export class UsersService {
     const normalized = this.requireE164(phone);
 
     const membership = await this.prisma.organizationMember.findFirst({
-      where: { userId: callerId, role: { in: LOOKUP_ROLES } },
+      where: {
+        userId: callerId,
+        status: MemberStatus.ACTIVE,
+        role: { in: LOOKUP_ROLES },
+      },
       select: { id: true },
     });
     if (!membership) {
@@ -773,7 +778,7 @@ export class UsersService {
 
   async listMyOrganizations(userId: string): Promise<PublicOrganization[]> {
     const memberships = await this.prisma.organizationMember.findMany({
-      where: { userId },
+      where: { userId, status: MemberStatus.ACTIVE },
       include: { organization: true },
     });
     return memberships.map((m) => ({

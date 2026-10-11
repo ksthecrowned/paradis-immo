@@ -4,7 +4,7 @@
 Donner à chaque utilisateur le contrôle de son compte (sessions, téléphone, données, suppression) et fermer les failles d'accès relevées pendant l'audit.
 Concerne tous les rôles. `PLATFORM_ADMIN` intervient pour la suspension et le KYC.
 
-## État actuel (audit)
+## Audit initial — état local à revalider
 - `auth` : OTP mobile (5 tentatives max), magic link et Google pour le portail web de gestion, mot de passe et Google pour l'admin plateforme. Rotation du refresh token sur `POST auth/refresh`. Aucun portail web client final n'est prévu.
 - Il n'existe ni `logout`, ni révocation, ni liste des sessions. Le refresh token reste valide jusqu'à expiration s'il est volé.
 - Aucun rate limit propre à `otp/request`, en dehors du throttle global de 100 req/min. Risque de spam SMS (coût Infobip).
@@ -155,3 +155,13 @@ model DataExportRequest {
 - **P0** : suppression d'`ensureAgentMembership`, logout et révocation, rate limit OTP, sécurisation du lookup, suspension, suppression de compte (exigence des stores).
 - **P1** : sessions multi-appareils, changement de téléphone ou d'e-mail, KYC.
 - **P2** : export de données, consentements versionnés.
+
+## Delta d'implémentation
+| ID | Priorité | Delta | État |
+|---|---|---|---|
+| 01.1 | P0 | Supprimer l'attribution implicite du rôle AGENT, limiter le lookup et protéger les routes privées contre l'énumération. | **Partiel.** La création de profil par téléphone attribue TENANT ; le lookup HTTP masque le nom, applique un rate limit et exige une appartenance ACTIVE avec rôle autorisé. La recherche reste globale par numéro : confirmer que ce périmètre répond au besoin métier. |
+| 01.2 | P0 | Ajouter logout, révocation des sessions, rate limits OTP, suspension et suppression de compte conformes aux stores. | **Partiel.** Déconnexion/révocation, limitation OTP, vérification de suspension et demande/annulation de suppression sont présentes. Vérifier la purge/anonymisation différée et l'exhaustivité des blocages avant clôture. |
+| 01.3 | P1 | Compléter gestion des sessions, changement de téléphone/e-mail et KYC privé. | **Partiel.** Sessions, révocation, changements vérifiés téléphone/e-mail et URLs KYC signées existent. L'accès KYC organisation est maintenant limité aux membres ACTIVE OWNER/ADMIN, y compris après retrait d'accès ; vérifier encore le périmètre des listes administratives et des tests d'accès négatifs. |
+| 01.4 | P2 | Ajouter export de données et consentements versionnés. | **Partiel.** Export JSON téléchargeable depuis un stockage privé et consentements versionnés sont présents. Vérifier l'exhaustivité légale des données exportées, leur durée de disponibilité et l'expérience de re-consentement. |
+
+État établi par inspection du code et des tests locaux disponibles ; les contrôles d'autorisation négatifs et les validations manuelles de déploiement restent à exécuter selon la spec 16.

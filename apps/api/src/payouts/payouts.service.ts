@@ -6,7 +6,14 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
-import { OrgMemberRole, PayoutAccount, PaymentProvider, Prisma, PayoutStatus } from '@prisma/client';
+import {
+  MemberStatus,
+  OrgMemberRole,
+  PayoutAccount,
+  PaymentProvider,
+  Prisma,
+  PayoutStatus,
+} from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { EventPublisher } from '../events/event.publisher';
 import { DOMAIN_EVENTS } from '../events/event.types';
@@ -722,10 +729,11 @@ export class PayoutsService {
   ): Promise<void> {
     const member = await this.prisma.organizationMember.findUnique({
       where: { userId_organizationId: { userId, organizationId: orgId } },
-      select: { role: true },
+      select: { role: true, status: true },
     });
     if (
       member &&
+      member.status === MemberStatus.ACTIVE &&
       (member.role === OrgMemberRole.ADMIN ||
         member.role === OrgMemberRole.OWNER)
     ) {

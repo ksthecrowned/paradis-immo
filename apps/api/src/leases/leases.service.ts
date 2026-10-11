@@ -200,21 +200,7 @@ export class LeasesService {
       });
     }
     if (property.ownerId !== userId) {
-      const membership = await this.prisma.organizationMember.findUnique({
-        where: {
-          userId_organizationId: {
-            userId,
-            organizationId: property.organizationId,
-          },
-        },
-      });
-      if (!membership) {
-        throw new ForbiddenException({
-          code: 'NOT_PROPERTY_OWNER',
-          message:
-            'Only the owner or a member of the managing org can create leases',
-        });
-      }
+      await this.agencyAccess.assertCanOperateOnProperty(userId, property.id);
     }
 
     const phone = input.invitedPhone ?? input.tenantPhone;
@@ -273,7 +259,7 @@ export class LeasesService {
       where: { id: leaseId },
       include: {
         property: {
-          select: { ownerId: true, organizationId: true },
+          select: { id: true, ownerId: true },
         },
       },
     });
@@ -286,7 +272,7 @@ export class LeasesService {
     await this.assertCanManage(
       userId,
       existing.property.ownerId,
-      existing.property.organizationId,
+      existing.property.id,
     );
     if (existing.status !== LeaseStatus.DRAFT) {
       throw new BadRequestException({
@@ -472,21 +458,10 @@ export class LeasesService {
   private async assertCanManage(
     userId: string,
     ownerId: string,
-    organizationId: string,
+    propertyId: string,
   ): Promise<void> {
     if (ownerId === userId) return;
-    const membership = await this.prisma.organizationMember.findUnique({
-      where: {
-        userId_organizationId: { userId, organizationId },
-      },
-    });
-    if (!membership) {
-      throw new ForbiddenException({
-        code: 'NOT_PROPERTY_OWNER',
-        message:
-          'Only the owner or a member of the managing org can manage this lease',
-      });
-    }
+    await this.agencyAccess.assertCanOperateOnProperty(userId, propertyId);
   }
 
   async listManaged(

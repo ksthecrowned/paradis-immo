@@ -4,7 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { KycStatus, OrgMemberRole } from '@prisma/client';
+import { KycStatus, MemberStatus, OrgMemberRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { R2Service, PRIVATE_DOWNLOAD_TTL_SECONDS } from '../media/r2.service';
 
@@ -101,16 +101,23 @@ export class KycService {
     return this.toPublic(created, true);
   }
 
-  /** Every submission the caller owns, directly or through an organization. */
+  /** Own submissions and submissions for organizations the caller manages. */
   async mine(userId: string): Promise<KycSubmissionItem[]> {
     const memberships = await this.prisma.organizationMember.findMany({
-      where: { userId },
+      where: {
+        userId,
+        status: MemberStatus.ACTIVE,
+        role: { in: ORG_MANAGER_ROLES },
+      },
       select: { organizationId: true },
     });
     const orgIds = memberships.map((m) => m.organizationId);
     const rows = await this.prisma.kycSubmission.findMany({
       where: {
-        OR: [{ userId }, { organizationId: { in: orgIds } }],
+        OR: [
+          { userId, organizationId: null },
+          { organizationId: { in: orgIds } },
+        ],
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -179,7 +186,12 @@ export class KycService {
     organizationId: string,
   ): Promise<void> {
     const membership = await this.prisma.organizationMember.findFirst({
-      where: { userId, organizationId, role: { in: ORG_MANAGER_ROLES } },
+      where: {
+        userId,
+        organizationId,
+        status: MemberStatus.ACTIVE,
+        role: { in: ORG_MANAGER_ROLES },
+      },
       select: { id: true },
     });
     if (!membership) {

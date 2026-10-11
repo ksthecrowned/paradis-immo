@@ -9,7 +9,6 @@ import {
   ConversationContext,
   ConversationStatus,
   Message,
-  OrgMemberRole,
   Prisma,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -97,17 +96,17 @@ export class MessagingService {
       });
     }
 
+    const propertyId = await this.resolveContextProperty(
+      clientUserId,
+      input.contextType,
+      input.contextId,
+    );
     const existing = await this.findExisting(
       clientUserId,
       input.contextType,
       input.contextId,
     );
     if (existing) return this.toSummary(existing);
-
-    const propertyId =
-      input.contextType === ConversationContext.PROPERTY
-        ? input.contextId
-        : await this.resolveContextProperty(input.contextType, input.contextId);
 
     let organizationId: string | null = null;
     if (propertyId) {
@@ -167,48 +166,88 @@ export class MessagingService {
    * registry of the fields each context model exposes.
    */
   private async resolveContextProperty(
+    clientUserId: string,
     contextType: ConversationContext,
     contextId?: string,
   ): Promise<string | null> {
-    if (!contextId) return null;
+    if (contextType === ConversationContext.SUPPORT) return null;
+    if (!contextId?.trim()) {
+      throw new BadRequestException({
+        code: 'CONTEXT_ID_REQUIRED',
+        message: 'Un identifiant de contexte est requis.',
+      });
+    }
+
+    const notFound = (): never => {
+      throw new NotFoundException({
+        code: 'CONTEXT_NOT_FOUND',
+        message: 'Contexte introuvable.',
+      });
+    };
     switch (contextType) {
+      case ConversationContext.PROPERTY: {
+        const property = await this.prisma.property.findUnique({
+          where: { id: contextId },
+          select: { id: true },
+        });
+        return property?.id ?? notFound();
+      }
       case ConversationContext.LEASE: {
         const lease = await this.prisma.lease.findUnique({
           where: { id: contextId },
-          select: { propertyId: true },
+          select: {
+            propertyId: true,
+            tenantId: true,
+            coTenants: { where: { userId: clientUserId }, select: { userId: true } },
+          },
         });
-        return lease?.propertyId ?? null;
+        if (
+          !lease ||
+          (lease.tenantId !== clientUserId &&
+            lease.coTenants.length === 0)
+        ) {
+          return notFound();
+        }
+        return lease.propertyId;
       }
       case ConversationContext.BOOKING: {
         const booking = await this.prisma.booking.findUnique({
           where: { id: contextId },
-          select: { propertyId: true },
+          select: { propertyId: true, userId: true },
         });
-        return booking?.propertyId ?? null;
+        if (!booking || booking.userId !== clientUserId) return notFound();
+        return booking.propertyId;
       }
       case ConversationContext.VISIT: {
         const visit = await this.prisma.visitBooking.findUnique({
           where: { id: contextId },
-          include: { slot: { select: { propertyId: true } } },
+          select: {
+            userId: true,
+            propertyId: true,
+            slot: { select: { propertyId: true } },
+          },
         });
-        return visit?.slot?.propertyId ?? null;
+        if (!visit || visit.userId !== clientUserId) return notFound();
+        return visit.propertyId || visit.slot?.propertyId || notFound();
       }
       case ConversationContext.MAINTENANCE: {
         const ticket = await this.prisma.maintenanceTicket.findUnique({
           where: { id: contextId },
-          select: { propertyId: true },
+          select: { propertyId: true, reporterId: true },
         });
-        return ticket?.propertyId ?? null;
+        if (!ticket || ticket.reporterId !== clientUserId) return notFound();
+        return ticket.propertyId;
       }
       case ConversationContext.SALE: {
         const inquiry = await this.prisma.saleInquiry.findUnique({
           where: { id: contextId },
-          select: { propertyId: true },
+          select: { propertyId: true, userId: true },
         });
-        return inquiry?.propertyId ?? null;
+        if (!inquiry || inquiry.userId !== clientUserId) return notFound();
+        return inquiry.propertyId;
       }
       default:
-        return null;
+        return notFound();
     }
   }
 
@@ -396,28 +435,11 @@ export class MessagingService {
     }
     if (c.clientUserId === userId) return c;
 
-    if (c.organizationId) {
-      const member = await this.prisma.organizationMember.findUnique({
-        where: {
-          userId_organizationId: {
-            userId,
-            organizationId: c.organizationId,
-          },
-          // Prisma findUnique rejects a second field arg; harmless keepal.
-        } as never,
-      });
-      if (member && member.status === 'ACTIVE') {
-        // AGENT: restrict to conversations on the properties he operates.
-        if (c.propertyId) {
-          const operable =
-            member.role === OrgMemberRole.ADMIN ||
-            member.role === OrgMemberRole.OWNER ||
-            (await this.agencyAccess.canOperateOnProperty(userId, c.propertyId));
-          if (operable) return c;
-        } else {
-          return c;
-        }
-      }
+    if (
+      c.propertyId &&
+      (await this.agencyAccess.canOperateOnProperty(userId, c.propertyId))
+    ) {
+      return c;
     }
 
     throw new ForbiddenException({

@@ -538,23 +538,7 @@ export class MaintenanceService {
   }
 
   async listForActor(actorUserId: string): Promise<PublicMaintenanceTicket[]> {
-    // An actor sees tickets for properties they own, or for properties
-    // managed by an org they belong to (any role — owners, agents,
-    // managers — should see tickets on their org's portfolio).
-    const accessible = await this.prisma.property.findMany({
-      where: {
-        OR: [
-          { ownerId: actorUserId },
-          {
-            organization: {
-              members: { some: { userId: actorUserId } },
-            },
-          },
-        ],
-      },
-      select: { id: true },
-    });
-    const ids = accessible.map((p) => p.id);
+    const ids = await this.agencyAccess.listOperablePropertyIds(actorUserId);
     if (ids.length === 0) return [];
     const rows = await this.prisma.maintenanceTicket.findMany({
       where: { propertyId: { in: ids } },

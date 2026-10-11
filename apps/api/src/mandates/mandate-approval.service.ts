@@ -10,6 +10,7 @@ import {
   MandateActionType,
   MandateApproval,
   MandateStatus,
+  MemberStatus,
   OrgMemberRole,
   Prisma,
 } from '@prisma/client';
@@ -541,9 +542,12 @@ export class MandateApprovalService {
         },
       },
     });
-    const isGerant = member?.role === OrgMemberRole.ADMIN;
+    const isGerant =
+      member?.status === MemberStatus.ACTIVE &&
+      member.role === OrgMemberRole.ADMIN;
     const isAssignedAgent =
-      member?.role === OrgMemberRole.AGENT &&
+      member?.status === MemberStatus.ACTIVE &&
+      member.role === OrgMemberRole.AGENT &&
       mandate.assignedAgentId === userId;
     if (!isGerant && !isAssignedAgent) {
       throw new ForbiddenException({

@@ -113,6 +113,7 @@ model Organization {
 | POST | `visit-bookings/:id/no-show` | AGENT / MANAGER | |
 | PUT | `visit-bookings/:id/report` | AGENT / MANAGER | Compte rendu |
 | PATCH | `visits/:id/assign` | propriétaire / gestionnaire de l'agence | `{ agentId }` ; `null` désaffecte |
+| GET | `visits/assignable-agents?propertyId=...` | propriétaire / gestionnaire de l'agence | Agents actifs autorisés à être affectés |
 | GET | `visit-bookings/managed` | gestionnaire | `?from&to&agentId&propertyId&status`, paginé, pour l'agenda |
 | GET | `visit-bookings/mine` | SEEKER | **Modifié** : paginé, avec les actions disponibles (`canCancel`, `canReschedule`, `refundPercent`) |
 | POST | `visit-blackouts` | gestionnaire | Bloque une plage |
@@ -127,7 +128,7 @@ model Organization {
   - Après la visite : CTA « Postuler » ou « Faire une offre ».
 - **Mobile, agent** (14) : « Mes visites du jour », check-in sur place, boutons Effectuée et Absent, compte rendu rapide.
 - **Web**
-  - `/agent/visits` et `/owner/visits` : vue agenda (semaine) en plus de la liste, filtres par agent et par bien, glisser-déposer pour reprogrammer, panneau de compte rendu.
+  - `/agent/visits` et `/owner/visits` : affectation/désaffectation d'un agent actif sur une réservation depuis le calendrier ; vue agenda (semaine) en plus de la liste, filtres par agent et par bien, glisser-déposer pour reprogrammer, panneau de compte rendu restent à faire.
   - `/agent/portfolio/[id]/visit-slots` : ajouter la capacité, l'agent et les plages bloquées.
 
 ## Critères d'acceptation
@@ -140,7 +141,7 @@ model Organization {
 
 ## Priorité
 - **P0** : [x] réservation et cycle de confirmation/annulation de base ; [x] expiration des réservations temporaires ; [x] réservation atomique d'un créneau ; [x] clôture manuelle COMPLETED/NO_SHOW après le début ; [x] passage automatique H+24 en COMPLETED_UNCONFIRMED et relance au propriétaire et à l'agent affecté.
-- **P1** : [ ] annulation/remboursement et reprogrammation dans l'UI ; [x] affectation d'agent au booking via API ; [ ] affectation aux templates et agenda web ; [x] compte rendu API ; [x] rappels J-1/H-2 au chercheur et à l'agent affecté ; [ ] parcours mobile.
+- **P1** : [ ] annulation/remboursement et reprogrammation dans l'UI ; [x] affectation d'agent au booking via API et portail web ; [ ] affectation aux templates et agenda web avancé ; [x] compte rendu API ; [x] rappels J-1/H-2 au chercheur et à l'agent affecté ; [ ] parcours mobile.
 - **P2** : [ ] capacité/groupes, indisponibilités avec traitement des visites affectées, pénalité de no-show et relances post-visite.
 
 ## Delta d'implémentation
@@ -149,5 +150,5 @@ model Organization {
 | 06.1 | P0 | Vérifier/finaliser le verrou de réservation pour les visites payantes ; garantir qu'un seul booking obtient le créneau. | Implémenté : transition conditionnelle et création du booking dans une transaction ; test de concurrence ajouté. |
 | 06.2 | P0 | Ajouter la clôture effectuée/absence et fiabiliser les notifications de confirmation. | Partiel : routes de clôture autorisées après le début, transition concurrente protégée, cron H+24 et relance au propriétaire et à l'agent affecté. Vérification manuelle : `docs/checklists/verification-visites.md`. |
 | 06.3 | P1 | Ajouter reprogrammation, calcul/remboursement, rappels et écrans mobiles de réservation/suivi. | Partiel : rappels J-1/H-2 au chercheur implémentés, avec marqueurs d'idempotence ; reprogrammation, remboursements effectifs et UI restent à faire. |
-| 06.4 | P1 | Ajouter affectation d'agent, compte rendu et agenda web. | Partiel : affectation API d'un agent actif de l'agence sur un booking PENDING/CONFIRMED et compte rendu persistant après COMPLETED ; affectation aux templates et agenda web restent à faire. |
+| 06.4 | P1 | Ajouter affectation d'agent, compte rendu et agenda web. | Partiel : affectation API d'un agent actif de l'agence sur un booking PENDING/CONFIRMED, sélecteur d'affectation dans les calendriers web propriétaire/gestionnaire et compte rendu persistant après COMPLETED ; affectation aux templates et agenda web avancé restent à faire. |
 | 06.5 | P2 | Compléter capacités, périodes d'indisponibilité, pénalités de no-show et relances post-visite. | À faire |

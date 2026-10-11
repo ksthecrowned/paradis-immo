@@ -466,18 +466,16 @@ describe('MaintenanceService', () => {
     );
   });
 
-  it('listForActor returns tickets on properties the agent org manages', async () => {
-    // The agent is a member of agentOrgId, but the property is owned by
-    // ownerOrgId. listForActor filters by property.organization.members,
-    // so we add the agent to the owner org to exercise that branch.
-    await prisma.organizationMember.create({
-      data: {
-        organizationId: ownerOrgId,
-        userId: agentUserId,
-        role: 'AGENT',
+  it('listForActor returns tickets for an active mandate manager', async () => {
+    await prisma.organizationMember.update({
+      where: {
+        userId_organizationId: {
+          userId: agentUserId,
+          organizationId: agentOrgId,
+        },
       },
+      data: { role: 'ADMIN' },
     });
-
     const t = await maintenance.createTicket({
       propertyId: rentPropertyId,
       reporterId: tenantUserId,
@@ -487,9 +485,33 @@ describe('MaintenanceService', () => {
     });
     createdTicketIds.push(t.id);
 
+    try {
+      const tickets = await maintenance.listForActor(agentUserId);
+      expect(tickets.map((ticket) => ticket.id)).toContain(t.id);
+    } finally {
+      await prisma.organizationMember.update({
+        where: {
+          userId_organizationId: {
+            userId: agentUserId,
+            organizationId: agentOrgId,
+          },
+        },
+        data: { role: 'AGENT' },
+      });
+    }
+  });
+
+  it('does not expose mandate tickets to unassigned field agents', async () => {
+    const t = await maintenance.createTicket({
+      propertyId: rentPropertyId,
+      reporterId: tenantUserId,
+      title: 'Ticket hors affectation',
+      description: 'Ticket réservé au gérant ou à l’agent affecté',
+      priority: MaintenancePriority.LOW,
+    });
+    createdTicketIds.push(t.id);
     const tickets = await maintenance.listForActor(agentUserId);
-    const ids = tickets.map((x) => x.id);
-    expect(ids).toContain(t.id);
+    expect(tickets.map((ticket) => ticket.id)).not.toContain(t.id);
   });
 
   it('listForActor returns [] for an unrelated user', async () => {
