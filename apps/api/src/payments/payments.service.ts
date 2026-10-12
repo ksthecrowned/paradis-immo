@@ -1944,10 +1944,12 @@ export class PaymentsService {
         message: 'Payment does not exist',
       });
     }
-    if (payment.userId !== userId) {
+    const isPayer = payment.userId === userId;
+    const isSharedLeaseMember = await this.isLeaseMemberForPayment(userId, payment);
+    if (!isPayer && !isSharedLeaseMember) {
       throw new ForbiddenException({
         code: 'PAYMENT_FORBIDDEN',
-        message: 'Only the payer can contest this payment',
+        message: 'Only the payer or a co-tenant on the shared lease can contest this payment',
       });
     }
     const open = await this.prisma.paymentDispute.findFirst({
@@ -2023,6 +2025,33 @@ export class PaymentsService {
       }
     }
     return visible;
+  }
+
+  private async isLeaseMemberForPayment(
+    userId: string,
+    payment: Payment & { allocations: PaymentAllocation[] },
+  ): Promise<boolean> {
+    const scheduleIds = new Set<string>();
+    for (const allocation of payment.allocations) {
+      if (allocation.rentScheduleId) scheduleIds.add(allocation.rentScheduleId);
+    }
+    const meta = (payment.metadata ?? {}) as PaymentMetadata;
+    if (typeof meta.rentScheduleId === 'string') {
+      scheduleIds.add(meta.rentScheduleId);
+    }
+    if (scheduleIds.size > 0) {
+      const match = await this.prisma.rentSchedule.findFirst({
+        where: {
+          id: { in: [...scheduleIds] },
+          lease: {
+            OR: [{ tenantId: userId }, { coTenants: { some: { userId } } }],
+          },
+        },
+        select: { id: true },
+      });
+      if (match) return true;
+    }
+    return false;
   }
 
   /** `PATCH disputes/:id` — manager or admin resolves / answers the litige. */
@@ -2651,6 +2680,28 @@ export class PaymentsService {
       scheduleIds.add(meta.rentScheduleId);
     }
 
+    const sharedLease = await this.prisma.lease.findFirst({
+      where: {
+        status: 'ACTIVE',
+        AND: [
+          {
+            OR: [
+              { tenantId: payment.userId },
+              { coTenants: { some: { userId: payment.userId } } },
+            ],
+          },
+          {
+            OR: [
+              { tenantId: userId },
+              { coTenants: { some: { userId } } },
+            ],
+          },
+        ],
+      },
+      select: { id: true },
+    });
+    if (sharedLease) return;
+
     const propertyIds = await this.accessiblePropertyIds(userId);
     if (propertyIds.length === 0) {
       throw new ForbiddenException({
@@ -2663,7 +2714,13 @@ export class PaymentsService {
       const hit = await this.prisma.rentSchedule.findFirst({
         where: {
           id: { in: [...scheduleIds] },
-          lease: { propertyId: { in: propertyIds } },
+          lease: {
+            OR: [
+              { propertyId: { in: propertyIds } },
+              { tenantId: userId },
+              { coTenants: { some: { userId } } },
+            ],
+          },
         },
         select: { id: true },
       });

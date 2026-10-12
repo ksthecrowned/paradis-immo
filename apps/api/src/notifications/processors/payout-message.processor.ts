@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
+import { MemberStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { DOMAIN_EVENTS } from '../../events/event.types';
 import type { DomainEvent } from '../../events/event.types';
@@ -34,7 +35,11 @@ export class PayoutMessagingNotificationsProcessor {
     const { payoutId, organizationId, amount, currency } = event.payload;
     if (!payoutId || !organizationId) return;
     const admins = await this.prisma.organizationMember.findMany({
-      where: { organizationId, role: { in: ['OWNER', 'ADMIN'] } },
+      where: {
+        organizationId,
+        status: MemberStatus.ACTIVE,
+        role: { in: ['OWNER', 'ADMIN'] },
+      },
       select: { userId: true },
     });
     for (const { userId } of admins) {
@@ -59,7 +64,11 @@ export class PayoutMessagingNotificationsProcessor {
     const { payoutId, organizationId, amount, currency, reason } = event.payload;
     if (!payoutId || !organizationId) return;
     const admins = await this.prisma.organizationMember.findMany({
-      where: { organizationId, role: { in: ['OWNER', 'ADMIN'] } },
+      where: {
+        organizationId,
+        status: MemberStatus.ACTIVE,
+        role: { in: ['OWNER', 'ADMIN'] },
+      },
       select: { userId: true },
     });
     for (const { userId } of admins) {
@@ -97,6 +106,7 @@ export class PayoutMessagingNotificationsProcessor {
         ? await this.prisma.organizationMember.findMany({
             where: {
               organization: { properties: { some: { id: conv.propertyId } } },
+              status: MemberStatus.ACTIVE,
               role: { in: ['OWNER', 'ADMIN'] },
             },
             select: { userId: true },

@@ -8,9 +8,18 @@ export function resolveNotificationRoute(
 ): NotificationDeepLink | null {
   if (!data) return null;
 
-  const propertyId = data.propertyId;
-  if (typeof propertyId === 'string' && propertyId.length > 0) {
-    return { pathname: '/property/[id]', params: { id: propertyId } };
+  const screen = typeof data.screen === 'string' ? data.screen : undefined;
+  if (screen === 'activity') {
+    return { pathname: '/activity' };
+  }
+  if (screen === 'achats/preuves') {
+    return { pathname: '/achats/preuves' };
+  }
+  if (screen === 'cahier-loyer') {
+    return { pathname: '/cahier-loyer' };
+  }
+  if (screen === 'cahier-loyer/solvency') {
+    return { pathname: '/cahier-loyer/solvency' };
   }
 
   const paymentId = data.paymentId;
@@ -18,14 +27,15 @@ export function resolveNotificationRoute(
     return { pathname: '/payment/[id]', params: { id: paymentId } };
   }
 
-  if (data.screen === 'activity') {
-    return { pathname: '/activity' };
+  // Spec 06/11 — a visit push opens the visit detail directly.
+  const visitId = data.visitId;
+  if (typeof visitId === 'string' && visitId.length > 0) {
+    return { pathname: '/visit-detail/[id]', params: { id: visitId } };
   }
-  if (data.screen === 'achats/preuves') {
-    return { pathname: '/achats/preuves' };
-  }
-  if (data.screen === 'cahier-loyer/solvency') {
-    return { pathname: '/cahier-loyer/solvency' };
+
+  const propertyId = data.propertyId;
+  if (typeof propertyId === 'string' && propertyId.length > 0) {
+    return { pathname: '/property/[id]', params: { id: propertyId } };
   }
 
   const type = data.type;

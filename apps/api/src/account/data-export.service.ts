@@ -123,7 +123,9 @@ export class DataExportService {
           },
         }),
         this.prisma.lease.findMany({
-          where: { tenantId: userId },
+          where: {
+            OR: [{ tenantId: userId }, { coTenants: { some: { userId } } }],
+          },
           select: {
             id: true,
             startDate: true,

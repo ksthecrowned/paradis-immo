@@ -499,7 +499,12 @@ export class LeasesService {
 
   async listMyLeases(userId: string): Promise<PublicLease[]> {
     const rows = await this.prisma.lease.findMany({
-      where: { tenantId: userId },
+      where: {
+        OR: [
+          { tenantId: userId },
+          { coTenants: { some: { userId } } },
+        ],
+      },
       orderBy: { createdAt: 'desc' },
       include: { tenant: { select: { phone: true, name: true } } },
     });
@@ -909,7 +914,19 @@ export class LeasesService {
     },
   ): Promise<PublicLease> {
     const lease = await this.requireLease(leaseId);
-    await this.assertCanReadLease(userId, lease);
+    if (input.initiator === TerminationInitiator.TENANT) {
+      if (!(await this.isLeaseTenant(userId, leaseId, lease.tenantId))) {
+        throw new ForbiddenException({
+          code: 'NOT_LEASE_TENANT',
+          message: 'Only a lease tenant can initiate tenant termination',
+        });
+      }
+    } else {
+      await this.agencyAccess.assertCanOperateOnProperty(
+        userId,
+        lease.propertyId,
+      );
+    }
     if (lease.status !== LeaseStatus.ACTIVE) {
       throw new BadRequestException({
         code: 'LEASE_NOT_ACTIVE',
@@ -963,7 +980,7 @@ export class LeasesService {
         message: `No notice to withdraw (status: ${lease.status})`,
       });
     }
-    const isTenant = lease.tenantId === userId;
+    const isTenant = await this.isLeaseTenant(userId, leaseId, lease.tenantId);
     await this.assertCanReadLease(userId, lease);
     if (
       !isTenant &&
@@ -1401,12 +1418,26 @@ export class LeasesService {
 
   private async assertCanReadLease(
     userId: string,
-    lease: Pick<Lease, 'propertyId' | 'tenantId'>,
+    lease: Pick<Lease, 'id' | 'propertyId' | 'tenantId'>,
   ): Promise<void> {
-    if (lease.tenantId === userId) return;
+    if (await this.isLeaseTenant(userId, lease.id, lease.tenantId)) return;
     await this.agencyAccess.assertCanOperateOnProperty(
       userId,
       lease.propertyId,
+    );
+  }
+
+  private async isLeaseTenant(
+    userId: string,
+    leaseId: string,
+    tenantId: string | null,
+  ): Promise<boolean> {
+    if (tenantId === userId) return true;
+    return (
+      (await this.prisma.leaseTenant.findUnique({
+        where: { leaseId_userId: { leaseId, userId } },
+        select: { userId: true },
+      })) !== null
     );
   }
 }

@@ -2,7 +2,7 @@ import 'reflect-metadata';
 import { ExecutionContext, ForbiddenException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { Test } from '@nestjs/testing';
-import { OrgMemberRole, OrganizationType } from '@prisma/client';
+import { MemberStatus, OrgMemberRole, OrganizationType } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { EventPublisher } from '../../events/event.publisher';
 import { RolesGuard } from './roles.guard';
@@ -257,6 +257,37 @@ describe('OrgContextGuard', () => {
       { [orgHeader]: ownerOrg.id },
     );
     await expect(guard.canActivate(ctx)).rejects.toThrow(ForbiddenException);
+    await prisma.organizationMember.deleteMany({
+      where: { organizationId: ownerOrg.id },
+    });
+    await prisma.organization.delete({ where: { id: ownerOrg.id } });
+  });
+
+  it('rejects disabled org membership before checking role requirements', async () => {
+    const ownerOrg = await prisma.organization.create({
+      data: {
+        name: `Owner Org Disabled ${Date.now()}`,
+        type: OrganizationType.OWNER,
+        countryId,
+        members: {
+          create: {
+            userId: ownerUserId,
+            role: OrgMemberRole.OWNER,
+            status: MemberStatus.DISABLED,
+          },
+        },
+      },
+    });
+    jest
+      .spyOn(reflector, 'getAllAndOverride')
+      .mockReturnValue({ roles: ['OWNER'] });
+    const ctx = makeCtx(
+      { userId: ownerUserId, roles: ['TENANT'] },
+      { [orgHeader]: ownerOrg.id },
+    );
+    await expect(guard.canActivate(ctx)).rejects.toMatchObject({
+      response: { code: 'MEMBER_DISABLED' },
+    });
     await prisma.organizationMember.deleteMany({
       where: { organizationId: ownerOrg.id },
     });

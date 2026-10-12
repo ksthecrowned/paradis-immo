@@ -191,14 +191,19 @@ export class ArrearsService {
 
   /** GET /leases/:id/balance — parties of the lease. */
   async getBalance(userId: string, leaseId: string): Promise<LeaseBalance> {
-    const lease = await this.prisma.lease.findUnique({ where: { id: leaseId } });
+    const lease = await this.prisma.lease.findUnique({
+      where: { id: leaseId },
+      include: {
+        coTenants: { where: { userId }, select: { userId: true } },
+      },
+    });
     if (!lease) {
       throw new NotFoundException({
         code: 'LEASE_NOT_FOUND',
         message: 'Lease does not exist',
       });
     }
-    if (lease.tenantId !== userId) {
+    if (lease.tenantId !== userId && lease.coTenants.length === 0) {
       await this.agencyAccess.assertCanOperateOnProperty(userId, lease.propertyId);
     }
 

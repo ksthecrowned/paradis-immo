@@ -19,13 +19,19 @@ describe('SolvencyChecksService', () => {
   let quartierId: string;
   let ownerUserId: string;
   let tenantUserId: string;
+  let coTenantUserId: string;
   let strangerUserId: string;
   let orgId: string;
   let propertyId: string;
   let leaseId: string;
   const scheduleIds: string[] = [];
   const paymentIds: string[] = [];
-  const phones = ['+242073000001', '+242073000002', '+242073000003'];
+  const phones = [
+    '+242073000001',
+    '+242073000002',
+    '+242073000003',
+    '+242073000004',
+  ];
 
   beforeAll(async () => {
     emit = jest.fn().mockResolvedValue(undefined);
@@ -100,6 +106,16 @@ describe('SolvencyChecksService', () => {
     });
     tenantUserId = tenant.id;
 
+    const coTenant = await prisma.user.create({
+      data: {
+        phone: phones[3]!,
+        name: 'Co-tenant Solvency',
+        countryId,
+        roles: { create: { role: 'TENANT' } },
+      },
+    });
+    coTenantUserId = coTenant.id;
+
     const stranger = await prisma.user.create({
       data: {
         phone: phones[2],
@@ -151,6 +167,9 @@ describe('SolvencyChecksService', () => {
       },
     });
     leaseId = lease.id;
+    await prisma.leaseTenant.create({
+      data: { leaseId, userId: coTenantUserId },
+    });
 
     const dues = [
       new Date('2026-01-01T00:00:00Z'),
@@ -204,7 +223,7 @@ describe('SolvencyChecksService', () => {
 
   afterEach(async () => {
     await prisma.solvencyCheck.deleteMany({
-      where: { tenantUserId },
+      where: { tenantUserId: { in: [tenantUserId, coTenantUserId] } },
     });
     emit.mockClear();
   });
@@ -213,7 +232,9 @@ describe('SolvencyChecksService', () => {
     // Guard against a midway beforeAll failure: an undefined id would turn
     // deleteMany into a full-table delete of other suites' rows.
     if (prisma && tenantUserId) {
-      await prisma.solvencyCheck.deleteMany({ where: { tenantUserId } });
+      await prisma.solvencyCheck.deleteMany({
+        where: { tenantUserId: { in: [tenantUserId, coTenantUserId] } },
+      });
     }
     if (paymentIds.length) {
       await prisma.paymentAllocation.deleteMany({
@@ -227,6 +248,7 @@ describe('SolvencyChecksService', () => {
       });
     }
     if (leaseId) {
+      await prisma.leaseTenant.deleteMany({ where: { leaseId } });
       await prisma.lease.deleteMany({ where: { id: leaseId } });
     }
     if (propertyId) {
@@ -238,7 +260,12 @@ describe('SolvencyChecksService', () => {
       });
       await prisma.organization.deleteMany({ where: { id: orgId } });
     }
-    const userIds = [ownerUserId, tenantUserId, strangerUserId].filter(Boolean);
+    const userIds = [
+      ownerUserId,
+      tenantUserId,
+      coTenantUserId,
+      strangerUserId,
+    ].filter(Boolean);
     if (userIds.length) {
       await prisma.userRole.deleteMany({
         where: { userId: { in: userIds } },
@@ -304,6 +331,15 @@ describe('SolvencyChecksService', () => {
     const latest = await svc.latestForOrg(ownerUserId, tenantUserId);
     expect(latest?.status).toBe('GRANTED');
     expect(latest?.snapshot).toHaveLength(3);
+  });
+
+  it('allows a co-tenant to request and consent to shared lease solvency', async () => {
+    const created = await svc.create(ownerUserId, coTenantUserId);
+    const granted = await svc.respond(coTenantUserId, created.id, true);
+
+    expect(granted.status).toBe('GRANTED');
+    expect(granted.snapshot).toHaveLength(3);
+    expect(granted.snapshot?.[0]?.dueDate).toBe('2026-04-01');
   });
 
   it('denies without exposing snapshot to owner', async () => {

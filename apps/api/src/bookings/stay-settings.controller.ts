@@ -23,8 +23,8 @@ import {
 
 /**
  * Spec 07 — paramètres de séjour et tarifs saisonniers (gestionnaire).
- * `GET` reste ouverte aux utilisateurs authentifiés (lecture utilisée par
- * l'UI d'édition), les écritures sont filtrées dans le service par mandat.
+ * Les lectures comme les écritures sont réservées aux gestionnaires du bien :
+ * le réglage contient notamment des instructions d'arrivée non publiques.
  */
 @ApiTags('Stays')
 @ApiBearerAuth()
@@ -35,8 +35,11 @@ export class StaySettingsController {
   @Get('properties/:id/stay-settings')
   @UseGuards(AppAuthGuard)
   @ApiOperation({ summary: 'Paramètres de séjour du bien (spec 07)' })
-  getSettings(@Param('id') id: string) {
-    return this.staySettings.getSettings(id);
+  getSettings(
+    @CurrentUser() current: AuthenticatedUser,
+    @Param('id') id: string,
+  ) {
+    return this.staySettings.getSettings(current.userId, id);
   }
 
   @Put('properties/:id/stay-settings')
@@ -58,8 +61,11 @@ export class StaySettingsController {
   @Get('properties/:id/seasonal-rates')
   @UseGuards(AppAuthGuard)
   @ApiOperation({ summary: 'Liste des tarifs saisonniers' })
-  listRates(@Param('id') id: string) {
-    return this.staySettings.listSeasonalRates(id);
+  listRates(
+    @CurrentUser() current: AuthenticatedUser,
+    @Param('id') id: string,
+  ) {
+    return this.staySettings.listSeasonalRates(current.userId, id);
   }
 
   @Post('properties/:id/seasonal-rates')

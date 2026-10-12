@@ -67,11 +67,26 @@ export async function cancelVisit(id: string): Promise<PublicVisitBooking> {
   });
 }
 
+/** Spec 06 — passe une visite PENDING/CONFIRMED sur un autre créneau. */
+export async function rescheduleVisit(
+  id: string,
+  newSlotId: string,
+): Promise<PublicVisitBooking> {
+  return apiFetch<PublicVisitBooking>(`/visits/${id}/reschedule`, {
+    method: 'POST',
+    body: { newSlotId },
+  });
+}
+
 export function visitStatusLabel(status: string): string {
   const map: Record<string, string> = {
     CONFIRMED: 'Confirmée',
     PENDING: 'En attente',
+    COMPLETED: 'Effectuée',
+    COMPLETED_UNCONFIRMED: 'Effectuée (non confirmée)',
+    NO_SHOW: 'Absence',
     CANCELLED: 'Annulée',
+    EXPIRED: 'Expirée',
   };
   return map[status] ?? status;
 }
@@ -81,6 +96,8 @@ export function visitStatusTone(
 ): 'success' | 'warning' | 'danger' | 'neutral' {
   if (status === 'CONFIRMED') return 'success';
   if (status === 'PENDING') return 'warning';
-  if (status === 'CANCELLED') return 'danger';
+  if (status === 'CANCELLED' || status === 'EXPIRED' || status === 'NO_SHOW') {
+    return 'danger';
+  }
   return 'neutral';
 }

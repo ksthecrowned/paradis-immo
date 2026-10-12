@@ -568,7 +568,13 @@ export class AmendmentsService {
         message: 'Lease does not exist',
       });
     }
-    if (lease.tenantId !== userId) {
+    const isTenant =
+      lease.tenantId === userId ||
+      (await this.prisma.leaseTenant.findUnique({
+        where: { leaseId_userId: { leaseId, userId } },
+        select: { userId: true },
+      })) !== null;
+    if (!isTenant) {
       await this.agencyAccess.assertCanOperateOnProperty(userId, lease.propertyId);
     }
     return lease;

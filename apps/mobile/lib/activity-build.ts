@@ -21,6 +21,8 @@ export type ActivityItem = {
   leaseId?: string;
   stayId?: string;
   purchaseId?: string;
+  /** Present on 'visits' items — routes to the visit detail screen. */
+  visitId?: string;
   title: string;
   location: string;
   statusLabel: string;
@@ -140,6 +142,7 @@ export function mapVisitToActivityItem(
     id: visit.id,
     segment: 'visits',
     propertyId: visit.propertyId,
+    visitId: visit.id,
     title: glance.title,
     location: glance.location,
     statusLabel: st.label,

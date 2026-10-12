@@ -20,6 +20,7 @@ import {
   confirmVisit,
   listAssignableVisitAgents,
   listManagedVisits,
+  rescheduleVisit,
   type PublicAssignableVisitAgent,
   type PublicVisitBooking,
 } from '@/lib/visits';
@@ -226,6 +227,26 @@ export function AgentVisitsPage(): React.JSX.Element {
     [load],
   );
 
+  const handleReschedule = useCallback(
+    async (bookingId: string, newSlotId: string) => {
+      setBusyId(bookingId);
+      try {
+        await rescheduleVisit(bookingId, newSlotId);
+        await load();
+        await loadSlots();
+      } catch (err) {
+        setError(
+          err instanceof ApiError
+            ? err.message
+            : 'Impossible de reprogrammer la visite.',
+        );
+      } finally {
+        setBusyId(null);
+      }
+    },
+    [load, loadSlots],
+  );
+
   const handleAssignAgent = useCallback(
     async (bookingId: string, agentId: string | null) => {
       setBusyId(bookingId);
@@ -349,6 +370,7 @@ export function AgentVisitsPage(): React.JSX.Element {
         slots={slots}
         loading={loading}
         onConfirm={(id) => void handleConfirm(id)}
+        onReschedule={(id, slotId) => void handleReschedule(id, slotId)}
         onCancel={(id) => void handleCancel(id)}
         busyId={busyId}
         agentsByProperty={agentsByProperty}

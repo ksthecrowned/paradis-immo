@@ -46,6 +46,7 @@ describe('LeasesService — schedule generation', () => {
   let bzvQuartierId: string;
   let ownerUserId: string;
   let tenantUserId: string;
+  let coTenantUserId: string;
   let propertyId: string;
   const createdLeaseIds: string[] = [];
   const emittedEvents: Array<{ name: string; payload: unknown }> = [];
@@ -108,7 +109,9 @@ describe('LeasesService — schedule generation', () => {
     bzvQuartierId = quartier.id;
 
     await prisma.user.deleteMany({
-      where: { phone: { in: ['+242070000001', '+242070000002'] } },
+      where: {
+        phone: { in: ['+242070000001', '+242070000002', '+242070000003'] },
+      },
     });
     const owner = await prisma.user.create({
       data: {
@@ -126,6 +129,14 @@ describe('LeasesService — schedule generation', () => {
       },
     });
     tenantUserId = tenant.id;
+    const coTenant = await prisma.user.create({
+      data: {
+        phone: '+242070000003',
+        countryId,
+        roles: { create: { role: 'TENANT' } },
+      },
+    });
+    coTenantUserId = coTenant.id;
 
     const org = await prisma.organization.create({
       data: {
@@ -156,6 +167,9 @@ describe('LeasesService — schedule generation', () => {
 
   afterAll(async () => {
     if (createdLeaseIds.length) {
+      await prisma.leaseTenant
+        .deleteMany({ where: { leaseId: { in: createdLeaseIds } } })
+        .catch(() => undefined);
       await prisma.rentSchedule
         .deleteMany({ where: { leaseId: { in: createdLeaseIds } } })
         .catch(() => undefined);
@@ -170,7 +184,7 @@ describe('LeasesService — schedule generation', () => {
       where: { userId: ownerUserId },
     });
     await prisma.organizationMember.deleteMany({
-      where: { userId: tenantUserId },
+      where: { userId: { in: [tenantUserId, coTenantUserId] } },
     });
     await prisma.organization
       .deleteMany({
@@ -184,8 +198,10 @@ describe('LeasesService — schedule generation', () => {
       .catch(() => undefined);
     await prisma.userRole.deleteMany({ where: { userId: ownerUserId } });
     await prisma.userRole.deleteMany({ where: { userId: tenantUserId } });
+    await prisma.userRole.deleteMany({ where: { userId: coTenantUserId } });
     await prisma.user.deleteMany({ where: { id: ownerUserId } });
     await prisma.user.deleteMany({ where: { id: tenantUserId } });
+    await prisma.user.deleteMany({ where: { id: coTenantUserId } });
     await prisma.onModuleDestroy();
   });
 
@@ -302,6 +318,33 @@ describe('LeasesService — schedule generation', () => {
     createdLeaseIds.push(lease.id);
     const got = await leases.getOne(tenantUserId, lease.id);
     expect(got.id).toBe(lease.id);
+  });
+
+  it('co-tenant can read the lease, schedule, and see it in their lease list', async () => {
+    const lease = await leases.createLease(ownerUserId, {
+      propertyId,
+      tenantId: tenantUserId,
+      startDate: new Date('2029-01-01T00:00:00Z'),
+      endDate: new Date('2029-06-30T00:00:00Z'),
+      monthlyRent: '100000',
+      currency: 'XAF',
+      deposit: '200000',
+    });
+    createdLeaseIds.push(lease.id);
+    await prisma.leaseTenant.create({
+      data: { leaseId: lease.id, userId: coTenantUserId },
+    });
+    await leases.activateLease(ownerUserId, lease.id);
+
+    await expect(leases.getOne(coTenantUserId, lease.id)).resolves.toMatchObject({
+      id: lease.id,
+    });
+    await expect(
+      leases.getSchedule(coTenantUserId, lease.id),
+    ).resolves.toHaveLength(7);
+    await expect(leases.listMyLeases(coTenantUserId)).resolves.toEqual(
+      expect.arrayContaining([expect.objectContaining({ id: lease.id })]),
+    );
   });
 
   it('getOne forbids a stranger', async () => {

@@ -112,7 +112,10 @@ export class TenantDocumentsService {
     }
     const lease = await this.prisma.lease.findFirst({
       where: {
-        tenantId: tenantUserId,
+        OR: [
+          { tenantId: tenantUserId },
+          { coTenants: { some: { userId: tenantUserId } } },
+        ],
         propertyId: { in: propertyIds },
       },
       select: { id: true },

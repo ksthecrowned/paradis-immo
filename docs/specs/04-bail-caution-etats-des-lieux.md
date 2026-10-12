@@ -82,6 +82,7 @@ Rôles : `SEEKER` (candidat), `TENANT`, `OWNER`, `MANAGER`, `AGENT`.
   - Numérotation séquentielle par org émettrice : `Q-{ORG}-{AAAA}-{000001}`.
   - Même règle pour les reçus de paiement : `R-{ORG}-{AAAA}-{000001}`, en remplacement de `REC-xxxx-base36`.
 - **Solvabilité candidat** : `SolvencyCheck` peut viser un `applicationId` (et non plus seulement un locataire existant), avec le même consentement et la même expiration.
+- **Colocataires** : les comptes rattachés au bail peuvent consulter ses échéances, quittances et documents. Un gestionnaire autorisé peut aussi gérer les documents et demander une vérification de solvabilité à chaque colocataire ; chaque personne consent séparément et ne voit que son propre résultat.
 
 ## Modèle de données
 ```prisma

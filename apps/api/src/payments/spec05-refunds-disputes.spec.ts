@@ -24,6 +24,7 @@ describe('PaymentsService — spec 05 P1 (remboursements & litiges)', () => {
   let ownerUserId: string;
   let tenantUserId: string;
   let strangerUserId: string;
+  let coTenantUserId: string;
   let adminUserId: string;
   let ownerOrgId: string;
   let propertyId: string;
@@ -33,16 +34,19 @@ describe('PaymentsService — spec 05 P1 (remboursements & litiges)', () => {
   let schedDisputeId: string;
   let schedOldId: string;
   let schedInitiatedId: string;
+  let schedCoTenantId: string;
   let pFullId: string;
   let pPartId: string;
   let pDispId: string;
   let pOldId: string;
   let pInitId: string;
+  let pCoTenantId: string;
   const createdPaymentIds: string[] = [];
   const phones = {
     owner: '+242070000161',
     tenant: '+242070000162',
     stranger: '+242070000163',
+    coTenant: '+242070000165',
     admin: '+242070000164',
   };
 
@@ -110,6 +114,7 @@ describe('PaymentsService — spec 05 P1 (remboursements & litiges)', () => {
       });
       const staleLeaseIds = staleLeases.map((l) => l.id);
       if (staleLeaseIds.length) {
+        await prisma.leaseTenant.deleteMany({ where: { leaseId: { in: staleLeaseIds } } });
         await prisma.rentReceipt.deleteMany({
           where: { rentSchedule: { leaseId: { in: staleLeaseIds } } },
         });
@@ -130,6 +135,7 @@ describe('PaymentsService — spec 05 P1 (remboursements & litiges)', () => {
     ownerUserId = (await mk(phones.owner, 'Spec051 Owner')).id;
     tenantUserId = (await mk(phones.tenant, 'Spec051 Tenant')).id;
     strangerUserId = (await mk(phones.stranger, 'Spec051 Stranger')).id;
+    coTenantUserId = (await mk(phones.coTenant, 'Spec051 Co-tenant')).id;
     adminUserId = (await mk(phones.admin, 'Spec051 Admin', 'PLATFORM_ADMIN')).id;
 
     const org = await prisma.organization.create({
@@ -174,6 +180,9 @@ describe('PaymentsService — spec 05 P1 (remboursements & litiges)', () => {
       },
     });
     leaseId = lease.id;
+    await prisma.leaseTenant.create({
+      data: { leaseId, userId: coTenantUserId },
+    });
 
     const mkSchedule = (dueDate: string) =>
       prisma.rentSchedule.create({
@@ -190,6 +199,7 @@ describe('PaymentsService — spec 05 P1 (remboursements & litiges)', () => {
     schedDisputeId = (await mkSchedule('2026-04-01T00:00:00Z')).id;
     schedOldId = (await mkSchedule('2026-05-01T00:00:00Z')).id;
     schedInitiatedId = (await mkSchedule('2026-06-01T00:00:00Z')).id;
+    schedCoTenantId = (await mkSchedule('2026-07-01T00:00:00Z')).id;
 
     // Cash payments validated by the property owner (= manager here).
     const cash = async (label: string) => {
@@ -211,6 +221,13 @@ describe('PaymentsService — spec 05 P1 (remboursements & litiges)', () => {
       where: { id: pOldId },
       data: { createdAt: new Date(Date.now() - 31 * 86_400_000) },
     });
+
+    const tenantPayment = await payments.recordCashPayment(ownerUserId, {
+      rentScheduleId: schedCoTenantId,
+      idempotencyKey: `spec051-cotenant-${Date.now()}`,
+    });
+    createdPaymentIds.push(tenantPayment.id);
+    pCoTenantId = tenantPayment.id;
 
     // An INITIATED mobile money payment (never validated).
     const initiated = await payments.initiatePayment({
@@ -245,6 +262,9 @@ describe('PaymentsService — spec 05 P1 (remboursements & litiges)', () => {
         .catch(() => undefined);
     }
     if (leaseId) {
+      await prisma.leaseTenant
+        .deleteMany({ where: { leaseId } })
+        .catch(() => undefined);
       await prisma.paymentAllocation
         .deleteMany({ where: { rentSchedule: { leaseId } } })
         .catch(() => undefined);
@@ -258,9 +278,13 @@ describe('PaymentsService — spec 05 P1 (remboursements & litiges)', () => {
         .delete({ where: { id: leaseId } })
         .catch(() => undefined);
     }
-    const ids = [ownerUserId, tenantUserId, strangerUserId, adminUserId].filter(
-      Boolean,
-    );
+    const ids = [
+      ownerUserId,
+      tenantUserId,
+      strangerUserId,
+      coTenantUserId,
+      adminUserId,
+    ].filter(Boolean);
     await prisma.notification.deleteMany({ where: { userId: { in: ids } } });
     await prisma.property
       .delete({ where: { id: propertyId } })
@@ -306,6 +330,15 @@ describe('PaymentsService — spec 05 P1 (remboursements & litiges)', () => {
         status: 403,
         response: { code: 'PAYMENT_FORBIDDEN' },
       });
+
+      const coTenantDispute = await payments.openDispute(coTenantUserId, pCoTenantId, {
+        reason: 'OTHER',
+        description: 'il est colocataire du bail',
+      });
+      expect(coTenantDispute.status).toBe('OPEN');
+
+      const visible = await payments.getOne(coTenantUserId, pCoTenantId);
+      expect(visible.userId).toBe(tenantUserId);
 
       await expect(
         payments.openDispute(tenantUserId, pInitId, {

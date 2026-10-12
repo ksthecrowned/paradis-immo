@@ -36,6 +36,11 @@ class BookVisitDto {
   guestName?: string;
 }
 
+class RescheduleVisitDto {
+  @IsString()
+  newSlotId!: string;
+}
+
 /**
  * Visit-booking endpoints. The owner-side flow (`POST /properties/:id/visit-slots/block`,
  * template CRUD) lives in `VisitSlotsController`; this one only deals with
@@ -71,6 +76,19 @@ export class VisitsController {
   @ApiOperation({ summary: 'Confirm a visit booking' })
   confirm(@CurrentUser() current: AuthenticatedUser, @Param('id') id: string) {
     return this.slots.confirmVisit(current.userId, id);
+  }
+
+  @Post(':id/reschedule')
+  @HttpCode(200)
+  @ApiOperation({
+    summary: 'Move a PENDING/CONFIRMED visit to another available slot — spec 06',
+  })
+  reschedule(
+    @CurrentUser() current: AuthenticatedUser,
+    @Param('id') id: string,
+    @Body() dto: RescheduleVisitDto,
+  ) {
+    return this.slots.rescheduleVisit(current.userId, id, dto.newSlotId);
   }
 
   @Post(':id/complete')

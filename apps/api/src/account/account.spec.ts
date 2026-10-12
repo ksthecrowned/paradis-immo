@@ -52,7 +52,22 @@ describe('KycService (spec 01 — P1)', () => {
     const country = await prisma.country.findFirstOrThrow();
     countryId = country.id;
     const phones = ['+242063300001', '+242063300002'];
-    await prisma.user.deleteMany({ where: { phone: { in: phones } } });
+    // Self-healing purge: leftover org memberships from a crashed previous
+    // run would block the user delete via FK `OrganizationMember_userId_fkey`.
+    const stale = await prisma.user.findMany({
+      where: { phone: { in: phones } },
+      select: { id: true },
+    });
+    const staleIds = stale.map((u) => u.id);
+    if (staleIds.length) {
+      await prisma.kycSubmission.deleteMany({
+        where: { userId: { in: staleIds } },
+      });
+      await prisma.organizationMember.deleteMany({
+        where: { userId: { in: staleIds } },
+      });
+      await prisma.user.deleteMany({ where: { id: { in: staleIds } } });
+    }
 
     const owner = await prisma.user.create({
       data: { phone: phones[0], countryId, name: 'KYC Owner' },
@@ -223,6 +238,7 @@ describe('DataExportService (spec 01 — P2)', () => {
   let prisma: PrismaService;
   let countryId: string;
   let userId: string;
+  let coTenantId: string;
   let jobId: string | null = null;
 
   const fakeR2 = {
@@ -254,9 +270,17 @@ describe('DataExportService (spec 01 — P2)', () => {
       data: { phone: '+242063300010', countryId, name: 'Export User' },
     });
     userId = user.id;
+    const coTenant = await prisma.user.create({
+      data: { phone: '+242063300011', countryId, name: 'Export CoTenant' },
+    });
+    coTenantId = coTenant.id;
   });
 
   afterAll(async () => {
+    if (coTenantId) {
+      await prisma.leaseTenant.deleteMany({ where: { userId: coTenantId } });
+      await prisma.user.deleteMany({ where: { id: coTenantId } });
+    }
     if (userId) {
       await prisma.dataExportRequest.deleteMany({ where: { userId } });
       await prisma.user.deleteMany({ where: { id: userId } });
@@ -274,6 +298,68 @@ describe('DataExportService (spec 01 — P2)', () => {
     expect(full.status).toBe('READY');
     expect(full.url).toContain('https://fake.r2/exports/');
     expect(full.expiresAt).toBeTruthy();
+  });
+
+  it('includes shared leases in the export payload for a co-tenant', async () => {
+    const quartier = await prisma.quartier.findFirstOrThrow({
+      where: { arrondissement: { city: { name: 'Brazzaville' } } },
+    });
+    const org = await prisma.organization.create({
+      data: {
+        name: `Export CoTenant Org ${Date.now()}`,
+        type: 'OWNER',
+        countryId,
+        members: { create: { userId, role: 'OWNER' } },
+      },
+    });
+    const property = await prisma.property.create({
+      data: {
+        title: 'Export Shared Lease Property',
+        description: 'x',
+        type: 'APARTMENT',
+        mode: 'RENT_LONG',
+        price: 100000,
+        currency: 'XAF',
+        priceUnit: 'MONTH',
+        quartierId: quartier.id,
+        address: 'x',
+        countryId,
+        ownerId: userId,
+        organizationId: org.id,
+      },
+    });
+    const lease = await prisma.lease.create({
+      data: {
+        propertyId: property.id,
+        tenantId: userId,
+        startDate: new Date('2026-01-01'),
+        endDate: new Date('2026-12-31'),
+        monthlyRent: 100000,
+        deposit: 200000,
+        currency: 'XAF',
+        status: 'ACTIVE',
+      },
+    });
+    await prisma.leaseTenant.create({
+      data: { leaseId: lease.id, userId: coTenantId },
+    });
+
+    const job = await exports.request(coTenantId);
+    const uploadCall = fakeR2.uploadPrivateFile.mock.calls.at(-1)?.[0];
+    expect(uploadCall).toBeTruthy();
+    const payload = JSON.parse(Buffer.from(uploadCall!.body).toString('utf8'));
+    expect(payload.leases).toEqual(
+      expect.arrayContaining([expect.objectContaining({ id: lease.id })]),
+    );
+
+    await prisma.dataExportRequest.deleteMany({ where: { userId: coTenantId } });
+    await prisma.leaseTenant.deleteMany({ where: { leaseId: lease.id } });
+    await prisma.rentSchedule.deleteMany({ where: { leaseId: lease.id } });
+    await prisma.lease.deleteMany({ where: { id: lease.id } });
+    await prisma.property.deleteMany({ where: { id: property.id } });
+    await prisma.organizationMember.deleteMany({ where: { organizationId: org.id } });
+    await prisma.organization.deleteMany({ where: { id: org.id } });
+    await prisma.dataExportRequest.deleteMany({ where: { id: job.id } });
   });
 
   it('404s when fetching another user’s export', async () => {

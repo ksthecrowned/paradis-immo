@@ -386,6 +386,31 @@ describe('AgencyService (spec 02)', () => {
     ).rejects.toBeInstanceOf(ConflictException);
   });
 
+  it('allows a co-tenant to review a lease they share', async () => {
+    const coTenant = await prisma.user.create({
+      data: {
+        phone: '+242073000099',
+        name: 'CoTenant Review',
+        countryId,
+      },
+    });
+    await prisma.leaseTenant.create({
+      data: { leaseId: leaseId!, userId: coTenant.id },
+    });
+
+    const created = await agency.createReview(coTenant.id, orgId, {
+      sourceType: ReviewSourceType.LEASE,
+      sourceId: leaseId!,
+      rating: 5,
+      comment: 'Très bon accueil et excellent suivi de bail.',
+    });
+
+    expect(created.authorId).toBe(coTenant.id);
+    await prisma.organizationReview.delete({ where: { id: created.id } });
+    await prisma.leaseTenant.deleteMany({ where: { leaseId: leaseId!, userId: coTenant.id } });
+    await prisma.user.delete({ where: { id: coTenant.id } });
+  });
+
   it('auto-moderates a review containing a blocked word', async () => {
     // The manager needs their own eligible interaction first.
     const lease = await prisma.lease.create({

@@ -16,7 +16,13 @@ describe('LeaseDocumentsService', () => {
   let propertyId: string;
   let orgId: string;
   let leaseId: string;
-  const phones = ['+242074000001', '+242074000002', '+242074000003'];
+  const phones = [
+    '+242074000001',
+    '+242074000002',
+    '+242074000003',
+    '+242074000004',
+  ];
+  let coTenantUserId: string;
   const fakeR2 = {
     uploadPrivateLeaseFile: jest.fn(async () => ({
       key: 'lease-documents/x/contrat.pdf',
@@ -90,6 +96,14 @@ describe('LeaseDocumentsService', () => {
       },
     });
     strangerUserId = stranger.id;
+    const coTenant = await prisma.user.create({
+      data: {
+        phone: phones[3],
+        countryId,
+        roles: { create: { role: 'TENANT' } },
+      },
+    });
+    coTenantUserId = coTenant.id;
 
     const org = await prisma.organization.create({
       data: {
@@ -130,9 +144,13 @@ describe('LeaseDocumentsService', () => {
       },
     });
     leaseId = lease.id;
+    await prisma.leaseTenant.create({
+      data: { leaseId, userId: coTenantUserId },
+    });
   });
 
   afterAll(async () => {
+    await prisma.leaseTenant.deleteMany({ where: { leaseId } });
     await prisma.leaseDocument.deleteMany({ where: { leaseId } });
     await prisma.lease.deleteMany({ where: { id: leaseId } });
     await prisma.property.deleteMany({ where: { id: propertyId } });
@@ -140,7 +158,12 @@ describe('LeaseDocumentsService', () => {
       where: { organizationId: orgId },
     });
     await prisma.organization.deleteMany({ where: { id: orgId } });
-    for (const id of [ownerUserId, tenantUserId, strangerUserId]) {
+    for (const id of [
+      ownerUserId,
+      tenantUserId,
+      strangerUserId,
+      coTenantUserId,
+    ]) {
       await prisma.userRole.deleteMany({ where: { userId: id } });
       await prisma.user.deleteMany({ where: { id } });
     }
@@ -169,6 +192,23 @@ describe('LeaseDocumentsService', () => {
     await expect(
       docs.upload(
         tenantUserId,
+        leaseId,
+        {
+          buffer: Buffer.from('%PDF'),
+          originalname: 'x.pdf',
+          mimetype: 'application/pdf',
+        },
+        { type: 'AMENDMENT' },
+      ),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it('co-tenant can read lease documents but cannot upload manager documents', async () => {
+    const list = await docs.list(coTenantUserId, leaseId);
+    expect(Array.isArray(list)).toBe(true);
+    await expect(
+      docs.upload(
+        coTenantUserId,
         leaseId,
         {
           buffer: Buffer.from('%PDF'),

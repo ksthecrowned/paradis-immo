@@ -302,6 +302,14 @@ export class NotificationsService {
           payload,
           'holdExpiresAt',
         )}).`;
+      case 'VISIT_CANCELLED':
+        return `Paradis Immo — votre visite de ${
+          this.stringField(payload, 'propertyTitle') || 'du bien'
+        } du ${this.stringField(payload, 'startAt')} est annulée${
+          this.stringField(payload, 'reason')
+            ? ` (${this.stringField(payload, 'reason')})`
+            : ''
+        }.`;
       case 'STAY_HOLD':
         return `Paradis Immo — réservation en attente : les dates sont bloquées 15 minutes. Terminez votre paiement avant ${this.stringField(
           payload,

@@ -240,7 +240,10 @@ export class SolvencyChecksService {
 
     const lease = await this.prisma.lease.findFirst({
       where: {
-        tenantId: tenantUserId,
+        OR: [
+          { tenantId: tenantUserId },
+          { coTenants: { some: { userId: tenantUserId } } },
+        ],
         propertyId: { in: propertyIds },
       },
       include: {
@@ -271,7 +274,12 @@ export class SolvencyChecksService {
     return this.prisma.rentSchedule.count({
       where: {
         status: 'PAID',
-        lease: { tenantId: tenantUserId },
+        lease: {
+          OR: [
+            { tenantId: tenantUserId },
+            { coTenants: { some: { userId: tenantUserId } } },
+          ],
+        },
       },
     });
   }
@@ -280,7 +288,12 @@ export class SolvencyChecksService {
     const schedules = await this.prisma.rentSchedule.findMany({
       where: {
         status: 'PAID',
-        lease: { tenantId: tenantUserId },
+        lease: {
+          OR: [
+            { tenantId: tenantUserId },
+            { coTenants: { some: { userId: tenantUserId } } },
+          ],
+        },
       },
       orderBy: { dueDate: 'desc' },
       take: 3,

@@ -94,7 +94,11 @@ export class LeaseDocumentsService {
   private async assertCanRead(userId: string, leaseId: string): Promise<void> {
     const lease = await this.prisma.lease.findUnique({
       where: { id: leaseId },
-      select: { tenantId: true, propertyId: true },
+      select: {
+        tenantId: true,
+        propertyId: true,
+        coTenants: { where: { userId }, select: { userId: true } },
+      },
     });
     if (!lease) {
       throw new NotFoundException({
@@ -102,7 +106,10 @@ export class LeaseDocumentsService {
         message: 'Lease does not exist',
       });
     }
-    if (lease.tenantId === userId) return;
+    const isCoTenant = lease.coTenants.some(
+      ({ userId: coTenantUserId }) => coTenantUserId === userId,
+    );
+    if (lease.tenantId === userId || isCoTenant) return;
     try {
       await this.agencyAccess.assertCanOperateOnProperty(
         userId,

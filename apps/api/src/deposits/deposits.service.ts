@@ -160,7 +160,19 @@ export class DepositsService {
   ): Promise<PublicDepositDeduction> {
     const deduction = await this.prisma.depositDeduction.findUnique({
       where: { id: deductionId },
-      include: { lease: { select: { id: true, propertyId: true, tenantId: true } } },
+      include: {
+        lease: {
+          select: {
+            id: true,
+            propertyId: true,
+            tenantId: true,
+            coTenants: {
+              where: { userId: actorId },
+              select: { userId: true },
+            },
+          },
+        },
+      },
     });
     if (!deduction) {
       throw new NotFoundException({
@@ -168,7 +180,10 @@ export class DepositsService {
         message: 'Deposit deduction does not exist',
       });
     }
-    const isTenant = deduction.lease.tenantId === actorId;
+    const isCoTenant = deduction.lease.coTenants.some(
+      ({ userId }) => userId === actorId,
+    );
+    const isTenant = deduction.lease.tenantId === actorId || isCoTenant;
 
     if (!isTenant) {
       await this.agencyAccess.assertCanOperateOnProperty(
@@ -597,9 +612,21 @@ export class DepositsService {
 
   private async assertCanReadLease(
     userId: string,
-    lease: { propertyId: string; tenantId: string | null },
+    lease: {
+      id: string;
+      propertyId: string;
+      tenantId: string | null;
+    },
   ): Promise<void> {
-    if (lease.tenantId === userId) return;
+    if (
+      lease.tenantId === userId ||
+      (await this.prisma.leaseTenant.findUnique({
+        where: { leaseId_userId: { leaseId: lease.id, userId } },
+        select: { userId: true },
+      }))
+    ) {
+      return;
+    }
     await this.agencyAccess.assertCanOperateOnProperty(userId, lease.propertyId);
   }
 }

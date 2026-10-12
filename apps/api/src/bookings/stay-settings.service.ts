@@ -21,7 +21,8 @@ export class StaySettingsService {
     private readonly agencyAccess: AgencyAccessService,
   ) {}
 
-  async getSettings(propertyId: string) {
+  async getSettings(userId: string, propertyId: string) {
+    await this.agencyAccess.assertCanOperateOnProperty(userId, propertyId);
     const settings = await this.prisma.stayListingSettings.findUnique({
       where: { propertyId },
     });
@@ -121,7 +122,8 @@ export class StaySettingsService {
     return this.toPublicSettings(settings);
   }
 
-  async listSeasonalRates(propertyId: string) {
+  async listSeasonalRates(userId: string, propertyId: string) {
+    await this.agencyAccess.assertCanOperateOnProperty(userId, propertyId);
     const rates = await this.prisma.seasonalRate.findMany({
       where: { propertyId },
       orderBy: { startDate: 'asc' },

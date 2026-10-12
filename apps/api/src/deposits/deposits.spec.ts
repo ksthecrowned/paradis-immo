@@ -23,11 +23,13 @@ describe('Deposits HTTP — caution (spec 04 P1)', () => {
   let bzvQuartierId: string;
   let ownerUserId: string;
   let tenantUserId: string;
+  let coTenantUserId: string;
   let outsiderUserId: string;
   let propertyId: string;
   const phones = {
     owner: '+242070000051',
     tenant: '+242070000052',
+    coTenant: '+242070000054',
     outsider: '+242070000053',
   };
   const createdLeaseIds: string[] = [];
@@ -81,6 +83,7 @@ describe('Deposits HTTP — caution (spec 04 P1)', () => {
       });
     ownerUserId = (await mk(phones.owner, 'Spec04 Deposit Owner')).id;
     tenantUserId = (await mk(phones.tenant, 'Spec04 Deposit Tenant')).id;
+    coTenantUserId = (await mk(phones.coTenant, 'Spec04 Deposit Co-tenant')).id;
     outsiderUserId = (await mk(phones.outsider, 'Spec04 Deposit Outsider')).id;
 
     const org = await prisma.organization.create({
@@ -113,6 +116,9 @@ describe('Deposits HTTP — caution (spec 04 P1)', () => {
 
   afterAll(async () => {
     if (createdLeaseIds.length) {
+      await prisma.leaseTenant
+        .deleteMany({ where: { leaseId: { in: createdLeaseIds } } })
+        .catch(() => undefined);
       await prisma.depositSettlement
         .deleteMany({ where: { leaseId: { in: createdLeaseIds } } })
         .catch(() => undefined);
@@ -125,7 +131,7 @@ describe('Deposits HTTP — caution (spec 04 P1)', () => {
         })
         .catch(() => undefined);
       await prisma.notification.deleteMany({
-        where: { userId: { in: [ownerUserId, tenantUserId] } },
+        where: { userId: { in: [ownerUserId, tenantUserId, coTenantUserId] } },
       });
       await prisma.ledgerEntry
         .deleteMany({ where: { propertyId } })
@@ -139,13 +145,21 @@ describe('Deposits HTTP — caution (spec 04 P1)', () => {
     }
     await prisma.property.delete({ where: { id: propertyId } }).catch(() => undefined);
     await prisma.organizationMember.deleteMany({
-      where: { userId: { in: [ownerUserId, tenantUserId, outsiderUserId] } },
+      where: {
+        userId: {
+          in: [ownerUserId, tenantUserId, coTenantUserId, outsiderUserId],
+        },
+      },
     });
     await prisma.organization
       .deleteMany({ where: { members: { some: { userId: ownerUserId } } } })
       .catch(() => undefined);
     await prisma.userRole.deleteMany({
-      where: { userId: { in: [ownerUserId, tenantUserId, outsiderUserId] } },
+      where: {
+        userId: {
+          in: [ownerUserId, tenantUserId, coTenantUserId, outsiderUserId],
+        },
+      },
     });
     await prisma.user
       .deleteMany({
@@ -231,6 +245,9 @@ describe('Deposits HTTP — caution (spec 04 P1)', () => {
 
   it('a running lease has no deduction and no refund deadline', async () => {
     const leaseId = await activeLease();
+    await prisma.leaseTenant.create({
+      data: { leaseId, userId: coTenantUserId },
+    });
     const res = await request(app.getHttpServer())
       .get(`/api/v1/leases/${leaseId}/deposit`)
       .set('x-test-user', ownerUserId)
@@ -240,6 +257,14 @@ describe('Deposits HTTP — caution (spec 04 P1)', () => {
     expect(res.body.heldAmount).toBe('0');
     expect(res.body.deductions).toEqual([]);
     expect(res.body.refundDeadline).toBeNull();
+    await request(app.getHttpServer())
+      .get(`/api/v1/leases/${leaseId}/deposit`)
+      .set('x-test-user', coTenantUserId)
+      .expect(200);
+    await request(app.getHttpServer())
+      .get(`/api/v1/leases/${leaseId}/balance`)
+      .set('x-test-user', coTenantUserId)
+      .expect(200);
 
     const blocked = await request(app.getHttpServer())
       .post(`/api/v1/leases/${leaseId}/deposit/deductions`)
@@ -252,6 +277,7 @@ describe('Deposits HTTP — caution (spec 04 P1)', () => {
       .get(`/api/v1/leases/${leaseId}/deposit`)
       .set('x-test-user', outsiderUserId)
       .expect(403);
+
   });
 
   it('the tenant contests within 15 days, the manager accepts, the refund is the rest', async () => {
@@ -284,6 +310,12 @@ describe('Deposits HTTP — caution (spec 04 P1)', () => {
       .post(`/api/v1/leases/${leaseId}/deposit/deductions`)
       .set('x-test-user', outsiderUserId)
       .send({ label: 'Pirate', amount: 1000 })
+      .expect(403);
+
+    await request(app.getHttpServer())
+      .patch(`/api/v1/deposit-deductions/${first.body.id}`)
+      .set('x-test-user', outsiderUserId)
+      .send({ status: 'CONTESTED', tenantComment: 'pas autorisé' })
       .expect(403);
 
     // The tenant cannot accept, only contest, and must explain why.

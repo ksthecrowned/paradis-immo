@@ -5,7 +5,7 @@ import {
   Injectable,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { OrgMemberRole } from '@prisma/client';
+import { MemberStatus, OrgMemberRole } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import {
   ORG_CONTEXT_KEY,
@@ -78,12 +78,21 @@ export class OrgContextGuard implements CanActivate {
           organizationId: orgId,
         },
       },
+      select: { role: true, status: true },
     });
 
     if (!membership) {
       throw new ForbiddenException({
         code: 'NOT_ORG_MEMBER',
         message: 'User is not a member of the target organization',
+      });
+    }
+
+    if (membership.status !== MemberStatus.ACTIVE) {
+      throw new ForbiddenException({
+        code: 'MEMBER_DISABLED',
+        message: 'User membership is not active for the target organization',
+        details: { status: membership.status },
       });
     }
 

@@ -34,6 +34,11 @@ export interface VisitsCalendarProps {
   onConfirm?: (id: string) => void | Promise<void>;
   /** Called when the user clicks "Annuler" on a booking. */
   onCancel?: (id: string) => void | Promise<void>;
+  /**
+   * Spec 06 — called when the user picks a new slot for a booking. When
+   * absent, the "Reprogrammer" action is hidden.
+   */
+  onReschedule?: (bookingId: string, newSlotId: string) => void | Promise<void>;
   /** Id currently being mutated — disables the matching action button. */
   busyId?: string | null;
   /** Active agents grouped by the property they can manage. */
@@ -158,6 +163,7 @@ export function VisitsCalendar({
   loading = false,
   onConfirm,
   onCancel,
+  onReschedule,
   busyId = null,
   agentsByProperty,
   onAssignAgent,
@@ -171,6 +177,8 @@ export function VisitsCalendar({
 
   const [month, setMonth] = useState<Date>(today);
   const [selected, setSelected] = useState<Date>(today);
+  /** Booking whose re-schedule picker is open. */
+  const [rescheduleId, setRescheduleId] = useState<string | null>(null);
 
   // Index bookings by day (local timezone) for O(1) lookup.
   const byDay = useMemo(() => {
@@ -478,6 +486,24 @@ export function VisitsCalendar({
                         Confirmer
                       </Button>
                     ) : null}
+                    {onReschedule &&
+                    (booking.status === 'PENDING' ||
+                      booking.status === 'CONFIRMED') ? (
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        icon="solar:calendar-mark-linear"
+                        loading={busyId === booking.id}
+                        disabled={busyId === booking.id}
+                        onClick={() =>
+                          setRescheduleId(
+                            rescheduleId === booking.id ? null : booking.id,
+                          )
+                        }
+                      >
+                        Reprogrammer
+                      </Button>
+                    ) : null}
                     {!isCancelled && onCancel ? (
                       <Button
                         variant="secondary"
@@ -495,6 +521,57 @@ export function VisitsCalendar({
                       </Button>
                     ) : null}
                   </div>
+                  {onReschedule && rescheduleId === booking.id ? (
+                    <div className="rounded-md border border-input-border bg-search/60 p-2">
+                      <p className="mb-1.5 text-xs font-medium text-muted">
+                        Nouveau créneau (à venir, disponible) :
+                      </p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {slots
+                          .filter(
+                            (s) =>
+                              s.status === 'AVAILABLE' &&
+                              s.startAt > new Date().toISOString() &&
+                              !(
+                                booking.slotStartAt &&
+                                booking.slotStartAt.startsWith(
+                                  s.startAt.slice(0, 16),
+                                )
+                              ),
+                          )
+                          .sort(
+                            (a, b) =>
+                              new Date(a.startAt).getTime() -
+                              new Date(b.startAt).getTime(),
+                          )
+                          .slice(0, 12)
+                          .map((slot) => (
+                            <button
+                              key={slot.id}
+                              type="button"
+                              disabled={busyId === booking.id}
+                              className="rounded-md border border-border bg-card px-2 py-1 text-xs hover:bg-card-hover disabled:opacity-50"
+                              onClick={() => {
+                                setRescheduleId(null);
+                                void onReschedule(booking.id, slot.id);
+                              }}
+                            >
+                              {TIME_LABEL.format(new Date(slot.startAt))} ·{' '}
+                              {DAY_LONG_LABEL.format(new Date(slot.startAt))}
+                            </button>
+                          ))}
+                        {slots.filter(
+                          (s) =>
+                            s.status === 'AVAILABLE' &&
+                            s.startAt > new Date().toISOString(),
+                        ).length === 0 ? (
+                          <p className="text-xs text-muted">
+                            Aucun créneau disponible à venir.
+                          </p>
+                        ) : null}
+                      </div>
+                    </div>
+                  ) : null}
                 </li>
               );
             })}

@@ -12,14 +12,18 @@ import { ApiError } from '@/lib/api';
 import { getProperty, type PublicProperty } from '@/lib/owner/properties';
 import {
   blockSlot,
+  createBlackout,
   createTemplate,
   DAY_LABELS,
   deactivateTemplate,
+  deleteBlackout,
+  listBlackouts,
   listManagedSlots,
   listTemplates,
   openSlot,
   slotStatusLabel,
   unblockSlot,
+  type PublicVisitBlackout,
   type PublicVisitSlot,
   type PublicVisitSlotTemplate,
 } from '@/lib/owner/visit-slots';
@@ -75,6 +79,12 @@ export function PropertyVisitSlots({
   const [openMinutes, setOpenMinutes] = useState(30);
   const [opening, setOpening] = useState(false);
 
+  const [blackouts, setBlackouts] = useState<PublicVisitBlackout[]>([]);
+  const [blackoutStart, setBlackoutStart] = useState('');
+  const [blackoutEnd, setBlackoutEnd] = useState('');
+  const [blackoutReason, setBlackoutReason] = useState('');
+  const [blackoutBusy, setBlackoutBusy] = useState(false);
+
   const [dayOfWeek, setDayOfWeek] = useState(1);
   const [startTime, setStartTime] = useState('09:00');
   const [endTime, setEndTime] = useState('12:00');
@@ -97,12 +107,14 @@ export function PropertyVisitSlots({
       }
 
       const from = new Date().toISOString();
-      const [tmpl, upcoming] = await Promise.all([
+      const [tmpl, upcoming, blackoutsRows] = await Promise.all([
         listTemplates(propertyId),
         listManagedSlots(propertyId, from),
+        listBlackouts(propertyId).catch(() => [] as PublicVisitBlackout[]),
       ]);
       setTemplates(tmpl);
       setSlots(upcoming);
+      setBlackouts(blackoutsRows);
       setError(null);
     } catch (err) {
       setError(
@@ -173,8 +185,7 @@ export function PropertyVisitSlots({
       setActionId(slot.id);
       try {
         await unblockSlot(slot.id);
-        await load();
-        setError(null);
+        await load();        setError(null);
       } catch (err) {
         setError(
           err instanceof ApiError
@@ -261,6 +272,77 @@ export function PropertyVisitSlots({
       }
     },
     [blockEnd, blockStart, load, propertyId],
+  );
+
+  const handleCreateBlackout = useCallback(
+    async (e: FormEvent) => {
+      e.preventDefault();
+      if (!blackoutStart || !blackoutEnd) return;
+      setBlackoutBusy(true);
+      try {
+        await createBlackout(propertyId, {
+          startsAt: new Date(blackoutStart).toISOString(),
+          endsAt: new Date(blackoutEnd).toISOString(),
+          reason: blackoutReason.trim() || undefined,
+        });
+        setBlackoutStart('');
+        setBlackoutEnd('');
+        setBlackoutReason('');
+        await load();
+        setError(null);
+      } catch (err) {
+        setError(
+          err instanceof ApiError
+            ? err.message
+            : 'Impossible de créer la plage d\'indisponibilité.',
+        );
+      } finally {
+        setBlackoutBusy(false);
+      }
+    },
+    [blackoutEnd, blackoutReason, blackoutStart, load, propertyId],
+  );
+
+  const handleLiftBlackout = useCallback(
+    async (id: string) => {
+      setActionId(id);
+      try {
+        await deleteBlackout(id);
+        await load();
+        setError(null);
+      } catch (err) {
+        setError(
+          err instanceof ApiError ? err.message : 'Impossible de lever la plage.',
+        );
+      } finally {
+        setActionId(null);
+      }
+    },
+    [load],
+  );
+
+  const blackoutColumns = useMemo<ListColumn<PublicVisitBlackout>[]>(
+    () => [
+      {
+        key: 'startsAt',
+        label: 'Début',
+        sortable: true,
+        render: (value) => formatDateTime(String(value)),
+      },
+      {
+        key: 'endsAt',
+        label: 'Fin',
+        sortable: true,
+        render: (value) => formatDateTime(String(value)),
+      },
+      {
+        key: 'reason',
+        label: 'Motif',
+        sortable: false,
+        render: (value) => (value ? String(value) : '—'),
+      },
+    ],
+    [],
   );
 
   const templateColumns = useMemo<ListColumn<PublicVisitSlotTemplate>[]>(
@@ -515,6 +597,78 @@ export function PropertyVisitSlots({
             {blocking ? 'Blocage…' : 'Bloquer'}
           </button>
         </form>
+      </section>
+
+      <section className="space-y-4">
+        <h2 className="text-sm font-medium text-muted">
+          Indisponibilités (plages)
+        </h2>
+        <ListDataTable
+          data={blackouts}
+          columns={blackoutColumns}
+          loading={false}
+          onRefresh={load}
+          entityLabel="indisponibilités"
+          searchPlaceholder="Rechercher une plage…"
+          emptyMessage="Aucune plage d'indisponibilité."
+          tableId="property-visit-blackouts"
+          actions={(row) => (
+            <button
+              type="button"
+              disabled={actionId === row.id}
+              onClick={() => void handleLiftBlackout(row.id)}
+              className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium hover:bg-card-hover disabled:opacity-50"
+            >
+              Lever
+            </button>
+          )}
+        />
+        <form
+          onSubmit={(e) => void handleCreateBlackout(e)}
+          className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end"
+        >
+          <label className="block text-sm">
+            <span className="mb-1 block text-muted">Début</span>
+            <input
+              type="datetime-local"
+              value={blackoutStart}
+              onChange={(e) => setBlackoutStart(e.target.value)}
+              required
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 sm:w-auto"
+            />
+          </label>
+          <label className="block text-sm">
+            <span className="mb-1 block text-muted">Fin</span>
+            <input
+              type="datetime-local"
+              value={blackoutEnd}
+              onChange={(e) => setBlackoutEnd(e.target.value)}
+              required
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 sm:w-auto"
+            />
+          </label>
+          <label className="block text-sm">
+            <span className="mb-1 block text-muted">Motif (optionnel)</span>
+            <input
+              type="text"
+              value={blackoutReason}
+              onChange={(e) => setBlackoutReason(e.target.value)}
+              placeholder="Travaux, indisponible…"
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 sm:w-auto"
+            />
+          </label>
+          <button
+            type="submit"
+            disabled={blackoutBusy}
+            className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-danger hover:bg-danger/10 disabled:opacity-50"
+          >
+            {blackoutBusy ? 'Création…' : 'Rendre indisponible'}
+          </button>
+        </form>
+        <p className="text-xs text-muted">
+          Les visites déjà réservées dans la plage seront annulées et les
+          chercheurs notifiés.
+        </p>
       </section>
 
       <details className="space-y-4 pt-2">

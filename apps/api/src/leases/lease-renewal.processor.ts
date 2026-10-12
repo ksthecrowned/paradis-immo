@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
-import { OrgMemberRole } from '@prisma/client';
+import { MemberStatus, OrgMemberRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { EventPublisher } from '../events/event.publisher';
@@ -188,6 +188,7 @@ export class LeaseRenewalProcessor {
       const gerants = await this.prisma.organizationMember.findMany({
         where: {
           organizationId: lease.property.organizationId,
+          status: MemberStatus.ACTIVE,
           role: OrgMemberRole.ADMIN,
         },
         select: { userId: true },

@@ -38,6 +38,8 @@ export const DOMAIN_EVENTS = {
   MESSAGE_REPORTED: 'message.reported',
   /** Spec 06 — hold posé sur une visite payante (créneau HELD 15 min). */
   VISIT_BOOKING_HELD: 'visit_booking.held',
+  /** Spec 06 — annulation d'une visite (chercheur, agence ou blackout). */
+  VISIT_BOOKING_CANCELLED: 'visit_booking.cancelled',
   VISIT_BOOKING_COMPLETED: 'visit_booking.completed',
   VISIT_BOOKING_NO_SHOW: 'visit_booking.no_show',
   VISIT_BOOKING_UNCONFIRMED: 'visit_booking.completed_unconfirmed',
@@ -286,7 +288,14 @@ export type EventPayloadOf<E extends DomainEventName> = E extends
                                               userId: string;
                                               propertyId: string;
                                             }
-                                          : E extends typeof DOMAIN_EVENTS.VISIT_REMINDER
+                                          : E extends typeof DOMAIN_EVENTS.VISIT_BOOKING_CANCELLED
+                                            ? {
+                                                bookingId: string;
+                                                slotId: string;
+                                                userId: string;
+                                                cancelledById: string;
+                                              }
+                                            : E extends typeof DOMAIN_EVENTS.VISIT_REMINDER
                                             ? {
                                                 bookingId: string;
                                                 slotId: string;

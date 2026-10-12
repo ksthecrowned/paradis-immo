@@ -486,7 +486,10 @@ export class UsersService {
     const now = new Date();
     const [lease, booking, sale, unpaid] = await Promise.all([
       this.prisma.lease.findFirst({
-        where: { tenantId: userId, status: 'ACTIVE' },
+        where: {
+          OR: [{ tenantId: userId }, { coTenants: { some: { userId } } }],
+          status: 'ACTIVE',
+        },
         select: { id: true },
       }),
       this.prisma.booking.findFirst({
@@ -503,7 +506,9 @@ export class UsersService {
       }),
       this.prisma.rentSchedule.findFirst({
         where: {
-          lease: { tenantId: userId },
+          lease: {
+            OR: [{ tenantId: userId }, { coTenants: { some: { userId } } }],
+          },
           status: { in: ['PENDING', 'OVERDUE'] },
         },
         select: { id: true },

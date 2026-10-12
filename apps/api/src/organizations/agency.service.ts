@@ -905,7 +905,7 @@ export class AgencyService {
           await this.prisma.lease.findFirst({
             where: {
               id: sourceId,
-              tenantId: userId,
+              OR: [{ tenantId: userId }, { coTenants: { some: { userId } } }],
               status: { in: ['ACTIVE', 'TERMINATED'] },
               property: { organizationId: orgId },
             },
@@ -1028,7 +1028,10 @@ export class AgencyService {
   async reviewEligibility(userId: string) {
     const [leases, bookings, sales, visits, posted] = await Promise.all([
       this.prisma.lease.findMany({
-        where: { tenantId: userId, status: { in: ['ACTIVE', 'TERMINATED'] } },
+        where: {
+          OR: [{ tenantId: userId }, { coTenants: { some: { userId } } }],
+          status: { in: ['ACTIVE', 'TERMINATED'] },
+        },
         select: {
           id: true,
           property: { select: { organizationId: true } },

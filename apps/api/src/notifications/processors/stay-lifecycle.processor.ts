@@ -268,6 +268,39 @@ export class StayLifecycleNotificationsProcessor {
     ]);
   }
 
+  /** Spec 06 — annulation (chercheur, agence ou blackout) : prévient le visiteur. */
+  @OnEvent(DOMAIN_EVENTS.VISIT_BOOKING_CANCELLED)
+  async onVisitCancelled(
+    event: DomainEvent<{
+      bookingId: string;
+      slotId: string;
+      userId: string;
+      cancelledById: string;
+    }>,
+  ): Promise<void> {
+    const { bookingId, userId, cancelledById } = event.payload;
+    if (!bookingId || !userId || userId === cancelledById) return;
+    const booking = await this.prisma.visitBooking.findUnique({
+      where: { id: bookingId },
+      select: {
+        cancelReason: true,
+        slot: {
+          select: { startAt: true, property: { select: { title: true } } },
+        },
+      },
+    });
+    await this.notifications.send({
+      userId,
+      type: 'VISIT_CANCELLED',
+      payload: {
+        bookingId,
+        propertyTitle: booking?.slot.property.title ?? null,
+        startAt: booking?.slot.startAt.toISOString() ?? null,
+        reason: booking?.cancelReason ?? null,
+      },
+    });
+  }
+
   @OnEvent(DOMAIN_EVENTS.BOOKING_HELD)
   async onStayHeld(
     event: DomainEvent<{

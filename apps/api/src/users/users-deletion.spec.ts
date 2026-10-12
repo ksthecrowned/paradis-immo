@@ -9,6 +9,7 @@ describe('UsersService account deletion (spec 01)', () => {
   let countryId: string;
   let ownerId: string;
   let tenantId: string;
+  let coTenantId: string;
   let orgId: string;
   let propertyId: string;
   let leaseId: string;
@@ -30,7 +31,7 @@ describe('UsersService account deletion (spec 01)', () => {
     // Idempotent: a crashed earlier run may have left rows behind. Clean the
     // whole chain (lease → property → org → users) before recreating.
     const stale = await prisma.user.findMany({
-      where: { phone: { in: ['+242067700001', '+242067700002'] } },
+      where: { phone: { in: ['+242067700001', '+242067700002', '+242067700003'] } },
       select: { id: true },
     });
     const staleIds = stale.map((u) => u.id);
@@ -47,6 +48,9 @@ describe('UsersService account deletion (spec 01)', () => {
         });
         const staleLeaseIds = staleLeases.map((l) => l.id);
         if (staleLeaseIds.length) {
+          await prisma.leaseTenant.deleteMany({
+            where: { leaseId: { in: staleLeaseIds } },
+          });
           await prisma.paymentAllocation.deleteMany({
             where: { rentSchedule: { leaseId: { in: staleLeaseIds } } },
           });
@@ -86,6 +90,10 @@ describe('UsersService account deletion (spec 01)', () => {
       data: { phone: '+242067700002', countryId, name: 'Tenant Del' },
     });
     tenantId = tenant.id;
+    const coTenant = await prisma.user.create({
+      data: { phone: '+242067700003', countryId, name: 'CoTenant Del' },
+    });
+    coTenantId = coTenant.id;
 
     // Own fixture: borrowing an arbitrary property via findFirstOrThrow made
     // this suite lease (and block deletion of) other suites' properties when
@@ -122,6 +130,7 @@ describe('UsersService account deletion (spec 01)', () => {
     if (!prisma) return;
     // beforeAll may have failed midway: never delete with undefined ids.
     if (leaseId) {
+      await prisma.leaseTenant.deleteMany({ where: { leaseId } });
       await prisma.paymentAllocation.deleteMany({
         where: { rentSchedule: { leaseId } },
       });
@@ -131,7 +140,7 @@ describe('UsersService account deletion (spec 01)', () => {
     if (propertyId) {
       await prisma.property.deleteMany({ where: { id: propertyId } });
     }
-    const userIds = [ownerId, tenantId].filter(Boolean);
+    const userIds = [ownerId, tenantId, coTenantId].filter(Boolean);
     if (userIds.length) {
       await prisma.refreshToken.deleteMany({
         where: { userId: { in: userIds } },
@@ -211,5 +220,20 @@ describe('UsersService account deletion (spec 01)', () => {
     });
     expect(user.deletedAt).toBeNull();
     expect(user.status).toBe('ACTIVE');
+  });
+
+  it('blocks deletion for a co-tenant on an ACTIVE lease', async () => {
+    await prisma.leaseTenant.create({
+      data: { leaseId: leaseId!, userId: coTenantId },
+    });
+
+    await expect(users.requestAccountDeletion(coTenantId)).rejects.toMatchObject({
+      response: {
+        code: 'ACCOUNT_HAS_ACTIVE_OBLIGATIONS',
+        details: { blockers: expect.arrayContaining([expect.stringMatching(/bail/i)]) },
+      },
+    });
+
+    await prisma.leaseTenant.deleteMany({ where: { leaseId: leaseId!, userId: coTenantId } });
   });
 });

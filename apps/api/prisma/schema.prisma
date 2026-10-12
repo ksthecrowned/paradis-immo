@@ -928,6 +928,7 @@ model Property {
   reports        PropertyReport[]
   visitTemplates VisitSlotTemplate[]
   visitSlots     VisitSlot[]
+  visitBlackouts VisitBlackout[]
   visitBookings  VisitBooking[]
   availability   AvailabilityBlock[]
   bookings       Booking[]
@@ -1011,6 +1012,23 @@ model PropertyReport {
 // =====================================================================
 // Visits
 // =====================================================================
+
+/// Spec 06 — plage d'indisponibilité d'un bien (visite, travaux…). Un
+/// blackout couvre les créneaux qui s'y chevauchent : ils passent BLOCKED,
+/// et les visites futures déjà réservées qui le chevauchent sont annulées
+/// (CANCELLED_BY_AGENCY) par le gestionnaire qui crée la plage.
+model VisitBlackout {
+  id             String   @id @default(uuid())
+  propertyId     String
+  property       Property @relation(fields: [propertyId], references: [id])
+  startsAt       DateTime
+  endsAt         DateTime
+  reason         String?
+  createdById    String
+  createdAt      DateTime @default(now())
+
+  @@index([propertyId, startsAt])
+}
 
 model VisitSlotTemplate {
   id            String   @id @default(uuid())

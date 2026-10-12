@@ -68,6 +68,16 @@ export interface PublicAssignableVisitAgent {
   name: string | null;
 }
 
+/** Spec 06 — plage d'indisponibilité d'un bien (visite). */
+export interface PublicVisitBlackout {
+  id: string;
+  propertyId: string;
+  startsAt: string;
+  endsAt: string;
+  reason: string | null;
+  createdAt: string;
+}
+
 @Injectable()
 export class VisitSlotsService {
   constructor(
@@ -142,6 +152,164 @@ export class VisitSlotsService {
   // ------------------------------------------------------------------
   // Manual slots (BLOCKED)
   // ------------------------------------------------------------------
+
+  /**
+   * Spec 06 P2 — plages d'indisponibilité (blackouts). Créer un blackout :
+   * 1) marque les slots TEMPLATE/MANUAL qui chevauchent la plage BLOCKED ;
+   * 2) annule CANCELLED_BY_AGENCY les visites futures (PENDING/CONFIRMED)
+   *    de la plage et libère leurs créneaux, en notifiant les chercheurs ;
+   * 3) enregistre la plage pour lister et lever le blackout ensuite.
+   */
+  async createBlackout(
+    userId: string,
+    input: {
+      propertyId: string;
+      startsAt: Date;
+      endsAt: Date;
+      reason?: string;
+    },
+  ): Promise<PublicVisitBlackout> {
+    await this.assertCanManageProperty(userId, input.propertyId);
+    if (input.endsAt <= input.startsAt) {
+      throw new BadRequestException({
+        code: 'INVALID_BLACKOUT_RANGE',
+        message: 'endsAt must be after startsAt',
+      });
+    }
+    if (input.endsAt.getTime() <= Date.now()) {
+      throw new BadRequestException({
+        code: 'BLACKOUT_IN_PAST',
+        message: 'A blackout must cover an upcoming period',
+      });
+    }
+
+    const created = await this.prisma.visitBlackout.create({
+      data: {
+        propertyId: input.propertyId,
+        startsAt: input.startsAt,
+        endsAt: input.endsAt,
+        reason: input.reason,
+        createdById: userId,
+      },
+    });
+
+    // Slots autres que BOOKED/HELD → BLOCKED. Un slot occupé (booking
+    // actif) est traité juste après, avec son booking.
+    const overlap = await this.prisma.visitSlot.findMany({
+      where: {
+        propertyId: input.propertyId,
+        startAt: { lt: input.endsAt },
+        endAt: { gt: input.startsAt },
+      },
+      select: { id: true, status: true },
+    });
+    const bookable = overlap.filter(
+      (s) => s.status === VisitSlotStatus.AVAILABLE,
+    );
+    if (bookable.length > 0) {
+      await this.prisma.visitSlot.updateMany({
+        where: {
+          id: { in: bookable.map((s) => s.id) },
+          status: VisitSlotStatus.AVAILABLE,
+        },
+        data: { status: VisitSlotStatus.BLOCKED },
+      });
+    }
+
+    // Visites futures actives dans la plage : annulation + libération.
+    const affected = await this.prisma.visitBooking.findMany({
+      where: {
+        propertyId: input.propertyId,
+        status: { in: [
+          VisitBookingStatus.PENDING,
+          VisitBookingStatus.CONFIRMED,
+        ] },
+        slot: {
+          startAt: { lt: input.endsAt },
+          endAt: { gt: input.startsAt },
+        },
+      },
+      select: { id: true, slotId: true, userId: true },
+    });
+    for (const booking of affected) {
+      await this.prisma.$transaction(async (tx) => {
+        await tx.visitBooking.update({
+          where: { id: booking.id },
+          data: {
+            // L'enum actuel ne distingue pas CANCELLED_BY_* (spec 06) :
+            // cancelledById ≠ visitor ⇒ annulation par l'agence/gestionnaire.
+            status: VisitBookingStatus.CANCELLED,
+            cancelledById: userId,
+            cancelledAt: new Date(),
+            cancelReason: input.reason ?? 'Indisponibilité du bien',
+          },
+        });
+        await tx.visitSlot.update({
+          where: { id: booking.slotId },
+          data: {
+            status: VisitSlotStatus.BLOCKED,
+          },
+        });
+      });
+      await this.events.emit(DOMAIN_EVENTS.VISIT_BOOKING_CANCELLED, {
+        bookingId: booking.id,
+        slotId: booking.slotId,
+        userId: booking.userId,
+        cancelledById: userId,
+      });
+    }
+
+    return this.blackoutToPublic(created);
+  }
+
+  async listBlackouts(
+    userId: string,
+    propertyId: string,
+  ): Promise<PublicVisitBlackout[]> {
+    await this.assertCanManageProperty(userId, propertyId);
+    const rows = await this.prisma.visitBlackout.findMany({
+      where: { propertyId },
+      orderBy: { startsAt: 'asc' },
+    });
+    return rows.map((b) => this.blackoutToPublic(b));
+  }
+
+  /** Lever un blackout : les slots BLOCKED de la plage redeviennent AVAILABLE. */
+  async deleteBlackout(
+    userId: string,
+    blackoutId: string,
+  ): Promise<void> {
+    const blackout = await this.prisma.visitBlackout.findUnique({
+      where: { id: blackoutId },
+    });
+    if (!blackout) {
+      throw new NotFoundException({
+        code: 'BLACKOUT_NOT_FOUND',
+        message: 'Visit blackout does not exist',
+      });
+    }
+    await this.assertCanManageProperty(userId, blackout.propertyId);
+
+    // Note : si plusieurs blackouts se chevauchent, lever celui-ci peut
+    // rendre AVAILABLE un créneau encore couvert par un autre. Les appelants
+    // gèrent ça à l'usage ; on garde le comportement simple.
+    const slots = await this.prisma.visitSlot.findMany({
+      where: {
+        propertyId: blackout.propertyId,
+        startAt: { lt: blackout.endsAt },
+        endAt: { gt: blackout.startsAt },
+        status: VisitSlotStatus.BLOCKED,
+      },
+      select: { id: true },
+    });
+    if (slots.length > 0) {
+      await this.prisma.visitSlot.updateMany({
+        where: { id: { in: slots.map((s) => s.id) } },
+        data: { status: VisitSlotStatus.AVAILABLE },
+      });
+    }
+    await this.prisma.visitBlackout.delete({ where: { id: blackoutId } });
+  }
 
   async blockSlot(
     userId: string,
@@ -871,6 +1039,119 @@ export class VisitSlotsService {
   }
 
   /**
+   * Spec 06 — Reprogrammation (delta 06.3/06.5) : chercheur ou gestionnaire
+   * déplace une réservation ouverte vers un autre créneau AVAILABLE du même
+   * bien. Règles :
+   * - le créneau cible doit être AVAILABLE (atomicité via updateMany
+   *   conditionnel : un slot BOOKED/HELD/BLOCKED/blackout answer 409);
+   * - un blackout est matérialisé par un slot BLOCKED, donc refusé aussi ;
+   * - l'ancien créneau redevient AVAILABLE (libéré immédiatement) ;
+   * - hold payant : il repart pour 15 min sur le nouveau créneau ;
+   * - `rescheduleCount` est incrémenté (traçabilité).
+   */
+  async rescheduleVisit(
+    userId: string,
+    bookingId: string,
+    newSlotId: string,
+  ): Promise<PublicVisitBooking> {
+    const booking = await this.prisma.visitBooking.findUnique({
+      where: { id: bookingId },
+    });
+    if (!booking) {
+      throw new NotFoundException({
+        code: 'BOOKING_NOT_FOUND',
+        message: 'Visit booking does not exist',
+      });
+    }
+    const isManager = booking.userId !== userId;
+    if (isManager) {
+      await this.assertCanManageProperty(userId, booking.propertyId);
+    }
+    if (
+      booking.status !== VisitBookingStatus.PENDING &&
+      booking.status !== VisitBookingStatus.CONFIRMED
+    ) {
+      throw new ConflictException({
+        code: 'BOOKING_NOT_RESCHEDULABLE',
+        message: `Cannot reschedule a booking in status ${booking.status}`,
+      });
+    }
+    if (booking.slotId === newSlotId) {
+      throw new BadRequestException({
+        code: 'SAME_SLOT',
+        message: 'The new slot must differ from the current one',
+      });
+    }
+    const target = await this.prisma.visitSlot.findUnique({
+      where: { id: newSlotId },
+      select: { propertyId: true },
+    });
+    if (!target || target.propertyId !== booking.propertyId) {
+      throw new NotFoundException({
+        code: 'SLOT_NOT_FOUND',
+        message: 'Target slot does not exist on this property',
+      });
+    }
+
+    const wasPaidPending =
+      booking.status === VisitBookingStatus.PENDING &&
+      booking.holdExpiresAt !== null;
+    const updated = await this.prisma.$transaction(async (tx) => {
+      // Verrou de concurrence : updateMany conditionnel sur le slot cible.
+      const moved = await tx.visitSlot.updateMany({
+        where: {
+          id: newSlotId,
+          propertyId: booking.propertyId,
+          status: VisitSlotStatus.AVAILABLE,
+        },
+        data: {
+          status: wasPaidPending ? VisitSlotStatus.HELD : VisitSlotStatus.BOOKED,
+        },
+      });
+      if (moved.count === 0) {
+        throw new ConflictException({
+          code: 'SLOT_NOT_AVAILABLE',
+          message: 'The target slot is no longer available',
+        });
+      }
+      // Libère l'ancien créneau (s'il est encore porté par ce booking).
+      await tx.visitSlot.updateMany({
+        where: {
+          id: booking.slotId,
+          status: { in: [VisitSlotStatus.BOOKED, VisitSlotStatus.HELD] },
+        },
+        data: { status: VisitSlotStatus.AVAILABLE },
+      });
+      return tx.visitBooking.update({
+        where: { id: bookingId },
+        data: {
+          slotId: newSlotId,
+          holdExpiresAt: wasPaidPending
+            ? new Date(Date.now() + 15 * 60 * 1000)
+            : null,
+          rescheduleCount: { increment: 1 },
+        },
+      });
+    });
+
+    if (updated.status === VisitBookingStatus.CONFIRMED) {
+      await this.events.emit(DOMAIN_EVENTS.VISIT_BOOKING_CONFIRMED, {
+        bookingId: updated.id,
+        slotId: updated.slotId,
+        userId: updated.userId,
+      });
+    } else {
+      await this.events.emit(DOMAIN_EVENTS.VISIT_BOOKING_HELD, {
+        bookingId: updated.id,
+        slotId: updated.slotId,
+        userId: updated.userId,
+        holdExpiresAt: updated.holdExpiresAt?.toISOString() ?? null,
+      });
+    }
+    return this.bookingToPublic(updated);
+  }
+
+  /**
    * Spec 06 — expiration des holds : a `PENDING` paid booking whose
    * `holdExpiresAt` has lapsed becomes `EXPIRED` and its slot returns to
    * `AVAILABLE`. Public for direct invocation from tests / the minutely cron.
@@ -1211,6 +1492,19 @@ export class VisitSlotsService {
       status: s.status,
       source: s.source,
       createdAt: s.createdAt.toISOString(),
+    };
+  }
+
+  private blackoutToPublic(
+    b: Prisma.VisitBlackoutGetPayload<Record<string, never>>,
+  ): PublicVisitBlackout {
+    return {
+      id: b.id,
+      propertyId: b.propertyId,
+      startsAt: b.startsAt.toISOString(),
+      endsAt: b.endsAt.toISOString(),
+      reason: b.reason ?? null,
+      createdAt: b.createdAt.toISOString(),
     };
   }
 

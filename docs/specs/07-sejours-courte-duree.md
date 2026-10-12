@@ -151,6 +151,8 @@ model CityTax { cityId String @id perPersonPerNight Decimal currency String }
 | POST | `bookings/:id/damage-reports` | hôte | Sous 48 h après le check-out |
 | GET | `bookings/:id/arrival` | voyageur | Instructions (403 avant la fenêtre) |
 | GET | `bookings/managed` | gestionnaire | **Modifié** : périmètre via mandat, `?from&to&status&propertyId`, paginé |
+| GET | `properties/:id/stay-settings` | gestionnaire | Paramètres privés ; les instructions d'arrivée sont révélées au voyageur via `bookings/:id/arrival` au moment autorisé |
+| GET | `properties/:id/seasonal-rates` | gestionnaire | Tarifs saisonniers |
 | PUT | `properties/:id/stay-settings` | gestionnaire | Paramètres du séjour |
 | CRUD | `properties/:id/seasonal-rates` | gestionnaire | Tarifs saisonniers |
 | CRUD | `properties/:id/availability-blocks` | gestionnaire | Blocages |
@@ -184,7 +186,7 @@ model CityTax { cityId String @id perPersonPerNight Decimal currency String }
 ## Delta d'implémentation
 | ID | Priorité | Delta | État |
 |---|---|---|---|
-| 07.1 | P0 | Garantir l'exclusion des chevauchements et vérifier les blocages de disponibilité au moment de réserver. | **Partiel.** Les parcours de réservation pour compte tiers et la liste des séjours gérés réutilisent désormais l'accès propriété par rôle/mandat actif. L'audit de concurrence, de blocages et d'autorisation sur tout le cycle de réservation reste ouvert. |
+| 07.1 | P0 | Garantir l'exclusion des chevauchements et vérifier les blocages de disponibilité au moment de réserver. | **Partiel.** Les parcours de réservation pour compte tiers et la liste des séjours gérés réutilisent désormais l'accès propriété par rôle/mandat actif ; la lecture des paramètres privés (dont les instructions d'arrivée) et tarifs saisonniers est aussi restreinte aux gestionnaires autorisés. L'audit de concurrence, de blocages et d'autorisation sur tout le cycle de réservation reste ouvert. |
 | 07.2 | P1 | Permettre au voyageur de changer les dates avec nouveau devis et ajustement de prix. | À faire |
 | 07.3 | P1 | Ajouter les écrans web de réglages du séjour et de gestion du calendrier. | À faire |
 | 07.4 | P2 | Implémenter les blocages de disponibilité et la synchronisation iCal import/export. | À faire |

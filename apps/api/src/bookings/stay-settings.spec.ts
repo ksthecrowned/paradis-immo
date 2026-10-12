@@ -119,6 +119,19 @@ describe('StaySettingsService (spec 07)', () => {
     });
   });
 
+  it('refuses unrelated users from reading stay settings and seasonal rates', async () => {
+    await expect(
+      service.getSettings(strangerId, propertyId),
+    ).rejects.toMatchObject({
+      response: { code: 'NOT_ASSIGNED_AGENT' },
+    });
+    await expect(
+      service.listSeasonalRates(strangerId, propertyId),
+    ).rejects.toMatchObject({
+      response: { code: 'NOT_ASSIGNED_AGENT' },
+    });
+  });
+
   it('upserts the settings and returns decimals as strings', async () => {
     const created = await service.upsertSettings(ownerId, propertyId, {
       baseNightlyRate: 25000,
@@ -143,7 +156,7 @@ describe('StaySettingsService (spec 07)', () => {
     expect(updated.cleaningFee).toBe('0');
     expect(updated.baseNightlyRate).toBe('25000');
 
-    const fetched = await service.getSettings(propertyId);
+    const fetched = await service.getSettings(ownerId, propertyId);
     expect(fetched.depositMode).toBe('COLLECT_ON_BOOKING');
   });
 
@@ -188,12 +201,12 @@ describe('StaySettingsService (spec 07)', () => {
     expect(updated.nightlyRate).toBe('45000');
     expect(updated.label).toBe('Noël');
 
-    const list = await service.listSeasonalRates(propertyId);
+    const list = await service.listSeasonalRates(ownerId, propertyId);
     expect(list.map((r) => r.id)).toContain(rate.id);
 
     await service.deleteSeasonalRate(ownerId, propertyId, rate.id);
     rateIds.length = 0;
-    const after = await service.listSeasonalRates(propertyId);
+    const after = await service.listSeasonalRates(ownerId, propertyId);
     expect(after.map((r) => r.id)).not.toContain(rate.id);
   });
 });

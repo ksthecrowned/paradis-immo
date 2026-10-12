@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   Param,
@@ -24,6 +25,17 @@ import { CreateTemplateDto } from './dto/create-template.dto';
 class BlockSlotDto {
   @IsDateString() startAt!: string;
   @IsDateString() endAt!: string;
+}
+
+class CreateBlackoutDto {
+  @IsString()
+  propertyId!: string;
+
+  @IsDateString() startsAt!: string;
+  @IsDateString() endsAt!: string;
+  @IsOptional()
+  @IsString()
+  reason?: string;
 }
 
 class AvailableSlotsQueryDto {
@@ -118,6 +130,48 @@ export class VisitSlotsController {
     @Param('id') id: string,
   ) {
     return this.slots.unblockSlot(current.userId, id);
+  }
+
+  @Post('visit-blackouts')
+  @UseGuards(AppAuthGuard)
+  @HttpCode(201)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Block an upcoming period (visits inside are cancelled) — spec 06',
+  })
+  createBlackout(
+    @CurrentUser() current: AuthenticatedUser,
+    @Body() dto: CreateBlackoutDto,
+  ) {
+    return this.slots.createBlackout(current.userId, {
+      propertyId: dto.propertyId,
+      startsAt: new Date(dto.startsAt),
+      endsAt: new Date(dto.endsAt),
+      reason: dto.reason,
+    });
+  }
+
+  @Get('properties/:id/visit-blackouts')
+  @UseGuards(AppAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'List visit blackouts for a property' })
+  listBlackouts(
+    @CurrentUser() current: AuthenticatedUser,
+    @Param('id') id: string,
+  ) {
+    return this.slots.listBlackouts(current.userId, id);
+  }
+
+  @Delete('visit-blackouts/:id')
+  @UseGuards(AppAuthGuard)
+  @HttpCode(204)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Lift a visit blackout' })
+  deleteBlackout(
+    @CurrentUser() current: AuthenticatedUser,
+    @Param('id') id: string,
+  ) {
+    return this.slots.deleteBlackout(current.userId, id);
   }
 
   @Get('properties/:id/visit-slots/managed')

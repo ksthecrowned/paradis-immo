@@ -218,4 +218,51 @@ describe('MandateRenewalProcessor (spec 03 — fin de mandat)', () => {
     expect(again.expiring).toBe(0);
     expect(send).not.toHaveBeenCalled();
   });
+
+  it('does not notify a disabled gérant for an expiring mandate', async () => {
+    const fresh = await prisma.mandate.create({
+      data: {
+        propertyId,
+        organizationId: agencyOrgId,
+        status: 'ACTIVE',
+        proposedById: ownerUserId,
+        endDate: new Date(Date.now() + 45 * 86_400_000 - 60_000),
+        tacitRenewal: true,
+      },
+    });
+    mandateIds.push(fresh.id);
+    await prisma.organizationMember.update({
+      where: {
+        userId_organizationId: {
+          userId: gerantUserId,
+          organizationId: agencyOrgId,
+        },
+      },
+      data: { status: 'DISABLED' },
+    });
+    try {
+      send.mockClear();
+      const result = await processor.runDaily();
+      expect(result.expiring).toBe(1);
+      expect(send).not.toHaveBeenCalledWith(
+        expect.objectContaining({ userId: gerantUserId, type: 'MANDATE_EXPIRING' }),
+      );
+      expect(send).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: ownerUserId,
+          type: 'MANDATE_EXPIRING',
+        }),
+      );
+    } finally {
+      await prisma.organizationMember.update({
+        where: {
+          userId_organizationId: {
+            userId: gerantUserId,
+            organizationId: agencyOrgId,
+          },
+        },
+        data: { status: 'ACTIVE' },
+      });
+    }
+  });
 });

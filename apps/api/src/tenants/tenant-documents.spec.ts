@@ -12,13 +12,19 @@ describe('TenantDocumentsService', () => {
   let bzvQuartierId: string;
   let ownerUserId: string;
   let tenantUserId: string;
+  let coTenantUserId: string;
   let strangerUserId: string;
   let propertyId: string;
   let orgId: string;
   let leaseId: string;
   // Unique to this suite: sharing phones with solvency-checks.spec made the
   // two suites delete each other's leases/rent schedules when run in parallel.
-  const phones = ['+242073000011', '+242073000012', '+242073000013'];
+  const phones = [
+    '+242073000011',
+    '+242073000012',
+    '+242073000013',
+    '+242073000014',
+  ];
   const fakeR2 = {
     uploadPrivateTenantFile: jest.fn(async () => ({
       key: 'tenant-documents/x/doc.pdf',
@@ -100,6 +106,14 @@ describe('TenantDocumentsService', () => {
       },
     });
     tenantUserId = tenant.id;
+    const coTenant = await prisma.user.create({
+      data: {
+        phone: phones[3]!,
+        countryId,
+        roles: { create: { role: 'TENANT' } },
+      },
+    });
+    coTenantUserId = coTenant.id;
     const stranger = await prisma.user.create({
       data: {
         phone: phones[2],
@@ -148,6 +162,9 @@ describe('TenantDocumentsService', () => {
       },
     });
     leaseId = lease.id;
+    await prisma.leaseTenant.create({
+      data: { leaseId, userId: coTenantUserId },
+    });
   });
 
   afterAll(async () => {
@@ -155,10 +172,11 @@ describe('TenantDocumentsService', () => {
     // deleteMany into a full-table delete of other suites' rows.
     if (prisma && tenantUserId) {
       await prisma.tenantDocument.deleteMany({
-        where: { userId: tenantUserId },
+        where: { userId: { in: [tenantUserId, coTenantUserId] } },
       });
     }
     if (prisma && leaseId) {
+      await prisma.leaseTenant.deleteMany({ where: { leaseId } });
       await prisma.paymentAllocation.deleteMany({
         where: { rentSchedule: { leaseId } },
       });
@@ -175,7 +193,12 @@ describe('TenantDocumentsService', () => {
       await prisma.organization.deleteMany({ where: { id: orgId } });
     }
     if (prisma) {
-      for (const id of [ownerUserId, tenantUserId, strangerUserId]) {
+      for (const id of [
+        ownerUserId,
+        tenantUserId,
+        coTenantUserId,
+        strangerUserId,
+      ]) {
         if (!id) continue;
         await prisma.userRole.deleteMany({ where: { userId: id } });
         await prisma.user.deleteMany({ where: { id } });
@@ -199,6 +222,24 @@ describe('TenantDocumentsService', () => {
     expect(created.name).toBe('CNI');
     const list = await docs.listForManagedTenant(ownerUserId, tenantUserId);
     expect(list.some((d) => d.id === created.id)).toBe(true);
+  });
+
+  it('owner can manage documents for a co-tenant on the lease', async () => {
+    const created = await docs.upload(
+      ownerUserId,
+      coTenantUserId,
+      {
+        buffer: Buffer.from('%PDF-1.4'),
+        originalname: 'co-tenant-cni.pdf',
+        mimetype: 'application/pdf',
+      },
+      { type: 'ID_CARD' },
+    );
+
+    expect(created.userId).toBe(coTenantUserId);
+    await expect(
+      docs.listForManagedTenant(ownerUserId, coTenantUserId),
+    ).resolves.toEqual([expect.objectContaining({ id: created.id })]);
   });
 
   it('stranger cannot upload', async () => {

@@ -28,6 +28,45 @@ export interface CreateTemplateInput {
   slotMinutes: number;
 }
 
+/** Spec 06 P2 — plage d'indisponibilité d'un bien (visite). */
+export interface PublicVisitBlackout {
+  id: string;
+  propertyId: string;
+  startsAt: string;
+  endsAt: string;
+  reason: string | null;
+  createdAt: string;
+}
+
+export async function listBlackouts(
+  propertyId: string,
+): Promise<PublicVisitBlackout[]> {
+  return apiFetch<PublicVisitBlackout[]>(
+    `/properties/${propertyId}/visit-blackouts`,
+  );
+}
+
+/**
+ * Creates an upcoming blackout. Available slots overlapping the period are
+ * blocked and upcoming booked visits inside it are cancelled (with
+ * notification) by the API.
+ */
+export async function createBlackout(
+  propertyId: string,
+  body: { startsAt: string; endsAt: string; reason?: string },
+): Promise<PublicVisitBlackout> {
+  return apiFetch<PublicVisitBlackout>('/visit-blackouts', {
+    method: 'POST',
+    body: { propertyId, ...body },
+  });
+}
+
+export async function deleteBlackout(blackoutId: string): Promise<void> {
+  await apiFetch(`/visit-blackouts/${blackoutId}`, {
+    method: 'DELETE',
+  });
+}
+
 export const DAY_LABELS = [
   'Dimanche',
   'Lundi',
@@ -125,6 +164,8 @@ export function slotStatusLabel(status: string): string {
   const map: Record<string, string> = {
     AVAILABLE: 'Disponible',
     BOOKED: 'Réservé',
+    HELD: 'En attente de paiement',
+    FULL: 'Complet',
     BLOCKED: 'Bloqué',
   };
   return map[status] ?? status;

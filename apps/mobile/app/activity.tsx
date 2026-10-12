@@ -106,6 +106,10 @@ export default function ActivityScreen(): React.JSX.Element {
       router.push(`/leases/${item.leaseId}`);
       return;
     }
+    if (item.segment === 'visits' && item.visitId) {
+      router.push(`/visit-detail/${item.visitId}`);
+      return;
+    }
     if (item.segment === 'payments') {
       router.push(`/payment/${item.id}`);
       return;
