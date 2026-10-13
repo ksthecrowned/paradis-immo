@@ -100,7 +100,7 @@ export function OwnerPaymentsPage(): React.JSX.Element {
 
   useEffect(() => {
     if (!ready) return;
-    void load();
+    void Promise.resolve().then(() => load());
   }, [load, ready]);
 
   // Search runs client-side over the current server page.

@@ -75,7 +75,7 @@ export function OwnerBookingsPage(): React.JSX.Element {
 
   useEffect(() => {
     if (!ready) return;
-    void load();
+    void Promise.resolve().then(() => load());
     void listMyProperties()
       .then((rows) =>
         setProperties(

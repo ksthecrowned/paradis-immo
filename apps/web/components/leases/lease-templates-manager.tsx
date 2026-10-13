@@ -51,7 +51,7 @@ export function LeaseTemplatesManager(): React.JSX.Element {
   }, [orgId]);
 
   useEffect(() => {
-    void load();
+    void Promise.resolve().then(() => load());
   }, [load]);
 
   const run = useCallback(
@@ -123,24 +123,42 @@ export function LeaseTemplatesManager(): React.JSX.Element {
           {editingId ? 'Modifier le modèle' : 'Nouveau modèle'}
         </h2>
         <div className="space-y-3">
-          <input
-            type="text"
-            value={form.name}
-            onChange={(event) =>
-              setForm((prev) => ({ ...prev, name: event.target.value }))
-            }
-            placeholder="Nom du modèle (ex. Bail standard 3 ans)"
-            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
-          />
-          <textarea
-            value={form.body}
-            onChange={(event) =>
-              setForm((prev) => ({ ...prev, body: event.target.value }))
-            }
-            rows={10}
-            placeholder="Corps du contrat. Variables disponibles : {{loyer}}, {{caution}}, {{charges}}, {{dateDebut}}, {{dateFin}}, {{adresse}}, {{locataire}}, {{bailleur}}."
-            className="w-full rounded-lg border border-border bg-background px-3 py-2 font-mono text-xs text-foreground"
-          />
+          <div>
+            <label
+              htmlFor="template-name"
+              className="mb-1 block text-sm font-medium text-foreground"
+            >
+              Nom du modèle
+            </label>
+            <input
+              id="template-name"
+              type="text"
+              value={form.name}
+              onChange={(event) =>
+                setForm((prev) => ({ ...prev, name: event.target.value }))
+              }
+              placeholder="Nom du modèle (ex. Bail standard 3 ans)"
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
+            />
+          </div>
+          <div>
+            <label
+              htmlFor="template-body"
+              className="mb-1 block text-sm font-medium text-foreground"
+            >
+              Corps du contrat
+            </label>
+            <textarea
+              id="template-body"
+              value={form.body}
+              onChange={(event) =>
+                setForm((prev) => ({ ...prev, body: event.target.value }))
+              }
+              rows={10}
+              placeholder="Corps du contrat. Variables disponibles : {{loyer}}, {{caution}}, {{charges}}, {{dateDebut}}, {{dateFin}}, {{adresse}}, {{locataire}}, {{bailleur}}."
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 font-mono text-xs text-foreground"
+            />
+          </div>
           <label className="flex items-center gap-2 text-sm text-foreground">
             <input
               type="checkbox"

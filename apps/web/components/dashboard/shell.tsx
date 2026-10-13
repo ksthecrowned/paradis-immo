@@ -33,8 +33,10 @@ function useIsLg(): { isLg: boolean; mounted: boolean } {
   useEffect(() => {
     const mq = window.matchMedia('(min-width: 1024px)');
     const update = (): void => setIsLg(mq.matches);
-    update();
-    setMounted(true);
+    void Promise.resolve().then(() => {
+      update();
+      setMounted(true);
+    });
     mq.addEventListener('change', update);
     return () => mq.removeEventListener('change', update);
   }, []);

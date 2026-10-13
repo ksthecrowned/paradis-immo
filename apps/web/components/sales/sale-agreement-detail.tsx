@@ -138,7 +138,7 @@ export function SaleAgreementDetailPage({
 
   useEffect(() => {
     if (!ready) return;
-    void load();
+    void Promise.resolve().then(() => load());
   }, [ready, load]);
 
   const run = async (

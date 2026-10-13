@@ -56,7 +56,7 @@ export function AdminReportsPage(): React.JSX.Element {
 
   useEffect(() => {
     if (!ready) return;
-    void load();
+    void Promise.resolve().then(() => load());
   }, [load, ready]);
 
   const handleUpdate = useCallback(

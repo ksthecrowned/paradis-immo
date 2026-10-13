@@ -124,19 +124,61 @@ export class NotificationsService {
       const message = this.renderWhatsAppMessage(input.type, input.payload);
       result = await this.infobip.sendWhatsApp(user.phone, message);
     } else {
-      if (!user.fcmToken) {
-        return this.markFailed(row.id, 'NO_DEVICE_TOKEN');
-      }
+      // Push goes to EVERY registered device (specs 11/14): the upserted
+      // `userDevice` rows plus the legacy `User.fcmToken` column kept for
+      // backwards compatibility with older clients.
       const title = this.renderPushTitle(input.type);
       const body = this.renderPushBody(input.payload);
       const data = this.renderPushData(input.type, input.payload);
-      result = await this.fcm.sendPush(user.fcmToken, title, body, data);
-      if (!result.ok && result.reason === 'INVALID_TOKEN') {
-        await this.prisma.user.update({
-          where: { id: input.userId },
-          data: { fcmToken: null },
-        });
+
+      const devices = await this.prisma.userDevice.findMany({
+        where: { userId: input.userId },
+        select: { fcmToken: true },
+      });
+      const tokens = new Set<string>();
+      if (user.fcmToken) tokens.add(user.fcmToken);
+      for (const device of devices) {
+        if (device.fcmToken) tokens.add(device.fcmToken);
       }
+      if (tokens.size === 0) {
+        return this.markFailed(row.id, 'NO_DEVICE_TOKEN');
+      }
+
+      const invalid: string[] = [];
+      let anyOk = false;
+      let reason: string | undefined;
+      let messageId: string | undefined;
+      for (const token of tokens) {
+        const push = await this.fcm.sendPush(token, title, body, data);
+        if (push.ok) {
+          anyOk = true;
+          messageId = push.messageId;
+        } else {
+          reason = reason ?? push.reason;
+          if (push.reason === 'INVALID_TOKEN') invalid.push(token);
+        }
+      }
+      // Cleanup dead tokens so the queue stops failing on them.
+      if (invalid.length > 0) {
+        await this.prisma
+          .$transaction([
+            this.prisma.userDevice.deleteMany({
+              where: { userId: input.userId, fcmToken: { in: invalid } },
+            }),
+            ...(user.fcmToken && invalid.includes(user.fcmToken)
+              ? [
+                  this.prisma.user.update({
+                    where: { id: input.userId },
+                    data: { fcmToken: null },
+                  }),
+                ]
+              : []),
+          ])
+          .catch(() => undefined);
+      }
+      result = anyOk
+        ? { ok: true, providerMessageId: messageId }
+        : { ok: false, reason: reason ?? 'PROVIDER_ERROR' };
     }
 
     return result.ok

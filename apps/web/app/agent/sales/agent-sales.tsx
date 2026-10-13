@@ -61,7 +61,7 @@ export function AgentSalesPage(): React.JSX.Element {
 
   useEffect(() => {
     if (!ready) return;
-    void load();
+    void Promise.resolve().then(() => load());
   }, [load, ready]);
 
   const handleAdvance = useCallback(

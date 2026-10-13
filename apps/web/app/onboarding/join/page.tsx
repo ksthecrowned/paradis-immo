@@ -37,12 +37,20 @@ export default function JoinAgencyPage(): React.JSX.Element {
           Saisissez le code d’invitation reçu de votre gérant. Vous pourrez vous
           connecter par e-mail et mot de passe, ou avec Google.
         </p>
-        <input
-          className={fieldClass}
-          placeholder="Code d’invitation"
-          value={code}
-          onChange={(e) => setCode(e.target.value)}
-        />
+        <div>
+          <label htmlFor="invitation-code" className="mb-1 block text-sm font-medium text-foreground">
+            Code d’invitation <span aria-hidden="true">*</span>
+          </label>
+          <input
+            id="invitation-code"
+            required
+            className={fieldClass}
+            placeholder="Code d’invitation"
+            aria-required="true"
+            value={code}
+            onChange={(e) => setCode(e.target.value)}
+          />
+        </div>
         {error ? (
           <p role="alert" className="text-sm text-danger">
             {error}

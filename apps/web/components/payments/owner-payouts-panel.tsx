@@ -89,7 +89,7 @@ export function OwnerPayoutsPanel(): React.JSX.Element {
   }, [page, pageSize]);
 
   useEffect(() => {
-    void load();
+    void Promise.resolve().then(() => load());
   }, [load]);
 
   const handleRequest = useCallback(async () => {

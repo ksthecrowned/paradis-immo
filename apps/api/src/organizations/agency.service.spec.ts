@@ -136,7 +136,7 @@ describe('AgencyService (spec 02)', () => {
       niu: 'NIU-456',
       submittedById: managerId,
     });
-    requestId = submitted.reference;
+    requestId = submitted.requestId!;
     expect(submitted.status).toBe('PENDING');
 
     // No self-service: no organization, no role, no dashboard access.

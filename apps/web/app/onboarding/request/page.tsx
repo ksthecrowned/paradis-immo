@@ -8,6 +8,7 @@ type RequestType = 'OWNER' | 'AGENCY';
 
 const fieldClass =
   'w-full rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground outline-none focus:border-accent';
+const labelClass = 'mb-1 block text-sm font-medium text-foreground';
 
 /**
  * Public sign-up form (spec 02 — no self-service creation).
@@ -98,94 +99,159 @@ function RequestForm(): React.JSX.Element {
           votre dossier puis vous adresse un lien d’invitation.
         </p>
 
-        <div className="flex gap-2">
-          {(['OWNER', 'AGENCY'] as const).map((t) => (
-            <button
-              key={t}
-              type="button"
-              onClick={() => setType(t)}
-              className={
-                'flex-1 rounded-md border px-3 py-2 text-sm font-medium ' +
-                (type === t
-                  ? 'border-accent bg-accent/10 text-foreground'
-                  : 'border-border text-muted')
-              }
-            >
-              {t === 'OWNER' ? 'Propriétaire' : 'Agence'}
-            </button>
-          ))}
+        <fieldset className="m-0 border-0 p-0">
+          <legend className="mb-1 block text-sm font-medium text-foreground">
+            Type de compte
+          </legend>
+          <div className="flex gap-2" role="group" aria-label="Type de compte">
+            {(['OWNER', 'AGENCY'] as const).map((t) => (
+              <button
+                key={t}
+                type="button"
+                aria-pressed={type === t}
+                onClick={() => setType(t)}
+                className={
+                  'flex-1 rounded-md border px-3 py-2 text-sm font-medium ' +
+                  (type === t
+                    ? 'border-accent bg-accent/10 text-foreground'
+                    : 'border-border text-muted')
+                }
+              >
+                {t === 'OWNER' ? 'Propriétaire' : 'Agence'}
+              </button>
+            ))}
+          </div>
+        </fieldset>
+
+        <div>
+          <label htmlFor="request-name" className={labelClass}>
+            Nom <span aria-hidden="true">*</span>
+          </label>
+          <input
+            id="request-name"
+            required
+            className={fieldClass}
+            placeholder="Nom"
+            aria-required="true"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
         </div>
 
-        <input
-          required
-          className={fieldClass}
-          placeholder="Nom *"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-        />
-        <input
-          required
-          type="email"
-          className={fieldClass}
-          placeholder="E-mail (recevra le lien d’invitation) *"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-        />
-        <input
-          className={fieldClass}
-          placeholder="Téléphone"
-          value={phone}
-          onChange={(e) => setPhone(e.target.value)}
-        />
+        <div>
+          <label htmlFor="request-email" className={labelClass}>
+            E-mail <span aria-hidden="true">*</span>
+          </label>
+          <input
+            id="request-email"
+            required
+            type="email"
+            className={fieldClass}
+            placeholder="E-mail (recevra le lien d’invitation)"
+            aria-required="true"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+        </div>
+
+        <div>
+          <label htmlFor="request-phone" className={labelClass}>
+            Téléphone
+          </label>
+          <input
+            id="request-phone"
+            className={fieldClass}
+            placeholder="Téléphone"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+          />
+        </div>
 
         {type === 'AGENCY' ? (
           <>
-            <input
-              className={fieldClass}
-              placeholder="Raison sociale"
-              value={legalName}
-              onChange={(e) => setLegalName(e.target.value)}
-            />
+            <div>
+              <label htmlFor="request-legal-name" className={labelClass}>
+                Raison sociale
+              </label>
+              <input
+                id="request-legal-name"
+                className={fieldClass}
+                placeholder="Raison sociale"
+                value={legalName}
+                onChange={(e) => setLegalName(e.target.value)}
+              />
+            </div>
             <div className="grid grid-cols-2 gap-2">
-              <input
-                required
-                className={fieldClass}
-                placeholder="RCCM *"
-                value={rccm}
-                onChange={(e) => setRccm(e.target.value)}
-              />
-              <input
-                className={fieldClass}
-                placeholder="NIU"
-                value={niu}
-                onChange={(e) => setNiu(e.target.value)}
-              />
+              <div>
+                <label htmlFor="request-rccm" className={labelClass}>
+                  RCCM <span aria-hidden="true">*</span>
+                </label>
+                <input
+                  id="request-rccm"
+                  required
+                  className={fieldClass}
+                  placeholder="RCCM"
+                  aria-required="true"
+                  value={rccm}
+                  onChange={(e) => setRccm(e.target.value)}
+                />
+              </div>
+              <div>
+                <label htmlFor="request-niu" className={labelClass}>
+                  NIU
+                </label>
+                <input
+                  id="request-niu"
+                  className={fieldClass}
+                  placeholder="NIU"
+                  value={niu}
+                  onChange={(e) => setNiu(e.target.value)}
+                />
+              </div>
             </div>
           </>
         ) : null}
 
         <div className="grid grid-cols-2 gap-2">
-          <input
-            className={fieldClass}
-            placeholder="Adresse"
-            value={address}
-            onChange={(e) => setAddress(e.target.value)}
-          />
-          <input
-            className={fieldClass}
-            placeholder="Ville"
-            value={cityLabel}
-            onChange={(e) => setCityLabel(e.target.value)}
-          />
+          <div>
+            <label htmlFor="request-address" className={labelClass}>
+              Adresse
+            </label>
+            <input
+              id="request-address"
+              className={fieldClass}
+              placeholder="Adresse"
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+            />
+          </div>
+          <div>
+            <label htmlFor="request-city" className={labelClass}>
+              Ville
+            </label>
+            <input
+              id="request-city"
+              className={fieldClass}
+              placeholder="Ville"
+              value={cityLabel}
+              onChange={(e) => setCityLabel(e.target.value)}
+            />
+          </div>
         </div>
 
-        <textarea
-          className={fieldClass}
-          rows={4}
-          placeholder="Présentez votre activité"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-        />
+        <div>
+          <label htmlFor="request-description" className={labelClass}>
+            Présentez votre activité
+          </label>
+          <textarea
+            id="request-description"
+            className={fieldClass}
+            rows={4}
+            placeholder="Présentez votre activité"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+          />
+        </div>
 
         {error ? (
           <p role="alert" className="text-sm text-danger">

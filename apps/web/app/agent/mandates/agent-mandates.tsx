@@ -94,7 +94,7 @@ export function AgentMandatesPage(): React.JSX.Element {
 
   useEffect(() => {
     if (!ready) return;
-    void load();
+    void Promise.resolve().then(() => load());
   }, [load, ready]);
 
   const title = useCallback(
@@ -462,6 +462,7 @@ export function AgentMandatesPage(): React.JSX.Element {
                                     e.target.value === '' ? null : e.target.value,
                                   )
                                 }
+                                aria-label="Agent affecté au mandat"
                                 className="w-full max-w-[14rem] rounded-lg border border-border bg-background px-2 py-1.5"
                               >
                                 <option value="">Non affecté</option>

@@ -75,7 +75,7 @@ export function AgentBookingsPage(): React.JSX.Element {
 
   useEffect(() => {
     if (!ready) return;
-    void load();
+    void Promise.resolve().then(() => load());
     void listManagedProperties()
       .then((rows) =>
         setProperties(

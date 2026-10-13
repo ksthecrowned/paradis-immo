@@ -80,7 +80,7 @@ export function OwnerMandatePage(): React.JSX.Element {
 
   useEffect(() => {
     if (!ready) return;
-    void load();
+    void Promise.resolve().then(() => load());
   }, [load, ready]);
 
   const handleDecide = useCallback(

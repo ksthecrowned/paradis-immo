@@ -80,7 +80,7 @@ export function AgentPortfolioPage(): React.JSX.Element {
 
   useEffect(() => {
     if (!ready) return;
-    void load();
+    void Promise.resolve().then(() => load());
   }, [load, ready]);
 
   const propertyTitleById = useMemo(() => {
@@ -284,6 +284,7 @@ export function AgentPortfolioPage(): React.JSX.Element {
                                 value === '' ? null : value,
                               );
                             }}
+                            aria-label="Agent affecté au mandat"
                             className="w-full max-w-xs rounded-lg border border-border bg-background px-3 py-2"
                           >
                             <option value="">Non affecté (gérant seul)</option>

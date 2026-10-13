@@ -58,7 +58,7 @@ export function SaleAgreementsListPage({
 
   useEffect(() => {
     if (!ready) return;
-    void load();
+    void Promise.resolve().then(() => load());
   }, [ready, load]);
 
   return (

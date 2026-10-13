@@ -46,7 +46,7 @@ export function useResourceDetail<T>(
   }, [id, load]);
 
   useEffect(() => {
-    void reload();
+    void Promise.resolve().then(() => reload());
   }, [reload]);
 
   return { data, loading, error, reload, setData };

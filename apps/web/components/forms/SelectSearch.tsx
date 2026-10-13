@@ -179,6 +179,7 @@ export function SelectSearch({
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
                     placeholder={searchPlaceholder}
+                    aria-label={searchPlaceholder}
                     className="block w-full rounded-lg border border-input-border bg-search py-2.5 pl-9 pr-3 text-base text-foreground placeholder:text-placeholder focus:border-input-focus-border focus:ring-2 focus:ring-accent/30 focus:outline-none"
                   />
                 </div>

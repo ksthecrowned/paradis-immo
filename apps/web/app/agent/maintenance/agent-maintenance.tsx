@@ -69,7 +69,7 @@ export function AgentMaintenancePage(): React.JSX.Element {
 
   useEffect(() => {
     if (!ready) return;
-    void load();
+    void Promise.resolve().then(() => load());
   }, [load, ready]);
 
   const handleAssign = useCallback(
@@ -217,6 +217,7 @@ export function AgentMaintenancePage(): React.JSX.Element {
                   }))
                 }
                 placeholder="ID technicien"
+                aria-label="ID du technicien à assigner"
                 className="min-w-0 flex-1 rounded-lg border border-border bg-background px-2 py-1 text-xs font-mono"
               />
               <button
@@ -232,6 +233,7 @@ export function AgentMaintenancePage(): React.JSX.Element {
               defaultValue={row.status}
               disabled={actionId === row.id}
               onChange={(e) => void handleStatus(row.id, e.target.value)}
+              aria-label="Changer le statut du ticket"
               className="rounded-lg border border-border bg-background px-2 py-1 text-xs"
             >
               {STATUS_OPTIONS.map((s) => (

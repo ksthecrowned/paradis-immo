@@ -55,7 +55,7 @@ export function TenantsListPage({
 
   useEffect(() => {
     if (!ready) return;
-    void load();
+    void Promise.resolve().then(() => load());
   }, [load, ready]);
 
   const columns = useMemo<ListColumn<ManagedTenantListItem>[]>(

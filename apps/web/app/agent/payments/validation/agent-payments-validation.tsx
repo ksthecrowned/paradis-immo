@@ -68,7 +68,7 @@ export function AgentPaymentsValidationPage({
 
   useEffect(() => {
     if (!ready) return;
-    void load();
+    void Promise.resolve().then(() => load());
   }, [load, ready]);
 
   const handleValidate = useCallback(

@@ -142,7 +142,8 @@ describe('Agency request → invitation HTTP (spec 02)', () => {
       .post('/api/v1/organizations/requests')
       .send({ type: 'AGENCY', name: 'HTTP Immo', email: founderEmail, rccm: 'R-1' })
       .expect(202);
-    requestId = res.body.reference;
+    // `reference` is now the human-friendly code (PI-AG-…); PATCH uses the raw id.
+    requestId = res.body.requestId;
     expect(res.body.status).toBe('PENDING');
 
     // Nothing granted: no organization, no membership.

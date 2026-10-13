@@ -16,3 +16,8 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+      # Origins autorisés pour le CORS de l'API (voir apps/api/src/main.ts).
+      # À définir dans le dashboard Render (sync: false) — l'origine Vercel web :
+      #   https://paradis-immo.vercel.app
+      - key: ALLOWED_ORIGINS
+        sync: false

@@ -54,7 +54,7 @@ export function ArrearsBoard({
 
   useEffect(() => {
     if (!ready) return;
-    void refreshSummary();
+    void Promise.resolve().then(() => refreshSummary());
   }, [ready, refreshSummary]);
 
   const sendReminder = useCallback(

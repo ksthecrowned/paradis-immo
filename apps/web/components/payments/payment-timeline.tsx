@@ -68,7 +68,7 @@ export function PaymentTimeline({
   }, [paymentId]);
 
   useEffect(() => {
-    void load();
+    void Promise.resolve().then(() => load());
   }, [load]);
 
   const rows: { key: string; label: string; at: string; meta: string }[] = [

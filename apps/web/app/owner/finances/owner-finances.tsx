@@ -106,7 +106,7 @@ export function OwnerFinancesPage(): React.JSX.Element {
 
   useEffect(() => {
     if (!ready) return;
-    void load(1);
+    void Promise.resolve().then(() => load(1));
   }, [load, ready]);
 
   const handleExport = useCallback(() => {

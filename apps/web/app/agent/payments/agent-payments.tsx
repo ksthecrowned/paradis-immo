@@ -92,7 +92,7 @@ export function AgentPaymentsPage(): React.JSX.Element {
 
   useEffect(() => {
     if (!ready || tab !== 'list') return;
-    void load();
+    void Promise.resolve().then(() => load());
   }, [load, ready, tab]);
 
   const filteredRows = useMemo(() => {

@@ -46,7 +46,7 @@ export function LandingProperties(): React.JSX.Element {
   }, []);
 
   useEffect(() => {
-    void load();
+    void Promise.resolve().then(() => load());
   }, [load]);
 
   const cities = useMemo(() => {

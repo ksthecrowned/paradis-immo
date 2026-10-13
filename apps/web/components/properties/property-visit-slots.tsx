@@ -129,7 +129,7 @@ export function PropertyVisitSlots({
 
   useEffect(() => {
     if (!ready) return;
-    void load();
+    void Promise.resolve().then(() => load());
   }, [load, ready]);
 
   const handleOpen = useCallback(

@@ -171,6 +171,14 @@ export async function clearSession(
 }
 
 export async function logout(): Promise<void> {
+  // Best-effort unregister of this device BEFORE wiping the session:
+  // the endpoint is authenticated (spec 14).
+  try {
+    const { unregisterPushDeviceFromApi } = await import('@/lib/notifications');
+    await unregisterPushDeviceFromApi();
+  } catch {
+    // Non-fatal; the registration will be overclaimed by the next account.
+  }
   await clearSession('logout');
 }
 

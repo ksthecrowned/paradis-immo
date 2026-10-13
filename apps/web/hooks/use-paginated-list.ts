@@ -48,12 +48,12 @@ export function usePaginatedList<
   const queryKey = JSON.stringify(query ?? {});
 
   useEffect(() => {
-    setPage(1);
+    void Promise.resolve().then(() => setPage(1));
   }, [queryKey]);
 
   useEffect(() => {
     if (!enabled) {
-      setLoading(false);
+      void Promise.resolve().then(() => setLoading(false));
       return;
     }
 

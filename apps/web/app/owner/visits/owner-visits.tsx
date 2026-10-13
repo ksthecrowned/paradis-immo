@@ -131,8 +131,10 @@ export function OwnerVisitsPage(): React.JSX.Element {
 
   useEffect(() => {
     if (!ready) return;
-    void load();
-    void loadSlots();
+    void Promise.resolve().then(() => {
+      void load();
+      void loadSlots();
+    });
   }, [load, loadSlots, ready]);
 
   const availableSlots = useMemo(

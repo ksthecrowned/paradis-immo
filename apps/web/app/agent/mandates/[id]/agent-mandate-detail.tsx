@@ -50,7 +50,7 @@ export function AgentMandateDetail({
 
   useEffect(() => {
     if (!ready) return;
-    void load();
+    void Promise.resolve().then(() => load());
   }, [load, ready]);
 
   if (!ready) {

@@ -88,7 +88,7 @@ export function AgentFinancesPage(): React.JSX.Element {
 
   useEffect(() => {
     if (!ready || !checked || !isGerant) return;
-    void load();
+    void Promise.resolve().then(() => load());
   }, [checked, isGerant, load, ready]);
 
   const handleExport = useCallback(() => {

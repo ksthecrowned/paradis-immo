@@ -170,6 +170,7 @@ export function PropertyMediaUploader({
         type="file"
         accept="image/*"
         multiple
+        aria-label="Ajouter des photos"
         className="hidden"
         onChange={(e) => {
           const files = Array.from(e.target.files ?? []);
@@ -181,6 +182,7 @@ export function PropertyMediaUploader({
         ref={videoInputRef}
         type="file"
         accept="video/mp4,video/quicktime"
+        aria-label="Ajouter une vidéo"
         className="hidden"
         onChange={(e) => {
           const files = Array.from(e.target.files ?? []);

@@ -146,6 +146,18 @@ export class AgencyController {
     });
   }
 
+  /**
+   * Onboarding status of the signed-in applicant (spec 02): lets the web
+   * onboarding screens show “demande en attente” instead of the role chooser
+   * when a dossier was already recorded.
+   */
+  @Get('requests/mine')
+  @UseGuards(AppAuthGuard)
+  @ApiOperation({ summary: 'My sign-up requests (onboarding status)' })
+  myRequests(@CurrentUser() me: AuthenticatedUser) {
+    return this.agency.myRequests(me.userId);
+  }
+
   @Patch(':orgId')
   @UseGuards(AppAuthGuard, OrgContextGuard)
   @OrganizationContext({ roles: [OrgMemberRole.OWNER, OrgMemberRole.ADMIN] })

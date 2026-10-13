@@ -47,17 +47,19 @@ function LoginForm(): React.JSX.Element {
   useEffect(() => {
     const code = searchParams.get('error');
     const sessionExpired = searchParams.get('session') === 'expired';
-    if (sessionExpired) {
-      setError('Session expirée. Reconnectez-vous.');
-    }
-    if (!code) return;
-    if (code === 'Configuration') {
-      setError(
-        'Connexion Google indisponible (configuration ou réseau). Utilisez email / mot de passe, ou redémarrez le serveur web.',
-      );
-      return;
-    }
-    setError('Connexion refusée. Réessayez ou créez un compte.');
+    void Promise.resolve().then(() => {
+      if (sessionExpired) {
+        setError('Session expirée. Reconnectez-vous.');
+      }
+      if (!code) return;
+      if (code === 'Configuration') {
+        setError(
+          'Connexion Google indisponible (configuration ou réseau). Utilisez email / mot de passe, ou redémarrez le serveur web.',
+        );
+        return;
+      }
+      setError('Connexion refusée. Réessayez ou créez un compte.');
+    });
   }, [searchParams]);
 
   async function onSubmit(e: FormEvent): Promise<void> {

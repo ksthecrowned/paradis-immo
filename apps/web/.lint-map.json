@@ -1,0 +1,130 @@
+{
+ "react/no-unescaped-entities": [
+  [
+   "bookings-calendar.tsx",
+   "410"
+  ],
+  [
+   "visits-calendar.tsx",
+   "286"
+  ]
+ ],
+ "react-hooks/immutability": [
+  [
+   "agent-leases.tsx",
+   "68"
+  ]
+ ],
+ "next/no-html-link-for-pages": [
+  [
+   "landing-footer.tsx",
+   "29"
+  ],
+  [
+   "landing-footer.tsx",
+   "37"
+  ],
+  [
+   "landing-footer.tsx",
+   "45"
+  ],
+  [
+   "landing-footer.tsx",
+   "53"
+  ]
+ ],
+ "typescript-eslint/no-explicit-any": [
+  [
+   "list-data-table.tsx",
+   "279"
+  ],
+  [
+   "list-data-table.tsx",
+   "280"
+  ],
+  [
+   "owner-payments.tsx",
+   "134"
+  ],
+  [
+   "owner-payments.tsx",
+   "135"
+  ]
+ ],
+ "react-hooks/purity": [
+  [
+   "sale-agreement-detail.tsx",
+   "303"
+  ],
+  [
+   "sale-agreement-detail.tsx",
+   "340"
+  ]
+ ],
+ "react-hooks/refs": [
+  [
+   "use-paginated-list.ts",
+   "36"
+  ],
+  [
+   "use-paginated-list.ts",
+   "37"
+  ]
+ ],
+ "react-hooks/preserve-manual-memoization": [
+  [
+   "lease-detail.tsx",
+   "165"
+  ],
+  [
+   "lease-detail.tsx",
+   "241"
+  ],
+  [
+   "lease-detail.tsx",
+   "278"
+  ],
+  [
+   "lease-detail.tsx",
+   "320"
+  ],
+  [
+   "lease-detail.tsx",
+   "374"
+  ],
+  [
+   "lease-detail.tsx",
+   "409"
+  ],
+  [
+   "lease-detail.tsx",
+   "442"
+  ],
+  [
+   "lease-detail.tsx",
+   "471"
+  ],
+  [
+   "sale-agreement-form.tsx",
+   "79"
+  ]
+ ],
+ "react-hooks/exhaustive-deps": [
+  [
+   "property-form.tsx",
+   "548"
+  ]
+ ],
+ "react-hooks/use-memo": [
+  [
+   "property-form.tsx",
+   "548"
+  ]
+ ],
+ "react-hooks/rules-of-hooks": [
+  [
+   "property-form.tsx",
+   "548"
+  ]
+ ]
+}

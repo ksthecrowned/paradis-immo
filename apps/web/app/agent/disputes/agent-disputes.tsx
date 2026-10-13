@@ -59,7 +59,7 @@ export function AgentDisputesPage(): React.JSX.Element {
 
   useEffect(() => {
     if (!ready) return;
-    void load();
+    void Promise.resolve().then(() => load());
   }, [load, ready]);
 
   const handleResolve = useCallback(

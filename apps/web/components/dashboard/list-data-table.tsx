@@ -276,8 +276,8 @@ export function ListDataTable<T extends object>({
   const controlledSortKey = sortKey ?? internalSortKey;
   const controlledSortDir = sortDir ?? internalSortDir;
   const pageSize = serverSide ? pageSizeProp : internalPageSize;
-  const setSortKey = (next: string | null) => setInternalSortKey(next as any);
-  const setSortDir = (next: 'asc' | 'desc') => setInternalSortDir(next as any);
+  const setSortKey = (next: string | null) => setInternalSortKey(next);
+  const setSortDir = (next: 'asc' | 'desc') => setInternalSortDir(next);
 
   const setPage = useCallback(
     (nextPage: number | ((current: number) => number)) => {
@@ -421,8 +421,9 @@ export function ListDataTable<T extends object>({
           {enableClientFilters ? (
             <div className="flex-1">
               <div className="relative max-w-xs">
-                <label className="sr-only">Recherche</label>
+                <label htmlFor="list-table-search" className="sr-only">Recherche</label>
                 <input
+                  id="list-table-search"
                   type="text"
                   value={internalSearch}
                   onChange={(e) => {
@@ -469,6 +470,7 @@ export function ListDataTable<T extends object>({
                   setPage(1);
                 }
               }}
+              aria-label="Lignes par page"
               className="rounded-lg border border-border bg-card py-2 pe-8 ps-3 text-sm text-foreground shadow-sm hover:bg-card-hover focus:border-accent focus:outline-none"
             >
               {[10, 15, 20, 25, 50].map((n) => (
@@ -566,6 +568,11 @@ export function ListDataTable<T extends object>({
                                           }));
                                           setPage(1);
                                         }}
+                                        aria-label={
+                                          typeof col.label === 'string'
+                                            ? col.label
+                                            : 'Filtre de colonne'
+                                        }
                                         className="block w-full rounded-md border border-input-border bg-search px-2.5 py-1 text-[13px] text-foreground focus:border-accent focus:outline-none"
                                       >
                                         <option value="">Tous</option>
@@ -587,6 +594,11 @@ export function ListDataTable<T extends object>({
                                           }));
                                           setPage(1);
                                         }}
+                                        aria-label={
+                                          typeof col.label === 'string'
+                                            ? col.label
+                                            : 'Filtre de colonne'
+                                        }
                                         className="block w-full rounded-md border border-input-border bg-search px-2.5 py-1 text-[13px] text-foreground placeholder:text-placeholder focus:border-accent focus:outline-none"
                                         placeholder={
                                           col.filterPlaceholder ??

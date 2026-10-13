@@ -107,12 +107,12 @@ function NavItemRow({
 
   // Auto-open quand un enfant devient actif.
   useEffect(() => {
-    if (childActive) setOpen(true);
+    if (childActive) void Promise.resolve().then(() => setOpen(true));
   }, [childActive]);
 
   // Si forceOpen change (au mount), ouvrir.
   useEffect(() => {
-    if (forceOpen) setOpen(true);
+    if (forceOpen) void Promise.resolve().then(() => setOpen(true));
   }, [forceOpen]);
 
   const active = isNavActive(pathname, item);

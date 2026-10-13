@@ -1,5 +1,6 @@
 'use client';
 
+import { apiFetch } from '@/lib/api';
 import { logout } from '@/lib/auth';
 import {
   isWebAccountActive,
@@ -12,10 +13,19 @@ import { useEffect, useState } from 'react';
 const btnClass =
   'flex w-full flex-col items-start rounded-lg border border-border bg-card p-5 text-left shadow-sm transition hover:border-accent hover:bg-sidebar disabled:opacity-50';
 
+interface MyOrgRequest {
+  id: string;
+  reference: string;
+  type: 'OWNER' | 'AGENCY';
+  status: 'PENDING' | 'INVITED' | 'REJECTED';
+  rejectionReason: string | null;
+}
+
 export default function OnboardingRolePage(): React.JSX.Element {
   const router = useRouter();
   const { data: session, status } = useSession();
-  const [busy, setBusy] = useState<'OWNER' | 'AGENT' | null>(null);
+  const [myRequest, setMyRequest] = useState<MyOrgRequest | null>(null);
+  const [checking, setChecking] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -33,13 +43,35 @@ export default function OnboardingRolePage(): React.JSX.Element {
 
     if (session.user && isWebAccountActive(session.user)) {
       router.replace(resolveDashboardPath(session.user));
+      return;
     }
+
+    // Already submitted a dossier in a previous session? Show its follow-up
+    // state instead of asking the user to choose a parcours again (spec 02).
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await apiFetch<{ requests: MyOrgRequest[] }>(
+          '/organizations/requests/mine',
+        );
+        if (cancelled) return;
+        const latest =
+          res.requests.find((r) => r.status === 'PENDING') ??
+          res.requests[0] ??
+          null;
+        setMyRequest(latest);
+      } catch {
+        // Non-blocking: fall back to the normal chooser.
+      } finally {
+        if (!cancelled) setChecking(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [status, session, router]);
 
-  async function choose(role: 'OWNER' | 'AGENT'): Promise<void> {
-    // No self-service (spec 02): owner and agency accounts are opened by a
-    // PLATFORM_ADMIN invitation. Both paths start at the sign-up form.
-    void role;
+  function submitNewRequest(): void {
     router.push('/onboarding/request');
   }
 
@@ -47,10 +79,74 @@ export default function OnboardingRolePage(): React.JSX.Element {
     router.push('/onboarding/join');
   }
 
-  if (status === 'loading') {
+  if (status === 'loading' || (status === 'authenticated' && checking)) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-background px-4 py-12">
         <p className="text-sm text-muted">Chargement…</p>
+      </main>
+    );
+  }
+
+  if (myRequest?.status === 'PENDING') {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-background px-4 py-12">
+        <div className="w-full max-w-lg space-y-3 rounded-lg border border-border bg-card p-6 shadow-sm">
+          <h1 className="text-xl font-bold text-foreground">
+            Votre demande est en cours d’examen
+          </h1>
+          <p className="text-sm text-muted">
+            Vous avez déjà enregistré une demande ({' '}
+            {myRequest.type === 'AGENCY' ? 'Agence' : 'Propriétaire'} — «{' '}
+            {myRequest.reference} » ). Un administrateur va vérifier votre
+            dossier puis vous adresser un lien d’invitation. Rien d’autre à
+            faire pour l’instant.
+          </p>
+          <p className="pt-2 text-center text-sm text-muted">
+            Mauvais compte ?{' '}
+            <button
+              type="button"
+              className="font-semibold text-accent hover:underline"
+              onClick={() => void logout('/login')}
+            >
+              Se déconnecter
+            </button>
+          </p>
+        </div>
+      </main>
+    );
+  }
+
+  if (myRequest?.status === 'REJECTED') {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-background px-4 py-12">
+        <div className="w-full max-w-lg space-y-3 rounded-lg border border-border bg-card p-6 shadow-sm">
+          <h1 className="text-xl font-bold text-foreground">
+            Votre demande a été refusée
+          </h1>
+          <p className="text-sm text-muted">
+            Dossier « {myRequest.reference} » rejeté le{' '}
+            {new Date().toLocaleDateString('fr-FR')}
+            {myRequest.rejectionReason ? ` : ${myRequest.rejectionReason}` : ''}
+            . Vous pouvez soumettre une nouvelle demande.
+          </p>
+          <button
+            type="button"
+            onClick={submitNewRequest}
+            className="w-full rounded-md bg-accent px-4 py-2 text-sm font-semibold text-white"
+          >
+            Déposer une nouvelle demande
+          </button>
+          <p className="pt-2 text-center text-sm text-muted">
+            Mauvais compte ?{' '}
+            <button
+              type="button"
+              className="font-semibold text-accent hover:underline"
+              onClick={() => void logout('/login')}
+            >
+              Se déconnecter
+            </button>
+          </p>
+        </div>
       </main>
     );
   }
@@ -70,9 +166,8 @@ export default function OnboardingRolePage(): React.JSX.Element {
 
         <button
           type="button"
-          disabled={busy != null}
           className={btnClass}
-          onClick={() => void choose('OWNER')}
+          onClick={submitNewRequest}
         >
           <span className="text-lg font-semibold text-foreground">
             Propriétaire
@@ -80,16 +175,12 @@ export default function OnboardingRolePage(): React.JSX.Element {
           <span className="mt-1 text-sm text-muted">
             Déposez votre demande : vous recevrez un lien d’invitation.
           </span>
-          {busy === 'OWNER' ? (
-            <span className="mt-2 text-xs text-accent">Ouverture…</span>
-          ) : null}
         </button>
 
         <button
           type="button"
-          disabled={busy != null}
           className={btnClass}
-          onClick={() => void choose('AGENT')}
+          onClick={submitNewRequest}
         >
           <span className="text-lg font-semibold text-foreground">
             Je crée mon agence
@@ -97,14 +188,10 @@ export default function OnboardingRolePage(): React.JSX.Element {
           <span className="mt-1 text-sm text-muted">
             Nom, RCCM, NIU : l’administrateur vérifie puis vous invite.
           </span>
-          {busy === 'AGENT' ? (
-            <span className="mt-2 text-xs text-accent">Envoi…</span>
-          ) : null}
         </button>
 
         <button
           type="button"
-          disabled={busy != null}
           className={btnClass}
           onClick={joinAgency}
         >

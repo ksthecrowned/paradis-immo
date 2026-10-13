@@ -47,7 +47,7 @@ export function AdminModerationPage(): React.JSX.Element {
 
   useEffect(() => {
     if (!ready) return;
-    void load();
+    void Promise.resolve().then(() => load());
   }, [load, ready]);
 
   const handleModerate = useCallback(

@@ -105,20 +105,24 @@ export function RecordCashFromPaymentsPanel({
 
   useEffect(() => {
     if (!open) return;
-    if (kind === 'rent') void loadLeases();
-    else void loadSales();
+    void Promise.resolve().then(() => {
+      if (kind === 'rent') loadLeases();
+      else loadSales();
+    });
   }, [open, kind, loadLeases, loadSales]);
 
   useEffect(() => {
     if (kind !== 'rent' || !leaseId) {
       if (kind !== 'rent') {
-        setSchedule([]);
-        setScheduleId('');
+        void Promise.resolve().then(() => {
+          setSchedule([]);
+          setScheduleId('');
+        });
       }
       return;
     }
     let cancelled = false;
-    setLoadingSchedule(true);
+    void Promise.resolve().then(() => setLoadingSchedule(true));
     void getLeaseSchedule(leaseId)
       .then((rows) => {
         if (cancelled) return;
@@ -146,7 +150,7 @@ export function RecordCashFromPaymentsPanel({
 
   useEffect(() => {
     if (kind !== 'sale' || !agreementId) {
-      setInstallmentId('');
+      void Promise.resolve().then(() => setInstallmentId(''));
       return;
     }
     const agreement = agreements.find((a) => a.id === agreementId);
@@ -154,7 +158,7 @@ export function RecordCashFromPaymentsPanel({
       agreement?.installments.filter((i) =>
         canRecordSaleInstallmentCash(i.status),
       ) ?? [];
-    setInstallmentId(openRows[0]?.id ?? '');
+    void Promise.resolve().then(() => setInstallmentId(openRows[0]?.id ?? ''));
   }, [kind, agreementId, agreements]);
 
   const selectedRent = useMemo(

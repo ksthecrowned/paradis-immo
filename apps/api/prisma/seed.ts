@@ -440,6 +440,49 @@ async function purgeLegacySeedArtifacts(): Promise<void> {
   });
 }
 
+/** Re-seeds move slot times; free the (propertyId, startAt) key without dropping a booked visit. */
+async function upsertSeedVisitSlot(input: {
+  id: string;
+  propertyId: string;
+  startAt: Date;
+  endAt: Date;
+}): Promise<void> {
+  const clash = await prisma.visitSlot.findFirst({
+    where: {
+      propertyId: input.propertyId,
+      startAt: input.startAt,
+      NOT: { id: input.id },
+    },
+    select: { id: true, booking: { select: { id: true } } },
+  });
+  if (clash?.booking) return;
+  if (clash) {
+    const parked = new Date(input.startAt.getTime() + 1000 * 60 * 60 * 24 * 365 * 30);
+    const parkedEnd = new Date(parked.getTime() + 45 * 60 * 1000);
+    await prisma.visitSlot.update({
+      where: { id: clash.id },
+      data: { startAt: parked, endAt: parkedEnd },
+    });
+  }
+  await prisma.visitSlot.upsert({
+    where: { id: input.id },
+    update: {
+      status: VisitSlotStatus.AVAILABLE,
+      startAt: input.startAt,
+      endAt: input.endAt,
+      propertyId: input.propertyId,
+    },
+    create: {
+      id: input.id,
+      propertyId: input.propertyId,
+      startAt: input.startAt,
+      endAt: input.endAt,
+      status: VisitSlotStatus.AVAILABLE,
+      source: VisitSlotSource.MANUAL,
+    },
+  });
+}
+
 async function seedTestUsers(
   cgId: string,
   quartiers: {
@@ -1091,21 +1134,11 @@ async function seedTestUsers(
       endAt.setMinutes(endAt.getMinutes() + 45);
       const slotId = SEED_IDS.visitSlots[slotIndex];
       if (!slotId) break;
-      await prisma.visitSlot.upsert({
-        where: { id: slotId },
-        update: {
-          status: VisitSlotStatus.AVAILABLE,
-          startAt,
-          endAt,
-        },
-        create: {
-          id: slotId,
-          propertyId: DEMO_PROPERTY_ID,
-          startAt,
-          endAt,
-          status: VisitSlotStatus.AVAILABLE,
-          source: VisitSlotSource.MANUAL,
-        },
+      await upsertSeedVisitSlot({
+        id: slotId,
+        propertyId: DEMO_PROPERTY_ID,
+        startAt,
+        endAt,
       });
       slotIndex += 1;
     }
@@ -1128,22 +1161,11 @@ async function seedTestUsers(
       endAt.setMinutes(endAt.getMinutes() + 45);
       const slotId = SEED_IDS.visitSlotsSale[saleSlotIndex];
       if (!slotId) break;
-      await prisma.visitSlot.upsert({
-        where: { id: slotId },
-        update: {
-          status: VisitSlotStatus.AVAILABLE,
-          startAt,
-          endAt,
-          propertyId: DEMO_PROPERTY_SALE_ID,
-        },
-        create: {
-          id: slotId,
-          propertyId: DEMO_PROPERTY_SALE_ID,
-          startAt,
-          endAt,
-          status: VisitSlotStatus.AVAILABLE,
-          source: VisitSlotSource.MANUAL,
-        },
+      await upsertSeedVisitSlot({
+        id: slotId,
+        propertyId: DEMO_PROPERTY_SALE_ID,
+        startAt,
+        endAt,
       });
       saleSlotIndex += 1;
     }

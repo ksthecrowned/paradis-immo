@@ -78,7 +78,7 @@ export function PaymentDetail({
 
   useEffect(() => {
     if (!ready) return;
-    void load();
+    void Promise.resolve().then(() => load());
   }, [load, ready]);
 
   const handleValidate = useCallback(async () => {

@@ -78,6 +78,7 @@ export const ROUTES = {
   admin: {
     dashboard: '/admin/dashboard',
     users: '/admin/users',
+    onboarding: '/admin/onboarding',
     moderation: '/admin/moderation',
     reports: '/admin/reports',
     config: '/admin/config',
@@ -150,6 +151,7 @@ export const AGENT_NAV: NavItem[] = [
 export const ADMIN_NAV: NavItem[] = [
   { href: ROUTES.admin.dashboard, label: 'Tableau de bord', exact: true },
   { href: ROUTES.admin.users, label: 'Utilisateurs' },
+  { href: ROUTES.admin.onboarding, label: 'Dossiers d’ouverture' },
   { href: ROUTES.admin.moderation, label: 'Modération' },
   { href: ROUTES.admin.reports, label: 'Signalements' },
   { href: ROUTES.admin.config, label: 'Configuration' },
@@ -242,6 +244,7 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
     label: 'Général',
     items: [
       { href: ROUTES.admin.dashboard, label: 'Tableau de bord', exact: true },
+      { href: ROUTES.admin.onboarding, label: 'Dossiers d’ouverture' },
       { href: ROUTES.admin.moderation, label: 'Modération' },
       { href: ROUTES.admin.reports, label: 'Signalements' },
     ],
@@ -290,6 +293,7 @@ const BREADCRUMB_LABELS: Record<string, string> = {
   agreements: 'Dossiers',
   bookings: 'Réservations',
   users: 'Utilisateurs',
+  onboarding: 'Dossiers d’ouverture',
   moderation: 'Modération',
   reports: 'Signalements',
   config: 'Configuration',

@@ -129,6 +129,7 @@ export function DropZone({
           multiple={multiple}
           disabled={disabled}
           onChange={handleInputChange}
+          aria-label={title ?? 'Sélectionner des fichiers'}
           className="hidden"
         />
       </div>

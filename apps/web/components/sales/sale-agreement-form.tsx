@@ -64,7 +64,9 @@ export function SaleAgreementFormPage({
   }, [ready]);
 
   useEffect(() => {
-    if (prefillPropertyId) setPropertyId(prefillPropertyId);
+    if (prefillPropertyId) {
+      void Promise.resolve().then(() => setPropertyId(prefillPropertyId));
+    }
   }, [prefillPropertyId]);
 
   const sum = useMemo(
@@ -208,6 +210,7 @@ export function SaleAgreementFormPage({
           >
             <input
               placeholder="Libellé"
+              aria-label={`Libellé de l’échéance ${index + 1}`}
               className="rounded border border-border px-2 py-1.5 text-sm"
               value={row.label ?? ''}
               onChange={(e) => {
@@ -218,6 +221,7 @@ export function SaleAgreementFormPage({
             />
             <input
               type="date"
+              aria-label={`Date butoir de l’échéance ${index + 1}`}
               className="rounded border border-border px-2 py-1.5 text-sm"
               value={row.dueDate.slice(0, 10)}
               onChange={(e) => {
@@ -229,6 +233,7 @@ export function SaleAgreementFormPage({
             <input
               type="number"
               placeholder="Montant"
+              aria-label={`Montant de l’échéance ${index + 1}`}
               className="rounded border border-border px-2 py-1.5 text-sm"
               value={row.amount || ''}
               onChange={(e) => {

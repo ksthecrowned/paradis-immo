@@ -534,6 +534,9 @@ export function PropertyForm({
   // Build preview items from queued files. Object URLs are stable across
   // renders (memoized by index) and revoked when the user removes a file
   // or the component unmounts.
+  const pendingFilesKey = pendingFiles
+    .map((f) => `${f.name}-${f.size}-${f.lastModified}`)
+    .join('|');
   const pendingPreviews: MediaGalleryItem[] = useMemo(() => {
     const urls = pendingFiles.map((f) => URL.createObjectURL(f));
     return pendingFiles.map((f, idx) => ({
@@ -545,7 +548,7 @@ export function PropertyForm({
     }));
     // We only rebuild when the queue length or identity changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pendingFiles.length, pendingFiles.map((f) => `${f.name}-${f.size}-${f.lastModified}`).join('|')]);
+  }, [pendingFilesKey, pendingFiles.length]);
 
   const MAX_VIDEO_BYTES = 20 * 1024 * 1024;
   const VIDEO_TYPES = new Set(['video/mp4', 'video/quicktime']);
@@ -637,8 +640,10 @@ export function PropertyForm({
   useEffect(() => {
     if (!isAgentVariant) return;
     if (!isPhoneComplete(form.values.ownerPhoneNational, phoneCountry)) {
-      setOwnerPreview(null);
-      setOwnerLookupHint(null);
+      void Promise.resolve().then(() => {
+        setOwnerPreview(null);
+        setOwnerLookupHint(null);
+      });
       return;
     }
     const e164 = getPhoneE164(form.values.ownerPhoneNational, phoneCountry);
@@ -705,7 +710,7 @@ export function PropertyForm({
 
   useEffect(() => {
     if (!form.values.cityId) {
-      setArrondissements([]);
+      void Promise.resolve().then(() => setArrondissements([]));
       if (form.values.arrondissementId) form.setField('arrondissementId', '');
       return;
     }
@@ -725,7 +730,7 @@ export function PropertyForm({
 
   useEffect(() => {
     if (!form.values.arrondissementId) {
-      setQuartiers([]);
+      void Promise.resolve().then(() => setQuartiers([]));
       if (form.values.quartierId) form.setField('quartierId', '');
       return;
     }
@@ -1796,6 +1801,15 @@ export function PropertyForm({
     void form.handleSubmit(e);
   };
 
+  // Autofocus once when the field starts empty (create flow / empty draft).
+  // Déclaré avant tout return conditionnel (rules-of-hooks).
+  useEffect(() => {
+    if (!ready) return;
+    if (form.values.title.trim()) return;
+    titleInputRef.current?.focus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready]);
+
   if (!ready) {
     return <p className="text-sm text-muted">Chargement de la session…</p>;
   }
@@ -2023,14 +2037,6 @@ export function PropertyForm({
       {sidebarFooter}
     </div>
   );
-
-  useEffect(() => {
-    if (!ready) return;
-    if (form.values.title.trim()) return;
-    titleInputRef.current?.focus();
-    // Autofocus once when the field starts empty (create flow / empty draft).
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ready]);
 
   return (
     <div className="space-y-6">

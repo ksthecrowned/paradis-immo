@@ -61,6 +61,7 @@ export function ManagedDocumentsSection({
           <select
             value={type}
             onChange={(e) => setType(e.target.value)}
+            aria-label="Type de document"
             className="rounded-lg border border-input-border bg-search px-3 py-2 text-sm"
           >
             {typeOptions.map((o) => (
@@ -81,6 +82,7 @@ export function ManagedDocumentsSection({
             ref={inputRef}
             type="file"
             accept="image/*,application/pdf"
+            aria-label="Ajouter un document"
             className="hidden"
             onChange={(e) => void handleFile(e)}
           />

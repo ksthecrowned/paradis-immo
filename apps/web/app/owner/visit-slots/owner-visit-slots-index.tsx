@@ -185,7 +185,7 @@ export function OwnerVisitSlotsIndexPage(): React.JSX.Element {
 
   useEffect(() => {
     if (!ready) return;
-    void load();
+    void Promise.resolve().then(() => load());
   }, [load, ready]);
 
   const totals = useMemo(() => {

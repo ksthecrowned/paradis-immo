@@ -2,6 +2,7 @@ import { Platform } from 'react-native';
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 import { apiFetch } from '@/lib/api';
+import { getInstallId } from '@/lib/device-id';
 import { isAuthenticated } from '@/lib/auth';
 import {
   resolveNotificationRoute,
@@ -59,19 +60,47 @@ export async function obtainDevicePushToken(): Promise<string | null> {
   return value;
 }
 
-/** Permission + FCM token → PATCH /users/me. */
+/** Permission + FCM token → PATCH /users/me + POST /notifications/devices. */
 export async function registerPushTokenWithApi(): Promise<string | null> {
   if (!(await isAuthenticated())) return null;
 
   const token = await obtainDevicePushToken();
   if (!token) return null;
 
+  // Legacy column read by the push sender (compat older clients).
   await apiFetch('/users/me', {
     method: 'PATCH',
     body: { fcmToken: token },
   });
 
+  // Spec 11/14 documented device registry (deduped, claimed by one account).
+  try {
+    const deviceId = await getInstallId();
+    await apiFetch('/notifications/devices', {
+      method: 'POST',
+      body: {
+        deviceId,
+        fcmToken: token,
+        platform: Platform.OS === 'ios' ? 'IOS' : 'ANDROID',
+      },
+    });
+  } catch {
+    // Registry is best-effort: the legacy token above keeps push working.
+  }
+
   return token;
+}
+
+/** Remove this install's device registration (spec 14 logout path). */
+export async function unregisterPushDeviceFromApi(): Promise<void> {
+  if (!(await isAuthenticated())) return;
+  try {
+    await apiFetch(`/notifications/devices/${await getInstallId()}`, {
+      method: 'DELETE',
+    });
+  } catch {
+    // Non-fatal: the session is being cleared anyway.
+  }
 }
 
 export async function setupNotifications(

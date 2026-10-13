@@ -69,6 +69,20 @@ function sha256(value: string): string {
   return crypto.createHash('sha256').update(value).digest('hex');
 }
 
+/**
+ * Human-friendly sign-up reference (spec 02): quotable over the phone,
+ * derived deterministically from the request id + its category.
+ * e.g. `3f9c1e42-…` → `PI-AG-3F9C1E42` (AGency) / `PI-PR-…` (PRopriétaire).
+ * KEEP IN SYNC with the duplicate in apps/web (lib/admin/organization-requests.ts).
+ */
+export function formatRequestReference(row: {
+  id: string;
+  type: string;
+}): string {
+  const kind = row.type === 'AGENCY' ? 'AG' : 'PR';
+  return `PI-${kind}-${row.id.slice(0, 8).toUpperCase()}`;
+}
+
 @Injectable()
 export class AgencyService {
   private readonly logger = new Logger(AgencyService.name);
@@ -133,10 +147,36 @@ export class AgencyService {
     });
     this.logger.log(`Organization request ${request.id} (${request.type}) submitted`);
     return {
-      reference: request.id,
+      reference: formatRequestReference(request),
+      requestId: request.id,
       status: request.status,
       message:
         'Demande enregistrée. Vous recevrez un lien d’invitation à cette adresse.',
+    };
+  }
+
+  /**
+   * Requests submitted by the current user (onboarding status — spec 02).
+   * The web onboarding screens show the follow-up state here so a returning
+   * applicant does not land back on the role chooser.
+   */
+  async myRequests(submittedById: string) {
+    const rows = await this.prisma.organizationRequest.findMany({
+      where: { submittedById },
+      orderBy: { createdAt: 'desc' },
+      take: 10,
+    });
+    return {
+      requests: rows.map((r) => ({
+        id: r.id,
+        reference: formatRequestReference(r),
+        type: r.type,
+        name: r.name,
+        status: r.status,
+        rejectionReason: r.rejectionReason,
+        reviewedAt: r.reviewedAt?.toISOString() ?? null,
+        createdAt: r.createdAt.toISOString(),
+      })),
     };
   }
 

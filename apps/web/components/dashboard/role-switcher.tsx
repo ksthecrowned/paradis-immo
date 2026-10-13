@@ -30,7 +30,7 @@ export function RoleSwitcher(): React.JSX.Element | null {
 
   useEffect(() => {
     if (status !== 'authenticated' || !userId) {
-      setEligible([]);
+      void Promise.resolve().then(() => setEligible([]));
       return;
     }
     let cancelled = false;

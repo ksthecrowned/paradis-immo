@@ -227,12 +227,14 @@ export function LeaseDetail({
 
   useEffect(() => {
     if (!ready) return;
-    void load();
+    void Promise.resolve().then(() => load());
   }, [load, ready]);
 
   useEffect(() => {
-    setOtpRequested(false);
-    setOtpCode('');
+    void Promise.resolve().then(() => {
+      setOtpRequested(false);
+      setOtpCode('');
+    });
   }, [leaseId]);
 
   const runAction = useCallback(
@@ -790,6 +792,7 @@ export function LeaseDetail({
                     value={otpCode}
                     onChange={(event) => setOtpCode(event.target.value)}
                     placeholder="000000"
+                    aria-label="Code de signature du bail reçu par WhatsApp"
                     className="w-32 rounded-lg border border-border bg-background px-3 py-2 font-mono text-sm text-foreground"
                   />
                   <button
@@ -1211,6 +1214,7 @@ export function LeaseDetail({
               value={coTenantPhone}
               onChange={(event) => setCoTenantPhone(event.target.value)}
               placeholder="+242061234567"
+              aria-label="Téléphone du nouveau colocataire"
               className="w-48 rounded-lg border border-border bg-background px-2 py-1.5 text-sm text-foreground"
             />
             <button

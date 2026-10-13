@@ -91,7 +91,7 @@ export function MaintenanceTicketEditForm({
 
   useEffect(() => {
     if (!ready) return;
-    void load();
+    void Promise.resolve().then(() => load());
   }, [load, ready]);
 
   const form = useResourceForm<FormValues>({
