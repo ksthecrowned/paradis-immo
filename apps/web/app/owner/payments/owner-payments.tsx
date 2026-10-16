@@ -313,7 +313,6 @@ export function OwnerPaymentsPage(): React.JSX.Element {
         enableClientFilters
         search={search}
         onSearchChange={setSearch}
-        rows={sortedRows}
       />
         </>
       )}

@@ -12,6 +12,7 @@ import {
   MemberStatus,
   OrgMemberRole,
   OrganizationType,
+  Prisma,
   ReviewSourceType,
 } from '@prisma/client';
 import * as crypto from 'node:crypto';
@@ -855,10 +856,14 @@ export class AgencyService {
           ? { foundedYear: input.foundedYear }
           : {}),
         ...(input.openingHours !== undefined
-          ? { openingHours: input.openingHours }
+          ? {
+              openingHours: input.openingHours as Prisma.InputJsonValue,
+            }
           : {}),
         ...(input.socialLinks !== undefined
-          ? { socialLinks: input.socialLinks }
+          ? {
+              socialLinks: input.socialLinks as Prisma.InputJsonValue,
+            }
           : {}),
       },
     });

@@ -76,11 +76,9 @@ export interface ListDataTableProps<T extends object> {
   selectedRowId?: string;
   /** Field used to read each row's id (for `selectedRowId` match). */
   rowIdKey?: keyof T;
-  corner?: boolean;
   sortKey?: string | null;
   sortDir?: 'asc' | 'desc';
   onSort?: (key: string) => void;
-  rows?: T[];
   search?: string;
   onSearchChange?: (search: string) => void;
 }
@@ -314,7 +312,7 @@ const TableCell = memo(function TableCell<T extends object>({
     return (
       <td
         key={`${col.id ?? String(col.key)}-${rowIndex}-${colIndex}`}
-        className={`max-w-[260px] overflow-hidden p-3 text-sm font-normal text-foreground [&_a]:text-foreground [&_a]:no-underline [&_*]:text-sm [&_*]:font-normal ${col.className ?? ''}`}
+        className={`max-w-65 overflow-hidden p-3 text-sm font-normal text-foreground [&_a]:text-foreground [&_a]:no-underline **:text-sm **:font-normal ${col.className ?? ''}`}
       >
         <span
           className="block truncate"
@@ -333,7 +331,7 @@ const TableCell = memo(function TableCell<T extends object>({
   return (
     <td
       key={`${col.id ?? String(col.key)}-${rowIndex}-${colIndex}`}
-      className={`max-w-[260px] overflow-hidden p-3 text-sm font-normal text-foreground [&_a]:text-foreground [&_a]:no-underline [&_*]:text-sm [&_*]:font-normal ${col.className ?? ''}`}
+      className={`max-w-65 overflow-hidden p-3 text-sm font-normal text-foreground [&_a]:text-foreground [&_a]:no-underline **:text-sm **:font-normal ${col.className ?? ''}`}
     >
       <span className="block truncate" title={shouldTruncate ? rawText : undefined}>
         {truncateCellValue(rawValue)}
@@ -427,11 +425,9 @@ export function ListDataTable<T extends object>({
   onRowClick,
   selectedRowId,
   rowIdKey = 'id' as keyof T,
-  corner,
   sortKey,
   sortDir,
   onSort,
-  rows: rowsProp,
   search,
   onSearchChange,
 }: ListDataTableProps<T>): React.JSX.Element {
@@ -449,8 +445,6 @@ export function ListDataTable<T extends object>({
   const controlledSortDir = sortDir ?? internalSortDir;
   const pageSize = serverSide ? pageSizeProp : internalPageSize;
   const searchValue = search ?? internalSearch;
-  const setSortKey = (next: string | null) => setInternalSortKey(next);
-  const setSortDir = (next: 'asc' | 'desc') => setInternalSortDir(next);
 
   const setPage = useCallback(
     (nextPage: number | ((current: number) => number)) => {
@@ -529,7 +523,6 @@ export function ListDataTable<T extends object>({
   const paginated = serverSide
     ? sorted
     : sorted.slice((page - 1) * pageSize, page * pageSize);
-  const paginatedRows = paginated;
   const from = rowCount === 0 ? 0 : (page - 1) * pageSize + 1;
   const to = Math.min(page * pageSize, rowCount);
 
@@ -543,28 +536,6 @@ export function ListDataTable<T extends object>({
     setPage(1);
     onSort?.(key);
   };
-
-  const handleExport = useCallback(() => {
-    const headers = columns.map((c) => c.label).join(',');
-    const rows = sorted
-      .map((row) =>
-        columns
-          .map((c) => {
-            const value = getRowFieldValue(row, String(c.key));
-            return `"${String(value ?? '').replace(/"/g, '""')}"`;
-          })
-          .join(','),
-      )
-      .join('\n');
-    const blob = new Blob([headers + '\n' + rows], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'export.csv';
-    a.click();
-    URL.revokeObjectURL(url);
-  }, [sorted, columns]);
-
 
   const pageItems = buildPageItems(page, totalPages);
 
@@ -756,7 +727,7 @@ export function ListDataTable<T extends object>({
                                       : String(col.key),
                                   )
                                 }
-                                className="inline-flex size-[30px] items-center justify-center rounded-lg border border-transparent text-muted hover:border-border focus:outline-none"
+                                className="inline-flex size-7.5 items-center justify-center rounded-lg border border-transparent text-muted hover:border-border focus:outline-none"
                               >
                                 <DashIcon icon="solar:filter-linear" className="size-3.5" />
                               </button>
