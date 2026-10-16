@@ -59,7 +59,9 @@ export function AgencyStorefrontForm({
   const { data: session } = useSession();
   const userId = session?.user?.id ?? '';
   const onCompleteRef = useRef(onComplete);
-  onCompleteRef.current = onComplete;
+  useEffect(() => {
+    onCompleteRef.current = onComplete;
+  }, [onComplete]);
   const [organizations, setOrganizations] = useState<PublicOrganization[]>([]);
   const [organizationRetry, setOrganizationRetry] = useState(0);
   const [organizationLoadFailed, setOrganizationLoadFailed] = useState(false);

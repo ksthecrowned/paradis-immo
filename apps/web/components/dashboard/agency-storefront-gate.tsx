@@ -3,6 +3,7 @@
 import { AgencyStorefrontForm } from '@/components/dashboard/agency-storefront-form';
 import { useRequireSession } from '@/hooks/use-require-session';
 import {
+  AGENCY_STOREFRONT_GATE_EVENT,
   agencyStorefrontNeedsSetup,
   isAgencyStorefrontCompleteCached,
   setAgencyStorefrontCompleteCached,
@@ -15,6 +16,8 @@ import { useCallback, useEffect, useState } from 'react';
 
 const STOREFRONT_ROUTE = ROUTES.agent.storefront;
 
+type GatePhase = 'boot' | 'checking' | 'ready' | 'error';
+
 export function AgencyStorefrontGate({
   children,
 }: {
@@ -26,37 +29,30 @@ export function AgencyStorefrontGate({
   const pathname = usePathname() ?? '';
   const isStorefrontPage = pathname === STOREFRONT_ROUTE;
 
+  const [cacheVersion, setCacheVersion] = useState(0);
   const cachedComplete =
     Boolean(userId) && isAgencyStorefrontCompleteCached(userId);
+
   const [retry, setRetry] = useState(0);
-  const [checking, setChecking] = useState(!cachedComplete);
-  const [error, setError] = useState(false);
+  const [phase, setPhase] = useState<GatePhase>('boot');
   const [needsSetup, setNeedsSetup] = useState(false);
 
-  // Sync after save on the settings page (no API — localStorage only).
   useEffect(() => {
-    if (!userId) return;
-    if (isAgencyStorefrontCompleteCached(userId)) {
-      setNeedsSetup(false);
-      setChecking(false);
-      setError(false);
+    function onCacheChange(): void {
+      setCacheVersion((value) => value + 1);
     }
-  }, [pathname, userId]);
+    window.addEventListener(AGENCY_STOREFRONT_GATE_EVENT, onCacheChange);
+    return () =>
+      window.removeEventListener(AGENCY_STOREFRONT_GATE_EVENT, onCacheChange);
+  }, []);
 
   useEffect(() => {
-    if (!ready || !userId) return;
-
-    if (isAgencyStorefrontCompleteCached(userId)) {
-      setNeedsSetup(false);
-      setChecking(false);
-      setError(false);
-      return;
-    }
+    if (!ready || !userId || cachedComplete) return;
 
     let cancelled = false;
     void Promise.resolve().then(async () => {
-      setChecking(true);
-      setError(false);
+      if (cancelled) return;
+      setPhase('checking');
       try {
         const organizations = await listMyOrganizations();
         if (cancelled) return;
@@ -65,17 +61,16 @@ export function AgencyStorefrontGate({
           setAgencyStorefrontCompleteCached(userId, true);
         }
         setNeedsSetup(incomplete);
+        setPhase('ready');
       } catch {
-        if (!cancelled) setError(true);
-      } finally {
-        if (!cancelled) setChecking(false);
+        if (!cancelled) setPhase('error');
       }
     });
 
     return () => {
       cancelled = true;
     };
-  }, [ready, retry, userId]);
+  }, [cachedComplete, ready, retry, userId, cacheVersion]);
 
   const handleComplete = useCallback(() => {
     if (userId) setAgencyStorefrontCompleteCached(userId, true);
@@ -83,7 +78,7 @@ export function AgencyStorefrontGate({
   }, [userId]);
 
   const showBlockingModal =
-    !isStorefrontPage && !checking && !error && needsSetup;
+    !isStorefrontPage && !cachedComplete && phase === 'ready' && needsSetup;
 
   useEffect(() => {
     if (!showBlockingModal) return;
@@ -94,36 +89,43 @@ export function AgencyStorefrontGate({
     return () => window.removeEventListener('keydown', blockEscape, true);
   }, [showBlockingModal]);
 
-  if (isStorefrontPage) {
+  if (isStorefrontPage || cachedComplete) {
     return <>{children}</>;
   }
 
-  if ((!cachedComplete && checking) || error) {
+  if (phase === 'error') {
     return (
       <div className="mx-auto flex min-h-72 max-w-xl items-center justify-center">
         <div className="w-full rounded-2xl border border-border bg-card p-6 text-center">
-          {error ? (
-            <>
-              <h1 className="text-lg font-semibold text-heading">
-                Vérification impossible
-              </h1>
-              <p className="mt-2 text-sm text-muted">
-                Nous n’avons pas pu vérifier la configuration de votre vitrine.
-                Réessayez pour accéder à votre espace.
-              </p>
-              <button
-                type="button"
-                onClick={() => setRetry((value) => value + 1)}
-                className="mt-4 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
-              >
-                Réessayer
-              </button>
-            </>
-          ) : (
-            <p role="status" className="text-sm text-muted">
-              Vérification de la vitrine de votre agence…
-            </p>
-          )}
+          <h1 className="text-lg font-semibold text-heading">
+            Vérification impossible
+          </h1>
+          <p className="mt-2 text-sm text-muted">
+            Nous n’avons pas pu vérifier la configuration de votre vitrine.
+            Réessayez pour accéder à votre espace.
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              setPhase('boot');
+              setRetry((value) => value + 1);
+            }}
+            className="mt-4 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
+          >
+            Réessayer
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (phase !== 'ready') {
+    return (
+      <div className="mx-auto flex min-h-72 max-w-xl items-center justify-center">
+        <div className="w-full rounded-2xl border border-border bg-card p-6 text-center">
+          <p role="status" className="text-sm text-muted">
+            Vérification de la vitrine de votre agence…
+          </p>
         </div>
       </div>
     );
@@ -143,9 +145,6 @@ export function AgencyStorefrontGate({
             aria-labelledby="agency-storefront-gate-title"
             aria-describedby="agency-storefront-gate-desc"
             className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl border border-border bg-table p-5 shadow-2xl sm:p-7"
-            onKeyDown={(event) => {
-              if (event.key === 'Escape') event.preventDefault();
-            }}
           >
             <div className="mb-5 space-y-1">
               <h2

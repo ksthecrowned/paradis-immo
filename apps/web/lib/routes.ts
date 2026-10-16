@@ -320,6 +320,9 @@ const BREADCRUMB_LABELS: Record<string, string> = {
   storefront: 'Vitrine de l’agence',
 };
 
+/** Intermediate path segments without a dedicated page (no breadcrumb link). */
+const BREADCRUMB_UNLINKED = new Set(['settings']);
+
 export function breadcrumbForPath(pathname: string): { label: string; href?: string }[] {
   const segments = pathname.split('/').filter(Boolean);
   if (segments.length === 0) return [];
@@ -335,7 +338,8 @@ export function breadcrumbForPath(pathname: string): { label: string; href?: str
     const label = BREADCRUMB_LABELS[seg];
     if (!label) continue;
     const isLast = i === segments.length - 1;
-    items.push(isLast ? { label } : { label, href: path });
+    const linkable = !isLast && !BREADCRUMB_UNLINKED.has(seg);
+    items.push(linkable ? { label, href: path } : { label });
   }
   return items;
 }
