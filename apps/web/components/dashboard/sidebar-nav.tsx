@@ -283,7 +283,7 @@ export function SidebarNav({
       aria-label="Navigation principale"
       className="flex h-full flex-col"
     >
-      <div className="flex-1 overflow-y-auto px-3 py-4">
+      <div className="sidebar-scroll flex-1 overflow-y-auto px-3 py-4">
         {groups.map((group) => {
           if (group.items.length === 0) return null;
           return (

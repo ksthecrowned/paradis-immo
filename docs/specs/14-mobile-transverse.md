@@ -17,9 +17,10 @@ Rôles inclus : `SEEKER`, `TENANT`, `GUEST` et `BUYER` (un même compte peut cum
 - Enregistrement des appareils, endpoint `app/config` côté API et aperçu d'annulation présents localement.
 - Changements locaux dans les parcours de réservation et de demande de vente.
 - Chargement des favoris avec les biens associés en cours localement.
+- Le mobile consomme `app/config` au démarrage et au retour au premier plan ; une version sous `minVersion` bloque la navigation et propose le lien de boutique HTTPS configuré.
 
 ### Écarts
-- Le mobile n'utilise pas encore `app/config`.
+- Les politiques `minVersion` et `storeUrl` doivent être renseignées et vérifiées pour chaque boutique avant publication ; les contrôles iOS/Android en binaire distribué restent manuels.
 - L'aperçu d'annulation des visites n'est pas disponible.
 - Les favoris embarquant les biens restent à terminer et à vérifier de bout en bout.
 - Les autres besoins transverses (pagination, uploads, liens profonds, hors-ligne, support, onboarding, écrans sécurité) restent à planifier par rapport aux specs métier.
@@ -150,14 +151,14 @@ Côté client : SQLite local (`drafts`, `upload_queue`, `mutation_queue`) et MMK
 - Les parcours authentifiés d'un SEEKER, TENANT, GUEST ou BUYER sont accessibles dans l'app mobile ; aucune session ou page de portail client n'est disponible sur le web.
 
 ## Priorité
-- **P0** : [x] stockage sécurisé des tokens ; [x] endpoint `app/config` et aperçu d'annulation ; [ ] consommer `app/config` et appliquer la mise à jour forcée.
+- **P0** : [x] stockage sécurisé des tokens ; [x] endpoint `app/config` et aperçu d'annulation ; [x] consommer `app/config` et appliquer la mise à jour forcée localement.
 - **P1** : [x] enregistrement des appareils et corrections locales de réservation/demande ; [ ] aperçu d'annulation des visites, pagination, favoris sans N+1, uploads et liens profonds. Les parcours clients détaillés en 14.6–14.11 sont également à terminer.
 - **P2** : [ ] biométrie, onboarding, anglais, thème sombre, OTA et analytics.
 
 ## Delta d'implémentation
 | ID | Priorité | Delta | État |
 |---|---|---|---|
-| 14.1 | P0 | Brancher `app/config` au mobile et appliquer la politique de version minimale. | À faire |
+| 14.1 | P0 | Brancher `app/config` au mobile et appliquer la politique de version minimale. | Implémenté localement ; politiques de boutique et validation sur appareils à faire |
 | 14.2 | P1 | Terminer favoris avec biens embarqués et aperçu d'annulation des visites. | Partiel / à faire |
 | 14.3 | — | Les espaces de gestion propriétaire et agent restent sur le web et sont exclus du périmètre mobile client. | Hors périmètre |
 | 14.4 | P1 | Compléter pagination, uploads, deep links, messagerie et autres parcours transverses. | À faire |

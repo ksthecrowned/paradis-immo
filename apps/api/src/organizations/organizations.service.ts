@@ -65,7 +65,10 @@ export type PaginatedReviews = {
 const publicOrgWhere: Prisma.OrganizationWhereInput = {
   OR: [
     { isOfficial: true },
-    { type: OrganizationType.AGENCY, shortName: { not: null } },
+    {
+      type: OrganizationType.AGENCY,
+      AND: [{ shortName: { not: null } }, { shortName: { not: '' } }],
+    },
   ],
 };
 

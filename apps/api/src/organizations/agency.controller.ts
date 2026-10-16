@@ -84,7 +84,7 @@ class UpdateAgencyDto {
   @IsOptional() @IsString() @MaxLength(40) phone?: string;
   @IsOptional() @IsString() @MaxLength(200) email?: string;
   @IsOptional() @IsString() @MaxLength(2000) description?: string;
-  @IsOptional() @IsString() @MaxLength(80) shortName?: string;
+  @IsOptional() @IsString() @MinLength(1) @MaxLength(80) shortName?: string;
   @IsOptional() @IsString() @MaxLength(32) logoColor?: string;
   @IsOptional() @IsInt() @Min(1900) foundedYear?: number;
   @IsOptional() @IsObject() openingHours?: Record<string, unknown>;
@@ -171,6 +171,17 @@ export class AgencyController {
     @Body() dto: UpdateAgencyDto,
   ) {
     return this.agency.updateProfile(me.userId, orgId, dto);
+  }
+
+  @Get(':orgId/profile')
+  @UseGuards(AppAuthGuard, OrgContextGuard)
+  @OrganizationContext({ roles: [OrgMemberRole.OWNER, OrgMemberRole.ADMIN] })
+  @ApiOperation({ summary: 'Read the authenticated organization storefront' })
+  profile(
+    @CurrentUser() me: AuthenticatedUser,
+    @Param('orgId') orgId: string,
+  ) {
+    return this.agency.getProfile(me.userId, orgId);
   }
 
   @Post(':orgId/logo')

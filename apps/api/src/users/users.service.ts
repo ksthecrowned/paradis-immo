@@ -99,6 +99,7 @@ export interface PublicOrganization {
   name: string;
   type: string;
   memberRole: string;
+  shortName: string | null;
 }
 
 type UserWithRoles = User & { roles: { role: GlobalRole }[] };
@@ -803,6 +804,7 @@ export class UsersService {
       name: m.organization.name,
       type: m.organization.type,
       memberRole: m.role,
+      shortName: m.organization.shortName,
     }));
   }
 

@@ -40,6 +40,7 @@ export interface PublicOrganization {
   name: string;
   type: string;
   memberRole: string;
+  shortName: string | null;
 }
 
 export async function getMe(): Promise<PublicUser> {

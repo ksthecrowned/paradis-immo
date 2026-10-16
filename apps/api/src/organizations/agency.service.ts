@@ -838,6 +838,13 @@ export class AgencyService {
     },
   ) {
     await this.requireAdmin(actorId, orgId);
+    const shortName = input.shortName?.trim();
+    if (input.shortName !== undefined && !shortName) {
+      throw new BadRequestException({
+        code: 'ORG_SHORT_NAME_REQUIRED',
+        message: 'Le nom public de la vitrine est requis.',
+      });
+    }
     const org = await this.prisma.organization.findUnique({
       where: { id: orgId },
       select: { id: true, type: true },
@@ -862,9 +869,7 @@ export class AgencyService {
         ...(input.description !== undefined
           ? { description: input.description }
           : {}),
-        ...(input.shortName !== undefined
-          ? { shortName: input.shortName }
-          : {}),
+        ...(shortName !== undefined ? { shortName } : {}),
         ...(input.logoColor !== undefined
           ? { logoColor: input.logoColor }
           : {}),
@@ -883,6 +888,34 @@ export class AgencyService {
           : {}),
       },
     });
+  }
+
+  async getProfile(actorId: string, orgId: string) {
+    await this.requireAdmin(actorId, orgId);
+    const org = await this.prisma.organization.findUnique({
+      where: { id: orgId },
+      select: {
+        id: true,
+        name: true,
+        type: true,
+        shortName: true,
+        tagline: true,
+        description: true,
+        address: true,
+        cityLabel: true,
+        phone: true,
+        email: true,
+        foundedYear: true,
+        logoColor: true,
+      },
+    });
+    if (!org) {
+      throw new NotFoundException({
+        code: 'ORGANIZATION_NOT_FOUND',
+        message: 'Organisation introuvable.',
+      });
+    }
+    return org;
   }
 
   /** Store the public agency logo and keep its key on the organization. */

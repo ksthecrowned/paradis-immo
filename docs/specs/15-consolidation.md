@@ -35,7 +35,7 @@ Les tâches de code actuellement suivies comme **isolation sécurité**, **flux 
 | [11 — Notifications](11-notifications.md) | 11.1–11.4 | Plusieurs handlers sont ajoutés localement ; matrice complète, retry, échec et préférences restent à vérifier/compléter. |
 | [12 — Admin](12-admin-back-office.md) | 12.1–12.4 | API de modération, motif, audit et TOTP/RBAC initiaux sont présents localement ; couverture des permissions, journaux, notification de décision et interfaces restent à valider/compléter. |
 | [13 — Recherche et annonces](13-recherche-annonces.md) | 13.1–13.5 | Filtres, visibilité publique, vues et signalements sont présents localement ; autorisation/URLs des documents restent à vérifier. Carte, alertes, médias et fonctions avancées restent à faire. |
-| [14 — Mobile client](14-mobile-transverse.md) | 14.1–14.11 | SecureStore, API `app/config`, devices et plusieurs parcours clients sont présents ; candidature locative, suivi achat classique, recherche paginée, cycle paiement/séjour, notifications cohérentes, maintenance/support et validation de bout en bout restent à faire. Les espaces Owner/Agent ne font pas partie du périmètre mobile client. |
+| [14 — Mobile client](14-mobile-transverse.md) | 14.1–14.11 | SecureStore, consommation de `app/config` avec verrouillage sous `minVersion`, devices et plusieurs parcours clients sont présents localement ; politiques de boutique et validation sur appareils restent manuelles. Candidature locative, suivi achat classique, recherche paginée, cycle paiement/séjour, notifications cohérentes, maintenance/support et validation de bout en bout restent à faire. Les espaces Owner/Agent ne font pas partie du périmètre mobile client. |
 
 ## Décisions encore ouvertes
 

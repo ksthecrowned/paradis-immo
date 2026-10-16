@@ -6,6 +6,7 @@ Permettre à une agence de s'inscrire, d'être affiliée, de gérer son équipe 
 
 ## Audit initial — état local à revalider
 - `Organization` contient `type` (PLATFORM, AGENCY, OWNER), `affiliationStatus` (PENDING, APPROVED, SUSPENDED), `verified`, et des champs vitrine (shortName, tagline, logoColor, foundedYear, `rating`, `reviewCount`, `dealSuccessPercent`).
+- Une agence approuvée n’entre dans l’annuaire public qu’après enregistrement d’un `shortName` non vide. Son administrateur doit renseigner la vitrine avant d’accéder au portail de gestion ; l’API demeure l’autorité de l’accès à son profil.
 - Aucun endpoint de création ou de modification d'organisation. Aucune invitation, aucune gestion des membres.
 - Le choix du rôle dans le parcours web de gestion (`auth/web/role`) crée l'org implicitement. Pour l'agent, il rattache au mécanisme `ensureAgentMembership` (faille, voir 01). Ce parcours est réservé aux propriétaires et membres d'agence, pas aux clients finaux.
 - `OrganizationReview` est seedé : `authorName` en texte libre, `rating` et `reviewCount` statiques sur l'org, pas de `POST`.

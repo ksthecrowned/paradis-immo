@@ -120,6 +120,35 @@ describe('UsersService', () => {
     expect(orgs).toEqual([]);
   });
 
+  it('includes storefront completion status for active organization members', async () => {
+    const user = await prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+      select: { countryId: true },
+    });
+    const organization = await prisma.organization.create({
+      data: {
+        name: 'Users Spec Agency',
+        type: 'AGENCY',
+        countryId: user.countryId,
+        members: { create: { userId, role: 'ADMIN' } },
+      },
+    });
+    try {
+      expect(await users.listMyOrganizations(userId)).toContainEqual({
+        id: organization.id,
+        name: organization.name,
+        type: 'AGENCY',
+        memberRole: 'ADMIN',
+        shortName: null,
+      });
+    } finally {
+      await prisma.organizationMember.deleteMany({
+        where: { organizationId: organization.id },
+      });
+      await prisma.organization.delete({ where: { id: organization.id } });
+    }
+  });
+
   it('updateMe patches seeker prefs and completeSeekerSetup', async () => {
     const q = await prisma.quartier.findFirst({
       where: { name: 'Poto-Poto-Centre' },

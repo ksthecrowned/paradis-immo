@@ -81,6 +81,7 @@ export const ROUTES = {
     expenses: '/agent/expenses',
     finances: '/agent/finances',
     leaseTemplates: '/agent/settings/lease-templates',
+    storefront: '/agent/settings/storefront',
     notifications: '/agent/notifications',
   },
   admin: {
@@ -159,6 +160,7 @@ export const AGENT_NAV: NavItem[] = [
   { href: ROUTES.agent.disputes, label: 'Litiges' },
   { href: ROUTES.agent.expenses, label: 'Dépenses' },
   { href: ROUTES.agent.finances, label: 'Finances' },
+  { href: ROUTES.agent.storefront, label: 'Vitrine de l’agence' },
 ];
 
 export const ADMIN_NAV: NavItem[] = [
@@ -315,6 +317,7 @@ const BREADCRUMB_LABELS: Record<string, string> = {
   moderation: 'Modération',
   reports: 'Signalements',
   config: 'Configuration',
+  storefront: 'Vitrine de l’agence',
 };
 
 export function breadcrumbForPath(pathname: string): { label: string; href?: string }[] {

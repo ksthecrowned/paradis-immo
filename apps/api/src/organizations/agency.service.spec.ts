@@ -207,6 +207,24 @@ describe('AgencyService (spec 02)', () => {
 
     const joined = await agency.acceptInvitation(managerId, inviteToken);
     expect(joined.role).toBe(OrgMemberRole.ADMIN);
+  });
+
+  it('requires a non-empty storefront name and exposes the private profile to admins', async () => {
+    const profile = await agency.getProfile(managerId, orgId);
+    expect(profile).toMatchObject({
+      id: orgId,
+      name: 'Spec02 Immo',
+      shortName: null,
+    });
+
+    await expect(
+      agency.updateProfile(managerId, orgId, { shortName: '   ' }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    const updated = await agency.updateProfile(managerId, orgId, {
+      shortName: '  Spec02 Immo  ',
+    });
+    expect(updated.shortName).toBe('Spec02 Immo');
 
     const members = await agency.listMembers(managerId, orgId);
     expect(members).toHaveLength(1);

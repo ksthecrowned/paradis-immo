@@ -87,6 +87,37 @@ describe('OrganizationsService', () => {
     );
   });
 
+  it('publishes an agency only after its storefront has a public name', async () => {
+    const name = `Unconfigured Agency ${userId.slice(0, 8)}`;
+    const agency = await prisma.organization.create({
+      data: {
+        name,
+        type: 'AGENCY',
+        countryId,
+      },
+    });
+    try {
+      await expect(orgs.getPublic(agency.id)).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+      expect((await orgs.listPublic()).data.some((row) => row.id === agency.id))
+        .toBe(false);
+
+      await prisma.organization.update({
+        where: { id: agency.id },
+        data: { shortName: 'Agence de démonstration' },
+      });
+
+      expect((await orgs.getPublic(agency.id)).shortName).toBe(
+        'Agence de démonstration',
+      );
+      expect((await orgs.listPublic()).data.some((row) => row.id === agency.id))
+        .toBe(true);
+    } finally {
+      await prisma.organization.delete({ where: { id: agency.id } });
+    }
+  });
+
   it('refuses when no OWNER organization was opened by an admin (spec 02)', async () => {
     await expect(orgs.ensureOwnerOrg(userId, countryId)).rejects.toMatchObject({
       response: { code: 'OWNER_ORG_REQUIRED' },

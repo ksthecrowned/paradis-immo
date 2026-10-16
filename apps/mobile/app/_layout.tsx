@@ -4,6 +4,7 @@ import { FeedbackProvider } from '@/context/FeedbackContext';
 import { LocationProvider } from '@/context/LocationContext';
 import { NotificationBootstrap } from '@/components/NotificationBootstrap';
 import { SessionExpiredGate } from '@/components/SessionExpiredGate';
+import { AppVersionGate } from '@/components/AppVersionGate';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
@@ -24,16 +25,17 @@ export default function RootLayout(): React.JSX.Element {
       <SafeAreaProvider>
         <LocationProvider requestOnMount={false}>
           <FeedbackProvider>
-            <NotificationBootstrap />
-            <SessionExpiredGate />
-            <StatusBar style={statusBarStyle} />
-            <Stack
-              screenOptions={{
-                headerShown: false,
-                animation: 'fade',
-                contentStyle: { backgroundColor: colors.bg },
-              }}
-            >
+            <AppVersionGate>
+              <NotificationBootstrap />
+              <SessionExpiredGate />
+              <StatusBar style={statusBarStyle} />
+              <Stack
+                screenOptions={{
+                  headerShown: false,
+                  animation: 'fade',
+                  contentStyle: { backgroundColor: colors.bg },
+                }}
+              >
               <Stack.Screen name="index" />
               <Stack.Screen name="welcome" />
               <Stack.Screen name="onboarding/index" />
@@ -245,7 +247,8 @@ export default function RootLayout(): React.JSX.Element {
                   animation: 'slide_from_right',
                 }}
               />
-            </Stack>
+              </Stack>
+            </AppVersionGate>
           </FeedbackProvider>
         </LocationProvider>
       </SafeAreaProvider>
