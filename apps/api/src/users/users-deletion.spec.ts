@@ -1,6 +1,7 @@
 import { Test } from '@nestjs/testing';
 import { ConflictException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { AgencyAccessService } from '../mandates/agency-access.service';
 import { UsersService } from './users.service';
 
 describe('UsersService account deletion (spec 01)', () => {
@@ -16,7 +17,7 @@ describe('UsersService account deletion (spec 01)', () => {
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
-      providers: [UsersService, PrismaService],
+      providers: [UsersService, PrismaService, AgencyAccessService],
     }).compile();
     users = moduleRef.get(UsersService);
     prisma = moduleRef.get(PrismaService);

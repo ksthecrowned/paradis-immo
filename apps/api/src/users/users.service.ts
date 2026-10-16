@@ -13,7 +13,6 @@ import {
   GlobalRole,
   MemberStatus,
   NotificationChannel,
-  OrgMemberRole,
   SeekerExperience,
   SeekerIntent,
   User,
@@ -23,6 +22,7 @@ import { EmailService } from '../auth/email.service';
 import { InfobipOtpService } from '../auth/infobip-otp.service';
 import { MagicLinkStore } from '../auth/magic-link.store';
 import { OtpStore } from '../auth/otp.store';
+import { AgencyAccessService } from '../mandates/agency-access.service';
 
 export interface PublicUser {
   id: string;
@@ -78,12 +78,6 @@ export interface SessionItem {
 }
 
 const LOOKUP_MAX_PER_HOUR = 20;
-const LOOKUP_ROLES: OrgMemberRole[] = [
-  OrgMemberRole.OWNER,
-  OrgMemberRole.ADMIN,
-  OrgMemberRole.AGENT,
-];
-
 /** "Jean Mbemba" → "Jean M." — keeps first name + initial, drops the rest. */
 export function maskDisplayName(name: string | null): string | null {
   const trimmed = name?.trim();
@@ -122,8 +116,9 @@ type UpdateMePatch = {
 export class UsersService {
   constructor(
     private readonly prisma: PrismaService,
-    // Spec 01 P1 deps are optional so focused unit tests that only exercise
-    // lookup / deletion can instantiate the service with Prisma alone.
+    private readonly agencyAccess: AgencyAccessService,
+    // Spec 01 P1 deps are optional so focused unit tests can omit unrelated
+    // integrations; property lookup always requires the access service.
     @Optional() private readonly otpStore?: OtpStore,
     @Optional() private readonly infobip?: InfobipOtpService,
     @Optional() private readonly magicLinks?: MagicLinkStore,
@@ -449,37 +444,32 @@ export class UsersService {
   /**
    * `GET users/lookup?phone=` — spec 01.
    *
-   * Restricted to members of an organization (OWNER / ADMIN / AGENT): a plain
-   * seeker or tenant must not be able to enumerate accounts by phone number.
-   * The name is masked, no email or avatar is ever returned, and each caller
-   * is limited to 20 lookups per hour.
+   * Lookup is tied to a property the caller may operate on; a plain org
+   * membership is not sufficient context to enumerate accounts. The name is
+   * masked, no email or avatar is returned, and callers are rate limited.
    */
   async lookupForManager(
     callerId: string,
     phone: string,
+    propertyId: string,
   ): Promise<UserLookupPublicResult> {
     const normalized = this.requireE164(phone);
-
-    const membership = await this.prisma.organizationMember.findFirst({
-      where: {
-        userId: callerId,
-        status: MemberStatus.ACTIVE,
-        role: { in: LOOKUP_ROLES },
-      },
-      select: { id: true },
+    await this.agencyAccess.assertCanOperateOnProperty(callerId, propertyId);
+    const property = await this.prisma.property.findUnique({
+      where: { id: propertyId },
+      select: { countryId: true },
     });
-    if (!membership) {
-      throw new ForbiddenException({
-        code: 'ORG_MEMBERSHIP_REQUIRED',
-        message:
-          'La recherche par numéro est réservée aux membres d’une organisation.',
+    if (!property) {
+      throw new NotFoundException({
+        code: 'PROPERTY_NOT_FOUND',
+        message: 'Property does not exist',
       });
     }
 
     await this.assertLookupUnderLimit(callerId);
 
     const user = await this.prisma.user.findFirst({
-      where: { phone: normalized },
+      where: { phone: normalized, countryId: property.countryId },
       select: { id: true, name: true },
     });
     return {

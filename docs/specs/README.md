@@ -57,7 +57,7 @@ Les constats ci-dessous décrivent uniquement l'audit de départ. Ils sont conse
 
 1. `OrganizationsService.ensureAgentMembership` rend n'importe quel utilisateur AGENT de Paradis Immo, ce qui ouvre une escalade de privilèges (01, 02).
 2. `GET properties/:id/documents` n'a aucun guard : titres fonciers et plans sont publics (13).
-3. `GET users/lookup` permet d'énumérer les comptes par numéro de téléphone (01).
+3. Le lookup téléphonique doit rester borné à un bien accessible et au pays de ce bien (01).
 4. `initiatePayment` accepte un montant fourni par le client, ne le compare pas à l'échéance et ne vérifie pas que le payeur est le locataire (05).
 5. `MobileMoneyProvider` est un stub : aucun paiement mobile money réel n'est possible (05).
 6. Seuls 4 handlers `@OnEvent` existent (3 notifications + reçu). `LEASE_CREATED`, `MANDATE_ACTION_PENDING`, `VISIT_BOOKING_CONFIRMED`, `MAINTENANCE_OPENED` et `PAYMENT_INITIATED` sont émis sans que personne ne les écoute (11).

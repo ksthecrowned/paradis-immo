@@ -265,8 +265,12 @@ export function LeaseForm({
     if (!isPhoneComplete(form.values.tenantPhoneNational, phoneCountry)) return;
     const e164 = getPhoneE164(form.values.tenantPhoneNational, phoneCountry);
     if (!e164) return;
+    if (!form.values.propertyId) {
+      setLookupHint('Sélectionnez un bien avant de vérifier le numéro.');
+      return;
+    }
     try {
-      const user = await lookupUserByPhone(e164);
+      const user = await lookupUserByPhone(e164, form.values.propertyId);
       setAccountFound(user.exists);
       if (user.exists) {
         setTenantPreview({ name: user.displayName, phone: user.phone });
@@ -366,7 +370,12 @@ export function LeaseForm({
               <SelectSearch
                 name="propertyId"
                 value={form.values.propertyId}
-                onChange={(v) => form.setField('propertyId', v)}
+                onChange={(v) => {
+                  form.setField('propertyId', v);
+                  setTenantPreview(null);
+                  setAccountFound(null);
+                  setLookupHint(null);
+                }}
                 options={properties.map((p) => ({
                   value: p.id,
                   label: p.title,

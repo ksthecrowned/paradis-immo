@@ -70,7 +70,7 @@ function amenitiesFor(property: PublicProperty): Amenity[] {
 function listingBadgeClass(property: PublicProperty): string {
   switch (property.listingStatus) {
     case 'UNDER_OFFER':
-      return 'bg-warning text-heading';
+      return 'bg-warning text-on-warning';
     case 'SOLD':
     case 'OCCUPIED':
       return 'bg-muted text-on-accent';
@@ -117,15 +117,19 @@ function MarketPropertyCard({
           sizes="(max-width: 640px) 100vw, (max-width: 1280px) 50vw, 25vw"
         />
         <div
-          className="pointer-events-none absolute inset-0 bg-gradient-to-t from-heading/35 via-transparent to-heading/10"
+          className="pointer-events-none absolute inset-0 bg-linear-to-t from-black/35 via-transparent to-black/10"
+          aria-hidden
+        />
+        <div
+          className="pointer-events-none absolute inset-x-0 top-0 h-26 bg-linear-to-b from-black/45 to-transparent"
           aria-hidden
         />
         <span
-          className={`absolute start-3 top-3 max-w-[65%] truncate rounded-md px-2.5 py-1 text-xs font-semibold shadow-sm ${listingBadgeClass(property)}`}
+          className={`absolute inset-s-3 top-3 max-w-[65%] truncate rounded-md px-2.5 py-1 text-xs font-semibold shadow-sm ${listingBadgeClass(property)}`}
         >
           {badge}
         </span>
-        <span className="absolute end-3 top-3">
+        <span className="absolute inset-e-3 top-3">
           <StatusBadge
             label={propertyStatusLabel(property.status)}
             tone={propertyStatusTone(property.status)}

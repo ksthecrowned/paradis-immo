@@ -11,12 +11,18 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiQuery,
+  ApiTags,
+} from '@nestjs/swagger';
 import type { Request as ExpressRequest } from 'express';
 import {
   IsBoolean,
   IsOptional,
   IsString,
+  IsUUID,
   Matches,
   MaxLength,
 } from 'class-validator';
@@ -27,6 +33,9 @@ import { UpdateMeDto } from './dto/update-me.dto';
 import { UsersService } from './users.service';
 
 class LookupUserQueryDto {
+  @IsUUID()
+  propertyId!: string;
+
   @IsString()
   @Matches(/^\+\d{7,15}$/, {
     message: 'phone must be E.164 (+country…)',
@@ -209,12 +218,18 @@ export class UsersController {
   @Get('lookup')
   @ApiOperation({
     summary:
-      'Lookup a registered user by E.164 phone — org members only, masked name (spec 01)',
+      'Lookup a registered user by E.164 phone for an authorized property (spec 01)',
   })
+  @ApiQuery({ name: 'propertyId', required: true, type: String })
+  @ApiQuery({ name: 'phone', required: true, type: String })
   async lookup(
     @CurrentUser() current: AuthenticatedUser,
     @Query() query: LookupUserQueryDto,
   ) {
-    return this.users.lookupForManager(current.userId, query.phone);
+    return this.users.lookupForManager(
+      current.userId,
+      query.phone,
+      query.propertyId,
+    );
   }
 }

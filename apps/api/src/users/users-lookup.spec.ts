@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { MemberStatus, OrgMemberRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { AgencyAccessService } from '../mandates/agency-access.service';
 import { UsersService } from './users.service';
 
 describe('UsersService.lookupByPhone', () => {
@@ -17,7 +18,7 @@ describe('UsersService.lookupByPhone', () => {
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
-      providers: [UsersService, PrismaService],
+      providers: [UsersService, PrismaService, AgencyAccessService],
     }).compile();
     users = moduleRef.get(UsersService);
     prisma = moduleRef.get(PrismaService);
@@ -75,10 +76,11 @@ describe('UsersService.lookupForManager (spec 01)', () => {
   let managerId: string;
   let outsiderId: string;
   let orgId: string;
+  let propertyId: string;
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
-      providers: [UsersService, PrismaService],
+      providers: [UsersService, PrismaService, AgencyAccessService],
     }).compile();
     users = moduleRef.get(UsersService);
     prisma = moduleRef.get(PrismaService);
@@ -110,11 +112,34 @@ describe('UsersService.lookupForManager (spec 01)', () => {
         affiliationStatus: 'APPROVED',
         countryId: country.id,
         members: {
-          create: { userId: managerId, role: OrgMemberRole.AGENT },
+          create: [
+            { userId: managerId, role: OrgMemberRole.ADMIN },
+            { userId: outsiderId, role: OrgMemberRole.AGENT },
+          ],
         },
       },
     });
     orgId = org.id;
+    const quartier = await prisma.quartier.findFirstOrThrow({
+      where: { arrondissement: { city: { countryId: country.id } } },
+    });
+    const property = await prisma.property.create({
+      data: {
+        title: 'Lookup Spec Property',
+        description: 'Property used to scope user lookup tests.',
+        type: 'APARTMENT',
+        mode: 'RENT_LONG',
+        price: 100000,
+        currency: 'XAF',
+        priceUnit: 'MONTH',
+        quartierId: quartier.id,
+        address: 'Lookup test',
+        countryId: country.id,
+        ownerId: targetId,
+        organizationId: orgId,
+      },
+    });
+    propertyId = property.id;
   });
 
   afterAll(async () => {
@@ -128,6 +153,9 @@ describe('UsersService.lookupForManager (spec 01)', () => {
         },
       },
     });
+    if (propertyId) {
+      await prisma.property.deleteMany({ where: { id: propertyId } });
+    }
     await prisma.organizationMember.deleteMany({
       where: { organizationId: orgId },
     });
@@ -138,14 +166,14 @@ describe('UsersService.lookupForManager (spec 01)', () => {
     await prisma.onModuleDestroy();
   });
 
-  it('rejects a user without any organization membership (403)', async () => {
+  it('rejects a user without access to the selected property (403)', async () => {
     await expect(
-      users.lookupForManager(outsiderId, targetPhone),
+      users.lookupForManager(outsiderId, targetPhone, propertyId),
     ).rejects.toBeInstanceOf(ForbiddenException);
   });
 
-  it('returns a masked name for an org member', async () => {
-    const found = await users.lookupForManager(managerId, targetPhone);
+  it('returns a masked name for a manager of the selected property', async () => {
+    const found = await users.lookupForManager(managerId, targetPhone, propertyId);
     expect(found).toEqual({
       exists: true,
       userId: targetId,
@@ -157,7 +185,11 @@ describe('UsersService.lookupForManager (spec 01)', () => {
   });
 
   it('answers exists:false instead of throwing for an unknown number', async () => {
-    const found = await users.lookupForManager(managerId, '+242069999998');
+    const found = await users.lookupForManager(
+      managerId,
+      '+242069999998',
+      propertyId,
+    );
     expect(found.exists).toBe(false);
     expect(found.userId).toBeNull();
     expect(found.displayName).toBeNull();
@@ -172,7 +204,7 @@ describe('UsersService.lookupForManager (spec 01)', () => {
     });
     try {
       await expect(
-        users.lookupForManager(managerId, targetPhone),
+        users.lookupForManager(managerId, targetPhone, propertyId),
       ).rejects.toBeInstanceOf(ForbiddenException);
       const organizations = await users.listMyOrganizations(managerId);
       expect(organizations.some((org) => org.id === orgId)).toBe(false);
@@ -193,7 +225,7 @@ describe('UsersService.lookupForManager (spec 01)', () => {
     let limited: unknown = null;
     for (let i = 0; i < 21 && !limited; i++) {
       try {
-        await users.lookupForManager(managerId, targetPhone);
+        await users.lookupForManager(managerId, targetPhone, propertyId);
       } catch (err) {
         limited = err;
       }

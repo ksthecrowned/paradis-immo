@@ -103,9 +103,10 @@ export interface UserLookupResult {
 
 export async function lookupUserByPhone(
   phone: string,
+  propertyId: string,
 ): Promise<UserLookupResult> {
   return apiFetch<UserLookupResult>(
-    `/users/lookup?phone=${encodeURIComponent(phone)}`,
+    `/users/lookup?phone=${encodeURIComponent(phone)}&propertyId=${encodeURIComponent(propertyId)}`,
   );
 }
 

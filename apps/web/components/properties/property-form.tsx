@@ -36,7 +36,6 @@ import {
   DEFAULT_PHONE_COUNTRY,
   type PhoneCountrySelection,
 } from '@/lib/phone';
-import { lookupUserByPhone } from '@/lib/owner/leases';
 import {
   listArrondissements,
   listCities,
@@ -463,11 +462,6 @@ export function PropertyForm({
   const [phoneCountry, setPhoneCountry] = useState<PhoneCountrySelection>(
     DEFAULT_PHONE_COUNTRY,
   );
-  const [ownerPreview, setOwnerPreview] = useState<{
-    name: string | null;
-    phone: string;
-  } | null>(null);
-  const [ownerLookupHint, setOwnerLookupHint] = useState<string | null>(null);
   const [cities, setCities] = useState<PublicCity[]>([]);
   const [arrondissements, setArrondissements] = useState<PublicArrondissement[]>([]);
   const [quartiers, setQuartiers] = useState<PublicQuartier[]>([]);
@@ -637,46 +631,6 @@ export function PropertyForm({
       }
     },
   });
-
-  useEffect(() => {
-    if (!isAgentVariant) return;
-    if (!isPhoneComplete(form.values.ownerPhoneNational, phoneCountry)) {
-      void Promise.resolve().then(() => {
-        setOwnerPreview(null);
-        setOwnerLookupHint(null);
-      });
-      return;
-    }
-    const e164 = getPhoneE164(form.values.ownerPhoneNational, phoneCountry);
-    if (!e164) return;
-    let cancelled = false;
-    void (async () => {
-      try {
-        const user = await lookupUserByPhone(e164);
-        if (cancelled) return;
-        if (user.exists) {
-          // Masked name only (spec 01) — never prefilled into ownerName.
-          setOwnerPreview({ name: user.displayName, phone: user.phone });
-          setOwnerLookupHint(null);
-        } else {
-          setOwnerPreview(null);
-          setOwnerLookupHint(
-            'Aucun compte trouvé — un profil propriétaire minimal sera créé.',
-          );
-        }
-      } catch {
-        if (cancelled) return;
-        setOwnerPreview(null);
-        setOwnerLookupHint(
-          'Recherche indisponible — un profil propriétaire minimal sera créé.',
-        );
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form.values.ownerPhoneNational, phoneCountry, isAgentVariant]);
 
   useEffect(() => {
     if (!ready) return;
@@ -948,23 +902,10 @@ export function PropertyForm({
                   value={form.values.ownerPhoneNational}
                   country={phoneCountry}
                   onCountryChange={setPhoneCountry}
-                  onChange={(v) => {
-                    form.setField('ownerPhoneNational', v);
-                    setOwnerPreview(null);
-                    setOwnerLookupHint(null);
-                  }}
+                  onChange={(v) => form.setField('ownerPhoneNational', v)}
                   invalid={!!form.errors.ownerPhoneNational}
                 />
               </FormField>
-              {ownerPreview ? (
-                <p className="text-sm text-muted">
-                  Compte trouvé : {ownerPreview.name ?? 'Sans nom'} (
-                  {ownerPreview.phone})
-                </p>
-              ) : null}
-              {ownerLookupHint ? (
-                <p className="text-sm text-muted">{ownerLookupHint}</p>
-              ) : null}
               <FormField
                 name="ownerName"
                 label="Nom du propriétaire"

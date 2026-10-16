@@ -14,7 +14,8 @@ Rôles : `SEEKER` (anonyme ou connecté), `OWNER`, `MANAGER`, `AGENT`, `PLATFORM
 - Carte (bbox/rayon), suggestions, biens similaires, historique des prix et statistiques détaillées ne sont pas implémentés.
 - Il manque le réordonnancement des médias, score de qualité et partage sécurisé des documents.
 - Les recherches sauvegardées et alertes ne sont pas réalisées.
-- Les éléments ci-dessus ne préjugent pas de la sécurité déjà en place pour les documents : leurs contrôles d'accès et URL signées restent à valider.
+- Les éléments ci-dessus ne préjugent pas de la sécurité déjà en place pour les documents : les contrôles d'accès et URL signées sont couverts par les tests locaux; la configuration R2 et les téléchargements réels restent à valider en préproduction.
+- Le partage explicite et le choix `isPublic` ne sont pas implémentés : le comportement local reste plus restrictif, tous les documents de bien étant privés.
 
 ## User stories
 1. En tant que chercheur, je filtre par :
@@ -167,14 +168,14 @@ model PropertyDailyStat {
 - Les photos confirmées ont des miniatures WebP et aucune donnée EXIF GPS.
 
 ## Priorité
-- **P0** : [x] exclusion des biens OCCUPIED/SOLD ; [ ] vérifier contrôle d'accès et URL signées pour les documents privés.
+- **P0** : [x] exclusion des biens OCCUPIED/SOLD ; [x] contrôle d'accès et URL signées côté code ; [ ] valider bucket et téléchargements en préproduction.
 - **P1** : [x] filtres de recherche de base étendus ; [ ] carte, suggestions, tri avancé, filtres complets, médias ordonnables, statistiques et pagination mobile.
 - **P2** : [ ] recherches sauvegardées/alertes, biens similaires, historique de prix, score qualité, visite virtuelle, miniatures/EXIF, SEO et partage de documents.
 
 ## Delta d'implémentation
 | ID | Priorité | Delta | État |
 |---|---|---|---|
-| 13.1 | P0 | Vérifier l'autorisation et les URL signées des documents non publics. | À vérifier |
+| 13.1 | P0 | Vérifier l'autorisation et les URL signées des documents non publics. | **Code local couvert.** La route exige l'authentification, `AgencyAccessService` autorise le bien avant lecture/écriture et le stockage privé signe les `fileKey` pour 5 minutes; les URLs legacy sans clé et les échecs de signature ne retombent pas sur une URL publique. Les tests unitaires couvrent ces cas. Bucket privé, migration et téléchargement réel restent à valider en préproduction via la checklist. |
 | 13.2 | P1 | Ajouter carte/bbox, suggestions, tri avancé, compléments de filtres et pagination mobile. | À faire |
 | 13.3 | P1 | Ajouter ordre/couverture des médias et statistiques d'annonce. | À faire |
 | 13.4 | P2 | Ajouter recherches sauvegardées/alertes, biens similaires, historique de prix et score qualité. | À faire |

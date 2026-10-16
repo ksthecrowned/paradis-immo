@@ -39,7 +39,8 @@ Concerne tous les rôles. `PLATFORM_ADMIN` intervient pour la suspension et le K
   - L'ancien numéro reste en historique (`UserPhoneHistory`) pour l'audit.
   - Les notifications SMS et WhatsApp utilisent immédiatement le nouveau numéro, et l'ancien reçoit un SMS d'information.
 - **Lookup**
-  - Réservé aux membres OWNER, ADMIN ou AGENT d'une org (`OrgContextGuard`), limité à 20 appels par heure et par user.
+  - Obligatoirement contextualisé par `propertyId`. Réservé au propriétaire, au gérant de l'agence mandatée ou à l'agent assigné au bien (`AgencyAccessService`); une appartenance à une organisation sans accès à ce bien ne suffit pas.
+  - Le numéro est recherché uniquement dans le pays du bien. Limite de 20 appels par heure et par user, après contrôle d'accès.
   - Réponse : `{ exists, userId, displayName: "Jean M." }`, sans e-mail ni avatar.
 - **Suppression**
   - Soft delete (`deletedAt`) puis anonymisation à J+30 : nom, téléphone, e-mail, avatar et tokens push.
@@ -130,7 +131,7 @@ model DataExportRequest {
 | POST | `users/me/consents` | `{ termsVersion, marketingOptIn }` |
 | POST | `kyc/submissions` | Upload d'une pièce (user ou org) |
 | GET | `kyc/submissions/mine` | Mes soumissions |
-| GET | `users/lookup` | **Modifié** : guard org, rate limit, réponse masquée |
+| GET | `users/lookup?propertyId=&phone=` | Contrôle d'accès au bien, pays du bien, rate limit et réponse masquée |
 
 `auth/otp/verify`, `auth/web/*` et `auth/admin/*` acceptent en plus `{ deviceId, deviceName, platform }`. `auth/web/*` ne sert qu'aux comptes du portail de gestion (agents, propriétaires, admins d'agence) ; les chercheurs, locataires, voyageurs et acheteurs utilisent l'app mobile.
 
@@ -159,7 +160,7 @@ model DataExportRequest {
 ## Delta d'implémentation
 | ID | Priorité | Delta | État |
 |---|---|---|---|
-| 01.1 | P0 | Supprimer l'attribution implicite du rôle AGENT, limiter le lookup et protéger les routes privées contre l'énumération. | **Partiel.** La création de profil par téléphone attribue TENANT ; le lookup HTTP masque le nom, applique un rate limit et exige une appartenance ACTIVE avec rôle autorisé. La recherche reste globale par numéro : confirmer que ce périmètre répond au besoin métier. |
+| 01.1 | P0 | Supprimer l'attribution implicite du rôle AGENT, limiter le lookup et protéger les routes privées contre l'énumération. | **Partiel.** La création de profil par téléphone attribue TENANT ; le lookup HTTP exige un bien accessible via `AgencyAccessService`, recherche dans le pays de ce bien, masque le nom et limite à 20 appels/heure. Les validations locales couvrent l'accès autorisé/refusé et le rate limit ; l'audit complet des routes privées reste ouvert. |
 | 01.2 | P0 | Ajouter logout, révocation des sessions, rate limits OTP, suspension et suppression de compte conformes aux stores. | **Partiel.** Déconnexion/révocation, limitation OTP, vérification de suspension et demande/annulation de suppression sont présentes. Vérifier la purge/anonymisation différée et l'exhaustivité des blocages avant clôture. |
 | 01.3 | P1 | Compléter gestion des sessions, changement de téléphone/e-mail et KYC privé. | **Partiel.** Sessions, révocation, changements vérifiés téléphone/e-mail et URLs KYC signées existent. L'accès KYC organisation est maintenant limité aux membres ACTIVE OWNER/ADMIN, y compris après retrait d'accès ; vérifier encore le périmètre des listes administratives et des tests d'accès négatifs. |
 | 01.4 | P2 | Ajouter export de données et consentements versionnés. | **Partiel.** Export JSON téléchargeable depuis un stockage privé et consentements versionnés sont présents. Vérifier l'exhaustivité légale des données exportées, leur durée de disponibilité et l'expérience de re-consentement. |

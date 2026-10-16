@@ -34,6 +34,14 @@ export async function logout(callbackUrl = '/login'): Promise<void> {
   }
   const { invalidateAccessTokenCache } = await import('@/lib/api');
   invalidateAccessTokenCache();
+  try {
+    const { clearAgencyStorefrontCompleteCache } = await import(
+      '@/lib/agent/storefront-gate-storage'
+    );
+    clearAgencyStorefrontCompleteCache();
+  } catch {
+    // Best-effort client cache cleanup.
+  }
   await signOut({ callbackUrl });
 }
 
