@@ -7,25 +7,16 @@ import {
   type OwnerVisitRow,
 } from '@/app/owner/dashboard/owner-dashboard';
 import { useRequireSession } from '@/hooks/use-require-session';
-import { ApiError, apiFetch } from '@/lib/api';
+import { ApiError } from '@/lib/api';
 import {
-  buildDailySparkline,
   buildPropertyModeSeries,
-  countByCreatedDay,
   type PropertyModeSeries,
 } from '@/lib/dashboard/chart-series';
-import { listManagedLeases } from '@/lib/owner/leases';
 import { listManagedPayments, type PublicPayment } from '@/lib/owner/payments';
 import { listManagedProperties } from '@/lib/owner/properties';
 import { fetchOwnerStats } from '@/lib/owner/stats';
+import { listManagedVisits, type PublicVisitBooking } from '@/lib/visits';
 import { useEffect, useState } from 'react';
-
-interface PublicVisitBooking {
-  id: string;
-  status: string;
-  propertyId: string;
-  createdAt: string;
-}
 
 function formatMoney(amount: string, currency: string): string {
   return new Intl.NumberFormat('fr-FR', {
@@ -50,34 +41,28 @@ export default function OwnerDashboardPage(): React.JSX.Element {
   const [visits, setVisits] = useState<OwnerVisitRow[]>([]);
   const [chartPayments, setChartPayments] = useState<PublicPayment[]>([]);
   const [modeSeries, setModeSeries] = useState<PropertyModeSeries | undefined>();
-  const [sparklines, setSparklines] = useState<
-    | {
-        properties: number[];
-        leases: number[];
-        payments: number[];
-        visits: number[];
-      }
-    | undefined
-  >();
   const [error, setError] = useState<string | null>(null);
+  const [visitsError, setVisitsError] = useState<string | null>(null);
+  const [paymentsError, setPaymentsError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!ready) return;
     let cancelled = false;
     (async (): Promise<void> => {
-      const [statsResult, paymentRows, visitRows, propertyRows, leaseRows] =
+      const [statsResult, paymentsResult, visitsResult, propertiesResult] =
         await Promise.all([
           fetchOwnerStats()
             .then((s) => ({ ok: true as const, s }))
             .catch((err: unknown) => ({ ok: false as const, err })),
           listManagedPayments({ pageSize: 100 })
-            .then((r) => r.data)
-            .catch(() => [] as PublicPayment[]),
-          apiFetch<PublicVisitBooking[]>('/visits/managed').catch(
-            () => [] as PublicVisitBooking[],
-          ),
-          listManagedProperties().catch(() => []),
-          listManagedLeases().then((r) => r.data).catch(() => []),
+            .then((r) => ({ ok: true as const, data: r.data }))
+            .catch((err: unknown) => ({ ok: false as const, err })),
+          listManagedVisits()
+            .then((rows) => ({ ok: true as const, rows }))
+            .catch((err: unknown) => ({ ok: false as const, err })),
+          listManagedProperties()
+            .then((rows) => ({ ok: true as const, rows }))
+            .catch((err: unknown) => ({ ok: false as const, err })),
         ]);
       if (cancelled) return;
 
@@ -87,61 +72,94 @@ export default function OwnerDashboardPage(): React.JSX.Element {
             ? statsResult.err.message
             : 'Erreur de chargement des indicateurs',
         );
-        setCounts({
-          activeProperties: 0,
-          activeLeases: 0,
-          pendingPayments: 0,
-          pendingVisitRequests: 0,
-        });
-      } else {
-        setError(null);
-        setCounts({
-          activeProperties: statsResult.s.activeProperties,
-          activeLeases: statsResult.s.activeLeases,
-          pendingPayments: statsResult.s.pendingPayments,
-          pendingVisitRequests: statsResult.s.pendingVisitRequests,
-        });
+        setCounts(null);
+        return;
       }
 
-      setPayments(
-        paymentRows.slice(0, 5).map((p) => ({
-          id: p.id,
-          date: formatDate(p.createdAt),
-          amount: formatMoney(p.amount, p.currency),
-          status: p.status,
-          method: p.method,
-        })),
-      );
-      setVisits(
-        visitRows.slice(0, 5).map((v) => ({
-          id: v.id,
-          date: formatDate(v.createdAt),
-          status: v.status,
-          propertyId: v.propertyId,
-        })),
-      );
-      setChartPayments(paymentRows);
-      setModeSeries(buildPropertyModeSeries(propertyRows));
-
-      const paymentByDay = countByCreatedDay(
-        paymentRows.filter((p) => p.status === 'PENDING_VALIDATION'),
-      );
-      const visitByDay = countByCreatedDay(visitRows);
-      const leaseCount = leaseRows.filter((l) => l.status === 'ACTIVE').length;
-      const propertyCount = propertyRows.filter(
-        (p) => p.status === 'ACTIVE',
-      ).length;
-      setSparklines({
-        properties: buildDailySparkline(() => propertyCount),
-        leases: buildDailySparkline(() => leaseCount),
-        payments: buildDailySparkline((day) => paymentByDay.get(day) ?? 0),
-        visits: buildDailySparkline((day) => visitByDay.get(day) ?? 0),
+      setError(null);
+      setCounts({
+        activeProperties: statsResult.s.activeProperties,
+        draftProperties: statsResult.s.draftProperties,
+        activeLeases: statsResult.s.activeLeases,
+        pendingPayments: statsResult.s.pendingPayments,
+        overdueSchedules: statsResult.s.overdueSchedules,
+        pendingVisitRequests: statsResult.s.pendingVisitRequests,
+        openMaintenanceTickets: statsResult.s.openMaintenanceTickets,
+        pendingApplications: statsResult.s.pendingApplications,
       });
+
+      const titleById = new Map<string, string>();
+      if (propertiesResult.ok) {
+        for (const p of propertiesResult.rows) {
+          titleById.set(p.id, p.title);
+        }
+        setModeSeries(buildPropertyModeSeries(propertiesResult.rows));
+      } else {
+        setModeSeries(undefined);
+      }
+
+      if (paymentsResult.ok) {
+        setPaymentsError(null);
+        setPayments(
+          paymentsResult.data.slice(0, 5).map((p) => ({
+            id: p.id,
+            date: formatDate(p.createdAt),
+            amount: formatMoney(p.amount, p.currency),
+            status: p.status,
+            method: p.method,
+            propertyTitle: p.propertyId
+              ? (titleById.get(p.propertyId) ?? `${p.propertyId.slice(0, 8)}…`)
+              : '—',
+          })),
+        );
+        setChartPayments(paymentsResult.data);
+      } else {
+        setPayments([]);
+        setChartPayments([]);
+        setPaymentsError(
+          paymentsResult.err instanceof ApiError
+            ? paymentsResult.err.message
+            : 'Impossible de charger les paiements.',
+        );
+      }
+
+      if (visitsResult.ok) {
+        setVisitsError(null);
+        setVisits(
+          visitsResult.rows
+            .filter((v: PublicVisitBooking) => v.status === 'PENDING')
+            .slice(0, 5)
+            .map((v) => ({
+              id: v.id,
+              date: formatDate(v.slotStartAt ?? v.createdAt),
+              status: v.status,
+              propertyId: v.propertyId,
+              propertyTitle:
+                titleById.get(v.propertyId) ??
+                `${v.propertyId.slice(0, 8)}…`,
+            })),
+        );
+      } else {
+        setVisits([]);
+        setVisitsError(
+          visitsResult.err instanceof ApiError
+            ? visitsResult.err.message
+            : 'Impossible de charger les visites.',
+        );
+      }
     })();
     return () => {
       cancelled = true;
     };
   }, [ready]);
+
+  if (error && !counts) {
+    return (
+      <div className="rounded-lg border border-danger/40 bg-danger/10 p-4 text-sm text-danger">
+        {error}
+      </div>
+    );
+  }
 
   if (!counts) {
     return (
@@ -164,20 +182,14 @@ export default function OwnerDashboardPage(): React.JSX.Element {
   }
 
   return (
-    <>
-      {error ? (
-        <div className="mb-4 rounded-lg border border-danger/40 bg-danger/10 p-4 text-sm text-danger">
-          {error}
-        </div>
-      ) : null}
-      <OwnerDashboard
-        counts={counts}
-        payments={payments}
-        visits={visits}
-        chartPayments={chartPayments}
-        modeSeries={modeSeries}
-        sparklines={sparklines}
-      />
-    </>
+    <OwnerDashboard
+      counts={counts}
+      payments={payments}
+      visits={visits}
+      chartPayments={chartPayments}
+      modeSeries={modeSeries}
+      visitsError={visitsError}
+      paymentsError={paymentsError}
+    />
   );
 }

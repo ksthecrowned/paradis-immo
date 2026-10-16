@@ -14,18 +14,24 @@ import { DASH_CHART_COLORS, DASH_STAT_ICONS } from '@/lib/dash-icons';
 import type { PublicPayment } from '@/lib/owner/payments';
 import { ROUTES } from '@/lib/routes';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 export interface AgentDashboardCounts {
   mandatedProperties: number;
   visitsToday: number;
+  upcomingVisits: number;
   pendingCashValidations: number;
   openMaintenanceTickets: number;
+  activeLeases: number;
+  overdueSchedules: number;
+  pendingApplications: number;
 }
 
 export interface AgentVisitRow {
   id: string;
   time: string;
   propertyId: string;
+  propertyTitle: string;
   status: string;
 }
 
@@ -33,6 +39,7 @@ export interface AgentPaymentRow {
   id: string;
   date: string;
   amount: string;
+  propertyTitle: string;
   status: string;
 }
 
@@ -77,61 +84,87 @@ export function AgentDashboard({
   payments = [],
   chartPayments = [],
   modeSeries,
-  sparklines,
+  visitsError,
+  paymentsError,
 }: {
   counts: AgentDashboardCounts;
   visits?: AgentVisitRow[];
   payments?: AgentPaymentRow[];
   chartPayments?: PublicPayment[];
   modeSeries?: PropertyModeSeries;
-  sparklines?: {
-    properties: number[];
-    visits: number[];
-    payments: number[];
-    maintenance: number[];
-  };
+  visitsError?: string | null;
+  paymentsError?: string | null;
 }): React.JSX.Element {
-  const sparks = sparklines ?? {
-    properties: [counts.mandatedProperties],
-    visits: [counts.visitsToday],
-    payments: [counts.pendingCashValidations],
-    maintenance: [counts.openMaintenanceTickets],
-  };
+  const router = useRouter();
 
   return (
     <section className="space-y-6">
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard
-          label="Biens mandatés"
-          value={counts.mandatedProperties}
-          href={ROUTES.agent.portfolio}
-          icon={DASH_STAT_ICONS.buildings}
-          sparkline={sparks.properties}
-        />
-        <StatCard
-          label="Visites aujourd'hui"
-          value={counts.visitsToday}
-          href={ROUTES.agent.visits}
-          icon={DASH_STAT_ICONS.calendar}
-          sparkline={sparks.visits}
-          sparklineColor={DASH_CHART_COLORS.green}
-        />
-        <StatCard
-          label="Paiements à valider"
-          value={counts.pendingCashValidations}
-          href={ROUTES.agent.paymentsValidation}
-          icon={DASH_STAT_ICONS.wallet}
-          sparkline={sparks.payments}
-          sparklineColor={DASH_CHART_COLORS.amber}
-        />
-        <StatCard
-          label="Tickets maintenance"
-          value={counts.openMaintenanceTickets}
-          href={ROUTES.agent.maintenance}
-          icon={DASH_STAT_ICONS.wrench}
-          sparkline={sparks.maintenance}
-          sparklineColor={DASH_CHART_COLORS.violet}
-        />
+      <div className="space-y-3">
+        <h2 className="text-sm font-semibold text-muted">Portefeuille</h2>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <StatCard
+            label="Biens actifs"
+            value={counts.mandatedProperties}
+            href={ROUTES.agent.portfolio}
+            icon={DASH_STAT_ICONS.buildings}
+            iconColor={DASH_CHART_COLORS.green}
+          />
+          <StatCard
+            label="Baux actifs"
+            value={counts.activeLeases}
+            href={ROUTES.agent.leases}
+            icon={DASH_STAT_ICONS.document}
+            iconColor={DASH_CHART_COLORS.blue}
+          />
+          <StatCard
+            label="Échéances en retard"
+            value={counts.overdueSchedules}
+            href={ROUTES.agent.arrears}
+            icon={DASH_STAT_ICONS.bills}
+            iconColor={DASH_CHART_COLORS.rose}
+          />
+          <StatCard
+            label="Candidatures"
+            value={counts.pendingApplications}
+            href={ROUTES.agent.applications}
+            icon={DASH_STAT_ICONS.bag}
+            iconColor={DASH_CHART_COLORS.teal}
+          />
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        <h2 className="text-sm font-semibold text-muted">À traiter aujourd’hui</h2>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <StatCard
+            label="Visites aujourd’hui"
+            value={counts.visitsToday}
+            href={ROUTES.agent.visits}
+            icon={DASH_STAT_ICONS.calendar}
+            iconColor={DASH_CHART_COLORS.amber}
+          />
+          <StatCard
+            label="Visites à venir (7 j)"
+            value={counts.upcomingVisits}
+            href={ROUTES.agent.visits}
+            icon={DASH_STAT_ICONS.clock}
+            iconColor={DASH_CHART_COLORS.violet}
+          />
+          <StatCard
+            label="Paiements à valider"
+            value={counts.pendingCashValidations}
+            href={ROUTES.agent.paymentsValidation}
+            icon={DASH_STAT_ICONS.wallet}
+            iconColor={DASH_CHART_COLORS.purple}
+          />
+          <StatCard
+            label="Tickets maintenance"
+            value={counts.openMaintenanceTickets}
+            href={ROUTES.agent.maintenance}
+            icon={DASH_STAT_ICONS.wrench}
+            iconColor={DASH_CHART_COLORS.slate}
+          />
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
@@ -139,7 +172,10 @@ export function AgentDashboard({
           <RevenueChart payments={chartPayments} />
         </div>
         <div className="xl:col-span-4">
-          <PropertyModeChart data={modeSeries} />
+          <PropertyModeChart
+            data={modeSeries}
+            emptyMessage="Aucun bien dans le portefeuille"
+          />
         </div>
       </div>
 
@@ -156,8 +192,8 @@ export function AgentDashboard({
               key: 'property',
               header: 'Bien',
               render: (row) => (
-                <span className="font-mono text-xs">
-                  {row.propertyId.slice(0, 8)}…
+                <span className="truncate font-medium">
+                  {row.propertyTitle}
                 </span>
               ),
             },
@@ -173,7 +209,12 @@ export function AgentDashboard({
             },
           ])}
           data={visits}
-          emptyMessage="Aucune visite aujourd'hui"
+          emptyMessage={
+            visitsError ? visitsError : 'Aucune visite aujourd’hui'
+          }
+          onRowClick={(row) =>
+            router.push(ROUTES.agent.property(row.propertyId))
+          }
         />
 
         <ListDataTable
@@ -188,12 +229,19 @@ export function AgentDashboard({
                 <Link
                   href={ROUTES.agent.payment(row.id)}
                   className="font-mono text-xs text-accent hover:underline"
+                  onClick={(e) => e.stopPropagation()}
                 >
                   {row.id.slice(0, 8)}
                 </Link>
               ),
             },
-            { key: 'date', header: 'Date', render: (row) => row.date },
+            {
+              key: 'property',
+              header: 'Bien',
+              render: (row) => (
+                <span className="truncate">{row.propertyTitle}</span>
+              ),
+            },
             {
               key: 'amount',
               header: 'Montant',
@@ -213,7 +261,10 @@ export function AgentDashboard({
             },
           ])}
           data={payments}
-          emptyMessage="Aucun paiement à valider"
+          emptyMessage={
+            paymentsError ? paymentsError : 'Aucun paiement à valider'
+          }
+          onRowClick={(row) => router.push(ROUTES.agent.payment(row.id))}
         />
       </div>
     </section>

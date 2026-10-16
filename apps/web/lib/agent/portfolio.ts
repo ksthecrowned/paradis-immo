@@ -6,11 +6,17 @@ import { listManagedProperties } from '@/lib/owner/properties';
 export async function listOrgProperties(
   organizationId: string,
 ): Promise<PublicProperty[]> {
-  // apiFetch already unwraps `{ statusCode, data }` → the array.
-  return apiFetch<PublicProperty[]>(
+  const response = await apiFetch<{
+    data: PublicProperty[];
+    meta: { total: number; limit: number; offset: number };
+  }>(
     `/properties?organizationId=${encodeURIComponent(organizationId)}&limit=100`,
     { anonymous: true },
   );
+  if (!response || !Array.isArray(response.data)) {
+    throw new Error('Réponse invalide lors du chargement des biens de l’agence.');
+  }
+  return response.data;
 }
 
 export { listManagedProperties };

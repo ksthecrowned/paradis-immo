@@ -13,12 +13,18 @@ import type { PropertyModeSeries } from '@/lib/dashboard/chart-series';
 import { DASH_CHART_COLORS, DASH_STAT_ICONS } from '@/lib/dash-icons';
 import type { PublicPayment } from '@/lib/owner/payments';
 import { ROUTES } from '@/lib/routes';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 export interface OwnerDashboardCounts {
   activeProperties: number;
+  draftProperties: number;
   activeLeases: number;
   pendingPayments: number;
+  overdueSchedules: number;
   pendingVisitRequests: number;
+  openMaintenanceTickets: number;
+  pendingApplications: number;
 }
 
 export interface OwnerPaymentRow {
@@ -27,6 +33,7 @@ export interface OwnerPaymentRow {
   amount: string;
   status: string;
   method: string;
+  propertyTitle: string;
 }
 
 export interface OwnerVisitRow {
@@ -34,9 +41,8 @@ export interface OwnerVisitRow {
   date: string;
   status: string;
   propertyId: string;
+  propertyTitle: string;
 }
-
-const FALLBACK_SPARK = [0, 0, 0, 0, 0, 0, 0];
 
 function paymentTone(status: string): 'success' | 'warning' | 'danger' | 'neutral' {
   if (status === 'VALIDATED' || status === 'PAID') return 'success';
@@ -79,71 +85,98 @@ export function OwnerDashboard({
   visits = [],
   chartPayments = [],
   modeSeries,
-  sparklines,
+  visitsError,
+  paymentsError,
 }: {
   counts: OwnerDashboardCounts;
   payments?: OwnerPaymentRow[];
   visits?: OwnerVisitRow[];
   chartPayments?: PublicPayment[];
   modeSeries?: PropertyModeSeries;
-  sparklines?: {
-    properties: number[];
-    leases: number[];
-    payments: number[];
-    visits: number[];
-  };
+  visitsError?: string | null;
+  paymentsError?: string | null;
 }): React.JSX.Element {
-  const sparks = sparklines ?? {
-    properties: FALLBACK_SPARK,
-    leases: FALLBACK_SPARK,
-    payments: FALLBACK_SPARK,
-    visits: FALLBACK_SPARK,
-  };
+  const router = useRouter();
 
   return (
     <section className="space-y-6">
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard
-          label="Biens actifs"
-          value={counts.activeProperties}
-          href={ROUTES.owner.properties}
-          icon={DASH_STAT_ICONS.buildings}
-          sparkline={sparks.properties}
-        />
-        <StatCard
-          label="Baux actifs"
-          value={counts.activeLeases}
-          href={ROUTES.owner.leases}
-          icon={DASH_STAT_ICONS.document}
-          sparkline={sparks.leases}
-          sparklineColor={DASH_CHART_COLORS.green}
-        />
-        <StatCard
-          label="Paiements en attente"
-          value={counts.pendingPayments}
-          href={ROUTES.owner.payments}
-          icon={DASH_STAT_ICONS.wallet}
-          sparkline={sparks.payments}
-          sparklineColor={DASH_CHART_COLORS.amber}
-        />
-        <StatCard
-          label="Demandes de visite"
-          value={counts.pendingVisitRequests}
-          href={ROUTES.owner.visits}
-          icon={DASH_STAT_ICONS.calendar}
-          sparkline={sparks.visits}
-          sparklineColor={DASH_CHART_COLORS.violet}
-        />
+      <div className="space-y-3">
+        <h2 className="text-sm font-semibold text-muted">Portefeuille</h2>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <StatCard
+            label="Biens actifs"
+            value={counts.activeProperties}
+            href={ROUTES.owner.properties}
+            icon={DASH_STAT_ICONS.buildings}
+            iconColor={DASH_CHART_COLORS.green}
+          />
+          <StatCard
+            label="Brouillons"
+            value={counts.draftProperties}
+            href={ROUTES.owner.properties}
+            icon={DASH_STAT_ICONS.document}
+            iconColor={DASH_CHART_COLORS.slate}
+          />
+          <StatCard
+            label="Baux actifs"
+            value={counts.activeLeases}
+            href={ROUTES.owner.leases}
+            icon={DASH_STAT_ICONS.handshake}
+            iconColor={DASH_CHART_COLORS.blue}
+          />
+          <StatCard
+            label="Échéances en retard"
+            value={counts.overdueSchedules}
+            href={ROUTES.owner.arrears}
+            icon={DASH_STAT_ICONS.bills}
+            iconColor={DASH_CHART_COLORS.rose}
+          />
+        </div>
       </div>
 
-      <div className="space-y-2">
-        <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
-          <div className="xl:col-span-8">
-            <RevenueChart payments={chartPayments} />
-          </div>
-          <div className="xl:col-span-4">
-            <PropertyModeChart data={modeSeries} />
-          </div>
+      <div className="space-y-3">
+        <h2 className="text-sm font-semibold text-muted">À traiter</h2>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <StatCard
+            label="Paiements en attente"
+            value={counts.pendingPayments}
+            href={ROUTES.owner.payments}
+            icon={DASH_STAT_ICONS.wallet}
+            iconColor={DASH_CHART_COLORS.amber}
+          />
+          <StatCard
+            label="Demandes de visite"
+            value={counts.pendingVisitRequests}
+            href={ROUTES.owner.visits}
+            icon={DASH_STAT_ICONS.calendar}
+            iconColor={DASH_CHART_COLORS.violet}
+          />
+          <StatCard
+            label="Tickets maintenance"
+            value={counts.openMaintenanceTickets}
+            href={ROUTES.owner.maintenance}
+            icon={DASH_STAT_ICONS.wrench}
+            iconColor={DASH_CHART_COLORS.teal}
+          />
+          <StatCard
+            label="Candidatures"
+            value={counts.pendingApplications}
+            href={ROUTES.owner.applications}
+            icon={DASH_STAT_ICONS.bag}
+            iconColor={DASH_CHART_COLORS.purple}
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
+        <div className="xl:col-span-8">
+          <RevenueChart payments={chartPayments} />
+        </div>
+        <div className="xl:col-span-4">
+          <PropertyModeChart
+            data={modeSeries}
+            emptyMessage="Aucun bien dans le portefeuille"
+          />
         </div>
       </div>
 
@@ -155,21 +188,14 @@ export function OwnerDashboard({
           viewAllHref={ROUTES.owner.visits}
           compact
           columns={adaptSummaryColumns<OwnerVisitRow>([
-            {
-              key: 'id',
-              header: 'Réf.',
-              render: (row) => (
-                <span className="font-mono text-xs text-muted">
-                  {row.id.slice(0, 8)}
-                </span>
-              ),
-            },
             { key: 'date', header: 'Date', render: (row) => row.date },
             {
               key: 'property',
               header: 'Bien',
               render: (row) => (
-                <span className="font-mono text-xs">{row.propertyId.slice(0, 8)}…</span>
+                <span className="truncate font-medium">
+                  {row.propertyTitle}
+                </span>
               ),
             },
             {
@@ -184,7 +210,12 @@ export function OwnerDashboard({
             },
           ])}
           data={visits}
-          emptyMessage="Aucune demande de visite"
+          emptyMessage={
+            visitsError ? visitsError : 'Aucune demande de visite'
+          }
+          onRowClick={(row) =>
+            router.push(ROUTES.owner.property(row.propertyId))
+          }
         />
 
         <ListDataTable
@@ -196,12 +227,22 @@ export function OwnerDashboard({
               key: 'id',
               header: 'Réf.',
               render: (row) => (
-                <span className="font-mono text-xs text-muted">
+                <Link
+                  href={ROUTES.owner.payment(row.id)}
+                  className="font-mono text-xs text-accent hover:underline"
+                  onClick={(e) => e.stopPropagation()}
+                >
                   {row.id.slice(0, 8)}
-                </span>
+                </Link>
               ),
             },
-            { key: 'date', header: 'Date', render: (row) => row.date },
+            {
+              key: 'property',
+              header: 'Bien',
+              render: (row) => (
+                <span className="truncate">{row.propertyTitle}</span>
+              ),
+            },
             {
               key: 'amount',
               header: 'Montant',
@@ -221,7 +262,10 @@ export function OwnerDashboard({
             },
           ])}
           data={payments}
-          emptyMessage="Aucun paiement récent"
+          emptyMessage={
+            paymentsError ? paymentsError : 'Aucun paiement récent'
+          }
+          onRowClick={(row) => router.push(ROUTES.owner.payment(row.id))}
         />
       </div>
     </section>

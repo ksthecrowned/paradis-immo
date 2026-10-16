@@ -125,9 +125,13 @@ describe('Owner stats (e2e)', () => {
       .expect(200);
     expect(res.body).toEqual({
       activeProperties: 0,
+      draftProperties: 0,
       activeLeases: 0,
       pendingPayments: 0,
+      overdueSchedules: 0,
       pendingVisitRequests: 0,
+      openMaintenanceTickets: 0,
+      pendingApplications: 0,
     });
   });
 
@@ -267,9 +271,13 @@ describe('Owner stats (e2e)', () => {
 
     expect(res.body).toEqual({
       activeProperties: 1,
+      draftProperties: 1,
       activeLeases: 1,
       pendingPayments: 1,
+      overdueSchedules: 0,
       pendingVisitRequests: 1,
+      openMaintenanceTickets: 0,
+      pendingApplications: 0,
     });
   });
 });

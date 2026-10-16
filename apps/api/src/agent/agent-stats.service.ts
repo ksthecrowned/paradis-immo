@@ -1,21 +1,40 @@
 import { Injectable } from '@nestjs/common';
 import {
+  ApplicationStatus,
+  LeaseStatus,
   MaintenanceStatus,
   PaymentStatus,
   PropertyStatus,
+  RentScheduleStatus,
   VisitBookingStatus,
 } from '@prisma/client';
 import { AgencyAccessService } from '../mandates/agency-access.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 export interface AgentStats {
+  /** Biens ACTIVE du périmètre opérable (pas strictement « sous mandat »). */
   mandatedProperties: number;
   visitsToday: number;
+  upcomingVisits: number;
   pendingCashValidations: number;
   openMaintenanceTickets: number;
+  activeLeases: number;
+  overdueSchedules: number;
+  pendingApplications: number;
 }
 
 const BRAZZAVILLE_TZ = 'Africa/Brazzaville';
+
+const EMPTY_STATS: AgentStats = {
+  mandatedProperties: 0,
+  visitsToday: 0,
+  upcomingVisits: 0,
+  pendingCashValidations: 0,
+  openMaintenanceTickets: 0,
+  activeLeases: 0,
+  overdueSchedules: 0,
+  pendingApplications: 0,
+};
 
 /** Calendar-day bounds for Africa/Brazzaville (fixed UTC+1, no DST). */
 export function brazzavilleDayBounds(now = new Date()): {
@@ -44,22 +63,26 @@ export class AgentStatsService {
   async getStats(userId: string): Promise<AgentStats> {
     const propertyIds = await this.agencyAccess.listOperablePropertyIds(userId);
     if (propertyIds.length === 0) {
-      return {
-        mandatedProperties: 0,
-        visitsToday: 0,
-        pendingCashValidations: 0,
-        openMaintenanceTickets: 0,
-      };
+      return { ...EMPTY_STATS };
     }
 
     const { start, end } = brazzavilleDayBounds();
+    const weekEnd = new Date(start.getTime() + 7 * 24 * 60 * 60 * 1000);
     const propertyScope = { id: { in: propertyIds } };
+    const visitStatuses = [
+      VisitBookingStatus.PENDING,
+      VisitBookingStatus.CONFIRMED,
+    ];
 
     const [
       mandatedProperties,
       visitsToday,
+      upcomingVisits,
       pendingCashValidations,
       openMaintenanceTickets,
+      activeLeases,
+      overdueSchedules,
+      pendingApplications,
     ] = await Promise.all([
       this.prisma.property.count({
         where: { ...propertyScope, status: PropertyStatus.ACTIVE },
@@ -67,10 +90,15 @@ export class AgentStatsService {
       this.prisma.visitBooking.count({
         where: {
           propertyId: { in: propertyIds },
-          status: {
-            in: [VisitBookingStatus.PENDING, VisitBookingStatus.CONFIRMED],
-          },
+          status: { in: visitStatuses },
           slot: { startAt: { gte: start, lte: end } },
+        },
+      }),
+      this.prisma.visitBooking.count({
+        where: {
+          propertyId: { in: propertyIds },
+          status: { in: visitStatuses },
+          slot: { startAt: { gt: end, lt: weekEnd } },
         },
       }),
       this.countPendingCashOnPortfolio(propertyIds),
@@ -82,13 +110,41 @@ export class AgentStatsService {
           },
         },
       }),
+      this.prisma.lease.count({
+        where: {
+          propertyId: { in: propertyIds },
+          status: LeaseStatus.ACTIVE,
+        },
+      }),
+      this.prisma.rentSchedule.count({
+        where: {
+          status: RentScheduleStatus.OVERDUE,
+          lease: { propertyId: { in: propertyIds } },
+        },
+      }),
+      this.prisma.rentalApplication.count({
+        where: {
+          propertyId: { in: propertyIds },
+          status: {
+            in: [
+              ApplicationStatus.SUBMITTED,
+              ApplicationStatus.UNDER_REVIEW,
+              ApplicationStatus.SOLVENCY_PENDING,
+            ],
+          },
+        },
+      }),
     ]);
 
     return {
       mandatedProperties,
       visitsToday,
+      upcomingVisits,
       pendingCashValidations,
       openMaintenanceTickets,
+      activeLeases,
+      overdueSchedules,
+      pendingApplications,
     };
   }
 

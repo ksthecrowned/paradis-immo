@@ -326,6 +326,21 @@ describe('Admin (e2e)', () => {
         pendingOrgRequests: number;
         openDisputes: number;
         failedPayouts: number;
+        charts: {
+          range: string;
+          propertiesByMode: {
+            rentShort: number;
+            rentLong: number;
+            sale: number;
+          };
+          activity: {
+            categories: string[];
+            users: number[];
+            properties: number[];
+            paymentVolume: number[];
+            paymentCounts: number[];
+          };
+        };
       };
     };
     expect(body.statusCode).toBe(200);
@@ -339,6 +354,15 @@ describe('Admin (e2e)', () => {
     expect(body.data.pendingOrgRequests).toBeGreaterThanOrEqual(0);
     expect(body.data.openDisputes).toBeGreaterThanOrEqual(0);
     expect(body.data.failedPayouts).toBeGreaterThanOrEqual(0);
+    expect(body.data.charts.range).toBe('1y');
+    expect(body.data.charts.activity.categories).toHaveLength(12);
+    expect(body.data.charts.activity.users).toHaveLength(12);
+    expect(body.data.charts.activity.paymentVolume).toHaveLength(12);
+    expect(
+      body.data.charts.propertiesByMode.rentShort +
+        body.data.charts.propertiesByMode.rentLong +
+        body.data.charts.propertiesByMode.sale,
+    ).toBeGreaterThanOrEqual(2);
   });
 
   // ------------------------------------------------------------------

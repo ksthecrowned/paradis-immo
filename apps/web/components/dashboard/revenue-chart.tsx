@@ -1,6 +1,7 @@
 'use client';
 
 import { useTheme } from '@/components/theme-provider';
+import type { AdminActivitySeries } from '@/lib/admin/stats';
 import {
   buildRevenueSeries,
   type ChartRangeKey,
@@ -185,6 +186,79 @@ export function RevenueChart({
           height={280}
         />
       </div>
+    </div>
+  );
+}
+
+const EMPTY_ACTIVITY: AdminActivitySeries = {
+  categories: [],
+  users: [],
+  properties: [],
+  paymentVolume: [],
+  paymentCounts: [],
+};
+
+/** Platform activity: validated payment volume + new users (admin dashboard). */
+export function AdminActivityChart({
+  data = EMPTY_ACTIVITY,
+  range,
+  onRangeChange,
+}: {
+  data?: AdminActivitySeries;
+  range: ChartRangeKey;
+  onRangeChange: (range: ChartRangeKey) => void;
+}): React.JSX.Element {
+  const { theme } = useTheme();
+  const yMax = Math.max(...data.paymentVolume, 0);
+  const options = useMemo(
+    () => buildComboOptions(data.categories, theme, yMax),
+    [data.categories, theme, yMax],
+  );
+  const empty =
+    data.categories.length === 0 ||
+    (data.paymentVolume.every((n) => n === 0) &&
+      data.users.every((n) => n === 0) &&
+      data.properties.every((n) => n === 0));
+
+  return (
+    <div className="flex h-full flex-col rounded-xl border border-border bg-table p-5">
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <div>
+          <h3 className="text-base font-semibold text-heading">
+            Activité plateforme
+          </h3>
+          <p className="mt-0.5 text-xs text-muted">
+            Volume encaissé (validé) et inscriptions
+          </p>
+        </div>
+        <ChartRangeToggle range={range} onChange={onRangeChange} />
+      </div>
+      {empty ? (
+        <div className="flex h-[280px] items-center justify-center text-sm text-muted">
+          Aucune activité sur la période
+        </div>
+      ) : (
+        <div className="min-h-0 flex-1">
+          <ReactApexChart
+            key={`${theme}-${range}-${data.categories.join(',')}`}
+            options={options}
+            series={[
+              {
+                name: 'Volume (XAF)',
+                type: 'column',
+                data: data.paymentVolume,
+              },
+              {
+                name: 'Inscriptions',
+                type: 'line',
+                data: data.users,
+              },
+            ]}
+            type="line"
+            height={280}
+          />
+        </div>
+      )}
     </div>
   );
 }

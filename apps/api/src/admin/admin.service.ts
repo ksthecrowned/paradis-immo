@@ -13,6 +13,26 @@ import { EventPublisher } from '../events/event.publisher';
 import { DOMAIN_EVENTS } from '../events/event.types';
 import { AuditLogService } from '../common/audit-log.service';
 
+export type AdminStatsRange = '1m' | '6m' | '1y';
+
+export interface AdminActivitySeries {
+  categories: string[];
+  users: number[];
+  properties: number[];
+  paymentVolume: number[];
+  paymentCounts: number[];
+}
+
+export interface AdminStatsCharts {
+  range: AdminStatsRange;
+  propertiesByMode: {
+    rentShort: number;
+    rentLong: number;
+    sale: number;
+  };
+  activity: AdminActivitySeries;
+}
+
 export interface AdminStats {
   totalUsers: number;
   suspendedUsers: number;
@@ -29,7 +49,23 @@ export interface AdminStats {
   openDisputes: number;
   failedPayouts: number;
   pendingVisits: number;
+  charts: AdminStatsCharts;
 }
+
+const MONTH_SHORT_FR = [
+  'Jan',
+  'Fév',
+  'Mar',
+  'Avr',
+  'Mai',
+  'Juin',
+  'Juil',
+  'Aoû',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Déc',
+] as const;
 
 export interface AdminUserRow {
   id: string;
@@ -131,11 +167,10 @@ export class AdminService {
   }
 
   /**
-   * Aggregated counters shown on the admin dashboard.
-   * Each count is a single indexed query — no joins — to stay snappy as
-   * the dataset grows.
+   * Aggregated counters + chart series for the admin dashboard.
+   * Counters are indexed counts; series use date_trunc buckets.
    */
-  async getStats(): Promise<AdminStats> {
+  async getStats(range: AdminStatsRange = '1y'): Promise<AdminStats> {
     const [
       totalUsers,
       suspendedUsers,
@@ -152,6 +187,8 @@ export class AdminService {
       openDisputes,
       failedPayouts,
       pendingVisits,
+      modeGroups,
+      charts,
     ] = await Promise.all([
       this.prisma.user.count(),
       this.prisma.user.count({ where: { status: 'SUSPENDED' } }),
@@ -174,7 +211,16 @@ export class AdminService {
       }),
       this.prisma.payout.count({ where: { status: 'FAILED' } }),
       this.prisma.visitBooking.count({ where: { status: 'PENDING' } }),
+      this.prisma.property.groupBy({
+        by: ['mode'],
+        _count: { _all: true },
+      }),
+      this.buildActivityCharts(range),
     ]);
+
+    const modeCount = (mode: string): number =>
+      modeGroups.find((g) => g.mode === mode)?._count._all ?? 0;
+
     return {
       totalUsers,
       suspendedUsers,
@@ -191,7 +237,166 @@ export class AdminService {
       openDisputes,
       failedPayouts,
       pendingVisits,
+      charts: {
+        range,
+        propertiesByMode: {
+          rentShort: modeCount('RENT_SHORT'),
+          rentLong: modeCount('RENT_LONG'),
+          sale: modeCount('SALE'),
+        },
+        activity: charts,
+      },
     };
+  }
+
+  private async buildActivityCharts(
+    range: AdminStatsRange,
+    now = new Date(),
+  ): Promise<AdminActivitySeries> {
+    const trunc = range === '1m' ? 'week' : 'month';
+    const buckets = this.activityBuckets(range, now);
+    const from = buckets[0]?.start ?? now;
+
+    type CountRow = { bucket: Date; count: bigint };
+    type PayRow = { bucket: Date; count: bigint; amount: unknown };
+
+    const [userRows, propertyRows, paymentRows] =
+      trunc === 'week'
+        ? await Promise.all([
+            this.prisma.$queryRaw<CountRow[]>`
+              SELECT date_trunc('week', "createdAt") AS bucket, COUNT(*)::bigint AS count
+              FROM "User"
+              WHERE "createdAt" >= ${from}
+              GROUP BY 1
+              ORDER BY 1
+            `,
+            this.prisma.$queryRaw<CountRow[]>`
+              SELECT date_trunc('week', "createdAt") AS bucket, COUNT(*)::bigint AS count
+              FROM "Property"
+              WHERE "createdAt" >= ${from}
+              GROUP BY 1
+              ORDER BY 1
+            `,
+            this.prisma.$queryRaw<PayRow[]>`
+              SELECT
+                date_trunc('week', COALESCE("validatedAt", "createdAt")) AS bucket,
+                COUNT(*)::bigint AS count,
+                COALESCE(SUM("amount"), 0) AS amount
+              FROM "Payment"
+              WHERE status = 'VALIDATED'
+                AND COALESCE("validatedAt", "createdAt") >= ${from}
+              GROUP BY 1
+              ORDER BY 1
+            `,
+          ])
+        : await Promise.all([
+            this.prisma.$queryRaw<CountRow[]>`
+              SELECT date_trunc('month', "createdAt") AS bucket, COUNT(*)::bigint AS count
+              FROM "User"
+              WHERE "createdAt" >= ${from}
+              GROUP BY 1
+              ORDER BY 1
+            `,
+            this.prisma.$queryRaw<CountRow[]>`
+              SELECT date_trunc('month', "createdAt") AS bucket, COUNT(*)::bigint AS count
+              FROM "Property"
+              WHERE "createdAt" >= ${from}
+              GROUP BY 1
+              ORDER BY 1
+            `,
+            this.prisma.$queryRaw<PayRow[]>`
+              SELECT
+                date_trunc('month', COALESCE("validatedAt", "createdAt")) AS bucket,
+                COUNT(*)::bigint AS count,
+                COALESCE(SUM("amount"), 0) AS amount
+              FROM "Payment"
+              WHERE status = 'VALIDATED'
+                AND COALESCE("validatedAt", "createdAt") >= ${from}
+              GROUP BY 1
+              ORDER BY 1
+            `,
+          ]);
+
+    const userMap = new Map(
+      userRows.map((r) => [this.bucketKeyUtc(r.bucket, trunc), Number(r.count)]),
+    );
+    const propertyMap = new Map(
+      propertyRows.map((r) => [
+        this.bucketKeyUtc(r.bucket, trunc),
+        Number(r.count),
+      ]),
+    );
+    const paymentMap = new Map(
+      paymentRows.map((r) => [
+        this.bucketKeyUtc(r.bucket, trunc),
+        {
+          count: Number(r.count),
+          amount: Math.round(Number(r.amount) || 0),
+        },
+      ]),
+    );
+
+    return {
+      categories: buckets.map((b) => b.label),
+      users: buckets.map((b) => userMap.get(b.key) ?? 0),
+      properties: buckets.map((b) => propertyMap.get(b.key) ?? 0),
+      paymentVolume: buckets.map((b) => paymentMap.get(b.key)?.amount ?? 0),
+      paymentCounts: buckets.map((b) => paymentMap.get(b.key)?.count ?? 0),
+    };
+  }
+
+  private activityBuckets(
+    range: AdminStatsRange,
+    now: Date,
+  ): Array<{ key: string; label: string; start: Date }> {
+    if (range === '1m') {
+      const buckets: Array<{ key: string; label: string; start: Date }> = [];
+      for (let i = 3; i >= 0; i -= 1) {
+        const start = new Date(
+          Date.UTC(
+            now.getUTCFullYear(),
+            now.getUTCMonth(),
+            now.getUTCDate() - i * 7,
+          ),
+        );
+        const dayNum = (start.getUTCDay() + 6) % 7;
+        start.setUTCDate(start.getUTCDate() - dayNum);
+        buckets.push({
+          key: this.bucketKeyUtc(start, 'week'),
+          label: `S${4 - i}`,
+          start,
+        });
+      }
+      return buckets;
+    }
+
+    const months = range === '6m' ? 6 : 12;
+    const buckets: Array<{ key: string; label: string; start: Date }> = [];
+    for (let i = months - 1; i >= 0; i -= 1) {
+      const start = new Date(
+        Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1),
+      );
+      buckets.push({
+        key: this.bucketKeyUtc(start, 'month'),
+        label: MONTH_SHORT_FR[start.getUTCMonth()] ?? '',
+        start,
+      });
+    }
+    return buckets;
+  }
+
+  /** Keys aligned with Postgres `date_trunc` results (UTC). */
+  private bucketKeyUtc(value: Date, trunc: 'week' | 'month'): string {
+    const d = new Date(value);
+    if (trunc === 'month') {
+      return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+    }
+    const day = new Date(
+      Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()),
+    );
+    const dayNum = (day.getUTCDay() + 6) % 7;
+    day.setUTCDate(day.getUTCDate() - dayNum);
+    return day.toISOString().slice(0, 10);
   }
 
   /**

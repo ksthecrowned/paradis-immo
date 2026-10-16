@@ -10,12 +10,9 @@ import { useRequireSession } from '@/hooks/use-require-session';
 import { ApiError } from '@/lib/api';
 import { fetchAgentStats } from '@/lib/agent/stats';
 import {
-  buildDailySparkline,
   buildPropertyModeSeries,
-  countByCreatedDay,
   type PropertyModeSeries,
 } from '@/lib/dashboard/chart-series';
-import { listManagedMaintenance } from '@/lib/owner/maintenance';
 import { listManagedPayments, type PublicPayment } from '@/lib/owner/payments';
 import { listManagedProperties } from '@/lib/owner/properties';
 import { listManagedVisits, type PublicVisitBooking } from '@/lib/visits';
@@ -62,32 +59,28 @@ export default function AgentDashboardPage(): React.JSX.Element {
   const [payments, setPayments] = useState<AgentPaymentRow[]>([]);
   const [chartPayments, setChartPayments] = useState<PublicPayment[]>([]);
   const [modeSeries, setModeSeries] = useState<PropertyModeSeries | undefined>();
-  const [sparklines, setSparklines] = useState<
-    | {
-        properties: number[];
-        visits: number[];
-        payments: number[];
-        maintenance: number[];
-      }
-    | undefined
-  >();
   const [error, setError] = useState<string | null>(null);
+  const [visitsError, setVisitsError] = useState<string | null>(null);
+  const [paymentsError, setPaymentsError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!ready) return;
     let cancelled = false;
     (async (): Promise<void> => {
-      const [statsResult, visitRows, paymentRows, propertyRows, maintenanceRows] =
+      const [statsResult, visitsResult, paymentsResult, propertiesResult] =
         await Promise.all([
           fetchAgentStats()
             .then((s) => ({ ok: true as const, s }))
             .catch((err: unknown) => ({ ok: false as const, err })),
-          listManagedVisits().catch(() => [] as PublicVisitBooking[]),
+          listManagedVisits()
+            .then((rows) => ({ ok: true as const, rows }))
+            .catch((err: unknown) => ({ ok: false as const, err })),
           listManagedPayments({ pageSize: 100 })
-            .then((r) => r.data)
-            .catch(() => [] as PublicPayment[]),
-          listManagedProperties().catch(() => []),
-          listManagedMaintenance().catch(() => []),
+            .then((r) => ({ ok: true as const, data: r.data }))
+            .catch((err: unknown) => ({ ok: false as const, err })),
+          listManagedProperties()
+            .then((rows) => ({ ok: true as const, rows }))
+            .catch((err: unknown) => ({ ok: false as const, err })),
         ]);
       if (cancelled) return;
 
@@ -97,84 +90,104 @@ export default function AgentDashboardPage(): React.JSX.Element {
             ? statsResult.err.message
             : 'Erreur de chargement des indicateurs',
         );
-        setCounts({
-          mandatedProperties: 0,
-          visitsToday: 0,
-          pendingCashValidations: 0,
-          openMaintenanceTickets: 0,
-        });
-      } else {
-        setError(null);
-        setCounts({
-          mandatedProperties: statsResult.s.mandatedProperties,
-          visitsToday: statsResult.s.visitsToday,
-          pendingCashValidations: statsResult.s.pendingCashValidations,
-          openMaintenanceTickets: statsResult.s.openMaintenanceTickets,
-        });
+        setCounts(null);
+        return;
       }
 
-      setVisits(
-        visitRows
-          .filter(
-            (v) =>
-              v.slotStartAt != null &&
-              isTodayInBrazzaville(v.slotStartAt) &&
-              (v.status === 'PENDING' || v.status === 'CONFIRMED'),
-          )
-          .sort((a, b) =>
-            (a.slotStartAt ?? '').localeCompare(b.slotStartAt ?? ''),
-          )
-          .slice(0, 5)
-          .map((v) => ({
-            id: v.id,
-            time: formatTime(v.slotStartAt!),
-            propertyId: v.propertyId,
-            status: v.status,
-          })),
-      );
+      setError(null);
+      setCounts({
+        mandatedProperties: statsResult.s.mandatedProperties,
+        visitsToday: statsResult.s.visitsToday,
+        upcomingVisits: statsResult.s.upcomingVisits,
+        pendingCashValidations: statsResult.s.pendingCashValidations,
+        openMaintenanceTickets: statsResult.s.openMaintenanceTickets,
+        activeLeases: statsResult.s.activeLeases,
+        overdueSchedules: statsResult.s.overdueSchedules,
+        pendingApplications: statsResult.s.pendingApplications,
+      });
 
-      setPayments(
-        paymentRows
-          .filter(
-            (p) => p.method === 'CASH' && p.status === 'PENDING_VALIDATION',
-          )
-          .slice(0, 5)
-          .map((p) => ({
+      const titleById = new Map<string, string>();
+      if (propertiesResult.ok) {
+        for (const p of propertiesResult.rows) {
+          titleById.set(p.id, p.title);
+        }
+        setModeSeries(buildPropertyModeSeries(propertiesResult.rows));
+      } else {
+        setModeSeries(undefined);
+      }
+
+      if (visitsResult.ok) {
+        setVisitsError(null);
+        setVisits(
+          visitsResult.rows
+            .filter(
+              (v: PublicVisitBooking) =>
+                v.slotStartAt != null &&
+                isTodayInBrazzaville(v.slotStartAt) &&
+                (v.status === 'PENDING' || v.status === 'CONFIRMED'),
+            )
+            .sort((a, b) =>
+              (a.slotStartAt ?? '').localeCompare(b.slotStartAt ?? ''),
+            )
+            .slice(0, 5)
+            .map((v) => ({
+              id: v.id,
+              time: formatTime(v.slotStartAt!),
+              propertyId: v.propertyId,
+              propertyTitle:
+                titleById.get(v.propertyId) ??
+                `${v.propertyId.slice(0, 8)}…`,
+              status: v.status,
+            })),
+        );
+      } else {
+        setVisits([]);
+        setVisitsError(
+          visitsResult.err instanceof ApiError
+            ? visitsResult.err.message
+            : 'Impossible de charger les visites.',
+        );
+      }
+
+      if (paymentsResult.ok) {
+        setPaymentsError(null);
+        const pendingCash = paymentsResult.data.filter(
+          (p) => p.method === 'CASH' && p.status === 'PENDING_VALIDATION',
+        );
+        setPayments(
+          pendingCash.slice(0, 5).map((p) => ({
             id: p.id,
             date: formatDate(p.createdAt),
             amount: formatMoney(p.amount, p.currency),
+            propertyTitle: p.propertyId
+              ? (titleById.get(p.propertyId) ?? `${p.propertyId.slice(0, 8)}…`)
+              : '—',
             status: p.status,
           })),
-      );
-
-      setChartPayments(paymentRows);
-      setModeSeries(buildPropertyModeSeries(propertyRows));
-
-      const visitByDay = countByCreatedDay(
-        visitRows.map((v) => ({
-          createdAt: v.slotStartAt ?? v.createdAt,
-        })),
-      );
-      const pendingByDay = countByCreatedDay(
-        paymentRows.filter(
-          (p) => p.method === 'CASH' && p.status === 'PENDING_VALIDATION',
-        ),
-      );
-      const maintenanceByDay = countByCreatedDay(maintenanceRows);
-      const propertyCount = propertyRows.length;
-      setSparklines({
-        properties: buildDailySparkline(() => propertyCount),
-        visits: buildDailySparkline((day) => visitByDay.get(day) ?? 0),
-        payments: buildDailySparkline((day) => pendingByDay.get(day) ?? 0),
-        maintenance: buildDailySparkline(
-          (day) => maintenanceByDay.get(day) ?? 0,
-        ),
-      });
+        );
+        setChartPayments(paymentsResult.data);
+      } else {
+        setPayments([]);
+        setChartPayments([]);
+        setPaymentsError(
+          paymentsResult.err instanceof ApiError
+            ? paymentsResult.err.message
+            : 'Impossible de charger les paiements.',
+        );
+      }
     })();
     return () => {
       cancelled = true;
     };
   }, [ready]);
+
+  if (error && !counts) {
+    return (
+      <div className="rounded-lg border border-danger/40 bg-danger/10 p-4 text-sm text-danger">
+        {error}
+      </div>
+    );
+  }
 
   if (!counts) {
     return (
@@ -197,20 +210,14 @@ export default function AgentDashboardPage(): React.JSX.Element {
   }
 
   return (
-    <>
-      {error ? (
-        <div className="mb-4 rounded-lg border border-danger/40 bg-danger/10 p-4 text-sm text-danger">
-          {error}
-        </div>
-      ) : null}
-      <AgentDashboard
-        counts={counts}
-        visits={visits}
-        payments={payments}
-        chartPayments={chartPayments}
-        modeSeries={modeSeries}
-        sparklines={sparklines}
-      />
-    </>
+    <AgentDashboard
+      counts={counts}
+      visits={visits}
+      payments={payments}
+      chartPayments={chartPayments}
+      modeSeries={modeSeries}
+      visitsError={visitsError}
+      paymentsError={paymentsError}
+    />
   );
 }

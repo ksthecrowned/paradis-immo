@@ -17,6 +17,7 @@ export {
   type PaginatedDataTableHandle
 } from './paginated-data-table';
 export {
+  AdminActivityChart,
   PropertyModeChart,
   RevenueChart,
 } from './revenue-chart';

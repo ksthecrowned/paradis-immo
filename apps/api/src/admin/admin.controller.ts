@@ -94,9 +94,13 @@ export class AdminController {
 
   @Get('stats')
   @AdminPermission('stats.read')
-  @ApiOperation({ summary: 'Get platform-wide statistics' })
-  async stats() {
-    const data = await this.admin.getStats();
+  @ApiOperation({
+    summary: 'Get platform-wide statistics and chart series',
+  })
+  async stats(@Query('range') range?: string) {
+    const safeRange =
+      range === '1m' || range === '6m' || range === '1y' ? range : '1y';
+    const data = await this.admin.getStats(safeRange);
     return { statusCode: 200, data };
   }
 

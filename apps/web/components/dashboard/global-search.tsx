@@ -131,7 +131,7 @@ export function GlobalSearch({ role }: GlobalSearchProps): React.JSX.Element {
         onOpenChange={setOpen}
         label="Recherche globale"
         overlayClassName="fixed inset-0 z-50 bg-black/50 backdrop-blur-[2px] transition-opacity duration-200"
-        contentClassName="fixed top-1/2 left-1/2 z-50 w-full max-w-xl -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-xl border border-border bg-card text-foreground shadow-2xl outline-none max-sm:max-w-[calc(100%-2rem)]"
+        contentClassName="fixed top-1/2 left-1/2 z-50 w-full max-w-xl -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-xl border border-border bg-table text-active shadow-2xl outline-none max-sm:max-w-[calc(100%-2rem)]"
       >
         <div className="border-b border-border p-3.5">
           <div className="relative flex h-10 items-center rounded-lg border border-input-border bg-search px-1">
@@ -140,7 +140,7 @@ export function GlobalSearch({ role }: GlobalSearchProps): React.JSX.Element {
             </span>
             <Command.Input
               placeholder="Rechercher une page…"
-              className="w-full min-w-0 flex-1 border-none bg-transparent py-2 ps-10 pe-14 text-sm text-foreground outline-none placeholder:text-placeholder focus:ring-0 focus:outline-none"
+              className="w-full min-w-0 flex-1 border-none bg-transparent py-2 ps-10 pe-14 text-sm text-active outline-none placeholder:text-placeholder focus:ring-0 focus:outline-none"
             />
             <span className="absolute inset-e-2 rounded-md border border-border bg-card/60 px-2 py-0.5 text-xs text-muted">
               ESC
@@ -167,7 +167,7 @@ export function GlobalSearch({ role }: GlobalSearchProps): React.JSX.Element {
                       key={item.id}
                       value={`${item.section} ${item.parentTitle || ''} ${item.title} ${item.url}`}
                       onSelect={() => handleSelect(item.url)}
-                      className="flex cursor-pointer items-center justify-between rounded-lg px-3 py-2.5 text-sm text-muted transition-colors hover:bg-card-hover data-[selected=true]:bg-card-hover data-[selected=true]:text-foreground"
+                      className="flex cursor-pointer items-center justify-between rounded-lg px-3 py-2.5 text-sm text-muted transition-colors hover:bg-card-hover data-[selected=true]:bg-card-hover data-[selected=true]:text-active"
                     >
                       <div className="flex min-w-0 items-center gap-3">
                         <span className="flex size-5 shrink-0 items-center justify-center text-muted">
@@ -179,7 +179,7 @@ export function GlobalSearch({ role }: GlobalSearchProps): React.JSX.Element {
                               {item.parentTitle} /
                             </span>
                           ) : null}
-                          <span className="truncate text-foreground">
+                          <span className="truncate text-active">
                             {item.title}
                           </span>
                         </div>

@@ -119,6 +119,11 @@ export interface PublicProperty {
   updatedAt: string;
 }
 
+interface PropertyListResponse {
+  data: PublicProperty[];
+  meta: { total: number; limit: number; offset: number };
+}
+
 export interface CreatePropertyInput {
   title: string;
   description: string;
@@ -171,14 +176,24 @@ export interface CreatePropertyInput {
 }
 
 export async function listMyProperties(): Promise<PublicProperty[]> {
-  // apiFetch already unwraps `{ statusCode, data }` → the array.
-  return apiFetch<PublicProperty[]>('/properties/mine?limit=100');
+  const response = await apiFetch<PropertyListResponse>(
+    '/properties/mine?limit=100',
+  );
+  if (!response || !Array.isArray(response.data)) {
+    throw new Error('Réponse invalide lors du chargement des biens.');
+  }
+  return response.data;
 }
 
 /** Properties the current user can operate on (owner or mandated agent). */
 export async function listManagedProperties(): Promise<PublicProperty[]> {
-  // apiFetch already unwraps `{ statusCode, data }` → the array.
-  return apiFetch<PublicProperty[]>('/properties/managed?limit=100');
+  const response = await apiFetch<PropertyListResponse>(
+    '/properties/managed?limit=100',
+  );
+  if (!response || !Array.isArray(response.data)) {
+    throw new Error('Réponse invalide lors du chargement des biens gérés.');
+  }
+  return response.data;
 }
 
 export async function getProperty(id: string): Promise<PublicProperty> {

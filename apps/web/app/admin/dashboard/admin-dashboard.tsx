@@ -2,6 +2,7 @@
 
 import {
   adaptSummaryColumns,
+  AdminActivityChart,
   ListDataTable,
   PropertyModeChart,
   StatCard,
@@ -16,7 +17,10 @@ import {
 } from '@/lib/admin/reports';
 import type { AdminStats } from '@/lib/admin/stats';
 import type { AdminUser } from '@/lib/admin/users';
-import type { PropertyModeSeries } from '@/lib/dashboard/chart-series';
+import type {
+  ChartRangeKey,
+  PropertyModeSeries,
+} from '@/lib/dashboard/chart-series';
 import { DASH_CHART_COLORS, DASH_STAT_ICONS } from '@/lib/dash-icons';
 import { ROUTES } from '@/lib/routes';
 import { useRouter } from 'next/navigation';
@@ -58,6 +62,8 @@ export interface AdminDashboardProps {
   recentUsers: AdminUser[];
   openReports: AdminReportRow[];
   modeSeries?: PropertyModeSeries;
+  chartRange: ChartRangeKey;
+  onChartRangeChange: (range: ChartRangeKey) => void;
   usersError?: string | null;
   reportsError?: string | null;
 }
@@ -67,6 +73,8 @@ export function AdminDashboard({
   recentUsers,
   openReports,
   modeSeries,
+  chartRange,
+  onChartRangeChange,
   usersError,
   reportsError,
 }: AdminDashboardProps): React.JSX.Element {
@@ -185,55 +193,61 @@ export function AdminDashboard({
       </div>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
-        <div className="xl:col-span-5">
+        <div className="xl:col-span-8">
+          <AdminActivityChart
+            data={stats.charts.activity}
+            range={chartRange}
+            onRangeChange={onChartRangeChange}
+          />
+        </div>
+        <div className="xl:col-span-4">
           <PropertyModeChart
             data={modeSeries}
             emptyMessage="Aucun bien à analyser"
           />
         </div>
-        <div className="xl:col-span-7">
-          <ListDataTable
-            title="Signalements ouverts"
-            subtitle="À traiter en priorité"
-            viewAllHref={ROUTES.admin.reports}
-            compact
-            columns={adaptSummaryColumns<AdminReportRow>([
-              {
-                key: 'property',
-                header: 'Bien',
-                render: (row) => (
-                  <div className="min-w-0">
-                    <p className="truncate font-medium">{row.propertyTitle}</p>
-                    <p className="truncate text-xs text-muted">
-                      {REPORT_REASON_LABELS[row.reason] ?? row.reason}
-                    </p>
-                  </div>
-                ),
-              },
-              {
-                key: 'date',
-                header: 'Date',
-                render: (row) => formatDate(row.createdAt),
-              },
-              {
-                key: 'status',
-                header: 'Statut',
-                render: (row) => (
-                  <StatusBadge
-                    label={REPORT_STATUS_LABELS[row.status]}
-                    tone={reportStatusTone(row.status)}
-                  />
-                ),
-              },
-            ])}
-            data={openReports}
-            emptyMessage={
-              reportsError ? reportsError : 'Aucun signalement ouvert'
-            }
-            onRowClick={(row) => router.push(ROUTES.admin.report(row.id))}
-          />
-        </div>
       </div>
+
+      <ListDataTable
+        title="Signalements ouverts"
+        subtitle="À traiter en priorité"
+        viewAllHref={ROUTES.admin.reports}
+        compact
+        columns={adaptSummaryColumns<AdminReportRow>([
+          {
+            key: 'property',
+            header: 'Bien',
+            render: (row) => (
+              <div className="min-w-0">
+                <p className="truncate font-medium">{row.propertyTitle}</p>
+                <p className="truncate text-xs text-muted">
+                  {REPORT_REASON_LABELS[row.reason] ?? row.reason}
+                </p>
+              </div>
+            ),
+          },
+          {
+            key: 'date',
+            header: 'Date',
+            render: (row) => formatDate(row.createdAt),
+          },
+          {
+            key: 'status',
+            header: 'Statut',
+            render: (row) => (
+              <StatusBadge
+                label={REPORT_STATUS_LABELS[row.status]}
+                tone={reportStatusTone(row.status)}
+              />
+            ),
+          },
+        ])}
+        data={openReports}
+        emptyMessage={
+          reportsError ? reportsError : 'Aucun signalement ouvert'
+        }
+        onRowClick={(row) => router.push(ROUTES.admin.report(row.id))}
+      />
 
       <ListDataTable
         title="Nouveaux comptes"

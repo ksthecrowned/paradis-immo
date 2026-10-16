@@ -3,16 +3,19 @@
 import { useEffect, useState } from 'react';
 import { AdminDashboard } from '@/app/admin/dashboard/admin-dashboard';
 import { ApiError } from '@/lib/api';
-import { listPropertiesForModeration } from '@/lib/admin/properties';
 import {
   listAdminReports,
   type AdminReportRow,
 } from '@/lib/admin/reports';
-import { getAdminStats, type AdminStats } from '@/lib/admin/stats';
-import { listUsers, type AdminUser } from '@/lib/admin/users';
 import {
-  buildPropertyModeSeries,
-  type PropertyModeSeries,
+  getAdminStats,
+  modeSeriesFromAdminStats,
+  type AdminStats,
+} from '@/lib/admin/stats';
+import { listUsers, type AdminUser } from '@/lib/admin/users';
+import type {
+  ChartRangeKey,
+  PropertyModeSeries,
 } from '@/lib/dashboard/chart-series';
 import { useRequireSession } from '@/hooks/use-require-session';
 
@@ -22,6 +25,7 @@ export default function AdminDashboardPage(): React.JSX.Element {
   const [recentUsers, setRecentUsers] = useState<AdminUser[]>([]);
   const [openReports, setOpenReports] = useState<AdminReportRow[]>([]);
   const [modeSeries, setModeSeries] = useState<PropertyModeSeries | undefined>();
+  const [chartRange, setChartRange] = useState<ChartRangeKey>('1y');
   const [error, setError] = useState<string | null>(null);
   const [usersError, setUsersError] = useState<string | null>(null);
   const [reportsError, setReportsError] = useState<string | null>(null);
@@ -30,21 +34,17 @@ export default function AdminDashboardPage(): React.JSX.Element {
     if (!ready) return;
     let cancelled = false;
     (async (): Promise<void> => {
-      const [statsResult, usersResult, reportsResult, propertiesResult] =
-        await Promise.all([
-          getAdminStats()
-            .then((s) => ({ ok: true as const, s }))
-            .catch((err: unknown) => ({ ok: false as const, err })),
-          listUsers({ page: 1, limit: 8 })
-            .then((r) => ({ ok: true as const, data: r.data }))
-            .catch((err: unknown) => ({ ok: false as const, err })),
-          listAdminReports({ status: 'OPEN', page: 1, pageSize: 8 })
-            .then((r) => ({ ok: true as const, data: r.data }))
-            .catch((err: unknown) => ({ ok: false as const, err })),
-          listPropertiesForModeration(100)
-            .then((rows) => ({ ok: true as const, rows }))
-            .catch((err: unknown) => ({ ok: false as const, err })),
-        ]);
+      const [statsResult, usersResult, reportsResult] = await Promise.all([
+        getAdminStats(chartRange)
+          .then((s) => ({ ok: true as const, s }))
+          .catch((err: unknown) => ({ ok: false as const, err })),
+        listUsers({ page: 1, limit: 8 })
+          .then((r) => ({ ok: true as const, data: r.data }))
+          .catch((err: unknown) => ({ ok: false as const, err })),
+        listAdminReports({ status: 'OPEN', page: 1, pageSize: 8 })
+          .then((r) => ({ ok: true as const, data: r.data }))
+          .catch((err: unknown) => ({ ok: false as const, err })),
+      ]);
 
       if (cancelled) return;
 
@@ -54,11 +54,11 @@ export default function AdminDashboardPage(): React.JSX.Element {
             ? statsResult.err.message
             : 'Erreur de chargement des indicateurs',
         );
-        setStats(null);
         return;
       }
 
       setError(null);
+      setModeSeries(modeSeriesFromAdminStats(statsResult.s.charts));
       setStats(statsResult.s);
 
       if (usersResult.ok) {
@@ -84,25 +84,13 @@ export default function AdminDashboardPage(): React.JSX.Element {
             : 'Impossible de charger les signalements.',
         );
       }
-
-      if (propertiesResult.ok) {
-        setModeSeries(
-          buildPropertyModeSeries(
-            propertiesResult.rows.map((p) => ({
-              mode: p.mode as 'RENT_SHORT' | 'RENT_LONG' | 'SALE',
-            })),
-          ),
-        );
-      } else {
-        setModeSeries(undefined);
-      }
     })();
     return () => {
       cancelled = true;
     };
-  }, [ready]);
+  }, [ready, chartRange]);
 
-  if (error) {
+  if (error && !stats) {
     return (
       <div className="rounded-lg border border-danger/40 bg-danger/10 p-4 text-sm text-danger">
         {error}
@@ -127,13 +115,22 @@ export default function AdminDashboardPage(): React.JSX.Element {
   }
 
   return (
-    <AdminDashboard
-      stats={stats}
-      recentUsers={recentUsers}
-      openReports={openReports}
-      modeSeries={modeSeries}
-      usersError={usersError}
-      reportsError={reportsError}
-    />
+    <>
+      {error ? (
+        <div className="mb-4 rounded-lg border border-danger/40 bg-danger/10 p-4 text-sm text-danger">
+          {error}
+        </div>
+      ) : null}
+      <AdminDashboard
+        stats={stats}
+        recentUsers={recentUsers}
+        openReports={openReports}
+        modeSeries={modeSeries}
+        chartRange={chartRange}
+        onChartRangeChange={setChartRange}
+        usersError={usersError}
+        reportsError={reportsError}
+      />
+    </>
   );
 }

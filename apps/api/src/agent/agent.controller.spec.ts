@@ -216,8 +216,12 @@ describe('Agent stats (e2e)', () => {
     expect(res.body).toEqual({
       mandatedProperties: 0,
       visitsToday: 0,
+      upcomingVisits: 0,
       pendingCashValidations: 0,
       openMaintenanceTickets: 0,
+      activeLeases: 0,
+      overdueSchedules: 0,
+      pendingApplications: 0,
     });
   });
 
@@ -230,8 +234,12 @@ describe('Agent stats (e2e)', () => {
     expect(res.body).toEqual({
       mandatedProperties: 0,
       visitsToday: 0,
+      upcomingVisits: 0,
       pendingCashValidations: 0,
       openMaintenanceTickets: 0,
+      activeLeases: 0,
+      overdueSchedules: 0,
+      pendingApplications: 0,
     });
   });
 
@@ -321,8 +329,12 @@ describe('Agent stats (e2e)', () => {
     const expected = {
       mandatedProperties: 1,
       visitsToday: 1,
+      upcomingVisits: 0,
       pendingCashValidations: 1,
       openMaintenanceTickets: 1,
+      activeLeases: 1,
+      overdueSchedules: 0,
+      pendingApplications: 0,
     };
 
     const assignedRes = await request(app.getHttpServer())
