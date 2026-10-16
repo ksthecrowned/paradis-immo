@@ -318,4 +318,53 @@ describe('AgencyAccessService', () => {
       data: { assignedAgentId },
     });
   });
+
+  it('ADR-0001: PROPOSED mandate still grants provisional agency access', async () => {
+    await prisma.mandate.update({
+      where: { id: mandateId },
+      data: {
+        status: 'PROPOSED',
+        documentReviewStatus: 'NOT_APPLICABLE',
+      },
+    });
+    try {
+      await expect(
+        access.assertCanOperateOnProperty(gerantUserId, propertyId),
+      ).resolves.toBeUndefined();
+      await expect(
+        access.assertCanOperateOnProperty(assignedAgentId, propertyId),
+      ).resolves.toBeUndefined();
+      const ids = await access.listOperablePropertyIds(gerantUserId);
+      expect(ids).toContain(propertyId);
+    } finally {
+      await prisma.mandate.update({
+        where: { id: mandateId },
+        data: { status: 'ACTIVE', assignedAgentId },
+      });
+    }
+  });
+
+  it('ADR-0001: REJECTED document review revokes provisional access', async () => {
+    await prisma.mandate.update({
+      where: { id: mandateId },
+      data: {
+        status: 'PROPOSED',
+        documentReviewStatus: 'REJECTED',
+      },
+    });
+    try {
+      await expect(
+        access.assertCanOperateOnProperty(gerantUserId, propertyId),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    } finally {
+      await prisma.mandate.update({
+        where: { id: mandateId },
+        data: {
+          status: 'ACTIVE',
+          documentReviewStatus: 'NOT_APPLICABLE',
+          assignedAgentId,
+        },
+      });
+    }
+  });
 });

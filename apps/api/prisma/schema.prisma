@@ -295,6 +295,21 @@ enum MandateStatus {
   DECLINED
 }
 
+/// Qui a initié la proposition de mandat (ADR-0001 — sens distincts de PROPOSED).
+enum MandateInitiator {
+  OWNER
+  AGENCY
+}
+
+/// Revue documentaire plateforme pour mandat papier (orthogonal au statut Mandate).
+enum MandateDocumentReviewStatus {
+  NOT_APPLICABLE
+  PENDING
+  NEEDS_CORRECTION
+  APPROVED
+  REJECTED
+}
+
 enum MandateScope {
   LONG_TERM_RENTAL
   SHORT_STAY
@@ -1770,6 +1785,32 @@ model Mandate {
   ownerSignedAt              DateTime?
   agencySignedAt             DateTime?
   versions                   MandateVersion[]
+  /// ADR-0001 — initiateur de la proposition (OWNER→agence vs agence→client).
+  initiator                  MandateInitiator @default(OWNER)
+  /// Revue documentaire hors plateforme (clients externes). Orthogonal au statut.
+  documentReviewStatus       MandateDocumentReviewStatus @default(NOT_APPLICABLE)
+  documentReviewReason       String?
+  documentReviewedAt         DateTime?
+  documentReviewedById       String?
+  documentVersion            Int                         @default(0)
+  reviewDecisions            MandateDocumentReviewDecision[]
+
+  @@index([documentReviewStatus, createdAt])
+}
+
+/// Historique immuable des décisions de revue documentaire (spec 12.5).
+model MandateDocumentReviewDecision {
+  id           String                       @id @default(cuid())
+  mandateId    String
+  mandate      Mandate                      @relation(fields: [mandateId], references: [id], onDelete: Cascade)
+  decision     MandateDocumentReviewStatus
+  reason       String
+  documentKey  String?
+  documentVersion Int
+  decidedById  String
+  createdAt    DateTime                     @default(now())
+
+  @@index([mandateId, createdAt])
 }
 
 model MandateVersion {

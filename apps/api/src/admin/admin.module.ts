@@ -4,6 +4,7 @@ import { PrismaModule } from '../prisma/prisma.module';
 import { EventModule } from '../events/event.module';
 import { AuditLogModule } from '../common/audit-log.module';
 import { AuditLogService } from '../common/audit-log.service';
+import { MandatesModule } from '../mandates/mandates.module';
 import { AdminController } from './admin.controller';
 import { AdminService } from './admin.service';
 import { AdminPermissionGuard } from './admin-permission.guard';
@@ -20,7 +21,7 @@ import { AdminPermissionGuard } from './admin-permission.guard';
  * All routes are guarded by `AppAuthGuard + RolesGuard(PLATFORM_ADMIN)`.
  */
 @Module({
-  imports: [PrismaModule, AuthModule, EventModule, AuditLogModule],
+  imports: [PrismaModule, AuthModule, EventModule, AuditLogModule, MandatesModule],
   controllers: [AdminController],
   providers: [AdminService, AuditLogService, AdminPermissionGuard],
   exports: [AdminService, AuditLogService],

@@ -11,13 +11,18 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { PropertyReportStatus, PropertyStatus } from '@prisma/client';
+import {
+  MandateDocumentReviewStatus,
+  PropertyReportStatus,
+  PropertyStatus,
+} from '@prisma/client';
 import {
   IsBoolean,
   IsEnum,
   IsOptional,
   IsString,
   MaxLength,
+  MinLength,
 } from 'class-validator';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AuthService } from '../auth/auth.service';
@@ -33,6 +38,7 @@ import {
   AdminPermission,
 } from './admin-permission.guard';
 import { PrismaService } from '../prisma/prisma.service';
+import { MandateDocumentReviewService } from '../mandates/mandate-document-review.service';
 import { generateTotpSecret, verifyTotp } from './totp';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 
@@ -79,6 +85,16 @@ class VerifyTotpDto {
   code!: string;
 }
 
+class DecideMandateDocumentReviewDto {
+  @IsEnum(MandateDocumentReviewStatus)
+  decision!: MandateDocumentReviewStatus;
+
+  @IsString()
+  @MinLength(3)
+  @MaxLength(2000)
+  reason!: string;
+}
+
 @ApiTags('Admin')
 @ApiBearerAuth()
 @Controller('admin')
@@ -90,7 +106,43 @@ export class AdminController {
     private readonly auth: AuthService,
     private readonly auditLog: AuditLogService,
     private readonly prisma: PrismaService,
+    private readonly mandateDocReview: MandateDocumentReviewService,
   ) {}
+
+  @Get('mandate-reviews')
+  @AdminPermission('kyc.review')
+  @ApiOperation({
+    summary:
+      'Queue of paper mandate document reviews (documentary only, not legal certification)',
+  })
+  async listMandateReviews(
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
+    @Query('pageSize', new DefaultValuePipe(20), ParseIntPipe) pageSize: number,
+  ) {
+    const result = await this.mandateDocReview.listPending(page, pageSize);
+    return { statusCode: 200, ...result };
+  }
+
+  @Post('mandate-reviews/:mandateId/decide')
+  @HttpCode(200)
+  @AdminPermission('kyc.review')
+  @ApiOperation({
+    summary:
+      'Decide paper mandate review: APPROVED | NEEDS_CORRECTION | REJECTED (reason required)',
+  })
+  async decideMandateReview(
+    @CurrentUser() current: AuthenticatedUser,
+    @Param('mandateId') mandateId: string,
+    @Body() dto: DecideMandateDocumentReviewDto,
+  ) {
+    const data = await this.mandateDocReview.decide({
+      mandateId,
+      adminUserId: current.userId,
+      decision: dto.decision,
+      reason: dto.reason,
+    });
+    return { statusCode: 200, data };
+  }
 
   @Get('stats')
   @AdminPermission('stats.read')

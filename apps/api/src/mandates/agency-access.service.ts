@@ -4,6 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import {
+  MandateDocumentReviewStatus,
   MandateStatus,
   MemberStatus,
   OrgMemberRole,
@@ -12,11 +13,15 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 
 /**
- * Mandates through which the agency may still operate on a property:
- * ACTIVE, or TERMINATING while the notice period has not elapsed yet
- * (the agent keeps access up to `terminationEffectiveAt`).
+ * Mandates through which the agency may operate on a property (ADR-0001):
+ * - ACTIVE / TERMINATING (notice) — consent final or winding down
+ * - PROPOSED / COUNTERED — provisional access while awaiting owner accept
+ *   or platform document review (NOT_APPLICABLE | PENDING | NEEDS_CORRECTION)
+ *
+ * DECLINED / REJECTED document review / EXPIRED / TERMINATED do not grant access.
+ * Listing status (ACTIVE vs PAUSED) is orthogonal and enforced elsewhere.
  */
-function liveMandateFilter(): Prisma.MandateWhereInput {
+export function operableMandateFilter(): Prisma.MandateWhereInput {
   return {
     OR: [
       { status: MandateStatus.ACTIVE },
@@ -24,8 +29,23 @@ function liveMandateFilter(): Prisma.MandateWhereInput {
         status: MandateStatus.TERMINATING,
         terminationEffectiveAt: { gt: new Date() },
       },
+      {
+        status: { in: [MandateStatus.PROPOSED, MandateStatus.COUNTERED] },
+        documentReviewStatus: {
+          in: [
+            MandateDocumentReviewStatus.NOT_APPLICABLE,
+            MandateDocumentReviewStatus.PENDING,
+            MandateDocumentReviewStatus.NEEDS_CORRECTION,
+          ],
+        },
+      },
     ],
   };
+}
+
+/** @deprecated Use operableMandateFilter — kept name alias for call-site clarity. */
+function liveMandateFilter(): Prisma.MandateWhereInput {
+  return operableMandateFilter();
 }
 
 @Injectable()
