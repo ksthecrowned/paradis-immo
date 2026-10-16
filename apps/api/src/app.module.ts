@@ -7,6 +7,7 @@ import { AccountingModule } from './accounting/accounting.module';
 import { AdminModule } from './admin/admin.module';
 import { AgentModule } from './agent/agent.module';
 import { AgencyModule } from './organizations/agency.module';
+import { AgencyClientsModule } from './agency-clients/agency-clients.module';
 import { ApplicationsModule } from './applications/applications.module';
 import { AuthModule } from './auth/auth.module';
 import { BookingsModule } from './bookings/bookings.module';
@@ -47,6 +48,7 @@ import { VisitSlotsModule } from './visit-slots/visit-slots.module';
     AuthModule,
     OrganizationsModule,
     AgencyModule,
+    AgencyClientsModule,
     UsersModule,
     AccountingModule,
     HealthModule,
