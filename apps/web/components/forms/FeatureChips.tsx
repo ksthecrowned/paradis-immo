@@ -78,7 +78,7 @@ export function FeatureChips({
                 'inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-sm font-medium transition-colors',
                 isSelected
                   ? 'border-accent bg-accent/10 text-accent'
-                  : 'border-input-border bg-card text-foreground hover:border-accent/40 hover:text-accent',
+                  : 'border-input-border bg-card text-muted hover:border-accent/40 hover:text-accent',
                 disabled ? 'cursor-not-allowed opacity-50' : '',
               ].join(' ')}
             >

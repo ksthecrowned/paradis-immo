@@ -1,5 +1,6 @@
 'use client';
 
+import { appDialog } from '@/components/dialogs/app-dialog';
 import { useCallback, useEffect, useState } from 'react';
 import { DashboardPageHeader, StatusBadge } from '@/components/dashboard';
 import { useRequireSession } from '@/hooks/use-require-session';
@@ -126,7 +127,7 @@ export function LeaseTemplatesManager(): React.JSX.Element {
           <div>
             <label
               htmlFor="template-name"
-              className="mb-1 block text-sm font-medium text-foreground"
+              className="mb-1 block text-sm font-medium text-muted"
             >
               Nom du modèle
             </label>
@@ -144,7 +145,7 @@ export function LeaseTemplatesManager(): React.JSX.Element {
           <div>
             <label
               htmlFor="template-body"
-              className="mb-1 block text-sm font-medium text-foreground"
+              className="mb-1 block text-sm font-medium text-muted"
             >
               Corps du contrat
             </label>
@@ -159,7 +160,7 @@ export function LeaseTemplatesManager(): React.JSX.Element {
               className="w-full rounded-lg border border-border bg-background px-3 py-2 font-mono text-xs text-foreground"
             />
           </div>
-          <label className="flex items-center gap-2 text-sm text-foreground">
+          <label className="flex items-center gap-2 text-sm text-muted">
             <input
               type="checkbox"
               checked={form.isDefault}
@@ -191,7 +192,7 @@ export function LeaseTemplatesManager(): React.JSX.Element {
                 setEditingId(null);
                 setForm({ name: '', body: '', isDefault: false });
               }}
-              className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-card-hover disabled:opacity-50"
+              className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-active hover:bg-card-hover disabled:opacity-50"
             >
               Annuler
             </button>
@@ -234,7 +235,7 @@ export function LeaseTemplatesManager(): React.JSX.Element {
                           }),
                         )
                       }
-                      className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-card-hover disabled:opacity-50"
+                      className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-active hover:bg-card-hover disabled:opacity-50"
                     >
                       Définir par défaut
                     </button>
@@ -250,15 +251,15 @@ export function LeaseTemplatesManager(): React.JSX.Element {
                         isDefault: row.isDefault,
                       });
                     }}
-                    className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-card-hover disabled:opacity-50"
+                    className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-active hover:bg-card-hover disabled:opacity-50"
                   >
                     Modifier
                   </button>
                   <button
                     type="button"
                     disabled={busy !== null}
-                    onClick={() => {
-                      if (!confirm(`Supprimer le modèle « ${row.name} » ?`)) return;
+                    onClick={async () => {
+                      if (!await appDialog.confirm({ message: `Supprimer le modèle « ${row.name} » ?` })) return;
                       void run(`delete-${row.id}`, () =>
                         deleteLeaseTemplate(orgId, row.id),
                       );

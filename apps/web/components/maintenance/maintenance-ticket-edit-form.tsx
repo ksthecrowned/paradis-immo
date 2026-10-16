@@ -183,13 +183,13 @@ export function MaintenanceTicketEditForm({
                   <div className="space-y-2 text-base">
                     <div className="flex items-start justify-between gap-3">
                       <span className="text-muted">Priorité</span>
-                      <span className="text-foreground">
+                      <span className="text-active">
                         {maintenancePriorityLabel(ticket.priority)}
                       </span>
                     </div>
                     <div className="flex items-start justify-between gap-3">
                       <span className="text-muted">Créé le</span>
-                      <span className="text-foreground">
+                      <span className="text-active">
                         {new Date(ticket.createdAt).toLocaleDateString('fr-FR')}
                       </span>
                     </div>

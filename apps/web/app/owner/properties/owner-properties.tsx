@@ -1,5 +1,6 @@
 'use client';
 
+import { appDialog } from '@/components/dialogs/app-dialog';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -81,7 +82,7 @@ export function OwnerPropertiesPage(): React.JSX.Element {
 
   const handleArchive = useCallback(
     async (id: string) => {
-      if (!confirm('Archiver ce bien ?')) return;
+      if (!await appDialog.confirm({ message: 'Archiver ce bien ?' })) return;
       setActionId(id);
       try {
         await archiveProperty(id);

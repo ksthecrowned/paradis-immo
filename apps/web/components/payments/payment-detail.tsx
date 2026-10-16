@@ -1,5 +1,6 @@
 'use client';
 
+import { appDialog } from '@/components/dialogs/app-dialog';
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import { DashboardPageHeader, StatusBadge } from '@/components/dashboard';
@@ -84,9 +85,7 @@ export function PaymentDetail({
   const handleValidate = useCallback(async () => {
     if (!payment) return;
     if (
-      !confirm(
-        `Valider le paiement de ${formatMoney(payment.amount, payment.currency)} ?`,
-      )
+      !await appDialog.confirm({ message: `Valider le paiement de ${formatMoney(payment.amount, payment.currency)} ?` })
     ) {
       return;
     }
@@ -182,14 +181,14 @@ export function PaymentDetail({
                 type="button"
                 disabled={busy}
                 onClick={() => void handleReceipt()}
-                className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-card-hover disabled:opacity-50"
+                className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-active hover:bg-card-hover disabled:opacity-50"
               >
                 Ouvrir le reçu
               </button>
             ) : null}
             <Link
               href={listHref}
-              className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-card-hover"
+              className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-active hover:bg-card-hover"
             >
               Liste
             </Link>

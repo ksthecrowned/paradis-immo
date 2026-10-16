@@ -148,7 +148,7 @@ export function SelectSearch({
           disabled ? 'cursor-not-allowed opacity-50' : '',
         ].join(' ')}
       >
-        <span className={current ? 'text-foreground' : 'text-muted'}>
+        <span className={current ? 'text-active' : 'text-muted'}>
           {current?.label ?? placeholder}
         </span>
         <Icon icon="mdi:chevron-down" className="h-4 w-4 text-muted" />
@@ -201,7 +201,7 @@ export function SelectSearch({
                             'flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-base',
                             isActive
                               ? 'bg-accent/15 text-accent'
-                              : 'text-foreground hover:bg-card-hover',
+                              : 'text-active hover:bg-card-hover',
                           ].join(' ')}
                         >
                           <span>{o.label}</span>

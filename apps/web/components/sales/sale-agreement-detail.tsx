@@ -1,5 +1,6 @@
 'use client';
 
+import { appDialog } from '@/components/dialogs/app-dialog';
 import { useCallback, useEffect, useState } from 'react';
 import {
   DashboardPageHeader,
@@ -152,7 +153,7 @@ export function SaleAgreementDetailPage({
     action: () => Promise<PublicSaleAgreement>,
     label: string,
   ): Promise<void> => {
-    if (!confirm(`${label} ?`)) return;
+    if (!await appDialog.confirm({ message: `${label} ?` })) return;
     setBusy(true);
     try {
       setRow(await action());

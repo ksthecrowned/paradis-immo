@@ -18,7 +18,7 @@ const btnPrimaryClass =
   'inline-flex w-full items-center justify-center rounded-xl bg-accent px-4 py-3 text-sm font-semibold text-on-accent transition-colors hover:bg-accent/90 disabled:opacity-50';
 
 const btnSecondaryClass =
-  'inline-flex w-full items-center justify-center gap-3 rounded-xl border border-border bg-background px-4 py-3 text-sm font-semibold text-foreground transition-colors hover:bg-card-hover disabled:opacity-50';
+  'inline-flex w-full items-center justify-center gap-3 rounded-xl border border-border bg-background px-4 py-3 text-sm font-semibold text-active transition-colors hover:bg-card-hover disabled:opacity-50';
 
 const googleEnabled = process.env.NEXT_PUBLIC_GOOGLE_AUTH_ENABLED === 'true';
 
@@ -91,8 +91,8 @@ function LoginForm(): React.JSX.Element {
         aria-hidden
         className="pointer-events-none absolute inset-0 overflow-hidden"
       >
-        <div className="absolute -top-32 left-1/2 h-[420px] w-[720px] -translate-x-1/2 rounded-full bg-accent/15 blur-3xl" />
-        <div className="absolute bottom-0 right-0 h-[280px] w-[280px] translate-x-1/4 translate-y-1/4 rounded-full bg-accent/10 blur-3xl" />
+        <div className="absolute -top-32 left-1/2 h-105 w-180 -translate-x-1/2 rounded-full bg-accent/15 blur-3xl" />
+        <div className="absolute bottom-0 right-0 h-70 w-70 translate-x-1/4 translate-y-1/4 rounded-full bg-accent/10 blur-3xl" />
       </div>
 
       <header className="relative z-10 flex items-center justify-between px-4 py-5 sm:px-8">
@@ -115,7 +115,7 @@ function LoginForm(): React.JSX.Element {
         <button
           type="button"
           onClick={toggleTheme}
-          className="inline-flex size-10 items-center justify-center rounded-full border border-border bg-card text-muted transition-colors hover:bg-card-hover hover:text-foreground"
+          className="inline-flex size-10 items-center justify-center rounded-full border border-border bg-card text-muted transition-colors hover:bg-card-hover hover:text-active"
           aria-label="Basculer le thème"
         >
           <DashIcon
@@ -127,7 +127,7 @@ function LoginForm(): React.JSX.Element {
       </header>
 
       <div className="relative z-10 flex flex-1 items-center justify-center px-4 pb-12 pt-4">
-        <div className="w-full max-w-[420px]">
+        <div className="w-full max-w-105">
           <div className="mb-8 text-center sm:text-start">
             <h1 className="text-3xl font-bold tracking-tight text-foreground">
               Bon retour
@@ -153,7 +153,7 @@ function LoginForm(): React.JSX.Element {
                     alt=""
                     width={22}
                     height={22}
-                    className="size-[22px] shrink-0"
+                    className="size-5.5 shrink-0"
                     aria-hidden
                   />
                   Continuer avec Google
@@ -176,7 +176,7 @@ function LoginForm(): React.JSX.Element {
               <div className="space-y-2.5">
                 <label
                   htmlFor="login-email"
-                  className="block text-sm font-medium text-foreground"
+                  className="block text-sm font-medium text-muted"
                 >
                   Email
                 </label>
@@ -194,7 +194,7 @@ function LoginForm(): React.JSX.Element {
               <div className="space-y-2.5">
                 <label
                   htmlFor="login-password"
-                  className="block text-sm font-medium text-foreground"
+                  className="block text-sm font-medium text-muted"
                 >
                   Mot de passe
                 </label>
@@ -213,7 +213,7 @@ function LoginForm(): React.JSX.Element {
                   <button
                     type="button"
                     onClick={() => setShowPassword((v) => !v)}
-                    className="absolute inset-e-2 top-1/2 inline-flex size-8 -translate-y-1/2 items-center justify-center rounded-lg text-muted hover:text-foreground"
+                    className="absolute inset-e-2 top-1/2 inline-flex size-8 -translate-y-1/2 items-center justify-center rounded-lg text-muted hover:text-active"
                     aria-label={
                       showPassword
                         ? 'Masquer le mot de passe'

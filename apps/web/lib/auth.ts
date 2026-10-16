@@ -26,6 +26,12 @@ export async function loginWithPassword(
 }
 
 export async function logout(callbackUrl = '/login'): Promise<void> {
+  try {
+    const { unregisterWebPushFromApi } = await import('@/lib/web-push');
+    await unregisterWebPushFromApi();
+  } catch {
+    // Best-effort device cleanup before the session is cleared.
+  }
   const { invalidateAccessTokenCache } = await import('@/lib/api');
   invalidateAccessTokenCache();
   await signOut({ callbackUrl });

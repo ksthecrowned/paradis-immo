@@ -16,7 +16,7 @@ export function DetailRow({
   return (
     <div className={`grid gap-1 px-5 py-3.5 md:grid-cols-3 ${className}`}>
       <dt className="text-sm font-medium text-muted">{label}</dt>
-      <dd className="text-sm text-foreground md:col-span-2">
+      <dd className="text-sm text-active md:col-span-2">
         {children ?? (value === null || value === undefined || value === '' ? '—' : value)}
       </dd>
     </div>

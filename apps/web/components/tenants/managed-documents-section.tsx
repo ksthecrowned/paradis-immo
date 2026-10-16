@@ -1,5 +1,6 @@
 'use client';
 
+import { appDialog } from '@/components/dialogs/app-dialog';
 import { Button } from '@/components/primitives';
 import { ApiError } from '@/lib/api';
 import { useRef, useState } from 'react';
@@ -103,7 +104,7 @@ export function ManagedDocumentsSection({
               className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-card px-4 py-3 text-sm"
             >
               <div>
-                <p className="font-medium text-foreground">{d.name}</p>
+                <p className="font-medium text-active">{d.name}</p>
                 <p className="text-xs text-muted">
                   {typeLabels[d.type] ?? d.type}
                 </p>
@@ -121,8 +122,8 @@ export function ManagedDocumentsSection({
                   type="button"
                   className="text-danger hover:underline"
                   disabled={busy}
-                  onClick={() => {
-                    if (!confirm('Supprimer ce document ?')) return;
+                  onClick={async () => {
+                    if (!await appDialog.confirm({ message: 'Supprimer ce document ?' })) return;
                     void onDelete(d.id).catch((err) => {
                       setLocalError(
                         err instanceof ApiError

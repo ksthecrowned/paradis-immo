@@ -1,5 +1,6 @@
 'use client';
 
+import { appDialog } from '@/components/dialogs/app-dialog';
 import { Icon } from '@iconify/react';
 import { DashboardPageHeader } from '@/components/dashboard';
 import {
@@ -1592,7 +1593,7 @@ export function PropertyForm({
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="inline-flex items-center gap-2 rounded-lg border border-input-border bg-card px-4 py-2.5 text-sm font-medium text-foreground hover:bg-card-hover"
+              className="inline-flex items-center gap-2 rounded-lg border border-input-border bg-card px-4 py-2.5 text-sm font-medium text-active hover:bg-card-hover"
             >
               <Icon icon="mdi:image-plus" className="h-4 w-4" />
               Ajouter des photos
@@ -1600,7 +1601,7 @@ export function PropertyForm({
             <button
               type="button"
               onClick={() => videoInputRef.current?.click()}
-              className="inline-flex items-center gap-2 rounded-lg border border-input-border bg-card px-4 py-2.5 text-sm font-medium text-foreground hover:bg-card-hover"
+              className="inline-flex items-center gap-2 rounded-lg border border-input-border bg-card px-4 py-2.5 text-sm font-medium text-active hover:bg-card-hover"
             >
               <Icon icon="mdi:video-plus" className="h-4 w-4" />
               Ajouter une vidéo
@@ -1699,7 +1700,7 @@ export function PropertyForm({
                       ))}
                     </Select>
                   </FormField>
-                  <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-input-border bg-card px-4 py-2.5 text-sm font-medium text-foreground hover:bg-card-hover">
+                  <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-input-border bg-card px-4 py-2.5 text-sm font-medium text-active hover:bg-card-hover">
                     <Icon icon="mdi:upload" className="h-4 w-4" />
                     Ajouter un document
                     <input
@@ -1744,7 +1745,7 @@ export function PropertyForm({
                         className="flex items-center justify-between gap-3 px-4 py-3 text-sm"
                       >
                         <div className="min-w-0">
-                          <p className="truncate font-medium text-foreground">
+                          <p className="truncate font-medium text-active">
                             {d.name}
                           </p>
                           <p className="text-xs text-muted">
@@ -1958,12 +1959,10 @@ export function PropertyForm({
                           icon: 'mdi:archive-outline',
                           variant: 'danger' as const,
                           loading: sideActionBusy === 'archive',
-                          onClick: () => {
+                          onClick: async () => {
                             if (
                               typeof window !== 'undefined' &&
-                              !window.confirm(
-                                'Archiver ce bien ? Il ne sera plus visible sur le marché.',
-                              )
+                              !await appDialog.confirm({ message: 'Archiver ce bien ? Il ne sera plus visible sur le marché.' })
                             ) {
                               return;
                             }

@@ -68,7 +68,7 @@ function MarketPropertyCard({
           sizes="(max-width: 640px) 100vw, (max-width: 1280px) 50vw, 25vw"
         />
         {badge ? (
-          <span className="absolute start-2 top-2 rounded-md bg-background/90 px-2 py-0.5 text-xs font-medium text-foreground">
+          <span className="absolute start-2 top-2 rounded-md bg-background/90 px-2 py-0.5 text-xs font-medium text-active">
             {badge}
           </span>
         ) : null}

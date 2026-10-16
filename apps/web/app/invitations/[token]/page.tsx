@@ -109,11 +109,11 @@ export default function InvitationPage(): React.JSX.Element {
         </h1>
         <p className="text-sm text-muted">
           On vous invite à rejoindre cette organisation en tant que{' '}
-          <span className="font-semibold text-foreground">{preview.role}</span>.
+          <span className="font-semibold text-active">{preview.role}</span>.
           {preview.email ? (
             <>
               {' '}
-              Adresse invitée : <span className="text-foreground">{preview.email}</span>
+              Adresse invitée : <span className="text-active">{preview.email}</span>
             </>
           ) : null}
         </p>
@@ -133,13 +133,13 @@ export default function InvitationPage(): React.JSX.Element {
           <div className="grid gap-2 sm:grid-cols-2">
             <a
               href="/login"
-              className="rounded-md border border-border px-4 py-2 text-center text-sm font-semibold text-foreground hover:border-accent"
+              className="rounded-md border border-border px-4 py-2 text-center text-sm font-semibold text-active hover:border-accent"
             >
               Se connecter
             </a>
             <a
               href="/register"
-              className="rounded-md border border-border px-4 py-2 text-center text-sm font-semibold text-foreground hover:border-accent"
+              className="rounded-md border border-border px-4 py-2 text-center text-sm font-semibold text-active hover:border-accent"
             >
               Créer un compte
             </a>

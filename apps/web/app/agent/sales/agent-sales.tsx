@@ -179,7 +179,7 @@ export function AgentSalesPage(): React.JSX.Element {
               {row.status !== 'CLOSED' ? (
                 <Link
                   href={openHref}
-                  className="rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground hover:bg-card-hover"
+                  className="rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-active hover:bg-card-hover"
                 >
                   Ouvrir un dossier
                 </Link>

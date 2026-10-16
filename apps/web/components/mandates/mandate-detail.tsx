@@ -1,5 +1,6 @@
 'use client';
 
+import { appDialog } from '@/components/dialogs/app-dialog';
 import { StatusBadge } from '@/components/dashboard';
 import { DetailCard } from '@/components/detail';
 import { ApiErrorBanner } from '@/components/forms';
@@ -134,7 +135,7 @@ export function MandateDetailView({
     });
   }, [detail.id, run]);
 
-  const handleTerminate = useCallback(() => {
+  const handleTerminate = useCallback(async () => {
     if (terminateReason.trim().length < 3) {
       setError('Indiquez un motif de résiliation (3 caractères minimum).');
       return;
@@ -142,7 +143,7 @@ export function MandateDetailView({
     const label = terminateImmediate
       ? 'résilier immédiatement ce mandat pour faute ?'
       : 'résilier ce mandat avec préavis ?';
-    if (!confirm(`Confirmer : ${label}`)) return;
+    if (!await appDialog.confirm({ message: `Confirmer : ${label}` })) return;
     void run(async () => {
       await terminateMandate(detail.id, {
         reason: terminateReason.trim(),
@@ -203,7 +204,7 @@ export function MandateDetailView({
               <dt className="text-xs uppercase tracking-wide text-muted">
                 {row.label}
               </dt>
-              <dd className="text-sm text-foreground">{row.value ?? '—'}</dd>
+              <dd className="text-sm text-active">{row.value ?? '—'}</dd>
             </div>
           ))}
         </dl>
@@ -311,7 +312,7 @@ export function MandateDetailView({
             {detail.versions.map((version, index) => (
               <li key={version.id} className="flex flex-wrap items-center justify-between gap-2 px-5 py-3">
                 <div>
-                  <p className="text-sm text-foreground">
+                  <p className="text-sm text-muted">
                     {termsSummary(version.terms)}
                   </p>
                   <p className="text-xs text-muted">
@@ -342,7 +343,7 @@ export function MandateDetailView({
             {detail.approvals.map((approval) => (
               <li key={approval.id} className="space-y-1 px-5 py-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="text-sm text-foreground">
+                  <p className="text-sm text-active">
                     {mandateActionLabel(approval.actionType)}
                   </p>
                   <StatusBadge
@@ -410,7 +411,7 @@ export function MandateDetailView({
                       className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
                     />
                   </div>
-                  <label className="flex items-center gap-2 text-sm text-foreground">
+                  <label className="flex items-center gap-2 text-sm text-muted">
                     <input
                       type="checkbox"
                       checked={terminateImmediate}

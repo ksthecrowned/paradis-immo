@@ -1,5 +1,6 @@
 'use client';
 
+import { appDialog } from '@/components/dialogs/app-dialog';
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
@@ -68,9 +69,9 @@ export function AgentDisputesPage(): React.JSX.Element {
       status: 'RESOLVED_ACCEPTED' | 'RESOLVED_REJECTED',
     ) => {
       const label = status === 'RESOLVED_ACCEPTED' ? 'accepter' : 'rejeter';
-      if (!confirm(`Confirmer : ${label} ce litige ?`)) return;
+      if (!await appDialog.confirm({ message: `Confirmer : ${label} ce litige ?` })) return;
       const resolution =
-        window.prompt('Résolution (facultatif) :', '') ?? undefined;
+        await appDialog.prompt({ message: 'Résolution (facultatif) :', defaultValue: '' }) ?? undefined;
       setResolvingId(dispute.id);
       try {
         await resolveDispute(dispute.id, {
@@ -171,7 +172,7 @@ export function AgentDisputesPage(): React.JSX.Element {
           <div className="flex flex-wrap gap-2">
             <Link
               href={ROUTES.agent.payment(row.paymentId)}
-              className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-card-hover"
+              className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-active hover:bg-card-hover"
             >
               Voir
             </Link>

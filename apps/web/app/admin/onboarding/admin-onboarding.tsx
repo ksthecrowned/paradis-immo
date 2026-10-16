@@ -1,5 +1,6 @@
 'use client';
 
+import { appDialog } from '@/components/dialogs/app-dialog';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   DashboardPageHeader,
@@ -63,7 +64,7 @@ export function AdminOnboardingPage(): React.JSX.Element {
 
   const handleInvite = useCallback(
     async (id: string) => {
-      if (!confirm('Valider ce dossier ? Une organisation sera créée et un lien d’invitation généré.')) {
+      if (!await appDialog.confirm({ message: 'Valider ce dossier ? Une organisation sera créée et un lien d’invitation généré.' })) {
         return;
       }
       setActionId(id);
@@ -93,10 +94,16 @@ export function AdminOnboardingPage(): React.JSX.Element {
 
   const handleReject = useCallback(
     async (id: string) => {
-      const reason = window.prompt(
-        'Motif du rejet (obligatoire) :',
-        'Dossier incomplet',
-      );
+      const reason = await appDialog.prompt({
+        title: 'Rejeter le dossier',
+        message: 'Un motif sera communiqué au demandeur.',
+        label: 'Motif du rejet',
+        defaultValue: 'Dossier incomplet',
+        required: true,
+        multiline: true,
+        variant: 'danger',
+        confirmLabel: 'Rejeter le dossier',
+      });
       if (!reason || !reason.trim()) return;
       setActionId(id);
       setNotice(null);
@@ -215,10 +222,6 @@ export function AdminOnboardingPage(): React.JSX.Element {
       <DashboardPageHeader
         title="Dossiers d’ouverture"
       />
-      <p className="text-sm text-muted">
-        Demandes propriétaires et agences (spec 02) : valider génère
-        l’organisation + le lien d’invitation.
-      </p>
       <div className="flex flex-wrap gap-2">
         {(['PENDING', 'ALL', 'INVITED', 'REJECTED'] as const).map((key) => (
           <button

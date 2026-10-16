@@ -13,11 +13,10 @@ export interface ModerationPropertyRow {
 export async function listPropertiesForModeration(
   limit = 100,
 ): Promise<ModerationPropertyRow[]> {
-  const result = await apiFetch<{
-    data: ModerationPropertyRow[];
-    meta: { total: number; limit: number; offset: number };
-  }>(`/admin/properties/moderation?limit=${limit}`);
-  return result.data ?? [];
+  // apiFetch already unwraps `{ statusCode, data }` → the array.
+  return apiFetch<ModerationPropertyRow[]>(
+    `/admin/properties/moderation?limit=${limit}`,
+  );
 }
 
 export interface ModeratePropertyResult {

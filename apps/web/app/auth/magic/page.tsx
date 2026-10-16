@@ -85,7 +85,7 @@ function MagicForm(): React.JSX.Element {
               <button
                 type="button"
                 onClick={() => setShowPassword((v) => !v)}
-                className="absolute inset-e-2 top-1/2 inline-flex size-8 -translate-y-1/2 items-center justify-center rounded-lg text-muted hover:text-foreground"
+                className="absolute inset-e-2 top-1/2 inline-flex size-8 -translate-y-1/2 items-center justify-center rounded-lg text-muted hover:text-active"
                 aria-label={
                   showPassword
                     ? 'Masquer le mot de passe'
@@ -119,7 +119,7 @@ function MagicForm(): React.JSX.Element {
               <button
                 type="button"
                 onClick={() => setShowConfirm((v) => !v)}
-                className="absolute inset-e-2 top-1/2 inline-flex size-8 -translate-y-1/2 items-center justify-center rounded-lg text-muted hover:text-foreground"
+                className="absolute inset-e-2 top-1/2 inline-flex size-8 -translate-y-1/2 items-center justify-center rounded-lg text-muted hover:text-active"
                 aria-label={
                   showConfirm
                     ? 'Masquer la confirmation'

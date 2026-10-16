@@ -59,7 +59,7 @@ export function MetaList({ rows }: { rows: FormSidebarRow[] }): React.JSX.Elemen
           className="flex items-start justify-between gap-3 py-2 first:pt-0 last:pb-0"
         >
           <dt className="text-muted">{r.label}</dt>
-          <dd className="text-end text-foreground">{r.value}</dd>
+          <dd className="text-end text-active">{r.value}</dd>
         </div>
       ))}
     </dl>
@@ -82,7 +82,7 @@ export function TipBox({ tips }: { tips: FormSidebarTip[] }): React.JSX.Element 
             className="mt-0.5 h-4 w-4 flex-shrink-0 text-accent"
           />
           <div className="min-w-0">
-            <p className="text-sm font-medium text-foreground">{t.title}</p>
+            <p className="text-sm font-medium text-muted">{t.title}</p>
             <p className="mt-0.5 text-xs text-muted">{t.body}</p>
           </div>
         </li>
@@ -110,9 +110,9 @@ export function ActionList({
       case 'danger':
         return 'border-danger/30 text-danger hover:bg-danger/10';
       case 'secondary':
-        return 'border-border text-foreground hover:bg-card-hover';
+        return 'border-border text-active hover:bg-card-hover';
       case 'ghost':
-        return 'border-transparent text-muted hover:bg-card-hover hover:text-foreground';
+        return 'border-transparent text-muted hover:bg-card-hover hover:text-active';
       case 'primary':
       default:
         return 'border-accent bg-accent text-on-accent hover:bg-accent-light';

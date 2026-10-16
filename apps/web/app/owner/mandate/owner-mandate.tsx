@@ -1,5 +1,6 @@
 'use client';
 
+import { appDialog } from '@/components/dialogs/app-dialog';
 import { DashboardPageHeader, StatusBadge } from '@/components/dashboard';
 import { DetailCard } from '@/components/detail';
 import { ApiErrorBanner } from '@/components/forms';
@@ -86,7 +87,7 @@ export function OwnerMandatePage(): React.JSX.Element {
   const handleDecide = useCallback(
     async (id: string, decision: 'APPROVE' | 'REJECT') => {
       const label = decision === 'APPROVE' ? 'approuver' : 'refuser';
-      if (!confirm(`Confirmer : ${label} cette demande ?`)) return;
+      if (!await appDialog.confirm({ message: `Confirmer : ${label} cette demande ?` })) return;
       setActionId(id);
       try {
         await decideApproval(id, decision, comments[id] || undefined);
@@ -245,7 +246,7 @@ export function OwnerMandatePage(): React.JSX.Element {
                       }
                     />
                   </div>
-                  <div className="flex items-start gap-2 rounded-lg border border-accent/30 bg-accent/5 px-3 py-2 text-sm text-foreground">
+                  <div className="flex items-start gap-2 rounded-lg border border-accent/30 bg-accent/5 px-3 py-2 text-sm text-muted">
                     <Icon icon="mdi:lightbulb-on-outline" className="mt-0.5 h-4 w-4 shrink-0 text-accent" />
                     <p>{approvalEffectPreview(item.actionType, item.payload)}</p>
                   </div>

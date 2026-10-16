@@ -25,7 +25,7 @@ export function StatusBadge({
 }): React.JSX.Element {
   return (
     <span
-      className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-sm font-normal ${TONE_STYLES[tone]}`}
+      className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-normal ${TONE_STYLES[tone]}`}
     >
       <DashIcon icon={TONE_ICONS[tone]} className="size-3.5 shrink-0" />
       {label}

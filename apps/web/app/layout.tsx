@@ -2,6 +2,7 @@ import { AuthSessionProvider } from '@/components/auth-session-provider';
 import { PrelineBoot } from '@/components/preline-boot';
 import { ThemeProvider } from '@/components/theme-provider';
 import { ThemeScript } from '@/components/theme-script';
+import { AppDialogProvider } from '@/components/dialogs/app-dialog-provider';
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
@@ -42,8 +43,10 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col font-sans">
         <AuthSessionProvider>
           <ThemeProvider>
-            {children}
-            <PrelineBoot />
+            <AppDialogProvider>
+              {children}
+              <PrelineBoot />
+            </AppDialogProvider>
           </ThemeProvider>
         </AuthSessionProvider>
       </body>

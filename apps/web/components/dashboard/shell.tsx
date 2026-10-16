@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react';
 import { BrandMark } from './brand-mark';
 import { SidebarNav, type DashboardRole } from './sidebar-nav';
 import { Topbar } from './topbar';
+import { WebPushBootstrap } from './web-push-bootstrap';
 
 function usePrelineInit(): void {
   const pathname = usePathname();
@@ -80,6 +81,7 @@ export function DashboardShell({
 
   return (
     <div className="min-h-screen bg-background text-foreground">
+      <WebPushBootstrap />
       <header className="sticky top-0 z-40 flex h-[70px] bg-topbar">
         <div
           className="hidden shrink-0 items-center border-e border-border px-5 transition-[width] duration-200 lg:flex"
@@ -87,7 +89,7 @@ export function DashboardShell({
         >
           <BrandMark compact={collapsed} />
         </div>
-        <Topbar onMenuClick={toggleSidebar} />
+        <Topbar role={role} onMenuClick={toggleSidebar} />
       </header>
 
       {mobileOpen ? (

@@ -1,4 +1,4 @@
-import { apiFetchPaginated } from '@/lib/api';
+import { apiFetch, apiFetchPaginated } from '@/lib/api';
 import type { PaginatedListQuery, PaginatedResult } from '@/lib/http/types';
 
 export interface AdminUser {
@@ -6,7 +6,8 @@ export interface AdminUser {
   phone: string | null;
   name: string | null;
   avatarUrl: string | null;
-  countryId: string;
+  countryName: string;
+  status: 'ACTIVE' | 'SUSPENDED';
   roles: string[];
   createdAt: string;
 }
@@ -29,4 +30,18 @@ export async function listUsers(
       totalPages: result.meta.totalPages,
     },
   };
+}
+
+export async function suspendUser(
+  id: string,
+  reason: string,
+): Promise<void> {
+  await apiFetch(`/admin/users/${id}/suspend`, {
+    method: 'PATCH',
+    body: { reason },
+  });
+}
+
+export async function unsuspendUser(id: string): Promise<void> {
+  await apiFetch(`/admin/users/${id}/unsuspend`, { method: 'PATCH' });
 }

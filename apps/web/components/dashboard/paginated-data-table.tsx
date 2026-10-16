@@ -23,6 +23,8 @@ type PaginatedDataTableProps<T, Q extends PaginatedListQuery> = {
   searchPlaceholder?: string;
   emptyMessage?: string;
   actions?: (row: T) => React.ReactNode;
+  viewHref?: (row: T) => string;
+  viewLabel?: string;
   entityLabel?: string;
   tableId?: string;
   enabled?: boolean;
@@ -39,6 +41,8 @@ function PaginatedDataTableInner<T extends object, Q extends PaginatedListQuery>
     searchPlaceholder,
     emptyMessage,
     actions,
+    viewHref,
+    viewLabel,
     entityLabel,
     tableId,
     enabled = true,
@@ -82,6 +86,8 @@ function PaginatedDataTableInner<T extends object, Q extends PaginatedListQuery>
     searchPlaceholder,
     emptyMessage,
     actions,
+    viewHref,
+    viewLabel,
     entityLabel,
     tableId,
     enableClientFilters,

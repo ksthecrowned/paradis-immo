@@ -15,7 +15,7 @@ export function PlaceholderSection({
     <section className="space-y-4">
       <DashboardPageHeader title={title} />
       <div className="rounded-xl border border-dashed border-border bg-card p-6 text-sm text-muted">
-        <p className="font-medium text-foreground">{description}</p>
+        <p className="font-medium text-muted">{description}</p>
         <p className="mt-2">
           {apiReady
             ? 'Les endpoints API sont disponibles — cette page sera branchée prochainement.'

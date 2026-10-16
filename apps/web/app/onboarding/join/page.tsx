@@ -38,7 +38,7 @@ export default function JoinAgencyPage(): React.JSX.Element {
           connecter par e-mail et mot de passe, ou avec Google.
         </p>
         <div>
-          <label htmlFor="invitation-code" className="mb-1 block text-sm font-medium text-foreground">
+          <label htmlFor="invitation-code" className="mb-1 block text-sm font-medium text-muted">
             Code d’invitation <span aria-hidden="true">*</span>
           </label>
           <input

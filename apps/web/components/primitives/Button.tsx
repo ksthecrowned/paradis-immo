@@ -18,11 +18,11 @@ const VARIANT_CLASS: Record<ButtonVariant, string> = {
   primary:
     'bg-accent text-on-accent hover:bg-accent-light focus:bg-accent-light disabled:bg-accent/50',
   secondary:
-    'bg-card text-foreground border border-border hover:bg-card-hover disabled:opacity-50',
+    'bg-card text-active border border-border hover:bg-card-hover disabled:opacity-50',
   danger:
     'bg-danger text-white hover:bg-danger/90 disabled:bg-danger/50',
   ghost:
-    'bg-transparent text-foreground hover:bg-card-hover disabled:opacity-50',
+    'bg-transparent text-active hover:bg-card-hover disabled:opacity-50',
 };
 
 const SIZE_CLASS: Record<ButtonSize, string> = {

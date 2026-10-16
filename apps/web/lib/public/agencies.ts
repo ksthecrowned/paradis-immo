@@ -17,10 +17,9 @@ export interface PublicAgency {
  * orgs") so mandates against the platform agency resolve its name too.
  */
 export async function listPublicAgencies(): Promise<PublicAgency[]> {
-  const result = await apiFetch<{ data: PublicAgency[] }>('/organizations', {
+  // apiFetch already unwraps `{ statusCode, data }` → the array.
+  const result = await apiFetch<PublicAgency[]>('/organizations', {
     anonymous: true,
   });
-  return (result.data ?? []).filter(
-    (o) => o.type === 'AGENCY' || o.type === 'PLATFORM',
-  );
+  return result.filter((o) => o.type === 'AGENCY' || o.type === 'PLATFORM');
 }

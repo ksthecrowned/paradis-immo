@@ -1,5 +1,6 @@
 'use client';
 
+import { appDialog } from '@/components/dialogs/app-dialog';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   DashboardPageHeader,
@@ -61,7 +62,7 @@ export function AdminReportsPage(): React.JSX.Element {
 
   const handleUpdate = useCallback(
     async (id: string, status: PropertyReportStatus, label: string) => {
-      if (!confirm(`${label} ce signalement ?`)) return;
+      if (!await appDialog.confirm({ message: `${label} ce signalement ?` })) return;
       setActionId(id);
       try {
         await updateAdminReport(id, status);

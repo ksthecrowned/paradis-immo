@@ -20,14 +20,14 @@ export function UserIdentity({
   const showAvatar = Boolean(avatarUrl) && failedUrl !== avatarUrl;
 
   return (
-    <span className="inline-flex min-w-0 items-center gap-2 text-sm font-normal text-foreground">
+    <span className="inline-flex min-w-0 items-center gap-2 text-sm font-normal text-active">
       <span className="flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted/10 text-muted">
         {showAvatar && avatarUrl ? (
           <Image
             src={avatarUrl}
             width={32}
             height={32}
-            alt=""
+            alt={displayName}
             className="size-full object-cover"
             onError={() => setFailedUrl(avatarUrl)}
           />

@@ -21,9 +21,9 @@ export interface PageHeaderAction {
 export interface PageHeaderProps {
   title: string;
   description?: string;
-  /** Backwards-compat: ReactNode list of action buttons/links. */
+  /** Backwards-compatible action slot for existing page buttons and links. */
   actions?: React.ReactNode;
-  /** New: typed list of actions, rendered with the shared Button. */
+  /** Typed actions rendered with the shared Button. */
   items?: PageHeaderAction[];
 }
 
@@ -70,30 +70,30 @@ export function PageHeader({
   items,
 }: PageHeaderProps): React.JSX.Element {
   const hasTypedItems = Array.isArray(items) && items.length > 0;
-  const hasLegacyActions = !hasTypedItems && actions != null;
+  const hasActions = hasTypedItems || actions != null;
 
   return (
     <div className="mb-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0 flex-1">
-          <h1 className="text-[26px] font-semibold leading-tight tracking-tight text-foreground">
+          <h1 className="text-2xl font-semibold leading-tight tracking-tight text-foreground sm:text-[28px]">
             {title}
           </h1>
           {description ? (
-            <p className="mt-1.5 text-base text-muted">{description}</p>
+            <p className="mt-1.5 max-w-3xl text-sm leading-relaxed text-muted sm:text-base">
+              {description}
+            </p>
           ) : null}
         </div>
 
-        {hasTypedItems ? (
-          <div className="flex flex-wrap items-center gap-2">
-            {items!.map((item, i) => renderAction(item, i))}
+        {hasActions ? (
+          <div className="flex shrink-0 flex-wrap items-center gap-2 sm:justify-end">
+            {hasTypedItems
+              ? items!.map((item, i) => renderAction(item, i))
+              : actions}
           </div>
         ) : null}
       </div>
-
-      {hasLegacyActions ? (
-        <div className="mt-4 flex flex-wrap items-center gap-2">{actions}</div>
-      ) : null}
     </div>
   );
 }
@@ -121,7 +121,7 @@ function LinkButton({
   const variantClass =
     variant === 'primary'
       ? 'bg-accent text-on-accent hover:bg-accent-light focus:bg-accent-light'
-      : 'bg-card text-foreground border border-border hover:bg-card-hover';
+      : 'bg-card text-active border border-border hover:bg-card-hover';
   return (
     <Link
       href={href}

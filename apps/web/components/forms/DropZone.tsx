@@ -110,8 +110,8 @@ export function DropZone({
         className={[
           'flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-6 py-10 text-center transition-colors',
           dragOver
-            ? 'border-accent bg-accent/10 text-foreground'
-            : 'border-input-border bg-search/40 text-muted hover:border-accent/50 hover:text-foreground',
+            ? 'border-accent bg-accent/10 text-active'
+            : 'border-input-border bg-search/40 text-muted hover:border-accent/50 hover:text-active',
           disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer',
         ].join(' ')}
       >
@@ -119,7 +119,7 @@ export function DropZone({
           icon={dragOver ? 'mdi:cloud-download' : 'mdi:cloud-upload-outline'}
           className="h-10 w-10"
         />
-        <p className="text-base font-medium text-foreground">{title}</p>
+        <p className="text-base font-medium text-active">{title}</p>
         <p className="text-xs text-muted">{hint}</p>
         <p className="text-xs text-muted">Taille max. : {maxSizeMb} Mo</p>
         <input

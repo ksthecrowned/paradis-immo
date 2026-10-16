@@ -55,7 +55,7 @@ export function PhoneInput({
       {label ? (
         <label
           htmlFor={fieldId}
-          className="mb-1.5 flex items-center gap-1 text-sm text-foreground"
+          className="mb-1.5 flex items-center gap-1 text-sm text-muted"
         >
           <span>{label}</span>
           {required ? <span className="text-danger">*</span> : null}

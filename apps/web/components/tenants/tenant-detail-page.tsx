@@ -1,5 +1,6 @@
 'use client';
 
+import { appDialog } from '@/components/dialogs/app-dialog';
 import {
   DashboardPageHeader,
   StatusBadge,
@@ -154,9 +155,7 @@ export function TenantDetailPage({
   const handleValidate = useCallback(
     async (paymentId: string, amount: string, currency: string) => {
       if (
-        !confirm(
-          `Valider le paiement de ${formatMoney(amount, currency)} ?`,
-        )
+        !await appDialog.confirm({ message: `Valider le paiement de ${formatMoney(amount, currency)} ?` })
       ) {
         return;
       }
@@ -320,7 +319,7 @@ export function TenantDetailPage({
                   className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 text-sm"
                 >
                   <div>
-                    <p className="font-medium text-foreground">
+                    <p className="font-medium text-active">
                       Échéance {formatDate(row.dueDate)}
                     </p>
                     <p className="text-muted">
@@ -378,7 +377,7 @@ export function TenantDetailPage({
                 key={`due-${lease.id}`}
                 className="rounded-lg border border-border bg-card px-4 py-3 text-sm"
               >
-                <p className="font-medium text-foreground">
+                <p className="font-medium text-active">
                   {lease.propertyTitle}
                 </p>
                 <p className="mt-1 text-muted">

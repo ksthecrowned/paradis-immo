@@ -24,7 +24,7 @@ export function Breadcrumb({
     >
       <ol
         className={
-          'inline-flex flex-wrap items-center gap-x-1.5 gap-y-1 text-sm text-muted ' +
+          '-ml-1 inline-flex flex-wrap items-center gap-x-1.5 gap-y-1 text-sm text-muted ' +
           (align === 'end' ? 'justify-end' : '')
         }
       >
@@ -48,7 +48,7 @@ export function Breadcrumb({
               {item.href && !isLast ? (
                 <Link
                   href={item.href}
-                  className="inline-flex items-center gap-1.5 rounded px-1.5 py-0.5 transition-colors hover:bg-card-hover hover:text-foreground"
+                  className="inline-flex items-center gap-1.5 rounded px-1.5 py-0.5 transition-colors hover:bg-card-hover hover:text-active"
                 >
                   {isFirst ? (
                     <DashIcon
@@ -64,7 +64,7 @@ export function Breadcrumb({
                 <span
                   className={
                     isLast
-                      ? 'inline-flex items-center gap-1.5 rounded px-1.5 py-0.5 font-medium text-foreground'
+                      ? 'inline-flex items-center gap-1.5 rounded px-1.5 py-0.5 font-medium text-active'
                       : undefined
                   }
                   aria-current={isLast ? 'page' : undefined}

@@ -54,7 +54,7 @@ export function FormTabs({
                 '-mb-px flex items-center gap-2 border-b-2 px-4 py-2.5 text-base font-medium transition-colors',
                 isActive
                   ? 'border-accent text-accent'
-                  : 'border-transparent text-muted hover:text-foreground',
+                  : 'border-transparent text-muted hover:text-active',
                 tab.disabled ? 'cursor-not-allowed opacity-50' : '',
               ].join(' ')}
             >

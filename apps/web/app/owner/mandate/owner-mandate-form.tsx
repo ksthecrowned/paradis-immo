@@ -307,7 +307,7 @@ export function OwnerMandateForm(): React.JSX.Element {
                 {SCOPE_OPTIONS.map((scope) => (
                   <label
                     key={scope.value}
-                    className="flex items-center gap-2 text-sm text-foreground"
+                    className="flex items-center gap-2 text-sm text-muted"
                   >
                     <input
                       type="checkbox"
@@ -321,7 +321,7 @@ export function OwnerMandateForm(): React.JSX.Element {
             </FormField>
 
             <FormField name="exclusive" label="Exclusivité">
-              <label className="flex items-center gap-2 text-sm text-foreground">
+              <label className="flex items-center gap-2 text-sm text-muted">
                 <input
                   type="checkbox"
                   checked={form.values.exclusive}
@@ -473,7 +473,7 @@ export function OwnerMandateForm(): React.JSX.Element {
             </div>
 
             <div className="space-y-2">
-              <label className="flex items-center gap-2 text-sm text-foreground">
+              <label className="flex items-center gap-2 text-sm text-muted">
                 <input
                   type="checkbox"
                   checked={form.values.tacitRenewal}
@@ -483,7 +483,7 @@ export function OwnerMandateForm(): React.JSX.Element {
                 />
                 Renouvellement tacite à l’échéance
               </label>
-              <label className="flex items-center gap-2 text-sm text-foreground">
+              <label className="flex items-center gap-2 text-sm text-muted">
                 <input
                   type="checkbox"
                   checked={form.values.rentChangeRequiresApproval}
@@ -493,7 +493,7 @@ export function OwnerMandateForm(): React.JSX.Element {
                 />
                 Toute baisse de loyer exige mon approbation
               </label>
-              <label className="flex items-center gap-2 text-sm text-foreground">
+              <label className="flex items-center gap-2 text-sm text-muted">
                 <input
                   type="checkbox"
                   checked={form.values.leaseSignRequiresApproval}

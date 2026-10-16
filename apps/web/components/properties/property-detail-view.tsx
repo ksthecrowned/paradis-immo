@@ -1,5 +1,6 @@
 'use client';
 
+import { appDialog } from '@/components/dialogs/app-dialog';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useState } from 'react';
@@ -243,12 +244,10 @@ export function PropertyDetailView({
                             icon: 'mdi:archive-outline',
                             variant: 'danger' as const,
                             loading: actionBusy === 'archive',
-                            onClick: () => {
+                            onClick: async () => {
                               if (
                                 typeof window !== 'undefined' &&
-                                !window.confirm(
-                                  'Archiver ce bien ? Il ne sera plus visible sur le marché.',
-                                )
+                                !await appDialog.confirm({ message: 'Archiver ce bien ? Il ne sera plus visible sur le marché.' })
                               ) {
                                 return;
                               }
@@ -523,7 +522,7 @@ export function PropertyDetailView({
                   {documents.map((d) => (
                     <li key={d.id} className="flex items-center justify-between gap-3">
                       <span>
-                        <span className="font-medium text-foreground">{d.name}</span>
+                        <span className="font-medium text-active">{d.name}</span>
                         <span className="ms-2 text-xs text-muted">
                           {DOCUMENT_TYPE_LABELS[d.type as DocumentType] ?? d.type}
                         </span>
@@ -545,7 +544,7 @@ export function PropertyDetailView({
 
           <DetailCard title="Description">
             <div className="px-5 py-4">
-              <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
+              <p className="whitespace-pre-wrap text-sm leading-relaxed text-muted">
                 {property.description || '—'}
               </p>
             </div>
@@ -621,7 +620,7 @@ export function PropertyDetailView({
                     {property.features.map((f) => (
                       <span
                         key={f}
-                        className="inline-flex items-center gap-2 rounded-full border border-input-border bg-card px-3 py-1.5 text-sm text-foreground"
+                        className="inline-flex items-center gap-2 rounded-full border border-input-border bg-card px-3 py-1.5 text-sm text-active"
                       >
                         <Icon
                           icon={featureIcon(f)}

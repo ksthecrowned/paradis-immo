@@ -7,6 +7,7 @@ import { PageHeader } from './page-header';
 
 export interface DashboardPageHeaderProps {
   title: string;
+  description?: string;
   breadcrumb?: BreadcrumbItem[];
   actions?: React.ReactNode;
 }
@@ -17,6 +18,7 @@ export interface DashboardPageHeaderProps {
  */
 export function DashboardPageHeader({
   title,
+  description,
   breadcrumb,
   actions,
 }: DashboardPageHeaderProps): React.JSX.Element {
@@ -25,19 +27,12 @@ export function DashboardPageHeader({
 
   return (
     <div>
-      <PageHeader title={title} />
-      {(crumbs.length > 0 || actions) ? (
-        <div className="-mt-4 mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          {crumbs.length > 0 ? (
-            <Breadcrumb items={crumbs} />
-          ) : (
-            <span />
-          )}
-          {actions ? (
-            <div className="flex flex-wrap items-center gap-2">{actions}</div>
-          ) : null}
+      {crumbs.length > 0 ? (
+        <div className="mb-2">
+          <Breadcrumb items={crumbs} />
         </div>
       ) : null}
+      <PageHeader title={title} description={description} actions={actions} />
     </div>
   );
 }

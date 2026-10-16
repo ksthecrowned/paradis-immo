@@ -411,7 +411,7 @@ export function LeaseForm({
                 Vérifier le compte
               </button>
               {tenantPreview ? (
-                <p className="mt-2 rounded-md border border-success/30 bg-success/10 px-3 py-2 text-sm text-foreground">
+                <p className="mt-2 rounded-md border border-success/30 bg-success/10 px-3 py-2 text-sm text-muted">
                   Compte trouvé :{' '}
                   <strong>{tenantPreview.name ?? 'Sans nom'}</strong> (
                   {tenantPreview.phone})
@@ -421,7 +421,7 @@ export function LeaseForm({
                 <p
                   className={`mt-2 rounded-md border px-3 py-2 text-sm ${
                     accountFound === false
-                      ? 'border-accent/30 bg-accent/10 text-foreground'
+                      ? 'border-accent/30 bg-accent/10 text-active'
                       : 'border-danger/30 bg-danger/10 text-danger'
                   }`}
                 >

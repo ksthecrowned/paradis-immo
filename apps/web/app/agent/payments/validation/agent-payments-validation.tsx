@@ -1,5 +1,6 @@
 'use client';
 
+import { appDialog } from '@/components/dialogs/app-dialog';
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
@@ -73,7 +74,7 @@ export function AgentPaymentsValidationPage({
 
   const handleValidate = useCallback(
     async (payment: PublicPayment) => {
-      if (!confirm(`Valider le paiement de ${formatMoney(payment.amount, payment.currency)} ?`)) {
+      if (!await appDialog.confirm({ message: `Valider le paiement de ${formatMoney(payment.amount, payment.currency)} ?` })) {
         return;
       }
       setValidatingId(payment.id);
@@ -155,7 +156,7 @@ export function AgentPaymentsValidationPage({
           <div className="flex flex-wrap gap-2">
             <Link
               href={ROUTES.agent.payment(row.id)}
-              className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-card-hover"
+              className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-active hover:bg-card-hover"
             >
               Voir
             </Link>

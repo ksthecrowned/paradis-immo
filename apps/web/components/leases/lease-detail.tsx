@@ -1,5 +1,6 @@
 'use client';
 
+import { appDialog } from '@/components/dialogs/app-dialog';
 import {
     DashboardPageHeader,
     StatusBadge,
@@ -254,11 +255,9 @@ export function LeaseDetail({
     [load, setError],
   );
 
-  const handleActivate = useCallback(() => {
+  const handleActivate = useCallback(async () => {
     if (
-      !confirm(
-        'Activer ce bail ? Le bien passe en occupé et l’échéancier de loyers est généré.',
-      )
+      !await appDialog.confirm({ message: 'Activer ce bail ? Le bien passe en occupé et l’échéancier de loyers est généré.' })
     ) {
       return;
     }
@@ -289,16 +288,13 @@ export function LeaseDetail({
     });
   }, [leaseId, otpCode, runAction, setOtpCode, setError]);
 
-  const handleCancel = useCallback(() => {
-    if (!confirm('Annuler ce bail ?')) return;
+  const handleCancel = useCallback(async () => {
+    if (!await appDialog.confirm({ message: 'Annuler ce bail ?' })) return;
     void runAction('cancel', () => cancelLease(leaseId));
   }, [leaseId, runAction]);
 
-  const handleTerminate = useCallback(() => {
-    const requestedEndDate = prompt(
-      'Date de sortie souhaitée (AAAA-MM-JJ) ?',
-      new Date(Date.now() + 90 * 86400000).toISOString().slice(0, 10),
-    );
+  const handleTerminate = useCallback(async () => {
+    const requestedEndDate = await appDialog.prompt({ message: 'Date de sortie souhaitée (AAAA-MM-JJ) ?', defaultValue: new Date(Date.now() + 90 * 86400000).toISOString().slice(0, 10) });
     if (!requestedEndDate) return;
     void runAction('terminate', () =>
       terminateLease(leaseId, {
@@ -308,20 +304,20 @@ export function LeaseDetail({
     );
   }, [leaseId, role, runAction]);
 
-  const handleWithdrawTermination = useCallback(() => {
-    if (!confirm('Retirer le congé déposé ?')) return;
+  const handleWithdrawTermination = useCallback(async () => {
+    if (!await appDialog.confirm({ message: 'Retirer le congé déposé ?' })) return;
     void runAction('withdraw', () => withdrawTermination(leaseId));
   }, [leaseId, runAction]);
 
-  const handleClose = useCallback(() => {
-    if (!confirm('Clôturer ce bail ? Le bien redevient disponible.')) return;
+  const handleClose = useCallback(async () => {
+    if (!await appDialog.confirm({ message: 'Clôturer ce bail ? Le bien redevient disponible.' })) return;
     void runAction('close', () => closeLease(leaseId));
   }, [leaseId, runAction]);
 
-  const handleProposeDeduction = useCallback(() => {
-    const label = prompt('Motif de la retenue ?', 'Dégâts constatés à la sortie');
+  const handleProposeDeduction = useCallback(async () => {
+    const label = await appDialog.prompt({ message: 'Motif de la retenue ?', defaultValue: 'Dégâts constatés à la sortie' });
     if (!label) return;
-    const raw = prompt('Montant de la retenue (XAF) ?', '25000');
+    const raw = await appDialog.prompt({ message: 'Montant de la retenue (XAF) ?', defaultValue: '25000' });
     if (!raw) return;
     const amount = Number(raw);
     if (!Number.isFinite(amount) || amount <= 0) {
@@ -331,33 +327,26 @@ export function LeaseDetail({
     void runAction('deduction', () => proposeDeduction(leaseId, { label, amount }));
   }, [leaseId, runAction, setError]);
 
-  const handleSettleDeposit = useCallback(() => {
+  const handleSettleDeposit = useCallback(async () => {
     if (
-      !confirm(
-        'Régler la caution ? Le reversement est créé pour validation et la sortie est inscrite au grand livre.',
-      )
+      !await appDialog.confirm({ message: 'Régler la caution ? Le reversement est créé pour validation et la sortie est inscrite au grand livre.' })
     ) {
       return;
     }
     void runAction('settle', () => settleDeposit(leaseId));
   }, [leaseId, runAction]);
 
-  const handleReminder = useCallback(() => {
-    const message = prompt(
-      'Message de relance (vide = message standard) ?',
-      '',
-    );
+  const handleReminder = useCallback(async () => {
+    const message = await appDialog.prompt({ message: 'Message de relance (vide = message standard) ?', defaultValue: '' });
     if (message === null) return;
     void runAction('reminder', () =>
       sendLeaseReminder(leaseId, message ? { message } : {}),
     );
   }, [leaseId, runAction]);
 
-  const handleFormalNotice = useCallback(() => {
+  const handleFormalNotice = useCallback(async () => {
     if (
-      !confirm(
-        'Émettre une mise en demeure ? Un PDF est généré et le locataire est prévenu.',
-      )
+      !await appDialog.confirm({ message: 'Émettre une mise en demeure ? Un PDF est généré et le locataire est prévenu.' })
     ) {
       return;
     }
@@ -372,8 +361,8 @@ export function LeaseDetail({
     }
   }, [leaseId]);
 
-  const handleCreateAmendment = useCallback(() => {
-    const rawRent = prompt('Nouveau loyer mensuel (XAF) — vide pour inchangé', '');
+  const handleCreateAmendment = useCallback(async () => {
+    const rawRent = await appDialog.prompt({ message: 'Nouveau loyer mensuel (XAF) — vide pour inchangé', defaultValue: '' });
     if (rawRent === null) return;
     const changes: Parameters<typeof createAmendment>[1]['changes'] = {};
     if (rawRent.trim() !== '') {
@@ -384,7 +373,7 @@ export function LeaseDetail({
       }
       changes.monthlyRent = rent;
     }
-    const rawCharges = prompt('Nouveau forfait de charges (XAF) — vide pour inchangé', '');
+    const rawCharges = await appDialog.prompt({ message: 'Nouveau forfait de charges (XAF) — vide pour inchangé', defaultValue: '' });
     if (rawCharges === null) return;
     if (rawCharges.trim() !== '') {
       const charges = Number(rawCharges);
@@ -394,7 +383,7 @@ export function LeaseDetail({
       }
       changes.chargesAmount = charges;
     }
-    const reason = prompt('Motif de l’avenant ?', 'Avenant commercial');
+    const reason = await appDialog.prompt({ message: 'Motif de l’avenant ?', defaultValue: 'Avenant commercial' });
     if (reason === null) return;
     if (Object.keys(changes).length === 0) {
       setError('Un avenant doit modifier au moins un terme.');
@@ -425,9 +414,9 @@ export function LeaseDetail({
 
   /** Spec 04 US 7 — propose un avenant qui fait sortir un colocataire. */
   const handleRemoveCoTenant = useCallback(
-    (coTenant: PublicCoTenant) => {
+    async (coTenant: PublicCoTenant) => {
       const label = coTenant.name ?? coTenant.phone ?? 'ce colocataire';
-      if (!confirm(`Retirer ${label} du bail (avenant à signer) ?`)) return;
+      if (!await appDialog.confirm({ message: `Retirer ${label} du bail (avenant à signer) ?` })) return;
       void runAction('co-tenant-remove', async () => {
         await createAmendment(leaseId, {
           changes: { coTenants: { remove: [coTenant.userId] } },
@@ -440,7 +429,7 @@ export function LeaseDetail({
   );
 
   /** Spec 04 US 11 — renouvellement : nouveau terme (+ loyer du terme). */
-  const handleRenew = useCallback(() => {
+  const handleRenew = useCallback(async () => {
     if (!renewEndDate) {
       setError('Indiquez la nouvelle date de fin du bail.');
       return;
@@ -450,7 +439,7 @@ export function LeaseDetail({
       setError('Loyer du nouveau terme invalide.');
       return;
     }
-    if (!confirm(`Renouveler ce bail jusqu’au ${formatDate(renewEndDate)} ?`)) {
+    if (!await appDialog.confirm({ message: `Renouveler ce bail jusqu’au ${formatDate(renewEndDate)} ?` })) {
       return;
     }
     void runAction('renew', async () => {
@@ -494,10 +483,10 @@ export function LeaseDetail({
 
   /** Spec 04 US 8 — the owner validates (or refuses) the indexed rent. */
   const handleIndexationDecision = useCallback(
-    (record: IndexationRecord, decision: 'APPROVE' | 'REJECT') => {
+    async (record: IndexationRecord, decision: 'APPROVE' | 'REJECT') => {
       const label =
         decision === 'APPROVE' ? 'Approuver' : 'Refuser la révision';
-      if (!confirm(`${label} le loyer révisé au ${formatDate(record.effectiveFrom ?? record.createdAt)} ?`)) {
+      if (!await appDialog.confirm({ message: `${label} le loyer révisé au ${formatDate(record.effectiveFrom ?? record.createdAt)} ?` })) {
         return;
       }
       void runAction(`indexation-${decision.toLowerCase()}-${record.id}`, () =>
@@ -560,7 +549,7 @@ export function LeaseDetail({
               <>
                 <Link
                   href={paths.edit(lease.id)}
-                  className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-card-hover"
+                  className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-active hover:bg-card-hover"
                 >
                   Modifier
                 </Link>
@@ -568,7 +557,7 @@ export function LeaseDetail({
                   type="button"
                   disabled={action !== null}
                   onClick={handleSendForSignature}
-                  className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-card-hover disabled:opacity-50"
+                  className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-active hover:bg-card-hover disabled:opacity-50"
                 >
                   {action === 'signature' ? 'Envoi…' : 'Envoyer pour signature'}
                 </button>
@@ -597,7 +586,7 @@ export function LeaseDetail({
                 type="button"
                 disabled={action !== null}
                 onClick={handleTerminate}
-                className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-card-hover disabled:opacity-50"
+                className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-active hover:bg-card-hover disabled:opacity-50"
               >
                 {action === 'terminate' ? 'Envoi…' : 'Déposer un congé'}
               </button>
@@ -608,7 +597,7 @@ export function LeaseDetail({
                   type="button"
                   disabled={action !== null}
                   onClick={handleWithdrawTermination}
-                  className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-card-hover disabled:opacity-50"
+                  className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-active hover:bg-card-hover disabled:opacity-50"
                 >
                   {action === 'withdraw' ? 'Retrait…' : 'Retirer le congé'}
                 </button>
@@ -624,7 +613,7 @@ export function LeaseDetail({
             ) : null}
             <Link
               href={paths.list}
-              className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-card-hover"
+              className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-active hover:bg-card-hover"
             >
               Liste
             </Link>
@@ -657,7 +646,7 @@ export function LeaseDetail({
           <p className="text-xs font-medium uppercase tracking-wide text-muted">
             Locataire
           </p>
-          <p className="mt-1 text-sm text-foreground">
+          <p className="mt-1 text-sm text-active">
             {lease.tenantName ?? 'Sans nom'}
           </p>
           <p className="mt-0.5 font-mono text-xs text-muted">
@@ -668,7 +657,7 @@ export function LeaseDetail({
           <p className="text-xs font-medium uppercase tracking-wide text-muted">
             Période
           </p>
-          <p className="mt-1 text-sm text-foreground">
+          <p className="mt-1 text-sm text-active">
             {formatDate(lease.startDate)} → {formatDate(lease.endDate)}
           </p>
         </div>
@@ -676,7 +665,7 @@ export function LeaseDetail({
           <p className="text-xs font-medium uppercase tracking-wide text-muted">
             Loyer / caution
           </p>
-          <p className="mt-1 text-sm text-foreground">
+          <p className="mt-1 text-sm text-active">
             {formatMoney(lease.monthlyRent, lease.currency)} / mois · caution{' '}
             {formatMoney(lease.deposit, lease.currency)}
           </p>
@@ -685,7 +674,7 @@ export function LeaseDetail({
           <p className="text-xs font-medium uppercase tracking-wide text-muted">
             Échéance
           </p>
-          <p className="mt-1 text-sm text-foreground">
+          <p className="mt-1 text-sm text-active">
             Le {lease.dueDay}
             {Number(lease.chargesAmount) > 0
               ? ` · charges ${formatMoney(lease.chargesAmount, lease.currency)} (${
@@ -698,7 +687,7 @@ export function LeaseDetail({
           <p className="text-xs font-medium uppercase tracking-wide text-muted">
             Préavis / révision
           </p>
-          <p className="mt-1 text-sm text-foreground">
+          <p className="mt-1 text-sm text-active">
             {lease.noticeMonthsTenant} mois (locataire) ·{' '}
             {lease.noticeMonthsLandlord} mois (bailleur)
             {lease.indexationRate
@@ -711,7 +700,7 @@ export function LeaseDetail({
             <p className="text-xs font-medium uppercase tracking-wide text-muted">
               Invitation
             </p>
-            <p className="mt-1 text-sm text-foreground">
+            <p className="mt-1 text-sm text-active">
               {lease.invitedPhone} — compte en attente de création
             </p>
           </div>
@@ -721,7 +710,7 @@ export function LeaseDetail({
             <p className="text-xs font-medium uppercase tracking-wide text-muted">
               Congé
             </p>
-            <p className="mt-1 text-sm text-foreground">
+            <p className="mt-1 text-sm text-active">
               Déposé par {lease.terminationInitiator ?? '—'}
               {lease.terminationNoticeAt
                 ? ` le ${formatDate(lease.terminationNoticeAt)}`
@@ -740,7 +729,7 @@ export function LeaseDetail({
             <p className="text-xs font-medium uppercase tracking-wide text-muted">
               Clôture
             </p>
-            <p className="mt-1 text-sm text-foreground">
+            <p className="mt-1 text-sm text-active">
               Bail clos le {formatDate(lease.terminatedAt)}
             </p>
           </div>
@@ -752,7 +741,7 @@ export function LeaseDetail({
         <div className="grid gap-2 text-sm sm:grid-cols-2">
           <p className="text-muted">
             Locataire :{' '}
-            <span className="text-foreground">
+            <span className="text-active">
               {lease.tenantSignedAt
                 ? `signé le ${formatDate(lease.tenantSignedAt)}`
                 : 'en attente'}
@@ -760,7 +749,7 @@ export function LeaseDetail({
           </p>
           <p className="text-muted">
             Bailleur :{' '}
-            <span className="text-foreground">
+            <span className="text-active">
               {lease.landlordSignedAt
                 ? `signé le ${formatDate(lease.landlordSignedAt)}`
                 : 'en attente'}
@@ -779,7 +768,7 @@ export function LeaseDetail({
                   type="button"
                   disabled={action !== null}
                   onClick={handleRequestOtp}
-                  className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-card-hover disabled:opacity-50"
+                  className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-active hover:bg-card-hover disabled:opacity-50"
                 >
                   {action === 'otp' ? 'Envoi…' : 'Recevoir le code'}
                 </button>
@@ -808,7 +797,7 @@ export function LeaseDetail({
                     type="button"
                     disabled={action !== null}
                     onClick={handleRequestOtp}
-                    className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-card-hover disabled:opacity-50"
+                    className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-active hover:bg-card-hover disabled:opacity-50"
                   >
                     Renvoyer le code
                   </button>
@@ -849,19 +838,19 @@ export function LeaseDetail({
           <div className="grid gap-2 text-sm sm:grid-cols-2">
             <p className="text-muted">
               Dû au total :{' '}
-              <span className="text-foreground">
+              <span className="text-active">
                 {formatMoney(balance.totalDue, balance.currency)}
               </span>
             </p>
             <p className="text-muted">
               Réglé :{' '}
-              <span className="text-foreground">
+              <span className="text-active">
                 {formatMoney(balance.totalPaid, balance.currency)}
               </span>
             </p>
             <p className="text-muted">
               Solde :{' '}
-              <span className="text-foreground">
+              <span className="text-active">
                 {formatMoney(balance.balance, balance.currency)}
               </span>
             </p>
@@ -875,7 +864,7 @@ export function LeaseDetail({
             {balance.nextDueDate ? (
               <p className="text-muted">
                 Prochaine échéance :{' '}
-                <span className="text-foreground">
+                <span className="text-active">
                   {formatDate(balance.nextDueDate)} ·{' '}
                   {formatMoney(
                     balance.nextDueAmount ?? '0',
@@ -887,7 +876,7 @@ export function LeaseDetail({
             {maxDaysOverdue > 0 ? (
               <p className="text-muted">
                 Impayé le plus ancien :{' '}
-                <span className="text-foreground">{maxDaysOverdue} j</span>
+                <span className="text-active">{maxDaysOverdue} j</span>
               </p>
             ) : null}
           </div>
@@ -906,7 +895,7 @@ export function LeaseDetail({
                     type="button"
                     disabled={action !== null || Boolean(deposit.settlement)}
                     onClick={handleProposeDeduction}
-                    className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-card-hover disabled:opacity-50"
+                    className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-active hover:bg-card-hover disabled:opacity-50"
                   >
                     {action === 'deduction' ? 'Envoi…' : 'Proposer une retenue'}
                   </button>
@@ -925,13 +914,13 @@ export function LeaseDetail({
           <div className="grid gap-2 text-sm sm:grid-cols-2">
             <p className="text-muted">
               Caution contractuelle :{' '}
-              <span className="text-foreground">
+              <span className="text-active">
                 {formatMoney(deposit.depositAmount, deposit.currency)}
               </span>
             </p>
             <p className="text-muted">
               Encaissée :{' '}
-              <span className="text-foreground">
+              <span className="text-active">
                 {formatMoney(deposit.heldAmount, deposit.currency)}
               </span>
               {deposit.schedule
@@ -940,13 +929,13 @@ export function LeaseDetail({
             </p>
             <p className="text-muted">
               Retenus acceptées :{' '}
-              <span className="text-foreground">
+              <span className="text-active">
                 {formatMoney(deposit.deductedTotal, deposit.currency)}
               </span>
             </p>
             <p className="text-muted">
               En attente d’arbitrage :{' '}
-              <span className="text-foreground">
+              <span className="text-active">
                 {formatMoney(deposit.openTotal, deposit.currency)}
               </span>
             </p>
@@ -994,7 +983,7 @@ export function LeaseDetail({
             </div>
           ) : null}
           {deposit.settlement ? (
-            <p className="text-sm text-foreground">
+            <p className="text-sm text-muted">
               Restitution :{' '}
               {formatMoney(
                 deposit.settlement.refundAmount,
@@ -1105,7 +1094,7 @@ export function LeaseDetail({
                                 onClick={() =>
                                   handleIndexationDecision(row, 'REJECT')
                                 }
-                                className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-card-hover disabled:opacity-50"
+                                className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-active hover:bg-card-hover disabled:opacity-50"
                               >
                                 Refuser
                               </button>
@@ -1193,7 +1182,7 @@ export function LeaseDetail({
                   key={coTenant.userId}
                   className="flex flex-wrap items-center justify-between gap-2 py-2"
                 >
-                  <span className="text-foreground">
+                  <span className="text-active">
                     {coTenant.name ?? coTenant.phone ?? coTenant.userId.slice(0, 8)}
                   </span>
                   <span className="text-xs text-muted">{coTenant.phone}</span>
@@ -1201,7 +1190,7 @@ export function LeaseDetail({
                     type="button"
                     disabled={action !== null}
                     onClick={() => handleRemoveCoTenant(coTenant)}
-                    className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-card-hover disabled:opacity-50"
+                    className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-active hover:bg-card-hover disabled:opacity-50"
                   >
                     Retirer (avenant)
                   </button>
@@ -1222,7 +1211,7 @@ export function LeaseDetail({
               type="button"
               disabled={action !== null}
               onClick={handleAddCoTenant}
-              className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-card-hover disabled:opacity-50"
+              className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-active hover:bg-card-hover disabled:opacity-50"
             >
               {action === 'co-tenant-add' ? 'Création…' : 'Ajouter (avenant)'}
             </button>
@@ -1242,7 +1231,7 @@ export function LeaseDetail({
               type="button"
               disabled={action !== null}
               onClick={handleCreateAmendment}
-              className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-card-hover disabled:opacity-50"
+              className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-active hover:bg-card-hover disabled:opacity-50"
             >
               {action === 'amendment' ? 'Création…' : 'Créer un avenant'}
             </button>
@@ -1311,7 +1300,7 @@ export function LeaseDetail({
                             type="button"
                             disabled={action !== null}
                             onClick={() => handleAmendmentOtp(row.version, false)}
-                            className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-card-hover disabled:opacity-50"
+                            className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-active hover:bg-card-hover disabled:opacity-50"
                           >
                             Recevoir le code
                           </button>
@@ -1422,7 +1411,7 @@ export function LeaseDetail({
                             onClick={() =>
                               runAction('waive', () => waiveLateFee(row.id))
                             }
-                            className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-card-hover disabled:opacity-50"
+                            className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-active hover:bg-card-hover disabled:opacity-50"
                           >
                             {action === 'waive' ? 'Annulation…' : 'Annuler'}
                           </button>

@@ -1,5 +1,6 @@
 'use client';
 
+import { appDialog } from '@/components/dialogs/app-dialog';
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
@@ -93,7 +94,7 @@ export function OwnerPayoutsPanel(): React.JSX.Element {
   }, [load]);
 
   const handleRequest = useCallback(async () => {
-    if (!confirm('Demander un reversement du solde disponible ?')) return;
+    if (!await appDialog.confirm({ message: 'Demander un reversement du solde disponible ?' })) return;
     setRequesting(true);
     try {
       const payout = await requestPayout();
@@ -178,7 +179,7 @@ export function OwnerPayoutsPanel(): React.JSX.Element {
           </button>
           <Link
             href={ROUTES.owner.settingsPayout}
-            className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-card-hover"
+            className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-active hover:bg-card-hover"
           >
             Comptes de reversement
           </Link>

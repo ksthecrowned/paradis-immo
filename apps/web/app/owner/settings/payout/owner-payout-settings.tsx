@@ -1,5 +1,6 @@
 'use client';
 
+import { appDialog } from '@/components/dialogs/app-dialog';
 import { useCallback, useEffect, useState } from 'react';
 import { DashboardPageHeader, StatusBadge } from '@/components/dashboard';
 import { ApiError } from '@/lib/api';
@@ -147,9 +148,7 @@ export function OwnerPayoutSettingsPage(): React.JSX.Element {
   const handleVerify = useCallback(
     async (account: PayoutAccount) => {
       if (!orgId) return;
-      const code = window.prompt(
-        'Code de vérification (sandbox : 1 = micro-dépôt de 1 XAF, 000000 = OTP simulé)',
-      );
+      const code = await appDialog.prompt({ message: 'Code de vérification (sandbox : 1 = micro-dépôt de 1 XAF, 000000 = OTP simulé)' });
       if (!code) return;
       try {
         await verifyPayoutAccount(orgId, account.id, code.trim());
@@ -185,7 +184,7 @@ export function OwnerPayoutSettingsPage(): React.JSX.Element {
   const handleDelete = useCallback(
     async (account: PayoutAccount) => {
       if (!orgId) return;
-      if (!confirm('Supprimer ce compte de reversement ?')) return;
+      if (!await appDialog.confirm({ message: 'Supprimer ce compte de reversement ?' })) return;
       try {
         await deletePayoutAccount(orgId, account.id);
         setNotice({ tone: 'success', message: 'Compte supprimé.' });
@@ -220,7 +219,7 @@ export function OwnerPayoutSettingsPage(): React.JSX.Element {
         actions={
           <Link
             href={ROUTES.owner.payments}
-            className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-card-hover"
+            className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-active hover:bg-card-hover"
           >
             Retour aux paiements
           </Link>
@@ -357,7 +356,7 @@ export function OwnerPayoutSettingsPage(): React.JSX.Element {
                     <button
                       type="button"
                       onClick={() => void handleSetDefault(account)}
-                      className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-card-hover"
+                      className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-active hover:bg-card-hover"
                     >
                       Défaut
                     </button>

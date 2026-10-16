@@ -1,5 +1,6 @@
 'use client';
 
+import { appDialog } from '@/components/dialogs/app-dialog';
 import {
   DashboardPageHeader,
   PaginatedDataTable,
@@ -53,7 +54,7 @@ const SOLVENCY_LABELS: Record<string, string> = {
 };
 
 const buttonClass =
-  'rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-card-hover disabled:opacity-50';
+  'rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-active hover:bg-card-hover disabled:opacity-50';
 const primaryButtonClass =
   'rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-on-accent hover:bg-accent/90 disabled:opacity-50';
 const dangerButtonClass =
@@ -121,7 +122,7 @@ export function ApplicationsBoard({
         label: 'Candidat',
         sortable: true,
         render: (_value, row) => (
-          <span className="text-xs text-foreground">
+          <span className="text-xs text-active">
             {row.applicant?.name ?? '—'}
             {row.applicant?.phone ? (
               <span className="ml-1 font-mono text-muted">
@@ -248,7 +249,7 @@ export function ApplicationsBoard({
             onChange={(e) =>
               setStatusFilter(e.target.value === '' ? undefined : e.target.value)
             }
-            className="rounded-lg border border-border bg-card px-3 py-1.5 text-sm text-foreground"
+            className="rounded-lg border border-border bg-card px-3 py-1.5 text-sm text-active"
           >
             <option value="">Tous</option>
             <option value="SUBMITTED">Déposée</option>
@@ -310,13 +311,19 @@ export function ApplicationsBoard({
                 <button
                   type="button"
                   disabled={actionId === row.id}
-                  onClick={(e) => {
+                  onClick={async (e) => {
                     e.stopPropagation();
                     const message =
-                      window.prompt(
-                        'Message envoyé aux candidats refusés (obligatoire) :',
-                        'Le bien a été attribué à un autre candidat.',
-                      ) ?? '';
+                      await appDialog.prompt({
+                        title: 'Refuser cette candidature',
+                        message: 'Un message sera envoyé aux candidats refusés.',
+                        label: 'Message de refus',
+                        defaultValue: 'Le bien a été attribué à un autre candidat.',
+                        required: true,
+                        multiline: true,
+                        variant: 'danger',
+                        confirmLabel: 'Refuser',
+                      }) ?? '';
                     if (message.trim() === '') return;
                     void runAction(
                       row.id,
@@ -332,12 +339,10 @@ export function ApplicationsBoard({
                 <button
                   type="button"
                   disabled={actionId === row.id}
-                  onClick={(e) => {
+                  onClick={async (e) => {
                     e.stopPropagation();
                     if (
-                      !confirm(
-                        'Accepter cette candidature ? Toutes les autres candidatures du bien seront refusées.',
-                      )
+                      !await appDialog.confirm({ message: 'Accepter cette candidature ? Toutes les autres candidatures du bien seront refusées.' })
                     ) {
                       return;
                     }

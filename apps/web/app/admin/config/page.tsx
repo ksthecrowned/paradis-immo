@@ -17,13 +17,13 @@ export default function AdminConfigPage(): React.JSX.Element {
 
         <dl className="space-y-4">
           <div>
-            <dt className="font-medium text-foreground">App Store (iOS)</dt>
+            <dt className="font-medium text-muted">App Store (iOS)</dt>
             <dd className="mt-1 break-all font-mono text-xs text-muted">
               {APP_STORE_URL || 'Non configuré (NEXT_PUBLIC_APP_STORE_URL)'}
             </dd>
           </div>
           <div>
-            <dt className="font-medium text-foreground">Google Play (Android)</dt>
+            <dt className="font-medium text-muted">Google Play (Android)</dt>
             <dd className="mt-1 break-all font-mono text-xs text-muted">
               {PLAY_STORE_URL || 'Non configuré (NEXT_PUBLIC_PLAY_STORE_URL)'}
             </dd>

@@ -178,7 +178,7 @@ export function AgentPaymentsPage(): React.JSX.Element {
             className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium transition-colors ${
               tab === item.key
                 ? 'border-accent text-accent'
-                : 'border-transparent text-muted hover:text-foreground'
+                : 'border-transparent text-muted hover:text-active'
             }`}
           >
             {item.label}
@@ -234,6 +234,7 @@ export function AgentPaymentsPage(): React.JSX.Element {
             searchPlaceholder="Rechercher un paiement…"
             emptyMessage="Aucun paiement sur votre portefeuille."
             tableId="agent-payments-table"
+            viewHref={(row) => ROUTES.agent.payment(row.id)}
             totalCount={meta?.total}
             totalPages={meta?.totalPages}
             page={page}
@@ -243,7 +244,7 @@ export function AgentPaymentsPage(): React.JSX.Element {
             actions={(row) => (
               <Link
                 href={ROUTES.agent.payment(row.id)}
-                className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-card-hover"
+                className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-active hover:bg-card-hover"
               >
                 Voir
               </Link>

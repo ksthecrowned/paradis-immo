@@ -287,7 +287,7 @@ export function AgentExpensesPage(): React.JSX.Element {
             >
               {isDraft ? 'Enregistrer le brouillon' : 'Créer la dépense'}
             </Button>
-            <label className="flex items-center gap-2 text-sm text-foreground">
+            <label className="flex items-center gap-2 text-sm text-muted">
               <input
                 type="checkbox"
                 checked={isDraft}
@@ -343,7 +343,7 @@ export function AgentExpensesPage(): React.JSX.Element {
                     <td className="px-4 py-2 text-muted">
                       {formatDate(expense.incurredAt)}
                     </td>
-                    <td className="px-4 py-2 text-foreground">{expense.label}</td>
+                    <td className="px-4 py-2 text-active">{expense.label}</td>
                     <td className="px-4 py-2 text-muted">
                       {expenseCategoryLabel(expense.category)}
                     </td>

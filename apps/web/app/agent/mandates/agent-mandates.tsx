@@ -1,5 +1,6 @@
 'use client';
 
+import { appDialog } from '@/components/dialogs/app-dialog';
 import Link from 'next/link';
 import { DashboardPageHeader, StatusBadge } from '@/components/dashboard';
 import { DetailCard } from '@/components/detail';
@@ -137,16 +138,25 @@ export function AgentMandatesPage(): React.JSX.Element {
   );
 
   const handleAccept = useCallback(
-    (mandateId: string) => {
-      if (!confirm('Accepter cette proposition de mandat ?')) return;
+    async (mandateId: string) => {
+      if (!await appDialog.confirm({ message: 'Accepter cette proposition de mandat ?' })) return;
       void run(mandateId, () => acceptMandate(mandateId));
     },
     [run],
   );
 
   const handleDecline = useCallback(
-    (mandateId: string) => {
-      const reason = window.prompt('Motif du refus :');
+    async (mandateId: string) => {
+      const reason = await appDialog.prompt({
+        title: 'Refuser la proposition',
+        message: 'Indiquez le motif du refus.',
+        label: 'Motif du refus',
+        required: true,
+        minLength: 3,
+        multiline: true,
+        variant: 'danger',
+        confirmLabel: 'Refuser',
+      });
       if (!reason || reason.trim().length < 3) return;
       void run(mandateId, () => declineMandate(mandateId, reason.trim()));
     },

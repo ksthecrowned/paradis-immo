@@ -2,6 +2,8 @@
 
 Push uses **native FCM/APNs tokens** via `expo-notifications` (`getDevicePushTokenAsync`). No Expo Push Service.
 
+For the management portal (browser push), see [`apps/web/FIREBASE.md`](../web/FIREBASE.md) — same Firebase project / `FCM_CREDENTIALS`.
+
 ## Files to add (gitignored)
 
 1. Download from Firebase Console → Project settings → Your apps:

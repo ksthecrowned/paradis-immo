@@ -160,7 +160,7 @@ export function OwnerMaintenancePage(): React.JSX.Element {
         actions={(row) => (
           <Link
             href={ROUTES.owner.maintenanceTicket(row.id)}
-            className="inline-flex items-center gap-1 rounded-lg border border-border px-3 py-1.5 text-base text-foreground hover:bg-card-hover"
+            className="inline-flex items-center gap-1 rounded-lg border border-border px-3 py-1.5 text-base text-active hover:bg-card-hover"
           >
             <Icon icon="mdi:eye-outline" className="h-4 w-4" />
             Voir

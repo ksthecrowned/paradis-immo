@@ -8,7 +8,7 @@ type RequestType = 'OWNER' | 'AGENCY';
 
 const fieldClass =
   'w-full rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground outline-none focus:border-accent';
-const labelClass = 'mb-1 block text-sm font-medium text-foreground';
+const labelClass = 'mb-1 block text-sm font-medium text-muted';
 
 /**
  * Public sign-up form (spec 02 — no self-service creation).
@@ -100,7 +100,7 @@ function RequestForm(): React.JSX.Element {
         </p>
 
         <fieldset className="m-0 border-0 p-0">
-          <legend className="mb-1 block text-sm font-medium text-foreground">
+          <legend className="mb-1 block text-sm font-medium text-muted">
             Type de compte
           </legend>
           <div className="flex gap-2" role="group" aria-label="Type de compte">
@@ -113,7 +113,7 @@ function RequestForm(): React.JSX.Element {
                 className={
                   'flex-1 rounded-md border px-3 py-2 text-sm font-medium ' +
                   (type === t
-                    ? 'border-accent bg-accent/10 text-foreground'
+                    ? 'border-accent bg-accent/10 text-active'
                     : 'border-border text-muted')
                 }
               >

@@ -193,6 +193,7 @@ export function AgentMaintenancePage(): React.JSX.Element {
         searchPlaceholder="Rechercher un ticket…"
         emptyMessage="Aucun ticket de maintenance."
         tableId="agent-maintenance-table"
+        viewHref={(row) => ROUTES.agent.maintenanceTicket(row.id)}
         onRowClick={(row) => {
           router.push(ROUTES.agent.maintenanceTicket(row.id));
         }}

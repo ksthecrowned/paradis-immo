@@ -1,5 +1,6 @@
 'use client';
 
+import { appDialog } from '@/components/dialogs/app-dialog';
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
@@ -59,10 +60,7 @@ export function ArrearsBoard({
 
   const sendReminder = useCallback(
     async (row: ArrearsRow) => {
-      const message = prompt(
-        `Relance pour ${row.tenantName ?? row.tenantPhone ?? 'le locataire'} (montant : ${formatMoneyWeb(row.overdueAmount, row.currency)}). Laissez vide pour le message standard.`,
-        '',
-      );
+      const message = await appDialog.prompt({ message: `Relance pour ${row.tenantName ?? row.tenantPhone ?? 'le locataire'} (montant : ${formatMoneyWeb(row.overdueAmount, row.currency)}). Laissez vide pour le message standard.`, defaultValue: '' });
       if (message === null) return;
       setBusyId(row.leaseId);
       setError(null);
@@ -191,7 +189,7 @@ export function ArrearsBoard({
                 <p className="text-xs uppercase tracking-wide text-muted">
                   {bucketLabel(key)}
                 </p>
-                <p className="mt-1 text-sm font-semibold text-foreground">
+                <p className="mt-1 text-sm font-semibold text-active">
                   {amount
                     ? formatMoneyWeb(amount, summary.currency)
                     : '—'}
@@ -211,7 +209,7 @@ export function ArrearsBoard({
             setRefreshKey((value) => value + 1);
             void refreshSummary();
           }}
-          className="rounded-lg border border-border bg-card px-3 py-1.5 text-sm text-foreground"
+          className="rounded-lg border border-border bg-card px-3 py-1.5 text-sm text-active"
         >
           <option value="">Toutes</option>
           <option value="0-30">0-30 jours</option>
@@ -243,7 +241,7 @@ export function ArrearsBoard({
               e.stopPropagation();
               void sendReminder(row);
             }}
-            className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-card-hover disabled:opacity-50"
+            className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-active hover:bg-card-hover disabled:opacity-50"
           >
             {busyId === row.leaseId ? 'Envoi…' : 'Relancer'}
           </button>

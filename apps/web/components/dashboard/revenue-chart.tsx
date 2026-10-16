@@ -39,8 +39,8 @@ function ChartRangeToggle({
           className={
             'rounded px-2 py-1 transition-colors ' +
             (range === key
-              ? 'bg-card text-foreground'
-              : 'text-muted hover:text-foreground')
+              ? 'bg-card text-active'
+              : 'text-muted hover:text-active')
           }
         >
           {RANGE_LABELS[key]}
@@ -225,7 +225,7 @@ export function PropertyModeChart({
               <th className="pb-2 font-medium">Part</th>
             </tr>
           </thead>
-          <tbody className="text-foreground">
+          <tbody className="text-active">
             {data.rows.map((row) => (
               <tr key={row.name} className="border-t border-border/60">
                 <td className="py-2.5 pe-2">{row.name}</td>

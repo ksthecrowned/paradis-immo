@@ -28,7 +28,7 @@ const STATE = (invalid: boolean) =>
     : 'border-input-border focus:border-input-focus-border focus:ring-accent/30';
 
 const BTN =
-  'flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-lg border border-input-border bg-card text-foreground transition-colors hover:bg-card-hover disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-accent/30';
+  'flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-lg border border-input-border bg-card text-active transition-colors hover:bg-card-hover disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-accent/30';
 
 const parse = (raw: string): number | null => {
   if (raw === '') return null;

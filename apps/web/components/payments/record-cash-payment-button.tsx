@@ -1,5 +1,6 @@
 'use client';
 
+import { appDialog } from '@/components/dialogs/app-dialog';
 import { Button } from '@/components/primitives';
 import { ApiError } from '@/lib/api';
 import { recordCashPayment } from '@/lib/owner/payments';
@@ -45,9 +46,7 @@ export function RecordCashPaymentButton({
     const money = formatMoney(amount, currency);
     const detail = dueDateLabel ? ` (échéance ${dueDateLabel})` : '';
     if (
-      !confirm(
-        `Enregistrer un paiement espèces de ${money}${detail} ?\n\nLe paiement sera validé immédiatement.`,
-      )
+      !await appDialog.confirm({ message: `Enregistrer un paiement espèces de ${money}${detail} ?\n\nLe paiement sera validé immédiatement.` })
     ) {
       return;
     }
@@ -70,7 +69,7 @@ export function RecordCashPaymentButton({
           : "Impossible d'enregistrer le paiement espèces.";
       onError?.(message);
       if (!onError) {
-        window.alert(message);
+        void appDialog.alert({ message: message });
       }
     } finally {
       setBusy(false);

@@ -20,6 +20,9 @@ export {
   PropertyModeChart,
   RevenueChart,
 } from './revenue-chart';
+export { GlobalSearch, type GlobalSearchProps } from './global-search';
+export { NotificationsDropdown } from './notifications-dropdown';
+export { WebPushBootstrap } from './web-push-bootstrap';
 export { RoleSwitcher } from './role-switcher';
 export { DashboardShell, type DashboardShellProps } from './shell';
 export { SidebarNav, type DashboardRole, type SidebarNavProps } from './sidebar-nav';

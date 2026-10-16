@@ -1,5 +1,6 @@
 'use client';
 
+import { appDialog } from '@/components/dialogs/app-dialog';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   DashboardPageHeader,
@@ -53,10 +54,31 @@ export function AdminModerationPage(): React.JSX.Element {
 
   const handleModerate = useCallback(
     async (id: string, status: PropertyStatus, label: string) => {
-      if (!confirm(`${label} ce bien ?`)) return;
+      let reason: string | undefined;
+      if (status === 'ARCHIVED') {
+        const enteredReason = await appDialog.prompt({
+          title: 'Refuser cette annonce',
+          message: 'Un motif est requis pour refuser cette annonce.',
+          label: 'Motif du refus',
+          placeholder: 'Expliquez pourquoi cette annonce est refusée',
+          required: true,
+          variant: 'danger',
+          confirmLabel: 'Refuser l’annonce',
+          multiline: true,
+        });
+        if (enteredReason === null) return;
+        reason = enteredReason.trim();
+      } else if (
+        !(await appDialog.confirm({
+          message: `${label} ce bien ?`,
+          confirmLabel: label,
+        }))
+      ) {
+        return;
+      }
       setActionId(id);
       try {
-        await moderateProperty(id, status);
+        await moderateProperty(id, status, reason);
         await load();
       } catch (err) {
         setError(

@@ -186,8 +186,8 @@ export function TableActionMenu({
           onClick={() => setOpen((value) => !value)}
           aria-haspopup="menu"
           aria-expanded={open}
-          aria-label="Plus d'actions"
-          title="Plus d'actions"
+          aria-label="Plus d'options"
+          title="Plus d'options"
           className={
             'group inline-flex size-9 items-center justify-center rounded-lg border transition-all hover:shadow-sm ' +
             (open
@@ -222,7 +222,7 @@ export function TableActionMenu({
                     'flex w-full items-center gap-x-2.5 rounded-lg px-3 py-2 text-sm transition-colors';
                   const variantClass = item.destructive
                     ? 'text-danger hover:bg-danger/10'
-                    : 'text-foreground hover:bg-accent-muted hover:text-accent';
+                    : 'text-active hover:bg-accent-muted hover:text-accent';
                   const iconClass = item.destructive
                     ? 'text-danger'
                     : 'text-accent';

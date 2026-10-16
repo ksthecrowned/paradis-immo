@@ -1,5 +1,6 @@
 'use client';
 
+import { appDialog } from '@/components/dialogs/app-dialog';
 import Link from 'next/link';
 import {
   DashboardPageHeader,
@@ -86,7 +87,7 @@ export function OwnerLeasesPage(): React.JSX.Element {
         sortable: true,
         className: 'hidden sm:table-cell',
         render: (_value, row) => (
-          <span className="text-xs text-foreground">
+          <span className="text-xs text-active">
             {row.tenantName ?? '—'}
             {row.tenantPhone ? (
               <span className="ml-1 font-mono text-muted">{row.tenantPhone}</span>
@@ -221,6 +222,7 @@ export function OwnerLeasesPage(): React.JSX.Element {
         searchPlaceholder="Rechercher un bail…"
         emptyMessage="Aucun bail à afficher."
         tableId="owner-leases-table"
+        viewHref={(row) => ROUTES.owner.lease(row.id)}
         onError={(err) =>
           setError(
             err instanceof ApiError
@@ -243,16 +245,16 @@ export function OwnerLeasesPage(): React.JSX.Element {
                       () => sendLeaseForSignature(row.id),
                     );
                   }}
-                  className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-card-hover disabled:opacity-50"
+                  className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-active hover:bg-card-hover disabled:opacity-50"
                 >
                   Envoyer pour signature
                 </button>
                 <button
                   type="button"
                   disabled={actionId === row.id}
-                  onClick={(e) => {
+                  onClick={async (e) => {
                     e.stopPropagation();
-                    if (!confirm('Annuler ce bail ?')) return;
+                    if (!await appDialog.confirm({ message: 'Annuler ce bail ?' })) return;
                     void runAction(row.id, 'Impossible d’annuler le bail.', () =>
                       cancelLease(row.id),
                     );
@@ -267,12 +269,10 @@ export function OwnerLeasesPage(): React.JSX.Element {
               <button
                 type="button"
                 disabled={actionId === row.id}
-                onClick={(e) => {
+                onClick={async (e) => {
                   e.stopPropagation();
                   if (
-                    !confirm(
-                      'Activer ce bail ? Le bien passe en occupé et l’échéancier est généré.',
-                    )
+                    !await appDialog.confirm({ message: 'Activer ce bail ? Le bien passe en occupé et l’échéancier est généré.' })
                   ) {
                     return;
                   }
@@ -289,14 +289,11 @@ export function OwnerLeasesPage(): React.JSX.Element {
               <button
                 type="button"
                 disabled={actionId === row.id}
-                onClick={(e) => {
+                onClick={async (e) => {
                   e.stopPropagation();
-                  const requestedEndDate = prompt(
-                    'Date de sortie souhaitée (AAAA-MM-JJ) ?',
-                    new Date(Date.now() + 90 * 86400000)
+                  const requestedEndDate = await appDialog.prompt({ message: 'Date de sortie souhaitée (AAAA-MM-JJ) ?', defaultValue: new Date(Date.now() + 90 * 86400000)
                       .toISOString()
-                      .slice(0, 10),
-                  );
+                      .slice(0, 10) });
                   if (!requestedEndDate) return;
                   void runAction(row.id, 'Impossible d’enregistrer le congé.', () =>
                     terminateLease(row.id, {
@@ -305,7 +302,7 @@ export function OwnerLeasesPage(): React.JSX.Element {
                     }),
                   );
                 }}
-                className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-card-hover disabled:opacity-50"
+                className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-active hover:bg-card-hover disabled:opacity-50"
               >
                 Congé
               </button>
@@ -315,23 +312,23 @@ export function OwnerLeasesPage(): React.JSX.Element {
                 <button
                   type="button"
                   disabled={actionId === row.id}
-                  onClick={(e) => {
+                  onClick={async (e) => {
                     e.stopPropagation();
-                    if (!confirm('Retirer le congé déposé ?')) return;
+                    if (!await appDialog.confirm({ message: 'Retirer le congé déposé ?' })) return;
                     void runAction(row.id, 'Impossible de retirer le congé.', () =>
                       withdrawTermination(row.id),
                     );
                   }}
-                  className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-card-hover disabled:opacity-50"
+                  className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-active hover:bg-card-hover disabled:opacity-50"
                 >
                   Retirer le congé
                 </button>
                 <button
                   type="button"
                   disabled={actionId === row.id}
-                  onClick={(e) => {
+                  onClick={async (e) => {
                     e.stopPropagation();
-                    if (!confirm('Clôturer ce bail ? Le bien redevient disponible.')) {
+                    if (!await appDialog.confirm({ message: 'Clôturer ce bail ? Le bien redevient disponible.' })) {
                       return;
                     }
                     void runAction(row.id, 'Impossible de clôturer le bail.', () =>
@@ -346,7 +343,7 @@ export function OwnerLeasesPage(): React.JSX.Element {
             ) : null}
             <Link
               href={ROUTES.owner.lease(row.id)}
-              className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-card-hover"
+              className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-active hover:bg-card-hover"
               onClick={(e) => e.stopPropagation()}
             >
               Voir

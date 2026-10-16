@@ -140,6 +140,7 @@ export function TenantsListPage({
         loading={loading}
         emptyMessage="Aucun locataire sur vos biens pour le moment."
         entityLabel="locataires"
+        viewHref={(row) => `${tenantBasePath}/${row.id}`}
       />
     </section>
   );

@@ -302,7 +302,7 @@ export function OwnerFinancesPage(): React.JSX.Element {
                         tone={ledgerTypeTone(entry.type)}
                       />
                     </td>
-                    <td className="px-4 py-2 text-foreground">{entry.label}</td>
+                    <td className="px-4 py-2 text-active">{entry.label}</td>
                     <td className="px-4 py-2 text-muted">
                       {propertyTitles.get(entry.propertyId) ??
                         `${entry.propertyId.slice(0, 8)}…`}
@@ -377,7 +377,7 @@ export function OwnerFinancesPage(): React.JSX.Element {
                 className="flex flex-wrap items-center justify-between gap-3 px-5 py-3"
               >
                 <div>
-                  <p className="text-sm text-foreground">
+                  <p className="text-sm text-muted">
                     {formatDate(statement.periodStart)} —{' '}
                     {formatDate(statement.periodEnd)}
                   </p>

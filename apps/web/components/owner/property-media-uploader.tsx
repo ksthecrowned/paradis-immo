@@ -149,7 +149,7 @@ export function PropertyMediaUploader({
           type="button"
           disabled={isUploading}
           onClick={() => photoInputRef.current?.click()}
-          className="inline-flex items-center gap-2 rounded-lg border border-input-border bg-card px-4 py-2.5 text-sm font-medium text-foreground hover:bg-card-hover disabled:opacity-50"
+          className="inline-flex items-center gap-2 rounded-lg border border-input-border bg-card px-4 py-2.5 text-sm font-medium text-active hover:bg-card-hover disabled:opacity-50"
         >
           <Icon icon="mdi:image-plus" className="h-4 w-4" />
           Ajouter des photos
@@ -158,7 +158,7 @@ export function PropertyMediaUploader({
           type="button"
           disabled={isUploading}
           onClick={() => videoInputRef.current?.click()}
-          className="inline-flex items-center gap-2 rounded-lg border border-input-border bg-card px-4 py-2.5 text-sm font-medium text-foreground hover:bg-card-hover disabled:opacity-50"
+          className="inline-flex items-center gap-2 rounded-lg border border-input-border bg-card px-4 py-2.5 text-sm font-medium text-active hover:bg-card-hover disabled:opacity-50"
         >
           <Icon icon="mdi:video-plus" className="h-4 w-4" />
           Ajouter une vidéo

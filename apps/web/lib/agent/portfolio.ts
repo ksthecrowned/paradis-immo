@@ -6,14 +6,11 @@ import { listManagedProperties } from '@/lib/owner/properties';
 export async function listOrgProperties(
   organizationId: string,
 ): Promise<PublicProperty[]> {
-  const result = await apiFetch<{
-    data: PublicProperty[];
-    meta: { total: number; limit: number; offset: number };
-  }>(
+  // apiFetch already unwraps `{ statusCode, data }` → the array.
+  return apiFetch<PublicProperty[]>(
     `/properties?organizationId=${encodeURIComponent(organizationId)}&limit=100`,
     { anonymous: true },
   );
-  return result.data ?? [];
 }
 
 export { listManagedProperties };

@@ -3,7 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { PropertyReportStatus, PropertyStatus } from '@prisma/client';
+import { PropertyReportStatus, PropertyStatus, UserStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { EventPublisher } from '../events/event.publisher';
 import { DOMAIN_EVENTS } from '../events/event.types';
@@ -24,7 +24,8 @@ export interface AdminUserRow {
   phone: string | null;
   name: string | null;
   avatarUrl: string | null;
-  countryId: string;
+  countryName: string;
+  status: UserStatus;
   roles: string[];
   createdAt: string;
 }
@@ -149,7 +150,8 @@ export class AdminService {
           phone: true,
           name: true,
           avatarUrl: true,
-          countryId: true,
+          country: { select: { name: true } },
+          status: true,
           createdAt: true,
           roles: { select: { role: true } },
         },
@@ -161,7 +163,8 @@ export class AdminService {
         phone: u.phone,
         name: u.name,
         avatarUrl: u.avatarUrl,
-        countryId: u.countryId,
+        countryName: u.country.name,
+        status: u.status,
         roles: u.roles.map((r) => r.role),
         createdAt: u.createdAt.toISOString(),
       })),

@@ -1,5 +1,6 @@
 'use client';
 
+import { appDialog } from '@/components/dialogs/app-dialog';
 import Link from 'next/link';
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import {
@@ -227,7 +228,7 @@ export function PropertyVisitSlots({
 
   const handleDeactivate = useCallback(
     async (templateId: string) => {
-      if (!confirm('Désactiver ce modèle de créneau ?')) return;
+      if (!await appDialog.confirm({ message: 'Désactiver ce modèle de créneau ?' })) return;
       setActionId(templateId);
       try {
         await deactivateTemplate(templateId);
@@ -443,7 +444,7 @@ export function PropertyVisitSlots({
           actions={
             <Link
               href={routerProperty}
-              className="inline-flex items-center rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-foreground hover:bg-card-hover"
+              className="inline-flex items-center rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-active hover:bg-card-hover"
             >
               Retour au bien
             </Link>
@@ -464,7 +465,7 @@ export function PropertyVisitSlots({
         actions={
           <Link
             href={routerProperty}
-            className="inline-flex items-center rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-foreground hover:bg-card-hover"
+            className="inline-flex items-center rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-active hover:bg-card-hover"
           >
             Retour au bien
           </Link>

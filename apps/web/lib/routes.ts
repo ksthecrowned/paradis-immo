@@ -38,6 +38,7 @@ export const ROUTES = {
     sales: '/owner/sales',
     salesAdd: '/owner/sales/add',
     sale: (id: string) => `/owner/sales/${id}`,
+    notifications: '/owner/notifications',
   },
   agent: {
     dashboard: '/agent/dashboard',
@@ -74,6 +75,7 @@ export const ROUTES = {
     expenses: '/agent/expenses',
     finances: '/agent/finances',
     leaseTemplates: '/agent/settings/lease-templates',
+    notifications: '/agent/notifications',
   },
   admin: {
     dashboard: '/admin/dashboard',
@@ -82,6 +84,7 @@ export const ROUTES = {
     moderation: '/admin/moderation',
     reports: '/admin/reports',
     config: '/admin/config',
+    notifications: '/admin/notifications',
   },
 } as const;
 
@@ -297,6 +300,7 @@ const BREADCRUMB_LABELS: Record<string, string> = {
   moderation: 'Modération',
   reports: 'Signalements',
   config: 'Configuration',
+  notifications: 'Notifications',
 };
 
 export function breadcrumbForPath(pathname: string): { label: string; href?: string }[] {

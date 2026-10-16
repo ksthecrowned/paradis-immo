@@ -54,7 +54,7 @@ export function Switcher({
         />
       </span>
       {label ? (
-        <span className="text-base text-foreground">{label}</span>
+        <span className="text-base text-muted">{label}</span>
       ) : null}
     </label>
   );

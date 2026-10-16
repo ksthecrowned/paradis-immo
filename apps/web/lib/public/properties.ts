@@ -10,9 +10,8 @@ export async function listActiveProperties(
     limit: String(limit),
   });
   if (mode) params.set('mode', mode);
-  const result = await apiFetch<{
-    data: PublicProperty[];
-    meta: { total: number; limit: number; offset: number };
-  }>(`/properties?${params}`, { anonymous: true });
-  return result.data ?? [];
+  // apiFetch already unwraps `{ statusCode, data }` → the array.
+  return apiFetch<PublicProperty[]>(`/properties?${params}`, {
+    anonymous: true,
+  });
 }

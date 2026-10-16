@@ -93,9 +93,23 @@ export class NotificationsService {
       return this.markFailed(row.id, 'USER_NOT_FOUND');
     }
 
+    // Push targets: legacy User.fcmToken + every registered UserDevice
+    // (mobile + web). Resolved before channel selection so PUSH preference
+    // works when only UserDevice rows exist (web portal).
+    const devices = await this.prisma.userDevice.findMany({
+      where: { userId: input.userId },
+      select: { fcmToken: true },
+    });
+    const tokens = new Set<string>();
+    if (user.fcmToken) tokens.add(user.fcmToken);
+    for (const device of devices) {
+      if (device.fcmToken) tokens.add(device.fcmToken);
+    }
+    const hasPushTarget = tokens.size > 0;
+
     const requested =
       input.channel ??
-      (user.notificationChannel === NotificationChannel.PUSH && user.fcmToken
+      (user.notificationChannel === NotificationChannel.PUSH && hasPushTarget
         ? NotificationChannel.PUSH
         : NotificationChannel.WHATSAPP);
     // WhatsApp is the default channel — an SMS preference is delivered
@@ -131,16 +145,7 @@ export class NotificationsService {
       const body = this.renderPushBody(input.payload);
       const data = this.renderPushData(input.type, input.payload);
 
-      const devices = await this.prisma.userDevice.findMany({
-        where: { userId: input.userId },
-        select: { fcmToken: true },
-      });
-      const tokens = new Set<string>();
-      if (user.fcmToken) tokens.add(user.fcmToken);
-      for (const device of devices) {
-        if (device.fcmToken) tokens.add(device.fcmToken);
-      }
-      if (tokens.size === 0) {
+      if (!hasPushTarget) {
         return this.markFailed(row.id, 'NO_DEVICE_TOKEN');
       }
 

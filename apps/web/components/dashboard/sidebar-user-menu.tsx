@@ -164,7 +164,7 @@ export function SidebarUserMenu({
         {!collapsed ? (
           <>
             <span className="min-w-0 flex-1 text-start">
-              <span className="block truncate text-base font-semibold text-foreground">
+              <span className="block truncate text-base font-semibold text-active">
                 {name}
               </span>
               {email ? (
@@ -217,7 +217,7 @@ function UserMenuItems({
   return (
     <>
       <div className="px-3 py-2">
-        <p className="truncate text-base font-semibold text-foreground">{name}</p>
+        <p className="truncate text-base font-semibold text-active">{name}</p>
         {email ? (
           <p className="truncate text-xs text-muted">{email}</p>
         ) : null}

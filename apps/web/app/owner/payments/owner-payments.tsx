@@ -1,5 +1,6 @@
 'use client';
 
+import { appDialog } from '@/components/dialogs/app-dialog';
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
@@ -248,7 +249,7 @@ export function OwnerPaymentsPage(): React.JSX.Element {
             className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium transition-colors ${
               tab === item.key
                 ? 'border-accent text-accent'
-                : 'border-transparent text-muted hover:text-foreground'
+                : 'border-transparent text-muted hover:text-active'
             }`}
           >
             {item.label}
@@ -280,11 +281,12 @@ export function OwnerPaymentsPage(): React.JSX.Element {
         searchPlaceholder="Rechercher un paiement…"
         emptyMessage="Aucun paiement à afficher."
         tableId="owner-payments-table"
+        viewHref={(row) => ROUTES.owner.payment(row.id)}
         actions={(row) => (
           <div className="flex flex-wrap gap-2">
             <Link
               href={ROUTES.owner.payment(row.id)}
-              className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-card-hover"
+              className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-active hover:bg-card-hover"
             >
               Voir
             </Link>
@@ -293,7 +295,7 @@ export function OwnerPaymentsPage(): React.JSX.Element {
                 type="button"
                 disabled={validatingId === row.id}
                 onClick={() => void handleValidate(row)}
-                className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-card-hover disabled:opacity-50"
+                className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-active hover:bg-card-hover disabled:opacity-50"
               >
                 {validatingId === row.id ? 'Validation…' : 'Valider'}
               </button>
@@ -320,11 +322,9 @@ export function OwnerPaymentsPage(): React.JSX.Element {
   );
 }
 
-function handleValidate(payment: PublicPayment) {
+async function handleValidate(payment: PublicPayment) {
   if (
-    !confirm(
-      `Valider le paiement de ${formatMoney(payment.amount, payment.currency)} ?`,
-    )
+    !await appDialog.confirm({ message: `Valider le paiement de ${formatMoney(payment.amount, payment.currency)} ?` })
   ) {
     return;
   }

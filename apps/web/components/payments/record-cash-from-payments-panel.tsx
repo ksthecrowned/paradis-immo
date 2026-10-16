@@ -212,7 +212,7 @@ export function RecordCashFromPaymentsPanel({
             </h3>
             <button
               type="button"
-              className="text-xs text-muted hover:text-foreground"
+              className="text-xs text-muted hover:text-active"
               onClick={() => {
                 setOpen(false);
                 reset();

@@ -1,5 +1,6 @@
 'use client';
 
+import { appDialog } from '@/components/dialogs/app-dialog';
 import { Button } from '@/components/primitives/Button';
 import type { PublicVisitSlot } from '@/lib/owner/visit-slots';
 import {
@@ -122,7 +123,7 @@ function VisitsDayButton({
       className={[
         'relative flex size-10 items-center justify-center rounded-md text-sm transition-colors',
         'hover:bg-card-hover focus:outline-none focus:ring-2 focus:ring-accent/40',
-        isOutside ? 'text-muted/40' : 'text-foreground',
+        isOutside ? 'text-muted/40' : 'text-active',
         isToday ? 'ring-1 ring-accent/40' : '',
         isSelected ? '!bg-accent-muted !text-accent font-semibold' : '',
         'disabled:pointer-events-none disabled:opacity-50',
@@ -262,25 +263,25 @@ export function VisitsCalendar({
             type="button"
             onClick={goPrev}
             aria-label="Mois précédent"
-            className="inline-flex size-9 items-center justify-center rounded-md border border-border text-foreground transition-colors hover:bg-card-hover"
+            className="inline-flex size-9 items-center justify-center rounded-md border border-border text-active transition-colors hover:bg-card-hover"
           >
             <Icon icon="solar:alt-arrow-left-linear" className="size-4" />
           </button>
-          <span className="min-w-[170px] text-center text-base font-semibold capitalize text-foreground">
+          <span className="min-w-[170px] text-center text-base font-semibold capitalize text-active">
             {MONTH_LABEL.format(month)}
           </span>
           <button
             type="button"
             onClick={goNext}
             aria-label="Mois suivant"
-            className="inline-flex size-9 items-center justify-center rounded-md border border-border text-foreground transition-colors hover:bg-card-hover"
+            className="inline-flex size-9 items-center justify-center rounded-md border border-border text-active transition-colors hover:bg-card-hover"
           >
             <Icon icon="solar:alt-arrow-right-linear" className="size-4" />
           </button>
           <button
             type="button"
             onClick={goToday}
-            className="ml-2 inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-sm font-medium text-foreground transition-colors hover:bg-card-hover"
+            className="ml-2 inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-sm font-medium text-active transition-colors hover:bg-card-hover"
           >
             <Icon icon="solar:calendar-linear" className="size-4" />
             Aujourd&apos;hui
@@ -291,7 +292,7 @@ export function VisitsCalendar({
             <span className="inline-block h-4 w-24 animate-pulse rounded bg-card-hover" />
           ) : (
             <>
-              <span className="font-semibold text-foreground">
+              <span className="font-semibold text-active">
                 {totalThisMonth}
               </span>{' '}
               visite{totalThisMonth > 1 ? 's' : ''} sur le mois
@@ -411,7 +412,7 @@ export function VisitsCalendar({
                   key={booking.id}
                   className="flex flex-wrap items-center gap-x-4 gap-y-2 px-5 py-3.5"
                 >
-                  <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-active">
                     <Icon
                       icon="solar:clock-circle-linear"
                       className="size-4 text-accent"
@@ -511,8 +512,8 @@ export function VisitsCalendar({
                         icon="solar:close-circle-linear"
                         loading={busyId === booking.id}
                         disabled={busyId === booking.id}
-                        onClick={() => {
-                          if (confirm('Annuler cette visite ?')) {
+                        onClick={async () => {
+                          if (await appDialog.confirm({ message: 'Annuler cette visite ?' })) {
                             void onCancel(booking.id);
                           }
                         }}

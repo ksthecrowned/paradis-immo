@@ -171,20 +171,14 @@ export interface CreatePropertyInput {
 }
 
 export async function listMyProperties(): Promise<PublicProperty[]> {
-  const result = await apiFetch<{
-    data: PublicProperty[];
-    meta: { total: number; limit: number; offset: number };
-  }>('/properties/mine?limit=100');
-  return result.data ?? [];
+  // apiFetch already unwraps `{ statusCode, data }` → the array.
+  return apiFetch<PublicProperty[]>('/properties/mine?limit=100');
 }
 
 /** Properties the current user can operate on (owner or mandated agent). */
 export async function listManagedProperties(): Promise<PublicProperty[]> {
-  const result = await apiFetch<{
-    data: PublicProperty[];
-    meta: { total: number; limit: number; offset: number };
-  }>('/properties/managed?limit=100');
-  return result.data ?? [];
+  // apiFetch already unwraps `{ statusCode, data }` → the array.
+  return apiFetch<PublicProperty[]>('/properties/managed?limit=100');
 }
 
 export async function getProperty(id: string): Promise<PublicProperty> {

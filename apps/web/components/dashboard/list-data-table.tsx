@@ -72,6 +72,9 @@ export interface ListDataTableProps<T extends object> {
   loading?: boolean;
   /** Click handler on a row. When provided, rows get `cursor-pointer` + hover. */
   onRowClick?: (row: T) => void;
+  /** Optional direct link to the row's detail view, rendered as an eye action. */
+  viewHref?: (row: T) => string;
+  viewLabel?: string;
   /** Highlights the row whose id matches. */
   selectedRowId?: string;
   /** Field used to read each row's id (for `selectedRowId` match). */
@@ -177,6 +180,8 @@ function actionLabel(node: React.ReactNode): string {
 function actionIcon(label: string): string {
   const normalized = label.toLocaleLowerCase('fr');
   if (/voir|détail|consulter/.test(normalized)) return 'solar:eye-linear';
+  if (/suspendre|suspension|bloquer/.test(normalized)) return 'solar:lock-keyhole-linear';
+  if (/réactiver|reactiver|débloquer|debloquer/.test(normalized)) return 'solar:check-circle-linear';
   if (/modifier|éditer/.test(normalized)) return 'solar:pen-linear';
   if (/supprimer|retirer/.test(normalized)) return 'solar:trash-bin-trash-linear';
   if (/archiver/.test(normalized)) return 'solar:archive-linear';
@@ -235,7 +240,11 @@ function collectTableActions(
   });
 }
 
-function renderTableActions(node: React.ReactNode): React.ReactNode {
+function renderTableActions(
+  node: React.ReactNode,
+  directViewHref?: string,
+  viewLabel = 'Voir les détails',
+): React.ReactNode {
   const actions: NativeTableAction[] = [];
   const passthrough: React.ReactNode[] = [];
   collectTableActions(node, actions, passthrough);
@@ -253,7 +262,7 @@ function renderTableActions(node: React.ReactNode): React.ReactNode {
       ...(action.href ? { href: action.href } : {}),
       ...(action.onSelect ? { onSelect: action.onSelect } : {}),
       ...(action.disabled ? { disabled: true } : {}),
-      ...(/supprimer|retirer|archiver|refuser|annuler/i.test(action.label)
+      ...(/supprimer|retirer|archiver|refuser|annuler|suspendre|bloquer/i.test(action.label)
         ? { destructive: true }
         : {}),
     }));
@@ -262,9 +271,11 @@ function renderTableActions(node: React.ReactNode): React.ReactNode {
     <>
       {viewAction || menuItems.length > 0 ? (
         <TableActionMenu
-          {...(viewAction?.href
-            ? { viewHref: viewAction.href, viewLabel: viewAction.label }
-            : {})}
+          {...(directViewHref
+            ? { viewHref: directViewHref, viewLabel }
+            : viewAction?.href
+              ? { viewHref: viewAction.href, viewLabel: viewAction.label }
+              : {})}
           items={menuItems}
         />
       ) : null}
@@ -282,6 +293,39 @@ function normalizeCellValue(value: unknown): string {
 function truncateCellValue(value: unknown, maxLength = MAX_CELL_TEXT_LENGTH): string {
   const text = normalizeCellValue(value);
   return text.length > maxLength ? `${text.slice(0, maxLength)}…` : text;
+}
+
+const SKELETON_BAR_WIDTHS = ['w-4/5', 'w-3/5', 'w-2/3', 'w-1/2', 'w-3/4'] as const;
+
+function TableSkeletonRows({
+  columnCount,
+  hasActions,
+  rowCount,
+}: {
+  columnCount: number;
+  hasActions: boolean;
+  rowCount: number;
+}): React.JSX.Element {
+  return (
+    <>
+      {Array.from({ length: rowCount }, (_, rowIndex) => (
+        <tr key={`skeleton-${rowIndex}`} aria-hidden>
+          {Array.from({ length: columnCount }, (_, colIndex) => (
+            <td key={`skeleton-${rowIndex}-${colIndex}`} className="p-3">
+              <div
+                className={`h-4 max-w-full animate-pulse rounded bg-muted/30 ${SKELETON_BAR_WIDTHS[(rowIndex + colIndex) % SKELETON_BAR_WIDTHS.length]}`}
+              />
+            </td>
+          ))}
+          {hasActions ? (
+            <td className="p-3 text-end">
+              <div className="ms-auto h-4 w-8 animate-pulse rounded bg-muted/30" />
+            </td>
+          ) : null}
+        </tr>
+      ))}
+    </>
+  );
 }
 
 interface TableCellProps<T> {
@@ -312,7 +356,7 @@ const TableCell = memo(function TableCell<T extends object>({
     return (
       <td
         key={`${col.id ?? String(col.key)}-${rowIndex}-${colIndex}`}
-        className={`max-w-65 overflow-hidden p-3 text-sm font-normal text-foreground [&_a]:text-foreground [&_a]:no-underline **:text-sm **:font-normal ${col.className ?? ''}`}
+        className={`max-w-65 overflow-hidden p-3 text-sm font-normal text-active [&_a]:no-underline ${col.className ?? ''}`}
       >
         <span
           className="block truncate"
@@ -331,7 +375,7 @@ const TableCell = memo(function TableCell<T extends object>({
   return (
     <td
       key={`${col.id ?? String(col.key)}-${rowIndex}-${colIndex}`}
-      className={`max-w-65 overflow-hidden p-3 text-sm font-normal text-foreground [&_a]:text-foreground [&_a]:no-underline **:text-sm **:font-normal ${col.className ?? ''}`}
+      className={`max-w-65 overflow-hidden p-3 text-sm font-normal text-active [&_a]:no-underline ${col.className ?? ''}`}
     >
       <span className="block truncate" title={shouldTruncate ? rawText : undefined}>
         {truncateCellValue(rawValue)}
@@ -345,6 +389,8 @@ interface TableRowProps<T> {
   columns: ListColumn<T>[];
   rowIndex: number;
   actions?: (row: T) => React.ReactNode;
+  viewHref?: (row: T) => string;
+  viewLabel?: string;
   onRowClick?: (row: T) => void;
   isSelected?: boolean;
   rowIdKey?: keyof T;
@@ -355,6 +401,8 @@ const TableRow = memo(function TableRow<T extends object>({
   columns,
   rowIndex,
   actions,
+  viewHref,
+  viewLabel,
   onRowClick,
   isSelected,
   rowIdKey: rowIdKeyProp,
@@ -384,14 +432,18 @@ const TableRow = memo(function TableRow<T extends object>({
           rowIndex={rowIndex}
         />
       ))}
-      {actions ? (
+      {actions || viewHref ? (
         <td className="whitespace-nowrap p-3 text-end text-sm font-normal">
           {/* Stop propagation so row-level click does not fire when acting on a row action. */}
           <div
             className="inline-flex gap-x-2"
             onClick={(event) => event.stopPropagation()}
           >
-            {renderTableActions(actions(row))}
+            {renderTableActions(
+              actions?.(row),
+              viewHref?.(row),
+              viewLabel,
+            )}
           </div>
         </td>
       ) : null}
@@ -411,6 +463,8 @@ export function ListDataTable<T extends object>({
   pageSize: pageSizeProp = 20,
   emptyMessage = 'Aucune donnée disponible.',
   actions,
+  viewHref,
+  viewLabel = 'Voir les détails',
   entityLabel = 'entrées',
   tableId = 'table',
   serverSide = false,
@@ -431,6 +485,7 @@ export function ListDataTable<T extends object>({
   search,
   onSearchChange,
 }: ListDataTableProps<T>): React.JSX.Element {
+  const hasActions = Boolean(actions || viewHref);
   const [internalSearch, setInternalSearch] = useState('');
   const [colFilters, setColFilters] = useState<Record<string, string>>({});
   const [openFilter, setOpenFilter] = useState<string | null>(null);
@@ -561,7 +616,7 @@ export function ListDataTable<T extends object>({
   }, [sorted, columns]);
 
   const toolbarBtn =
-    'inline-flex items-center gap-x-2 rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground shadow-sm transition-colors hover:bg-card-hover focus:outline-none';
+    'inline-flex items-center gap-x-2 rounded-lg border border-border bg-card px-3 py-2.5 text-sm text-muted shadow-sm transition-colors hover:bg-card-hover focus:outline-none';
 
   return (
     <div className="mx-auto flex w-full flex-col rounded-xl border border-border bg-table shadow-sm">
@@ -576,7 +631,7 @@ export function ListDataTable<T extends object>({
           {viewAllHref ? (
             <Link
               href={viewAllHref}
-              className="whitespace-nowrap rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted transition-colors hover:border-accent/40 hover:text-foreground"
+              className="whitespace-nowrap rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted transition-colors hover:border-accent/40 hover:text-active"
             >
               {viewAllLabel}
             </Link>
@@ -644,7 +699,7 @@ export function ListDataTable<T extends object>({
                   }
                 }}
                 aria-label="Lignes par page"
-                className="rounded-lg border border-border bg-card py-2 pe-8 ps-3 text-sm text-foreground shadow-sm hover:bg-card-hover focus:border-accent focus:outline-none"
+                className="rounded-lg border border-border bg-card py-2 pe-8 ps-3 text-sm text-muted shadow-sm hover:bg-card-hover focus:border-accent focus:outline-none"
               >
                 {[10, 15, 20, 25, 50].map((n) => (
                   <option key={n} value={n}>
@@ -682,7 +737,7 @@ export function ListDataTable<T extends object>({
                             exportCSV();
                             setShowExport(false);
                           }}
-                          className="flex w-full items-center gap-x-2 rounded-lg px-3 py-2 text-sm text-foreground hover:bg-card-hover"
+                          className="flex w-full items-center gap-x-2 rounded-lg px-3 py-2.5 text-sm text-muted hover:bg-card-hover"
                         >
                           <DashIcon
                             icon="solar:file-text-linear"
@@ -813,7 +868,7 @@ export function ListDataTable<T extends object>({
                         )}
                       </th>
                     ))}
-                    {actions ? (
+                    {hasActions ? (
                       <th
                         scope="col"
                         className="px-3 py-2 text-end text-sm font-normal text-muted"
@@ -823,20 +878,27 @@ export function ListDataTable<T extends object>({
                     ) : null}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-border">
+                <tbody
+                  className="divide-y divide-border"
+                  aria-busy={loading || undefined}
+                >
                   {loading ? (
-                    <tr>
-                      <td
-                        colSpan={columns.length + (actions ? 1 : 0)}
-                        className="p-8 text-center text-sm text-muted"
-                      >
-                        Chargement…
-                      </td>
-                    </tr>
+                    <>
+                      <tr className="sr-only">
+                        <td colSpan={columns.length + (hasActions ? 1 : 0)}>
+                          Chargement…
+                        </td>
+                      </tr>
+                      <TableSkeletonRows
+                        columnCount={columns.length}
+                        hasActions={hasActions}
+                        rowCount={pageSize}
+                      />
+                    </>
                   ) : paginated.length === 0 ? (
                     <tr>
                       <td
-                        colSpan={columns.length + (actions ? 1 : 0)}
+                        colSpan={columns.length + (hasActions ? 1 : 0)}
                         className="p-8 text-center text-sm text-muted"
                       >
                         {emptyMessage}
@@ -856,6 +918,8 @@ export function ListDataTable<T extends object>({
                           columns={columns}
                           rowIndex={i}
                           actions={actions}
+                          viewHref={viewHref}
+                          viewLabel={viewLabel}
                           onRowClick={onRowClick}
                           isSelected={isSelected}
                           rowIdKey={rowIdKey}
@@ -876,7 +940,7 @@ export function ListDataTable<T extends object>({
                 type="button"
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={page === 1}
-                className="inline-flex min-w-10 items-center justify-center rounded-full p-2.5 text-sm text-foreground hover:bg-card-hover disabled:pointer-events-none disabled:opacity-50"
+                className="inline-flex min-w-10 items-center justify-center rounded-full p-2.5 text-sm text-active hover:bg-card-hover disabled:pointer-events-none disabled:opacity-50"
               >
                 «
               </button>
@@ -896,7 +960,7 @@ export function ListDataTable<T extends object>({
                     className={`inline-flex min-w-10 items-center justify-center rounded-full p-2.5 text-sm ${
                       item === page
                         ? 'bg-accent/10 text-accent font-medium'
-                        : 'text-foreground hover:bg-card-hover'
+                        : 'text-active hover:bg-card-hover'
                     }`}
                   >
                     {item}
@@ -907,22 +971,22 @@ export function ListDataTable<T extends object>({
                 type="button"
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 disabled={page === totalPages}
-                className="inline-flex min-w-10 items-center justify-center rounded-full p-2.5 text-sm text-foreground hover:bg-card-hover disabled:pointer-events-none disabled:opacity-50"
+                className="inline-flex min-w-10 items-center justify-center rounded-full p-2.5 text-sm text-active hover:bg-card-hover disabled:pointer-events-none disabled:opacity-50"
               >
                 »
               </button>
             </div>
             <div className="ms-auto text-sm text-muted">
-              Page <span className="text-foreground">{page}</span>{' '}
+              Page <span className="text-active">{page}</span>{' '}
               sur{' '}
-              <span className="text-foreground">
+              <span className="text-active">
                 {totalPages}
               </span>
               {' · '}
               Affichage{' '}
-              <span className="text-foreground">{from}</span>–
-              <span className="text-foreground">{to}</span> sur{' '}
-              <span className="text-foreground">{rowCount}</span>{' '}
+              <span className="text-active">{from}</span>–
+              <span className="text-active">{to}</span> sur{' '}
+              <span className="text-active">{rowCount}</span>{' '}
               {entityLabel}
             </div>
           </div>

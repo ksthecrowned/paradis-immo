@@ -346,7 +346,13 @@ describe('Admin (e2e)', () => {
       .set('x-test-roles', 'PLATFORM_ADMIN')
       .expect(200);
     const body = res.body as {
-      data: Array<{ id: string; phone: string; roles: string[] }>;
+      data: Array<{
+        id: string;
+        phone: string;
+        roles: string[];
+        countryName: string;
+        status: string;
+      }>;
       meta: { total: number; page: number; pageSize: number };
     };
     expect(body.data.length).toBeGreaterThanOrEqual(3);
@@ -371,6 +377,42 @@ describe('Admin (e2e)', () => {
     }
     expect(me).toBeDefined();
     expect(me?.roles).toContain('PLATFORM_ADMIN');
+    expect(me?.countryName).toBe(
+      (await prisma.country.findUniqueOrThrow({
+        where: { id: countryId },
+        select: { name: true },
+      })).name,
+    );
+    expect(me?.status).toBe('ACTIVE');
+  });
+
+  it('lets a PLATFORM_ADMIN suspend and reactivate a user', async () => {
+    await request(app.getHttpServer())
+      .patch(`/api/v1/admin/users/${tenantUserId}/suspend`)
+      .set('x-test-user', adminUserId)
+      .set('x-test-roles', 'PLATFORM_ADMIN')
+      .send({ reason: 'Vérification de sécurité' })
+      .expect(200);
+
+    expect(
+      (await prisma.user.findUniqueOrThrow({
+        where: { id: tenantUserId },
+        select: { status: true },
+      })).status,
+    ).toBe('SUSPENDED');
+
+    await request(app.getHttpServer())
+      .patch(`/api/v1/admin/users/${tenantUserId}/unsuspend`)
+      .set('x-test-user', adminUserId)
+      .set('x-test-roles', 'PLATFORM_ADMIN')
+      .expect(200);
+
+    expect(
+      (await prisma.user.findUniqueOrThrow({
+        where: { id: tenantUserId },
+        select: { status: true },
+      })).status,
+    ).toBe('ACTIVE');
   });
 
   // ------------------------------------------------------------------

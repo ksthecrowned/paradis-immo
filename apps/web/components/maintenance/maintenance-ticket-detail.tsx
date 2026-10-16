@@ -133,7 +133,7 @@ export function MaintenanceTicketDetail({
       />
 
       {ticket.requiresOwnerApproval ? (
-        <div className="flex items-start gap-3 rounded-2xl border border-warning/40 bg-warning/10 px-4 py-3 text-base text-foreground">
+        <div className="flex items-start gap-3 rounded-2xl border border-warning/40 bg-warning/10 px-4 py-3 text-base text-muted">
           <Icon
             icon="mdi:alert-circle-outline"
             className="mt-0.5 h-5 w-5 shrink-0 text-warning"

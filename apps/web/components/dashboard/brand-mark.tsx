@@ -6,15 +6,15 @@ export function BrandMark({ compact = false }: { compact?: boolean }): React.JSX
       <Image
         src="/landing/logo.png"
         alt=""
-        width={compact ? 32 : 36}
-        height={compact ? 32 : 36}
+        width={42}
+        height={42}
         className="shrink-0"
-        style={{ width: compact ? 32 : 36, height: compact ? 32 : 36 }}
+        style={{ width: 42, height: 42 }}
         priority
       />
       {!compact ? (
         <span className="text-[17px] font-semibold tracking-tight text-foreground">
-          Paradis Immobilier
+          Paradis Immo
         </span>
       ) : null}
     </div>

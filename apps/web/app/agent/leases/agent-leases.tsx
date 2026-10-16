@@ -1,5 +1,6 @@
 'use client';
 
+import { appDialog } from '@/components/dialogs/app-dialog';
 import Link from 'next/link';
 import {
   DashboardPageHeader,
@@ -100,7 +101,7 @@ export function AgentLeasesPage(): React.JSX.Element {
         label: 'Locataire',
         sortable: true,
         render: (_value, row) => (
-          <span className="text-xs text-foreground">
+          <span className="text-xs text-active">
             {row.tenantName ?? '—'}
             {row.tenantPhone ? (
               <span className="ml-1 font-mono text-muted">{row.tenantPhone}</span>
@@ -196,7 +197,7 @@ export function AgentLeasesPage(): React.JSX.Element {
             onChange={(e) =>
               setStatusFilter(e.target.value === '' ? undefined : e.target.value)
             }
-            className="rounded-lg border border-border bg-card px-3 py-1.5 text-sm text-foreground"
+            className="rounded-lg border border-border bg-card px-3 py-1.5 text-sm text-active"
           >
             <option value="">Tous</option>
             <option value="DRAFT">Brouillon</option>
@@ -225,6 +226,7 @@ export function AgentLeasesPage(): React.JSX.Element {
         searchPlaceholder="Rechercher un bail…"
         emptyMessage="Aucun bail pour le moment."
         tableId="agent-leases-table"
+        viewHref={(row) => ROUTES.agent.lease(row.id)}
         onError={(err) =>
           setError(
             err instanceof ApiError ? err.message : 'Impossible de charger les baux.',
@@ -257,9 +259,9 @@ export function AgentLeasesPage(): React.JSX.Element {
                 <button
                   type="button"
                   disabled={actionId === row.id}
-                  onClick={(e) => {
+                  onClick={async (e) => {
                     e.stopPropagation();
-                    if (!confirm('Annuler ce bail ?')) return;
+                    if (!await appDialog.confirm({ message: 'Annuler ce bail ?' })) return;
                     void runAction(row.id, 'Impossible d’annuler le bail.', () =>
                       cancelLease(row.id),
                     );
@@ -287,12 +289,10 @@ export function AgentLeasesPage(): React.JSX.Element {
               <button
                 type="button"
                 disabled={actionId === row.id}
-                onClick={(e) => {
+                onClick={async (e) => {
                   e.stopPropagation();
                   if (
-                    !confirm(
-                      'Activer ce bail ? Le bien passe en occupé et l’échéancier est généré.',
-                    )
+                    !await appDialog.confirm({ message: 'Activer ce bail ? Le bien passe en occupé et l’échéancier est généré.' })
                   ) {
                     return;
                   }
@@ -309,14 +309,11 @@ export function AgentLeasesPage(): React.JSX.Element {
               <button
                 type="button"
                 disabled={actionId === row.id}
-                onClick={(e) => {
+                onClick={async (e) => {
                   e.stopPropagation();
-                  const requestedEndDate = prompt(
-                    'Date de sortie souhaitée (AAAA-MM-JJ) ?',
-                    new Date(Date.now() + 90 * 86400000)
+                  const requestedEndDate = await appDialog.prompt({ message: 'Date de sortie souhaitée (AAAA-MM-JJ) ?', defaultValue: new Date(Date.now() + 90 * 86400000)
                       .toISOString()
-                      .slice(0, 10),
-                  );
+                      .slice(0, 10) });
                   if (!requestedEndDate) return;
                   void runAction(
                     row.id,
@@ -338,9 +335,9 @@ export function AgentLeasesPage(): React.JSX.Element {
                 <button
                   type="button"
                   disabled={actionId === row.id}
-                  onClick={(e) => {
+                  onClick={async (e) => {
                     e.stopPropagation();
-                    if (!confirm('Retirer le congé déposé ?')) return;
+                    if (!await appDialog.confirm({ message: 'Retirer le congé déposé ?' })) return;
                     void runAction(row.id, 'Impossible de retirer le congé.', () =>
                       withdrawTermination(row.id),
                     );
@@ -352,9 +349,9 @@ export function AgentLeasesPage(): React.JSX.Element {
                 <button
                   type="button"
                   disabled={actionId === row.id}
-                  onClick={(e) => {
+                  onClick={async (e) => {
                     e.stopPropagation();
-                    if (!confirm('Clôturer ce bail ? Le bien redevient disponible.')) {
+                    if (!await appDialog.confirm({ message: 'Clôturer ce bail ? Le bien redevient disponible.' })) {
                       return;
                     }
                     void runAction(row.id, 'Impossible de clôturer le bail.', () =>
