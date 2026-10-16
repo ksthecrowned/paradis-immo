@@ -1,4 +1,5 @@
 import { Icon } from '@iconify/react';
+import Image from 'next/image';
 import type { ReactNode } from 'react';
 
 export type DetailHeaderProps = {
@@ -31,14 +32,16 @@ export function DetailHeader({
   return (
     <div className="flex flex-col gap-4 border-b border-border pb-6 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex items-center gap-4">
-        {avatar ? (
-          <img
-            src={avatar}
-            alt=""
-            className="h-16 w-16 flex-shrink-0 rounded-2xl object-cover"
+        {avatar && avatar !== '' ? (
+          <Image
+            width={64}
+            height={64}
+            src={avatar ?? ''}
+            alt={title}
+            className="h-16 w-16 shrink-0 rounded-2xl object-cover"
           />
         ) : (
-          <div className="flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-2xl bg-accent/15 text-xl font-semibold text-accent">
+          <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-accent/15 text-xl font-semibold text-accent">
             {initials || <Icon icon="mdi:image-outline" className="h-7 w-7" />}
           </div>
         )}

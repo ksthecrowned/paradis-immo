@@ -6,6 +6,7 @@ import { logout } from '@/lib/auth';
 import { DASH_ICONS } from '@/lib/dash-icons';
 import { getMe, type PublicUser } from '@/lib/me';
 import { useSession } from 'next-auth/react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 
@@ -149,10 +150,11 @@ export function SidebarUserMenu({
           aria-hidden
         >
           {avatarUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
+            <Image
               src={avatarUrl}
-              alt=""
+              width={40}
+              height={40}
+              alt={name}
               className="size-full object-cover"
             />
           ) : (

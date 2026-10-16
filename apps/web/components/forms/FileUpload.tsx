@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Icon } from '@iconify/react';
 import { DropZone, type DropZoneProps } from './DropZone';
+import Image from 'next/image';
 
 export type FileUploadItem = {
   /** Stable id (parent-provided). */
@@ -108,15 +109,16 @@ export function FileUpload({
                 key={item.id}
                 className="flex items-center gap-3 rounded-lg border border-border bg-card p-2"
               >
-                {item.previewUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={item.previewUrl}
-                    alt=""
-                    className="h-12 w-12 flex-shrink-0 rounded-md object-cover"
+                {item.previewUrl && item.previewUrl !== '' ? (
+                  <Image
+                    width={48}
+                    height={48}
+                    src={item.previewUrl ?? ''}
+                    alt={item.name}
+                    className="h-12 w-12 shrink-0 rounded-md object-cover"
                   />
                 ) : (
-                  <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-md bg-search text-muted">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md bg-search text-muted">
                     <Icon icon="mdi:file-outline" className="h-6 w-6" />
                   </div>
                 )}
@@ -127,7 +129,7 @@ export function FileUpload({
                 <button
                   type="button"
                   onClick={removeFn}
-                  className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md text-muted hover:bg-card-hover hover:text-danger"
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted hover:bg-card-hover hover:text-danger"
                   aria-label={`Retirer ${item.name}`}
                 >
                   <Icon icon="mdi:close" className="h-4 w-4" />

@@ -510,9 +510,9 @@ export function ListDataTable<T extends object>({
       const an = parseFloat(av);
       const bn = parseFloat(bv);
       if (!isNaN(an) && !isNaN(bn)) {
-        return sortDir === 'asc' ? an - bn : bn - an;
+        return controlledSortDir === 'asc' ? an - bn : bn - an;
       }
-      return sortDir === 'asc'
+      return controlledSortDir === 'asc'
         ? av.localeCompare(bv, 'fr')
         : bv.localeCompare(av, 'fr');
     });
@@ -905,7 +905,7 @@ export function ListDataTable<T extends object>({
                 type="button"
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={page === 1}
-                className="inline-flex min-w-[40px] items-center justify-center rounded-full p-2.5 text-sm text-foreground hover:bg-card-hover disabled:pointer-events-none disabled:opacity-50"
+                className="inline-flex min-w-10 items-center justify-center rounded-full p-2.5 text-sm text-foreground hover:bg-card-hover disabled:pointer-events-none disabled:opacity-50"
               >
                 «
               </button>
@@ -922,7 +922,7 @@ export function ListDataTable<T extends object>({
                     key={item}
                     type="button"
                     onClick={() => setPage(item)}
-                    className={`inline-flex min-w-[40px] items-center justify-center rounded-full p-2.5 text-sm ${
+                    className={`inline-flex min-w-10 items-center justify-center rounded-full p-2.5 text-sm ${
                       item === page
                         ? 'bg-accent/10 text-accent font-medium'
                         : 'text-foreground hover:bg-card-hover'
@@ -936,7 +936,7 @@ export function ListDataTable<T extends object>({
                 type="button"
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 disabled={page === totalPages}
-                className="inline-flex min-w-[40px] items-center justify-center rounded-full p-2.5 text-sm text-foreground hover:bg-card-hover disabled:pointer-events-none disabled:opacity-50"
+                className="inline-flex min-w-10 items-center justify-center rounded-full p-2.5 text-sm text-foreground hover:bg-card-hover disabled:pointer-events-none disabled:opacity-50"
               >
                 »
               </button>
