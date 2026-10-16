@@ -44,6 +44,21 @@ enum MemberStatus {
   DISABLED
 }
 
+/// Spec 02.5 / ADR-0001 — liaison fiche CRM ↔ compte utilisateur.
+enum AgencyClientLinkStatus {
+  UNLINKED
+  CLAIM_PENDING
+  LINKED
+  CLAIM_DECLINED
+}
+
+enum AgencyClientClaimStatus {
+  PENDING
+  CONFIRMED
+  DECLINED
+  EXPIRED
+}
+
 enum ReviewSourceType {
   LEASE
   BOOKING
@@ -625,6 +640,11 @@ model User {
   devices                UserDevice[]
   clientConversations    Conversation[]      @relation("ClientConversations")
   sentMessages           Message[]           @relation("SentMessages")
+  /// Spec 02.5 — fiches CRM d'agence liées à ce compte.
+  agencyClientLinks      AgencyClient[]      @relation("AgencyClientUser")
+  agencyClientClaims     AgencyClientClaim[] @relation("AgencyClientClaimUser")
+  createdAgencyClients   AgencyClient[]      @relation("AgencyClientCreator")
+  propertyOwnerChanges   PropertyOwnerChangeLog[] @relation("PropertyOwnerChangeActor")
 
   @@unique([phone, countryId])
 }
@@ -683,6 +703,8 @@ model Organization {
   payoutAccounts            PayoutAccount[]
   payouts                   Payout[]
   conversations             Conversation[]
+  /// Spec 02.5 — portefeuille clients CRM de l'agence.
+  agencyClients             AgencyClient[]
 }
 
 model OrganizationReview {
@@ -867,12 +889,87 @@ model Quartier {
 }
 
 // =====================================================================
+// Agency CRM clients (spec 02.5 / ADR-0001)
+// =====================================================================
+
+/// Fiche client d'une agence — contact externe ou compte lié. Pas un membre d'équipe.
+model AgencyClient {
+  id             String                 @id @default(uuid())
+  organizationId String
+  organization   Organization           @relation(fields: [organizationId], references: [id])
+  /// Compte Paradis Immo lié — null pour contact externe.
+  userId         String?
+  user           User?                  @relation("AgencyClientUser", fields: [userId], references: [id])
+  displayName    String
+  /// Téléphone E.164 normalisé (lookup / unicité active par agence).
+  phoneE164      String?
+  email          String?
+  internalNote   String?
+  linkStatus     AgencyClientLinkStatus @default(UNLINKED)
+  archivedAt     DateTime?
+  createdById    String?
+  createdBy      User?                  @relation("AgencyClientCreator", fields: [createdById], references: [id])
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+  properties     Property[]
+  claims         AgencyClientClaim[]
+  ownerChangesFrom PropertyOwnerChangeLog[] @relation("OwnerChangeFromClient")
+  ownerChangesTo   PropertyOwnerChangeLog[] @relation("OwnerChangeToClient")
+
+  @@index([organizationId, archivedAt])
+  @@index([organizationId, linkStatus])
+  @@index([phoneE164])
+  @@index([userId])
+}
+
+/// Demande de rattachement contact externe → compte (OTP + confirmation explicite).
+model AgencyClientClaim {
+  id             String                   @id @default(uuid())
+  agencyClientId String
+  agencyClient   AgencyClient             @relation(fields: [agencyClientId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User                     @relation("AgencyClientClaimUser", fields: [userId], references: [id])
+  status         AgencyClientClaimStatus  @default(PENDING)
+  phoneVerifiedAt DateTime?
+  decidedAt      DateTime?
+  expiresAt      DateTime
+  createdAt      DateTime                 @default(now())
+
+  @@index([agencyClientId, status])
+  @@index([userId, status])
+  @@index([expiresAt])
+}
+
+/// Historique du changement de client / propriétaire déclaré sur un bien.
+model PropertyOwnerChangeLog {
+  id                 String        @id @default(uuid())
+  propertyId         String
+  property           Property      @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  fromAgencyClientId String?
+  fromAgencyClient   AgencyClient? @relation("OwnerChangeFromClient", fields: [fromAgencyClientId], references: [id])
+  toAgencyClientId   String?
+  toAgencyClient     AgencyClient? @relation("OwnerChangeToClient", fields: [toAgencyClientId], references: [id])
+  fromOwnerId        String?
+  toOwnerId          String?
+  changedById        String
+  changedBy          User          @relation("PropertyOwnerChangeActor", fields: [changedById], references: [id])
+  reason             String?
+  createdAt          DateTime      @default(now())
+
+  @@index([propertyId, createdAt])
+}
+
 // Properties
 // =====================================================================
 
 model Property {
   id             String              @id @default(uuid())
-  ownerId        String
+  /// Compte propriétaire — nullable pour contact CRM externe sans User (ADR-0001).
+  /// Pas de FK Prisma historique (compat données) ; cohérence applicative + agencyClientId.
+  ownerId        String?
+  /// Client CRM de l'agence gestionnaire (lié ou externe).
+  agencyClientId String?
+  agencyClient   AgencyClient?       @relation(fields: [agencyClientId], references: [id])
   organizationId String
   organization   Organization        @relation(fields: [organizationId], references: [id])
   title          String
@@ -943,8 +1040,12 @@ model Property {
   mandates       Mandate[]
   maintenance    MaintenanceTicket[]
   expenses       Expense[]
+  ownerChangeLogs PropertyOwnerChangeLog[]
   createdAt      DateTime            @default(now())
   updatedAt      DateTime            @updatedAt
+
+  @@index([agencyClientId])
+  @@index([ownerId])
 }
 
 model PropertyMedia {
