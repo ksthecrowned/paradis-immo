@@ -52,6 +52,10 @@ export const DASH_STAT_ICONS = {
   handshake: 'solar:hand-shake-bold',
   flag: 'solar:flag-bold',
   clock: 'solar:clock-circle-bold',
+  card: 'solar:card-bold',
+  danger: 'solar:danger-triangle-bold',
+  userId: 'solar:user-id-bold',
+  userBlock: 'solar:user-block-bold',
 } as const;
 
 /** Chart / sparkline / KPI icon hex colors aligned with brand tokens. */

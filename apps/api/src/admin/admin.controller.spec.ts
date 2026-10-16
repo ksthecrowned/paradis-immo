@@ -323,6 +323,9 @@ describe('Admin (e2e)', () => {
         totalProperties: number;
         activeLeases: number;
         overdueSchedules: number;
+        pendingOrgRequests: number;
+        openDisputes: number;
+        failedPayouts: number;
       };
     };
     expect(body.statusCode).toBe(200);
@@ -333,6 +336,9 @@ describe('Admin (e2e)', () => {
     expect(body.data.totalProperties).toBeGreaterThanOrEqual(2);
     expect(body.data.activeLeases).toBeGreaterThanOrEqual(1);
     expect(body.data.overdueSchedules).toBeGreaterThanOrEqual(1);
+    expect(body.data.pendingOrgRequests).toBeGreaterThanOrEqual(0);
+    expect(body.data.openDisputes).toBeGreaterThanOrEqual(0);
+    expect(body.data.failedPayouts).toBeGreaterThanOrEqual(0);
   });
 
   // ------------------------------------------------------------------

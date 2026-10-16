@@ -15,12 +15,20 @@ import { AuditLogService } from '../common/audit-log.service';
 
 export interface AdminStats {
   totalUsers: number;
+  suspendedUsers: number;
   totalProperties: number;
+  activeProperties: number;
   activeLeases: number;
+  totalOrganizations: number;
   overdueSchedules: number;
   pendingRentSchedules: number;
-  totalOrganizations: number;
   openReports: number;
+  pendingOrgRequests: number;
+  pendingKyc: number;
+  pendingPaymentValidations: number;
+  openDisputes: number;
+  failedPayouts: number;
+  pendingVisits: number;
 }
 
 export interface AdminUserRow {
@@ -130,29 +138,59 @@ export class AdminService {
   async getStats(): Promise<AdminStats> {
     const [
       totalUsers,
+      suspendedUsers,
       totalProperties,
+      activeProperties,
       activeLeases,
+      totalOrganizations,
       overdueSchedules,
       pendingRentSchedules,
-      totalOrganizations,
       openReports,
+      pendingOrgRequests,
+      pendingKyc,
+      pendingPaymentValidations,
+      openDisputes,
+      failedPayouts,
+      pendingVisits,
     ] = await Promise.all([
       this.prisma.user.count(),
+      this.prisma.user.count({ where: { status: 'SUSPENDED' } }),
       this.prisma.property.count(),
+      this.prisma.property.count({ where: { status: 'ACTIVE' } }),
       this.prisma.lease.count({ where: { status: 'ACTIVE' } }),
+      this.prisma.organization.count(),
       this.prisma.rentSchedule.count({ where: { status: 'OVERDUE' } }),
       this.prisma.rentSchedule.count({ where: { status: 'PENDING' } }),
-      this.prisma.organization.count(),
       this.prisma.propertyReport.count({ where: { status: 'OPEN' } }),
+      this.prisma.organizationRequest.count({ where: { status: 'PENDING' } }),
+      this.prisma.user.count({ where: { kycStatus: 'PENDING' } }),
+      this.prisma.payment.count({
+        where: { status: 'PENDING_VALIDATION' },
+      }),
+      this.prisma.paymentDispute.count({
+        where: {
+          status: { in: ['OPEN', 'AWAITING_MANAGER', 'ESCALATED'] },
+        },
+      }),
+      this.prisma.payout.count({ where: { status: 'FAILED' } }),
+      this.prisma.visitBooking.count({ where: { status: 'PENDING' } }),
     ]);
     return {
       totalUsers,
+      suspendedUsers,
       totalProperties,
+      activeProperties,
       activeLeases,
+      totalOrganizations,
       overdueSchedules,
       pendingRentSchedules,
-      totalOrganizations,
       openReports,
+      pendingOrgRequests,
+      pendingKyc,
+      pendingPaymentValidations,
+      openDisputes,
+      failedPayouts,
+      pendingVisits,
     };
   }
 

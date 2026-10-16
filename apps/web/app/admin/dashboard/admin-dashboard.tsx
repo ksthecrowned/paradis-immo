@@ -74,62 +74,114 @@ export function AdminDashboard({
 
   return (
     <section className="space-y-6">
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard
-          label="Utilisateurs"
-          value={formatCount(stats.totalUsers)}
-          href={ROUTES.admin.users}
-          icon={DASH_STAT_ICONS.users}
-          iconColor={DASH_CHART_COLORS.purple}
-        />
-        <StatCard
-          label="Biens"
-          value={formatCount(stats.totalProperties)}
-          href={ROUTES.admin.moderation}
-          icon={DASH_STAT_ICONS.buildings}
-          iconColor={DASH_CHART_COLORS.green}
-        />
-        <StatCard
-          label="Baux actifs"
-          value={formatCount(stats.activeLeases)}
-          icon={DASH_STAT_ICONS.document}
-          iconColor={DASH_CHART_COLORS.blue}
-        />
-        <StatCard
-          label="Échéances en retard"
-          value={formatCount(stats.overdueSchedules)}
-          href={ROUTES.admin.moderation}
-          icon={DASH_STAT_ICONS.bills}
-          iconColor={DASH_CHART_COLORS.rose}
-        />
-        <StatCard
-          label="Signalements ouverts"
-          value={formatCount(stats.openReports ?? 0)}
-          href={ROUTES.admin.reports}
-          icon={DASH_STAT_ICONS.flag}
-          iconColor={DASH_CHART_COLORS.amber}
-        />
-        <StatCard
-          label="Organisations"
-          value={formatCount(stats.totalOrganizations)}
-          href={ROUTES.admin.moderation}
-          icon={DASH_STAT_ICONS.handshake}
-          iconColor={DASH_CHART_COLORS.teal}
-        />
-        <StatCard
-          label="Échéances en attente"
-          value={formatCount(stats.pendingRentSchedules)}
-          href={ROUTES.admin.moderation}
-          icon={DASH_STAT_ICONS.clock}
-          iconColor={DASH_CHART_COLORS.violet}
-        />
-        <StatCard
-          label="Biens + baux"
-          value={formatCount(stats.totalProperties + stats.activeLeases)}
-          href={ROUTES.admin.moderation}
-          icon={DASH_STAT_ICONS.chart}
-          iconColor={DASH_CHART_COLORS.slate}
-        />
+      <div className="space-y-3">
+        <h2 className="text-sm font-semibold text-muted">Vue plateforme</h2>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <StatCard
+            label="Utilisateurs"
+            value={formatCount(stats.totalUsers)}
+            href={ROUTES.admin.users}
+            icon={DASH_STAT_ICONS.users}
+            iconColor={DASH_CHART_COLORS.purple}
+          />
+          <StatCard
+            label="Biens actifs"
+            value={formatCount(stats.activeProperties)}
+            href={ROUTES.admin.moderation}
+            icon={DASH_STAT_ICONS.buildings}
+            iconColor={DASH_CHART_COLORS.green}
+          />
+          <StatCard
+            label="Baux actifs"
+            value={formatCount(stats.activeLeases)}
+            icon={DASH_STAT_ICONS.document}
+            iconColor={DASH_CHART_COLORS.blue}
+          />
+          <StatCard
+            label="Organisations"
+            value={formatCount(stats.totalOrganizations)}
+            href={ROUTES.admin.organizations}
+            icon={DASH_STAT_ICONS.handshake}
+            iconColor={DASH_CHART_COLORS.teal}
+          />
+          <StatCard
+            label="Biens (total)"
+            value={formatCount(stats.totalProperties)}
+            href={ROUTES.admin.moderation}
+            icon={DASH_STAT_ICONS.chart}
+            iconColor={DASH_CHART_COLORS.slate}
+          />
+          <StatCard
+            label="Comptes suspendus"
+            value={formatCount(stats.suspendedUsers)}
+            href={ROUTES.admin.users}
+            icon={DASH_STAT_ICONS.userBlock}
+            iconColor={DASH_CHART_COLORS.rose}
+          />
+          <StatCard
+            label="Échéances en attente"
+            value={formatCount(stats.pendingRentSchedules)}
+            icon={DASH_STAT_ICONS.clock}
+            iconColor={DASH_CHART_COLORS.violet}
+          />
+          <StatCard
+            label="Visites en attente"
+            value={formatCount(stats.pendingVisits)}
+            icon={DASH_STAT_ICONS.calendar}
+            iconColor={DASH_CHART_COLORS.blue}
+          />
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        <h2 className="text-sm font-semibold text-muted">À traiter</h2>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <StatCard
+            label="Dossiers d’ouverture"
+            value={formatCount(stats.pendingOrgRequests)}
+            href={ROUTES.admin.onboarding}
+            icon={DASH_STAT_ICONS.bag}
+            iconColor={DASH_CHART_COLORS.amber}
+          />
+          <StatCard
+            label="Signalements ouverts"
+            value={formatCount(stats.openReports)}
+            href={ROUTES.admin.reports}
+            icon={DASH_STAT_ICONS.flag}
+            iconColor={DASH_CHART_COLORS.rose}
+          />
+          <StatCard
+            label="Échéances en retard"
+            value={formatCount(stats.overdueSchedules)}
+            icon={DASH_STAT_ICONS.bills}
+            iconColor={DASH_CHART_COLORS.amber}
+          />
+          <StatCard
+            label="KYC en attente"
+            value={formatCount(stats.pendingKyc)}
+            href={ROUTES.admin.users}
+            icon={DASH_STAT_ICONS.userId}
+            iconColor={DASH_CHART_COLORS.violet}
+          />
+          <StatCard
+            label="Paiements à valider"
+            value={formatCount(stats.pendingPaymentValidations)}
+            icon={DASH_STAT_ICONS.wallet}
+            iconColor={DASH_CHART_COLORS.teal}
+          />
+          <StatCard
+            label="Litiges ouverts"
+            value={formatCount(stats.openDisputes)}
+            icon={DASH_STAT_ICONS.danger}
+            iconColor={DASH_CHART_COLORS.rose}
+          />
+          <StatCard
+            label="Reversements échoués"
+            value={formatCount(stats.failedPayouts)}
+            icon={DASH_STAT_ICONS.card}
+            iconColor={DASH_CHART_COLORS.amber}
+          />
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
@@ -176,9 +228,7 @@ export function AdminDashboard({
             ])}
             data={openReports}
             emptyMessage={
-              reportsError
-                ? reportsError
-                : 'Aucun signalement ouvert'
+              reportsError ? reportsError : 'Aucun signalement ouvert'
             }
             onRowClick={(row) => router.push(ROUTES.admin.report(row.id))}
           />
@@ -224,9 +274,7 @@ export function AdminDashboard({
           },
         ])}
         data={recentUsers}
-        emptyMessage={
-          usersError ? usersError : 'Aucun utilisateur récent'
-        }
+        emptyMessage={usersError ? usersError : 'Aucun utilisateur récent'}
         onRowClick={(row) => router.push(ROUTES.admin.user(row.id))}
       />
     </section>
