@@ -234,7 +234,7 @@ export function AdminActivityChart({
         <ChartRangeToggle range={range} onChange={onRangeChange} />
       </div>
       {empty ? (
-        <div className="flex h-[280px] items-center justify-center text-sm text-muted">
+        <div className="flex h-70 items-center justify-center text-sm text-muted">
           Aucune activité sur la période
         </div>
       ) : (
