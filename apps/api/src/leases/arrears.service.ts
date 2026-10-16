@@ -23,7 +23,12 @@ const DAY_MS = 86_400_000;
 export const ARREARS_BUCKETS = [
   { key: 'd0_30', min: 1, max: 30, label: '0-30 jours' },
   { key: 'd31_60', min: 31, max: 60, label: '31-60 jours' },
-  { key: 'd60plus', min: 61, max: Number.MAX_SAFE_INTEGER, label: '+ de 60 jours' },
+  {
+    key: 'd60plus',
+    min: 61,
+    max: Number.MAX_SAFE_INTEGER,
+    label: '+ de 60 jours',
+  },
 ] as const;
 
 export type ArrearsBucketKey = (typeof ARREARS_BUCKETS)[number]['key'];
@@ -132,9 +137,7 @@ export class ArrearsService {
     const now = new Date();
     const rows = await this.buildRows(userId, filter, now);
 
-    const bucketKey = filter.bucket
-      ? BUCKET_FILTERS[filter.bucket]
-      : undefined;
+    const bucketKey = filter.bucket ? BUCKET_FILTERS[filter.bucket] : undefined;
     const filtered = bucketKey
       ? rows.filter((row) => row.counts[bucketKey] > 0)
       : rows;
@@ -204,7 +207,10 @@ export class ArrearsService {
       });
     }
     if (lease.tenantId !== userId && lease.coTenants.length === 0) {
-      await this.agencyAccess.assertCanOperateOnProperty(userId, lease.propertyId);
+      await this.agencyAccess.assertCanOperateOnProperty(
+        userId,
+        lease.propertyId,
+      );
     }
 
     const now = new Date();
@@ -345,7 +351,7 @@ export class ArrearsService {
       await this.notifications.send({
         userId: lease.tenantId,
         type: 'RENT_REMINDER_MANUAL',
-        channel: channel as NotificationChannel,
+        channel: channel,
         payload: {
           leaseId,
           propertyTitle: lease.property.title,
@@ -422,7 +428,7 @@ export class ArrearsService {
     });
     if (leases.length === 0) return [];
 
-    const lines = (await this.prisma.rentSchedule.findMany({
+    const lines = await this.prisma.rentSchedule.findMany({
       where: {
         leaseId: { in: leases.map((l) => l.id) },
         status: {
@@ -442,7 +448,7 @@ export class ArrearsService {
         amount: true,
         amountPaid: true,
       },
-    }));
+    });
 
     const byLease = new Map<string, ArrearsRow>();
     for (const lease of leases) {
@@ -480,8 +486,9 @@ export class ArrearsService {
       const oldest = row.oldestDueDate
         ? new Date(row.oldestDueDate)
         : line.dueDate;
-      row.oldestDueDate = (oldest < line.dueDate ? oldest : line.dueDate)
-        .toISOString();
+      row.oldestDueDate = (
+        oldest < line.dueDate ? oldest : line.dueDate
+      ).toISOString();
       const bucket = ARREARS_BUCKETS.find(
         (b) => daysOverdue >= b.min && daysOverdue <= b.max,
       );
@@ -506,9 +513,7 @@ export class ArrearsService {
    * Delivery channel for a manual reminder. `SMS` is not a delivery channel
    * in this platform (WhatsApp only), so it maps to WhatsApp.
    */
-  private async preferredChannel(
-    userId: string,
-  ): Promise<'PUSH' | 'WHATSAPP'> {
+  private async preferredChannel(userId: string): Promise<'PUSH' | 'WHATSAPP'> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: { notificationChannel: true },

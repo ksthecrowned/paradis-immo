@@ -155,6 +155,8 @@ describe('Admin (e2e)', () => {
       data: {
         phone: '+242070000113',
         countryId,
+        name: 'Admin Test Owner',
+        avatarUrl: 'https://cdn.example.com/admin-owner.png',
         roles: { create: { role: 'TENANT' } },
       },
     });
@@ -295,6 +297,14 @@ describe('Admin (e2e)', () => {
     await request(app.getHttpServer()).get('/api/v1/admin/users').expect(401);
   });
 
+  it('returns 403 when a non-admin requests moderation identities', async () => {
+    await request(app.getHttpServer())
+      .get('/api/v1/admin/properties/moderation')
+      .set('x-test-user', tenantUserId)
+      .set('x-test-roles', 'TENANT')
+      .expect(403);
+  });
+
   // ------------------------------------------------------------------
   // Stats
   // ------------------------------------------------------------------
@@ -366,6 +376,30 @@ describe('Admin (e2e)', () => {
   // ------------------------------------------------------------------
   // Moderation
   // ------------------------------------------------------------------
+
+  it('lists moderation properties with owner identity fields', async () => {
+    const res = await request(app.getHttpServer())
+      .get('/api/v1/admin/properties/moderation')
+      .set('x-test-user', adminUserId)
+      .set('x-test-roles', 'PLATFORM_ADMIN')
+      .expect(200);
+
+    const body = res.body as {
+      data: Array<{
+        id: string;
+        owner: { id: string; name: string | null; avatarUrl: string | null };
+      }>;
+      meta: { total: number; limit: number };
+    };
+    const property = body.data.find((row) => row.id === propertyId);
+    expect(property?.owner).toEqual({
+      id: ownerUserId,
+      name: 'Admin Test Owner',
+      avatarUrl: 'https://cdn.example.com/admin-owner.png',
+    });
+    expect(body.meta.total).toBeGreaterThanOrEqual(body.data.length);
+    expect(body.meta.limit).toBe(100);
+  });
 
   it('flips property status to PAUSED for a PLATFORM_ADMIN', async () => {
     const res = await request(app.getHttpServer())

@@ -1,11 +1,5 @@
 import { Type } from 'class-transformer';
-import {
-  IsDate,
-  IsEnum,
-  IsOptional,
-  IsString,
-  Length,
-} from 'class-validator';
+import { IsDate, IsEnum, IsOptional, IsString, Length } from 'class-validator';
 import { TerminationInitiator } from '@prisma/client';
 
 export class TerminateLeaseDto {

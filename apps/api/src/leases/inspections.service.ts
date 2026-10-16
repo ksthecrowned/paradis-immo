@@ -67,7 +67,13 @@ export interface InspectionPublic {
       photoKeys: string[];
     }>;
   }>;
-  reserves: Array<{ id: string; authorId: string; text: string; photoKeys: string[]; createdAt: string }>;
+  reserves: Array<{
+    id: string;
+    authorId: string;
+    text: string;
+    photoKeys: string[];
+    createdAt: string;
+  }>;
 }
 
 const RESERVES_WINDOW_DAYS = 10;
@@ -188,12 +194,8 @@ export class InspectionsService {
           ...(payload.generalComment !== undefined
             ? { generalComment: payload.generalComment }
             : {}),
-          ...(payload.meters
-            ? { meters: payload.meters as Prisma.InputJsonValue }
-            : {}),
-          ...(payload.keys
-            ? { keys: payload.keys as Prisma.InputJsonValue }
-            : {}),
+          ...(payload.meters ? { meters: payload.meters } : {}),
+          ...(payload.keys ? { keys: payload.keys } : {}),
         },
         include: { rooms: { include: { items: true } }, reserves: true },
       });
@@ -221,7 +223,7 @@ export class InspectionsService {
       if (inspection.lease.tenantId !== userId) {
         throw new ForbiddenException({
           code: 'NOT_LEASE_TENANT',
-          message: "Seul le locataire peut signer en tant que locataire",
+          message: 'Seul le locataire peut signer en tant que locataire',
         });
       }
       if (inspection.tenantSignedAt) return this.getOnePublic(inspectionId);
@@ -281,14 +283,13 @@ export class InspectionsService {
     if (!inspection.reservesUntil) {
       throw new ConflictException({
         code: 'RESERVES_NOT_OPEN',
-        message:
-          "Les réserves s'ouvrent après la signature du gestionnaire",
+        message: "Les réserves s'ouvrent après la signature du gestionnaire",
       });
     }
     if (Date.now() > inspection.reservesUntil.getTime()) {
       throw new ConflictException({
         code: 'RESERVES_EXPIRED',
-        message: "La fenêtre de réserves est passée (10 jours)",
+        message: 'La fenêtre de réserves est passée (10 jours)',
       });
     }
     await this.prisma.inspectionReserve.create({
@@ -412,9 +413,7 @@ export class InspectionsService {
     return this.getOnePublic(inspectionId);
   }
 
-  private async getOnePublic(
-    inspectionId: string,
-  ): Promise<InspectionPublic> {
+  private async getOnePublic(inspectionId: string): Promise<InspectionPublic> {
     const row = await this.prisma.inspection.findUnique({
       where: { id: inspectionId },
       include: { rooms: { include: { items: true } }, reserves: true },
@@ -425,10 +424,7 @@ export class InspectionsService {
         message: "L'EDL n'existe pas",
       });
     }
-    return this.toPublic(row as Inspection & {
-      rooms: Array<Prisma.InspectionRoomGetPayload<{ include: { items: true } }>>;
-      reserves: Array<Prisma.InspectionReserveGetPayload<{}>>;
-    });
+    return this.toPublic(row);
   }
 
   private toPublic(

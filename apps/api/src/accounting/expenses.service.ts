@@ -124,7 +124,10 @@ export class ExpensesService {
           propertyId: input.propertyId,
           OR: [
             { status: 'ACTIVE' },
-            { status: 'TERMINATING', terminationEffectiveAt: { gt: new Date() } },
+            {
+              status: 'TERMINATING',
+              terminationEffectiveAt: { gt: new Date() },
+            },
           ],
         },
       }));

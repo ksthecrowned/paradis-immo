@@ -85,10 +85,7 @@ export class EnforcementService {
       where: {
         status: { in: [LeaseStatus.ACTIVE, LeaseStatus.TERMINATING] },
         lateFeeAfterDays: { not: null },
-        OR: [
-          { lateFeeAmount: { not: null } },
-          { lateFeeRate: { not: null } },
-        ],
+        OR: [{ lateFeeAmount: { not: null } }, { lateFeeRate: { not: null } }],
       },
       select: {
         id: true,
@@ -166,9 +163,7 @@ export class EnforcementService {
       }
     }
 
-    this.logger.log(
-      `Late fees: scanned=${scanned} applied=${applied.length}`,
-    );
+    this.logger.log(`Late fees: scanned=${scanned} applied=${applied.length}`);
     return { scanned, applied };
   }
 
@@ -182,9 +177,7 @@ export class EnforcementService {
       return lease.lateFeeAmount.toDecimalPlaces(2);
     }
     if (lease.lateFeeRate !== null) {
-      return lease.monthlyRent
-        .mul(lease.lateFeeRate)
-        .toDecimalPlaces(2);
+      return lease.monthlyRent.mul(lease.lateFeeRate).toDecimalPlaces(2);
     }
     return new Prisma.Decimal(0);
   }

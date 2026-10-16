@@ -57,12 +57,17 @@ export class LeaseRenewalProcessor {
   ): Promise<number> {
     // A renewal waiting for the owner's decision must not race the tacit path.
     const pendingApprovals = await this.prisma.mandateApproval.findMany({
-      where: { status: 'PENDING', actionType: { in: ['RENT_INCREASE', 'RENT_REDUCTION'] } },
+      where: {
+        status: 'PENDING',
+        actionType: { in: ['RENT_INCREASE', 'RENT_REDUCTION'] },
+      },
       select: { payload: true },
     });
     const blocked = new Set(
       pendingApprovals
-        .map((row) => String((row.payload as { leaseId?: string } | null)?.leaseId ?? ''))
+        .map((row) =>
+          String((row.payload as { leaseId?: string } | null)?.leaseId ?? ''),
+        )
         .filter(Boolean),
     );
 

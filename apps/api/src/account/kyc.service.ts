@@ -8,12 +8,7 @@ import { KycStatus, MemberStatus, OrgMemberRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { R2Service, PRIVATE_DOWNLOAD_TTL_SECONDS } from '../media/r2.service';
 
-const ALLOWED_DOCUMENT_TYPES = new Set([
-  'ID_CARD',
-  'PASSPORT',
-  'RCCM',
-  'NIU',
-]);
+const ALLOWED_DOCUMENT_TYPES = new Set(['ID_CARD', 'PASSPORT', 'RCCM', 'NIU']);
 const MAX_KYC_BYTES = 15 * 1024 * 1024;
 const ORG_MANAGER_ROLES: OrgMemberRole[] = [
   OrgMemberRole.OWNER,
@@ -159,7 +154,7 @@ export class KycService {
     const updated = await this.prisma.kycSubmission.update({
       where: { id },
       data: {
-        status: input.status as KycStatus,
+        status: input.status,
         reviewedBy: reviewerId,
         reviewedAt: new Date(),
         rejectionReason:
@@ -175,7 +170,7 @@ export class KycService {
     } else if (submission.userId) {
       await this.prisma.user.update({
         where: { id: submission.userId },
-        data: { kycStatus: input.status as KycStatus },
+        data: { kycStatus: input.status },
       });
     }
     return this.toPublic(updated, true);

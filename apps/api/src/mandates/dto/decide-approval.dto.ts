@@ -12,16 +12,22 @@ import {
  * clients keep working.
  */
 export class DecideApprovalDto {
-  @IsOptional() @IsIn(['APPROVE', 'REJECT'])
+  @IsOptional()
+  @IsIn(['APPROVE', 'REJECT'])
   decision?: 'APPROVE' | 'REJECT';
 
-  @IsOptional() @IsBoolean()
+  @IsOptional()
+  @IsBoolean()
   approve?: boolean;
 
-  @IsOptional() @IsString() @MaxLength(500)
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
   comment?: string;
 
   /** Legacy alias of `comment`. */
-  @IsOptional() @IsString() @MaxLength(500)
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
   note?: string;
 }

@@ -54,7 +54,10 @@ export interface PublicConversationSummary {
   createdAt: string;
   unreadCount: number;
   /** Visible côté client : nom de l'orga + agent assigné. */
-  counterpart?: { organizationName: string | null; assignedName: string | null };
+  counterpart?: {
+    organizationName: string | null;
+    assignedName: string | null;
+  };
 }
 
 type ConversationWithMessages = Prisma.ConversationGetPayload<{
@@ -86,10 +89,7 @@ export class MessagingService {
     clientUserId: string,
     input: { contextType: ConversationContext; contextId?: string },
   ): Promise<PublicConversationSummary> {
-    if (
-      input.contextType === ConversationContext.SUPPORT &&
-      input.contextId
-    ) {
+    if (input.contextType === ConversationContext.SUPPORT && input.contextId) {
       throw new BadRequestException({
         code: 'SUPPORT_NO_CONTEXT',
         message: 'La conversation Support n’a pas de contexte métier.',
@@ -198,13 +198,15 @@ export class MessagingService {
           select: {
             propertyId: true,
             tenantId: true,
-            coTenants: { where: { userId: clientUserId }, select: { userId: true } },
+            coTenants: {
+              where: { userId: clientUserId },
+              select: { userId: true },
+            },
           },
         });
         if (
           !lease ||
-          (lease.tenantId !== clientUserId &&
-            lease.coTenants.length === 0)
+          (lease.tenantId !== clientUserId && lease.coTenants.length === 0)
         ) {
           return notFound();
         }
@@ -256,7 +258,10 @@ export class MessagingService {
     clientUserId: string,
     page = 1,
     pageSize = 20,
-  ): Promise<{ data: PublicConversationSummary[]; meta: { page: number; pageSize: number; total: number; totalPages: number } }> {
+  ): Promise<{
+    data: PublicConversationSummary[];
+    meta: { page: number; pageSize: number; total: number; totalPages: number };
+  }> {
     const safePage = Math.max(1, page);
     const safeSize = Math.min(50, Math.max(1, pageSize));
     const where: Prisma.ConversationWhereInput = { clientUserId };
@@ -290,10 +295,17 @@ export class MessagingService {
    */
   async listManaged(
     managerUserId: string,
-    filters: { contextType?: ConversationContext; propertyId?: string; unreadOnly?: boolean },
+    filters: {
+      contextType?: ConversationContext;
+      propertyId?: string;
+      unreadOnly?: boolean;
+    },
     page = 1,
     pageSize = 20,
-  ): Promise<{ data: PublicConversationSummary[]; meta: { page: number; pageSize: number; total: number; totalPages: number } }> {
+  ): Promise<{
+    data: PublicConversationSummary[];
+    meta: { page: number; pageSize: number; total: number; totalPages: number };
+  }> {
     const propIds =
       await this.agencyAccess.listOperablePropertyIds(managerUserId);
     if (propIds.length === 0) {
@@ -309,7 +321,9 @@ export class MessagingService {
       propertyId: { in: propIds },
       ...(filters.contextType ? { contextType: filters.contextType } : {}),
       ...(filters.propertyId ? { propertyId: filters.propertyId } : {}),
-      ...(filters.unreadOnly ? { messages: { some: { deletedAt: null } } } : {}),
+      ...(filters.unreadOnly
+        ? { messages: { some: { deletedAt: null } } }
+        : {}),
     };
     const [total, rows] = await Promise.all([
       this.prisma.conversation.count({ where }),
@@ -354,18 +368,20 @@ export class MessagingService {
       const org = conversation.organization
         ? conversation.organization.name
         : c.organizationId
-          ? (
+          ? ((
               await this.prisma.organization.findUnique({
                 where: { id: c.organizationId },
                 select: { name: true },
               })
-            )?.name ?? null
+            )?.name ?? null)
           : null;
       const assigned = c.assignedToId
-        ? (await this.prisma.user.findUnique({
-            where: { id: c.assignedToId },
-            select: { name: true },
-          }))?.name ?? null
+        ? ((
+            await this.prisma.user.findUnique({
+              where: { id: c.assignedToId },
+              select: { name: true },
+            })
+          )?.name ?? null)
         : null;
       counterpart = { organizationName: org, assignedName: assigned };
     }
@@ -404,9 +420,7 @@ export class MessagingService {
         conversationId,
         senderId: { not: clientUserId },
         deletedAt: null,
-        createdAt: read
-          ? { gt: read.lastReadAt }
-          : { lte: lastMessageAt },
+        createdAt: read ? { gt: read.lastReadAt } : { lte: lastMessageAt },
       },
     });
   }
@@ -485,7 +499,7 @@ export class MessagingService {
       });
     }
     const body = input.body?.trim();
-    if (!body && !(input.attachments?.length)) {
+    if (!body && !input.attachments?.length) {
       throw new BadRequestException({
         code: 'EMPTY_MESSAGE',
         message: 'Le message doit contenir du texte ou des pièces jointes.',
@@ -583,7 +597,12 @@ export class MessagingService {
     }
     await this.prisma.message.update({
       where: { id: messageId },
-      data: { deletedAt: new Date(), body: null, maskedBody: null, attachments: Prisma.JsonNull },
+      data: {
+        deletedAt: new Date(),
+        body: null,
+        maskedBody: null,
+        attachments: Prisma.JsonNull,
+      },
     });
   }
 
@@ -615,7 +634,11 @@ export class MessagingService {
   async badgeUnreadCount(userId: string): Promise<{ count: number }> {
     const reads = await this.prisma.conversationRead.findMany({
       where: { userId },
-      select: { conversationId: true, lastReadMessageId: true, lastReadAt: true },
+      select: {
+        conversationId: true,
+        lastReadMessageId: true,
+        lastReadAt: true,
+      },
     });
     const readMap = new Map(reads.map((r) => [r.conversationId, r.lastReadAt]));
     const convs = await this.prisma.conversation.findMany({
@@ -631,9 +654,7 @@ export class MessagingService {
     for (const c of convs) {
       const lastRead = readMap.get(c.id);
       count += c.messages.filter(
-        (m) =>
-          !lastRead ||
-          m.createdAt.getTime() > lastRead.getTime(),
+        (m) => !lastRead || m.createdAt.getTime() > lastRead.getTime(),
       ).length;
     }
     return { count };
@@ -652,9 +673,7 @@ export class MessagingService {
       kind: m.kind,
       body: m.body,
       displayBody:
-        m.deletedAt !== null
-          ? 'Message supprimé'
-          : (m.maskedBody ?? m.body),
+        m.deletedAt !== null ? 'Message supprimé' : (m.maskedBody ?? m.body),
       attachments: m.deletedAt !== null ? [] : attachments,
       deletedAt: m.deletedAt?.toISOString() ?? null,
       createdAt: m.createdAt.toISOString(),

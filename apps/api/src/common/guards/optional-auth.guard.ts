@@ -30,7 +30,10 @@ export class OptionalAuthGuard implements CanActivate {
         const rawRoles = req.headers['x-test-roles'];
         const rolesHeader = Array.isArray(rawRoles) ? rawRoles[0] : rawRoles;
         const roles = rolesHeader
-          ? rolesHeader.split(',').map((r) => r.trim()).filter(Boolean)
+          ? rolesHeader
+              .split(',')
+              .map((r) => r.trim())
+              .filter(Boolean)
           : ['TENANT'];
         req.user = { userId, roles };
       }

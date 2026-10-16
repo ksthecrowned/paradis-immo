@@ -42,7 +42,11 @@ function clientIpFrom(req: ExpressRequest): string | undefined {
 
 function deviceContextFrom(
   req: ExpressRequest,
-  body: { deviceId?: string; deviceName?: string; platform?: 'IOS' | 'ANDROID' | 'WEB' | 'ADMIN' },
+  body: {
+    deviceId?: string;
+    deviceName?: string;
+    platform?: 'IOS' | 'ANDROID' | 'WEB' | 'ADMIN';
+  },
 ): AuthDeviceContext {
   const forwarded = req.headers['x-forwarded-for'];
   const forwardedIp = Array.isArray(forwarded)
@@ -54,7 +58,8 @@ function deviceContextFrom(
     deviceName: body.deviceName,
     platform: body.platform,
     ipAddress: forwardedIp ?? req.ip ?? undefined,
-    userAgent: typeof userAgent === 'string' ? userAgent.slice(0, 300) : undefined,
+    userAgent:
+      typeof userAgent === 'string' ? userAgent.slice(0, 300) : undefined,
   };
 }
 

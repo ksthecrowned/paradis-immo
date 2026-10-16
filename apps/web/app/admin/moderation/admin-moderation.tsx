@@ -5,25 +5,26 @@ import {
   DashboardPageHeader,
   ListDataTable,
   StatusBadge,
+  UserIdentity,
   type ListColumn,
 } from '@/components/dashboard';
 import { ApiError } from '@/lib/api';
 import {
   listPropertiesForModeration,
   moderateProperty,
+  type ModerationPropertyRow,
 } from '@/lib/admin/properties';
 import {
   propertyModeLabel,
   propertyStatusLabel,
   propertyStatusTone,
-  type PublicProperty,
   type PropertyStatus,
 } from '@/lib/owner/properties';
 import { useRequireSession } from '@/hooks/use-require-session';
 
 export function AdminModerationPage(): React.JSX.Element {
   const { ready } = useRequireSession();
-  const [rows, setRows] = useState<PublicProperty[]>([]);
+  const [rows, setRows] = useState<ModerationPropertyRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionId, setActionId] = useState<string | null>(null);
@@ -70,7 +71,7 @@ export function AdminModerationPage(): React.JSX.Element {
     [load],
   );
 
-  const columns = useMemo<ListColumn<PublicProperty>[]>(
+  const columns = useMemo<ListColumn<ModerationPropertyRow>[]>(
     () => [
       { key: 'title', label: 'Titre', sortable: true },
       {
@@ -101,9 +102,12 @@ export function AdminModerationPage(): React.JSX.Element {
       {
         key: 'ownerId',
         label: 'Propriétaire',
-        className: 'hidden md:table-cell',
-        render: (value) => (
-          <span className="font-mono text-xs text-muted">{String(value).slice(0, 8)}…</span>
+        render: (_value, row) => (
+          <UserIdentity
+            name={row.owner.name}
+            avatarUrl={row.owner.avatarUrl}
+            fallbackName="Propriétaire"
+          />
         ),
       },
     ],

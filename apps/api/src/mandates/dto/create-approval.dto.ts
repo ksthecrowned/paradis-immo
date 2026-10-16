@@ -19,6 +19,7 @@ export class CreateApprovalDto {
   @IsOptional() @IsString() sourceType?: string;
   @IsOptional() @IsString() sourceId?: string;
 
-  @IsOptional() @IsObject()
+  @IsOptional()
+  @IsObject()
   payload?: Record<string, unknown>;
 }

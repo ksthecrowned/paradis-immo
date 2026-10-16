@@ -23,8 +23,7 @@ export function renderMandatePdf(input: MandatePdfInput): Promise<Buffer> {
     doc.on('end', () => resolve(Buffer.concat(chunks)));
     doc.on('error', (err) => reject(err));
 
-    const fmt = (d: Date | null) =>
-      d ? d.toLocaleDateString('fr-FR') : '—';
+    const fmt = (d: Date | null) => (d ? d.toLocaleDateString('fr-FR') : '—');
 
     doc.fontSize(20).font('Helvetica-Bold').text('Paradis Immo');
     doc.moveDown(0.2);

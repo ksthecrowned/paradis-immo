@@ -22,14 +22,18 @@ export class CreateMandateDto {
 
   @IsOptional() @Type(() => Date) @IsDate() endDate?: Date;
 
-  @IsOptional() @IsArray()
+  @IsOptional()
+  @IsArray()
   @IsEnum(MandateScope, { each: true })
   scopes?: MandateScope[];
 
   @IsOptional() @IsBoolean() exclusive?: boolean;
 
   /** Fraction des loyers encaissés, ex. 0.08 pour 8 %. */
-  @IsOptional() @IsNumber() @Min(0) @Max(1)
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(1)
   managementFeeRate?: number;
 
   @IsOptional() @IsNumber() @Min(0) lettingFee?: number;

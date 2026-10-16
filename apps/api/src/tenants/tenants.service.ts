@@ -122,7 +122,8 @@ export class TenantsService {
       const now = new Date();
       const overdueCount = schedules.filter(
         (s) =>
-          s.status === RentScheduleStatus.PENDING && s.dueDate.getTime() < now.getTime(),
+          s.status === RentScheduleStatus.PENDING &&
+          s.dueDate.getTime() < now.getTime(),
       ).length;
       const nextPending = schedules.find(
         (s) => s.status === RentScheduleStatus.PENDING,
@@ -173,9 +174,7 @@ export class TenantsService {
     };
   }
 
-  private sortTenants(
-    rows: ManagedTenantListItem[],
-  ): ManagedTenantListItem[] {
+  private sortTenants(rows: ManagedTenantListItem[]): ManagedTenantListItem[] {
     return rows.sort((a, b) => {
       const an = (a.name ?? '').toLocaleLowerCase();
       const bn = (b.name ?? '').toLocaleLowerCase();
@@ -246,9 +245,7 @@ export class TenantsService {
     for (const row of rows) {
       const tenantLeaseIds = new Set(row.leases.map((l) => l.id));
       const tenantScheduleIds = new Set(
-        [...tenantLeaseIds].flatMap(
-          (lid) => scheduleIdsByLease.get(lid) ?? [],
-        ),
+        [...tenantLeaseIds].flatMap((lid) => scheduleIdsByLease.get(lid) ?? []),
       );
 
       let overdue = 0;

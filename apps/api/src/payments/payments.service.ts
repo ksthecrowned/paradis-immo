@@ -29,10 +29,7 @@ import { RentReceiptService } from '../leases/rent-receipt.service';
 
 /** Spec 05 — what a payment settles. */
 export type PaymentTargetType =
-  | 'RENT_SCHEDULE'
-  | 'SALE_INSTALLMENT'
-  | 'BOOKING'
-  | 'VISIT_BOOKING';
+  'RENT_SCHEDULE' | 'SALE_INSTALLMENT' | 'BOOKING' | 'VISIT_BOOKING';
 
 export interface PaymentTargetInput {
   type: PaymentTargetType;
@@ -259,7 +256,8 @@ export class PaymentsService {
       amount,
       currency,
       method: input.method,
-      provider: input.method === 'MOBILE_MONEY' ? (input.provider ?? 'AIRTEL') : null,
+      provider:
+        input.method === 'MOBILE_MONEY' ? (input.provider ?? 'AIRTEL') : null,
       status:
         input.method === 'CASH'
           ? PaymentStatus.PENDING_VALIDATION
@@ -302,7 +300,7 @@ export class PaymentsService {
           reference,
           idempotencyKey: input.idempotencyKey,
           ...baseData,
-          status: baseData.status as PaymentStatus,
+          status: baseData.status,
         },
         include: { allocations: true },
       });
@@ -375,9 +373,7 @@ export class PaymentsService {
   }
 
   /** Legacy flat fields or the new `{ type, id }` form → one target. */
-  private rawTarget(
-    input: InitiatePaymentInput,
-  ): PaymentTargetInput | null {
+  private rawTarget(input: InitiatePaymentInput): PaymentTargetInput | null {
     if (input.target) return input.target;
     if (input.rentScheduleId) {
       return { type: 'RENT_SCHEDULE', id: input.rentScheduleId };
@@ -441,7 +437,8 @@ export class PaymentsService {
         if (!isTenant && !isCoTenant) {
           throw new ForbiddenException({
             code: 'NOT_PAYER',
-            message: 'Only the tenant or a co-tenant can pay this rent schedule',
+            message:
+              'Only the tenant or a co-tenant can pay this rent schedule',
           });
         }
         return {
@@ -516,10 +513,7 @@ export class PaymentsService {
             message: 'Only the guest who booked can pay this stay',
           });
         }
-        if (
-          booking.status === 'CANCELLED' ||
-          booking.status === 'COMPLETED'
-        ) {
+        if (booking.status === 'CANCELLED' || booking.status === 'COMPLETED') {
           throw new BadRequestException({
             code: 'BOOKING_NOT_PAYABLE',
             message: `A ${booking.status.toLowerCase()} booking cannot be paid`,
@@ -738,7 +732,7 @@ export class PaymentsService {
       throw new BadRequestException({
         code: 'LEASE_TENANT_NOT_LINKED',
         message:
-          'Ce bail na pas encore de locataire associe. Reliez le locataire avant d\'enregistrer un paiement.',
+          "Ce bail na pas encore de locataire associe. Reliez le locataire avant d'enregistrer un paiement.",
       });
     }
     const session = await this.cashProvider.initiate({
@@ -1159,7 +1153,9 @@ export class PaymentsService {
     rawPayload: string,
     signature: string,
   ): Promise<PublicPayment> {
-    if (!this.mobileMoneyProvider.verifyWebhookSignature(rawPayload, signature)) {
+    if (
+      !this.mobileMoneyProvider.verifyWebhookSignature(rawPayload, signature)
+    ) {
       throw new BadRequestException({
         code: 'WEBHOOK_SIGNATURE_INVALID',
         message: 'Invalid webhook signature',
@@ -1212,10 +1208,16 @@ export class PaymentsService {
     // payload itself already carries a final state.
     let outcome = parsed.outcome;
     if (!verification.valid) {
-      await this.logEvent(payment.id, provider, 'WEBHOOK', {
-        raw: this.safeJson(rawPayload),
-        rejected: verification.reason,
-      }, false);
+      await this.logEvent(
+        payment.id,
+        provider,
+        'WEBHOOK',
+        {
+          raw: this.safeJson(rawPayload),
+          rejected: verification.reason,
+        },
+        false,
+      );
       throw new BadRequestException({
         code: 'WEBHOOK_REJECTED',
         message: `Webhook rejected: ${verification.reason ?? 'unknown'}`,
@@ -1344,14 +1346,14 @@ export class PaymentsService {
     }
     const reason =
       ctx.reason ??
-      (outcome === 'EXPIRED' ? 'EXPIRED_WITHOUT_CONFIRMATION' : 'PROVIDER_FAILED');
+      (outcome === 'EXPIRED'
+        ? 'EXPIRED_WITHOUT_CONFIRMATION'
+        : 'PROVIDER_FAILED');
     const updated = await this.prisma.payment.update({
       where: { id: payment.id },
       data: {
         status:
-          outcome === 'EXPIRED'
-            ? PaymentStatus.EXPIRED
-            : PaymentStatus.FAILED,
+          outcome === 'EXPIRED' ? PaymentStatus.EXPIRED : PaymentStatus.FAILED,
         failureReason: reason,
       },
       include: { allocations: true },
@@ -1490,7 +1492,10 @@ export class PaymentsService {
   }
 
   /** Spec 05 — `POST payments/:id/cancel` : seul le payeur, INITIATED. */
-  async cancelPayment(userId: string, paymentId: string): Promise<PublicPayment> {
+  async cancelPayment(
+    userId: string,
+    paymentId: string,
+  ): Promise<PublicPayment> {
     const payment = await this.prisma.payment.findUnique({
       where: { id: paymentId },
       include: { allocations: true },
@@ -1515,7 +1520,10 @@ export class PaymentsService {
     }
     const updated = await this.prisma.payment.update({
       where: { id: payment.id },
-      data: { status: PaymentStatus.CANCELLED, failureReason: 'Cancelled by payer' },
+      data: {
+        status: PaymentStatus.CANCELLED,
+        failureReason: 'Cancelled by payer',
+      },
       include: { allocations: true },
     });
     return this.toPublic(updated);
@@ -1536,7 +1544,10 @@ export class PaymentsService {
     allowPartial: boolean;
     minPartial: string | null;
   }> {
-    const target = await this.resolveTarget(userId, { type: targetType, id: targetId });
+    const target = await this.resolveTarget(userId, {
+      type: targetType,
+      id: targetId,
+    });
     if (!target) {
       throw new BadRequestException({
         code: 'TARGET_REQUIRED',
@@ -1892,23 +1903,26 @@ export class PaymentsService {
       where: { id: scheduleId },
       data: {
         amountPaid: paid,
-        status:
-          paid.lte(0)
-            ? RentScheduleStatus.PENDING
-            : paid.gte(schedule.amount)
-              ? RentScheduleStatus.PAID
-              : RentScheduleStatus.PARTIAL,
+        status: paid.lte(0)
+          ? RentScheduleStatus.PENDING
+          : paid.gte(schedule.amount)
+            ? RentScheduleStatus.PAID
+            : RentScheduleStatus.PARTIAL,
       },
     });
   }
 
-  private async refundThreshold(propertyId: string | null): Promise<Prisma.Decimal> {
+  private async refundThreshold(
+    propertyId: string | null,
+  ): Promise<Prisma.Decimal> {
     if (!propertyId) return new Prisma.Decimal(0);
     const property = await this.prisma.property.findUnique({
       where: { id: propertyId },
       select: { organization: { select: { refundApprovalThreshold: true } } },
     });
-    return property?.organization.refundApprovalThreshold ?? new Prisma.Decimal(0);
+    return (
+      property?.organization.refundApprovalThreshold ?? new Prisma.Decimal(0)
+    );
   }
 
   private async liveMandate(propertyId: string) {
@@ -1945,15 +1959,22 @@ export class PaymentsService {
       });
     }
     const isPayer = payment.userId === userId;
-    const isSharedLeaseMember = await this.isLeaseMemberForPayment(userId, payment);
+    const isSharedLeaseMember = await this.isLeaseMemberForPayment(
+      userId,
+      payment,
+    );
     if (!isPayer && !isSharedLeaseMember) {
       throw new ForbiddenException({
         code: 'PAYMENT_FORBIDDEN',
-        message: 'Only the payer or a co-tenant on the shared lease can contest this payment',
+        message:
+          'Only the payer or a co-tenant on the shared lease can contest this payment',
       });
     }
     const open = await this.prisma.paymentDispute.findFirst({
-      where: { paymentId, status: { in: ['OPEN', 'AWAITING_MANAGER', 'ESCALATED'] } },
+      where: {
+        paymentId,
+        status: { in: ['OPEN', 'AWAITING_MANAGER', 'ESCALATED'] },
+      },
       select: { id: true },
     });
     if (open) {
@@ -2082,7 +2103,11 @@ export class PaymentsService {
       }
     }
 
-    const allowed = ['AWAITING_MANAGER', 'RESOLVED_ACCEPTED', 'RESOLVED_REJECTED'];
+    const allowed = [
+      'AWAITING_MANAGER',
+      'RESOLVED_ACCEPTED',
+      'RESOLVED_REJECTED',
+    ];
     if (!allowed.includes(input.status)) {
       throw new BadRequestException({
         code: 'DISPUTE_INVALID_STATUS',
@@ -2140,9 +2165,7 @@ export class PaymentsService {
       where: { id: userId },
       include: { roles: true },
     });
-    return (
-      user?.roles.some((role) => role.role === 'PLATFORM_ADMIN') ?? false
-    );
+    return user?.roles.some((role) => role.role === 'PLATFORM_ADMIN') ?? false;
   }
 
   /** Refunds / disputes: platform admin, or a manager of the target property. */
@@ -2172,7 +2195,12 @@ export class PaymentsService {
       const propertyId = await this.allocationPropertyId(allocation);
       if (propertyId) return propertyId;
     }
-    const metaTargets: Array<['rentScheduleId' | 'saleInstallmentId' | 'bookingId' | 'visitBookingId', string]> = [];
+    const metaTargets: Array<
+      [
+        'rentScheduleId' | 'saleInstallmentId' | 'bookingId' | 'visitBookingId',
+        string,
+      ]
+    > = [];
     for (const key of [
       'rentScheduleId',
       'saleInstallmentId',
@@ -2180,7 +2208,7 @@ export class PaymentsService {
       'visitBookingId',
     ] as const) {
       if (typeof meta[key] === 'string') {
-        metaTargets.push([key, meta[key] as string]);
+        metaTargets.push([key, meta[key]]);
       }
     }
     for (const [key, id] of metaTargets) {
@@ -2220,7 +2248,8 @@ export class PaymentsService {
   }
 
   private async targetPropertyId(
-    key: 'rentScheduleId' | 'saleInstallmentId' | 'bookingId' | 'visitBookingId',
+    key:
+      'rentScheduleId' | 'saleInstallmentId' | 'bookingId' | 'visitBookingId',
     id: string,
   ): Promise<string | null> {
     if (key === 'rentScheduleId') {
@@ -2466,9 +2495,7 @@ export class PaymentsService {
     const leaseIds = leases.map((l) => l.id);
     const activeTenantIds = [
       ...new Set(
-        leases
-          .filter((l) => l.status === 'ACTIVE')
-          .map((l) => l.tenantId),
+        leases.filter((l) => l.status === 'ACTIVE').map((l) => l.tenantId),
       ),
     ];
 
@@ -2691,10 +2718,7 @@ export class PaymentsService {
             ],
           },
           {
-            OR: [
-              { tenantId: userId },
-              { coTenants: { some: { userId } } },
-            ],
+            OR: [{ tenantId: userId }, { coTenants: { some: { userId } } }],
           },
         ],
       },

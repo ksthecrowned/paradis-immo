@@ -128,11 +128,11 @@ export class TenantDocumentsService {
     }
   }
 
-  private assertFile(file: {
-    buffer: Buffer;
-    mimetype: string;
-  }): void {
-    if (!file.mimetype.startsWith('image/') && file.mimetype !== 'application/pdf') {
+  private assertFile(file: { buffer: Buffer; mimetype: string }): void {
+    if (
+      !file.mimetype.startsWith('image/') &&
+      file.mimetype !== 'application/pdf'
+    ) {
       throw new BadRequestException({
         code: 'UNSUPPORTED_CONTENT_TYPE',
         message: 'Documents must be PDF or image',

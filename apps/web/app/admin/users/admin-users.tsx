@@ -5,6 +5,7 @@ import {
   DashboardPageHeader,
   PaginatedDataTable,
   StatusBadge,
+  UserIdentity,
   type ListColumn,
 } from '@/components/dashboard';
 import { ApiError } from '@/lib/api';
@@ -49,10 +50,12 @@ export function AdminUsersPage(): React.JSX.Element {
         key: 'name',
         label: 'Nom',
         sortable: true,
-        render: (value) => (
-          <span className="font-medium text-foreground">
-            {value ? String(value) : '—'}
-          </span>
+        render: (_value, row) => (
+          <UserIdentity
+            name={row.name ?? row.phone}
+            avatarUrl={row.avatarUrl}
+            fallbackName="Utilisateur"
+          />
         ),
         getFilterValue: (row) => row.name ?? '',
       },

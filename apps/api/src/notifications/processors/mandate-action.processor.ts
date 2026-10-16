@@ -20,7 +20,11 @@ export class MandateActionProcessor {
 
   @OnEvent(DOMAIN_EVENTS.MANDATE_ACTION_PENDING)
   async handle(
-    event: DomainEvent<{ approvalId: string; mandateId: string; actionType: string }>,
+    event: DomainEvent<{
+      approvalId: string;
+      mandateId: string;
+      actionType: string;
+    }>,
   ): Promise<void> {
     const { approvalId, mandateId, actionType } = event.payload;
     if (!approvalId || !mandateId) {

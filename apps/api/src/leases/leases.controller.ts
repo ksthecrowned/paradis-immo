@@ -102,10 +102,7 @@ export class LeasesController {
 
   @Get(':id/balance')
   @ApiOperation({ summary: 'Balance, overdue amount and lines of a lease' })
-  balance(
-    @CurrentUser() current: AuthenticatedUser,
-    @Param('id') id: string,
-  ) {
+  balance(@CurrentUser() current: AuthenticatedUser, @Param('id') id: string) {
     return this.arrears.getBalance(current.userId, id);
   }
 
@@ -134,7 +131,9 @@ export class LeasesController {
   }
 
   @Get(':id/indexations')
-  @ApiOperation({ summary: 'List the annual rent revision proposals of a lease' })
+  @ApiOperation({
+    summary: 'List the annual rent revision proposals of a lease',
+  })
   listIndexations(
     @CurrentUser() current: AuthenticatedUser,
     @Param('id') id: string,
@@ -173,12 +172,7 @@ export class LeasesController {
     @Param('version') version: string,
     @Body() dto: SignLeaseDto,
   ) {
-    return this.amendments.sign(
-      current.userId,
-      id,
-      Number(version),
-      dto,
-    );
+    return this.amendments.sign(current.userId, id, Number(version), dto);
   }
 
   @Get(':id/co-tenants')
@@ -205,10 +199,7 @@ export class LeasesController {
 
   @Get(':id')
   @ApiOperation({ summary: 'Get a lease by id (manager or tenant)' })
-  getOne(
-    @CurrentUser() current: AuthenticatedUser,
-    @Param('id') id: string,
-  ) {
+  getOne(@CurrentUser() current: AuthenticatedUser, @Param('id') id: string) {
     return this.leases.getOne(current.userId, id);
   }
 
@@ -253,10 +244,7 @@ export class LeasesController {
   @Post(':id/cancel')
   @HttpCode(201)
   @ApiOperation({ summary: 'Cancel a DRAFT or PENDING_SIGNATURE lease' })
-  cancel(
-    @CurrentUser() current: AuthenticatedUser,
-    @Param('id') id: string,
-  ) {
+  cancel(@CurrentUser() current: AuthenticatedUser, @Param('id') id: string) {
     return this.leases.cancelLease(current.userId, id);
   }
 
@@ -298,10 +286,7 @@ export class LeasesController {
 
   @Get(':id/schedule')
   @ApiOperation({ summary: 'Get the rent schedule for a lease' })
-  schedule(
-    @CurrentUser() current: AuthenticatedUser,
-    @Param('id') id: string,
-  ) {
+  schedule(@CurrentUser() current: AuthenticatedUser, @Param('id') id: string) {
     return this.leases.getSchedule(current.userId, id);
   }
 }

@@ -33,6 +33,11 @@ export interface PublicSaleInquiry {
   status: SaleInquiryStatus;
   createdAt: string;
   updatedAt: string;
+  buyer?: {
+    id: string;
+    name: string | null;
+    avatarUrl: string | null;
+  };
 }
 
 @Injectable()
@@ -110,7 +115,8 @@ export class SalesService {
       where: { id: input.inquiryId },
       select: { propertyId: true },
     });
-    if (!inquiry) {      throw new NotFoundException({
+    if (!inquiry) {
+      throw new NotFoundException({
         code: 'INQUIRY_NOT_FOUND',
         message: 'Inquiry does not exist',
       });
@@ -145,16 +151,21 @@ export class SalesService {
     // (propriétaire, gérant de l'agence mandatée, agent assigné, gérant/owner
     // de l'org d'un bien sans mandat) et non plus la seule appartenance à
     // l'org du bien en tant que AGENT.
-    const managedIds = await this.agencyAccess.listOperablePropertyIds(
-      actorUserId,
-    );
+    const managedIds =
+      await this.agencyAccess.listOperablePropertyIds(actorUserId);
     if (managedIds.length === 0) return [];
 
     const rows = await this.prisma.saleInquiry.findMany({
       where: { propertyId: { in: managedIds } },
       orderBy: { createdAt: 'desc' },
+      include: {
+        user: { select: { id: true, name: true, avatarUrl: true } },
+      },
     });
-    return rows.map((r) => this.toPublic(r));
+    return rows.map((r) => ({
+      ...this.toPublic(r),
+      buyer: r.user,
+    }));
   }
 
   async listInquiriesForBuyer(userId: string): Promise<PublicSaleInquiry[]> {
@@ -175,9 +186,8 @@ export class SalesService {
     actorUserId: string,
     propertyId: string,
   ): Promise<boolean> {
-    const operable = await this.agencyAccess.listOperablePropertyIds(
-      actorUserId,
-    );
+    const operable =
+      await this.agencyAccess.listOperablePropertyIds(actorUserId);
     return operable.includes(propertyId);
   }
 

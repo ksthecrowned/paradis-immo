@@ -33,8 +33,10 @@ export function usePaginatedList<
   const fetchFnRef = useRef(fetchFn);
   const onErrorRef = useRef(onError);
 
-  fetchFnRef.current = fetchFn;
-  onErrorRef.current = onError;
+  useEffect(() => {
+    fetchFnRef.current = fetchFn;
+    onErrorRef.current = onError;
+  }, [fetchFn, onError]);
 
   const refresh = useCallback(() => {
     setRefreshKey((value) => value + 1);

@@ -54,7 +54,12 @@ export class LeaseTemplatesController {
     @Param('templateId') templateId: string,
     @Body() dto: UpdateLeaseTemplateDto,
   ) {
-    return this.templates.update(current.userId, organizationId, templateId, dto);
+    return this.templates.update(
+      current.userId,
+      organizationId,
+      templateId,
+      dto,
+    );
   }
 
   @Delete(':templateId')

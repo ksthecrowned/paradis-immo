@@ -43,7 +43,10 @@ import {
 import { AppAuthGuard } from '../common/guards/auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
-import { AdminPermissionGuard, AdminPermission } from '../admin/admin-permission.guard';
+import {
+  AdminPermissionGuard,
+  AdminPermission,
+} from '../admin/admin-permission.guard';
 import { OrgContextGuard } from '../common/guards/org-context.guard';
 import { OrganizationContext } from '../common/decorators/org-context.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
@@ -174,12 +177,16 @@ export class AgencyController {
   @UseGuards(AppAuthGuard, OrgContextGuard)
   @OrganizationContext({ roles: [OrgMemberRole.OWNER, OrgMemberRole.ADMIN] })
   @ApiConsumes('multipart/form-data')
-  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 5 * 1024 * 1024 } }))
+  @UseInterceptors(
+    FileInterceptor('file', { limits: { fileSize: 5 * 1024 * 1024 } }),
+  )
   @ApiOperation({ summary: 'Upload the agency logo — spec 02' })
   uploadLogo(
     @CurrentUser() me: AuthenticatedUser,
     @Param('orgId') orgId: string,
-    @UploadedFile() file: { buffer: Buffer; originalname: string; mimetype: string } | undefined,
+    @UploadedFile()
+    file:
+      { buffer: Buffer; originalname: string; mimetype: string } | undefined,
   ) {
     return this.agency.uploadLogo(me.userId, orgId, file!);
   }
@@ -198,7 +205,9 @@ export class AgencyController {
 
   @Get(':orgId/members')
   @UseGuards(AppAuthGuard, OrgContextGuard)
-  @OrganizationContext({ roles: [OrgMemberRole.OWNER, OrgMemberRole.ADMIN, OrgMemberRole.AGENT] })
+  @OrganizationContext({
+    roles: [OrgMemberRole.OWNER, OrgMemberRole.ADMIN, OrgMemberRole.AGENT],
+  })
   @ApiOperation({ summary: 'List agency members — spec 02' })
   members(@CurrentUser() me: AuthenticatedUser, @Param('orgId') orgId: string) {
     return this.agency.listMembers(me.userId, orgId);
@@ -232,7 +241,9 @@ export class AgencyController {
 
   @Post(':orgId/leave')
   @UseGuards(AppAuthGuard, OrgContextGuard)
-  @OrganizationContext({ roles: [OrgMemberRole.OWNER, OrgMemberRole.ADMIN, OrgMemberRole.AGENT] })
+  @OrganizationContext({
+    roles: [OrgMemberRole.OWNER, OrgMemberRole.ADMIN, OrgMemberRole.AGENT],
+  })
   @HttpCode(200)
   @ApiOperation({ summary: 'Leave an agency — spec 02' })
   leave(@CurrentUser() me: AuthenticatedUser, @Param('orgId') orgId: string) {
@@ -242,7 +253,9 @@ export class AgencyController {
   @Post(':orgId/reviews')
   @UseGuards(AppAuthGuard)
   @HttpCode(201)
-  @ApiOperation({ summary: 'Review an agency after a real interaction — spec 02' })
+  @ApiOperation({
+    summary: 'Review an agency after a real interaction — spec 02',
+  })
   createReview(
     @CurrentUser() me: AuthenticatedUser,
     @Param('orgId') orgId: string,
@@ -255,7 +268,9 @@ export class AgencyController {
   @UseGuards(AppAuthGuard, OrgContextGuard)
   @OrganizationContext({ roles: [OrgMemberRole.OWNER, OrgMemberRole.ADMIN] })
   @HttpCode(201)
-  @ApiOperation({ summary: 'Invite a collaborator by phone or email — spec 02' })
+  @ApiOperation({
+    summary: 'Invite a collaborator by phone or email — spec 02',
+  })
   createInvitation(
     @CurrentUser() me: AuthenticatedUser,
     @Param('orgId') orgId: string,

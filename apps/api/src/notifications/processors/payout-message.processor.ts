@@ -16,7 +16,9 @@ import { NotificationsService } from '../notifications.service';
  */
 @Injectable()
 export class PayoutMessagingNotificationsProcessor {
-  private readonly logger = new Logger(PayoutMessagingNotificationsProcessor.name);
+  private readonly logger = new Logger(
+    PayoutMessagingNotificationsProcessor.name,
+  );
 
   constructor(
     private readonly prisma: PrismaService,
@@ -61,7 +63,8 @@ export class PayoutMessagingNotificationsProcessor {
       reason: string | null;
     }>,
   ): Promise<void> {
-    const { payoutId, organizationId, amount, currency, reason } = event.payload;
+    const { payoutId, organizationId, amount, currency, reason } =
+      event.payload;
     if (!payoutId || !organizationId) return;
     const admins = await this.prisma.organizationMember.findMany({
       where: {
@@ -90,8 +93,13 @@ export class PayoutMessagingNotificationsProcessor {
       organizationId: string | null;
     }>,
   ): Promise<void> {
-    const { conversationId, messageId, senderId, clientUserId, organizationId } =
-      event.payload;
+    const {
+      conversationId,
+      messageId,
+      senderId,
+      clientUserId,
+      organizationId,
+    } = event.payload;
     if (!messageId || !conversationId || !senderId) return;
     // Récipient = l'autre partie de la conversation :
     // - conversation client (clientUserId) → l'autre côté est l'org du bien ;

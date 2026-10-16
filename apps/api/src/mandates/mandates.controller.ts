@@ -10,13 +10,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { Type } from 'class-transformer';
-import {
-  IsEnum,
-  IsInt,
-  IsOptional,
-  Max,
-  Min,
-} from 'class-validator';
+import { IsEnum, IsInt, IsOptional, Max, Min } from 'class-validator';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { MandateScope, MandateStatus } from '@prisma/client';
 import { AppAuthGuard } from '../common/guards/auth.guard';
@@ -25,7 +19,10 @@ import type { AuthenticatedUser } from '../common/decorators/current-user.decora
 import { MandatesService } from './mandates.service';
 import { MandateApprovalService } from './mandate-approval.service';
 import { CreateMandateDto } from './dto/create-mandate.dto';
-import { DeclineMandateDto, TerminateMandateDto } from './dto/terminate-mandate.dto';
+import {
+  DeclineMandateDto,
+  TerminateMandateDto,
+} from './dto/terminate-mandate.dto';
 import { CreateApprovalDto } from './dto/create-approval.dto';
 import { DecideApprovalDto } from './dto/decide-approval.dto';
 import { CounterMandateDto, SignMandateDto } from './dto/mandate-flow.dto';
@@ -35,13 +32,21 @@ class ListManagedQueryDto {
   @IsOptional() @IsEnum(MandateStatus) status?: MandateStatus;
   @IsOptional() @IsEnum(MandateScope) scope?: MandateScope;
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) page?: number;
-  @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(100)
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
   pageSize?: number;
 }
 
 class PaginationQueryDto {
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) page?: number;
-  @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(100)
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
   pageSize?: number;
 }
 
@@ -114,10 +119,7 @@ export class MandatesController {
 
   @Delete('approvals/:id')
   @ApiOperation({ summary: 'Cancel a PENDING approval (requester only)' })
-  cancel(
-    @CurrentUser() current: AuthenticatedUser,
-    @Param('id') id: string,
-  ) {
+  cancel(@CurrentUser() current: AuthenticatedUser, @Param('id') id: string) {
     return this.approvals.cancelApproval(current.userId, id);
   }
 
@@ -200,10 +202,7 @@ export class MandatesController {
 
   @Get(':id/document')
   @ApiOperation({ summary: 'Presigned URL of the signed mandate PDF' })
-  document(
-    @CurrentUser() current: AuthenticatedUser,
-    @Param('id') id: string,
-  ) {
+  document(@CurrentUser() current: AuthenticatedUser, @Param('id') id: string) {
     return this.mandates.getSignedDocumentUrl(current.userId, id);
   }
 

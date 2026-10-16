@@ -86,7 +86,11 @@ export class PropertiesController {
     @Param('id') id: string,
     @Body() dto: RecordPropertyViewDto,
   ) {
-    return this.properties.recordView(current?.userId ?? null, id, dto.deviceId);
+    return this.properties.recordView(
+      current?.userId ?? null,
+      id,
+      dto.deviceId,
+    );
   }
 
   // Authenticated writes -------------------------------------------
@@ -125,10 +129,7 @@ export class PropertiesController {
   @UseGuards(AppAuthGuard)
   @HttpCode(200)
   @ApiOperation({ summary: 'Publish a DRAFT or PAUSED property (→ ACTIVE)' })
-  publish(
-    @CurrentUser() current: AuthenticatedUser,
-    @Param('id') id: string,
-  ) {
+  publish(@CurrentUser() current: AuthenticatedUser, @Param('id') id: string) {
     return this.properties.publish(current.userId, id);
   }
 

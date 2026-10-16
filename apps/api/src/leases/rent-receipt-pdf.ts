@@ -37,11 +37,7 @@ export function renderRentReceiptPdf(
       .font('Helvetica-Bold')
       .fillColor('#111')
       .text('Quittance de loyer');
-    doc
-      .fontSize(10)
-      .font('Helvetica')
-      .fillColor('#666')
-      .text(input.agencyName);
+    doc.fontSize(10).font('Helvetica').fillColor('#666').text(input.agencyName);
 
     doc.moveDown(1.5);
     doc.fillColor('#000').fontSize(11);

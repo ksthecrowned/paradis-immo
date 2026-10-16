@@ -292,6 +292,7 @@ pnpm build
 pnpm test                 # tests API
 pnpm export:openapi       # régénère apps/api/openapi.json
 pnpm generate:types       # types OpenAPI → apps/web & apps/mobile
+pnpm docs:check           # frontmatter/fraîcheur/liens des .skills
 
 # API uniquement
 pnpm --filter api prisma:seed
@@ -306,11 +307,18 @@ pnpm --filter api test:e2e
 ```
 apps/
   api/          NestJS + Prisma
-  web/          Next.js dashboard (owner / agent / admin)
-  mobile/       Expo (marketplace)
+  web/          Next.js (site public + gestion owner / agence / admin)
+  mobile/       Expo (parcours clients)
 docs/
-  superpowers/  plans & specs MVP
+  architecture/ carte des applications et domaines
+  specs/        exigences produit et deltas d'implémentation
+  ops/          procédures d'exploitation
+  qa/           validation et release
+  adr/          décisions structurantes
+  superpowers/  conceptions et plans datés
 ```
+
+Documentation de référence : [index des docs](docs/README.md), [architecture générale](docs/ARCHITECTURE.md), [skills par type de tâche](.skills/README.md), [guide de contribution](CONTRIBUTING.md) et [politique de sécurité](SECURITY.md). Les specs expriment le comportement attendu ; leur état d'implémentation et leur validation en production doivent être vérifiés séparément.
 
 Plans détaillés :
 

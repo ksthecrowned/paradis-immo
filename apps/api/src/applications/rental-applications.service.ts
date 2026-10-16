@@ -275,7 +275,10 @@ export class RentalApplicationsService {
         message: 'Annonce introuvable',
       });
     }
-    await this.agencyAccess.assertCanOperateOnProperty(managerUserId, propertyId);
+    await this.agencyAccess.assertCanOperateOnProperty(
+      managerUserId,
+      propertyId,
+    );
 
     const page = filter.page ?? 1;
     const pageSize = filter.pageSize ?? 20;
@@ -363,8 +366,7 @@ export class RentalApplicationsService {
         keepId: applicationId,
         managerUserId,
         message:
-          dto.rejectionMessage ??
-          'Le bien a été attribué à un autre candidat.',
+          dto.rejectionMessage ?? 'Le bien a été attribué à un autre candidat.',
         decidedAt,
       });
       await this.events.emit(DOMAIN_EVENTS.APPLICATION_ACCEPTED, {
@@ -697,9 +699,7 @@ export class RentalApplicationsService {
       desiredMoveIn: row.desiredMoveIn.toISOString(),
       occupants: row.occupants,
       occupation: row.occupation,
-      declaredIncome: row.declaredIncome
-        ? row.declaredIncome.toString()
-        : null,
+      declaredIncome: row.declaredIncome ? row.declaredIncome.toString() : null,
       message: row.message,
       status: row.status,
       rejectionMessage: row.rejectionMessage,

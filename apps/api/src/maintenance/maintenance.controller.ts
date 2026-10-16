@@ -136,16 +136,16 @@ export class MaintenanceController {
   @Get('maintenance/tickets/:id')
   @UseGuards(AppAuthGuard)
   @ApiOperation({ summary: 'Get a maintenance ticket by id' })
-  getOne(
-    @CurrentUser() current: AuthenticatedUser,
-    @Param('id') id: string,
-  ) {
+  getOne(@CurrentUser() current: AuthenticatedUser, @Param('id') id: string) {
     return this.maintenance.getOne(current.userId, id);
   }
 
   @Patch('maintenance/tickets/:id')
   @UseGuards(AppAuthGuard)
-  @ApiOperation({ summary: 'Update descriptive fields (estimatedCost) — statut via /transitions' })
+  @ApiOperation({
+    summary:
+      'Update descriptive fields (estimatedCost) — statut via /transitions',
+  })
   update(
     @CurrentUser() current: AuthenticatedUser,
     @Param('id') id: string,
@@ -164,10 +164,6 @@ export class MaintenanceController {
     @Param('id') id: string,
     @Body() dto: AssignTicketDto,
   ) {
-    return this.maintenance.assignTicket(
-      current.userId,
-      id,
-      dto.assigneeId,
-    );
+    return this.maintenance.assignTicket(current.userId, id, dto.assigneeId);
   }
 }

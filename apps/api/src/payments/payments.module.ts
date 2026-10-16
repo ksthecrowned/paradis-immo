@@ -26,7 +26,11 @@ import { AdminPermissionGuard } from '../admin/admin-permission.guard';
     forwardRef(() => LeasesModule),
     DocumentsModule,
   ],
-  controllers: [PaymentsController, ReceiptController, ReconciliationController],
+  controllers: [
+    PaymentsController,
+    ReceiptController,
+    ReconciliationController,
+  ],
   providers: [
     AdminPermissionGuard,
     PaymentsService,

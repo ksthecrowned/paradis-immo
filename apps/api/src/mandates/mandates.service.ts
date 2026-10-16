@@ -158,7 +158,9 @@ export class MandatesService {
       ...(input.managementFeeRate !== undefined
         ? { managementFeeRate: input.managementFeeRate }
         : {}),
-      ...(input.lettingFee !== undefined ? { lettingFee: input.lettingFee } : {}),
+      ...(input.lettingFee !== undefined
+        ? { lettingFee: input.lettingFee }
+        : {}),
       ...(input.lettingFeeMonths !== undefined
         ? { lettingFeeMonths: input.lettingFeeMonths }
         : {}),
@@ -183,7 +185,9 @@ export class MandatesService {
       ...(input.approvalTtlDays !== undefined
         ? { approvalTtlDays: input.approvalTtlDays }
         : {}),
-      ...(input.noticeDays !== undefined ? { noticeDays: input.noticeDays } : {}),
+      ...(input.noticeDays !== undefined
+        ? { noticeDays: input.noticeDays }
+        : {}),
       ...(input.tacitRenewal !== undefined
         ? { tacitRenewal: input.tacitRenewal }
         : {}),
@@ -213,7 +217,10 @@ export class MandatesService {
    * Accept the latest version (spec 03 — endpoint MANAGER; both parties may
    * accept, since a counter-proposal from either side awaits the other).
    */
-  async acceptMandate(userId: string, mandateId: string): Promise<PublicMandate> {
+  async acceptMandate(
+    userId: string,
+    mandateId: string,
+  ): Promise<PublicMandate> {
     const mandate = await this.prisma.mandate.findUnique({
       where: { id: mandateId },
       include: { property: { select: { ownerId: true } } },
@@ -260,7 +267,10 @@ export class MandatesService {
   ): Promise<PublicMandate> {
     const mandate = await this.requireMandate(mandateId);
     this.assertProposedState(mandate, 'decline');
-    await this.agencyAccess.assertIsAgencyGerant(userId, mandate.organizationId);
+    await this.agencyAccess.assertIsAgencyGerant(
+      userId,
+      mandate.organizationId,
+    );
 
     const updated = await this.prisma.mandate.update({
       where: { id: mandateId },
@@ -389,7 +399,7 @@ export class MandatesService {
               : {}),
             ...(input.endDate ? { endDate: input.endDate } : {}),
             ...(input.reason ? { reason: input.reason } : {}),
-          } as Prisma.InputJsonValue,
+          },
           proposedBy: userId,
         },
       });
@@ -407,7 +417,11 @@ export class MandatesService {
     userId: string,
     mandateId: string,
     input: { code?: string },
-  ): Promise<PublicMandate & { signature?: { sent?: boolean; signed?: boolean; bothSigned: boolean } }> {
+  ): Promise<
+    PublicMandate & {
+      signature?: { sent?: boolean; signed?: boolean; bothSigned: boolean };
+    }
+  > {
     const mandate = await this.prisma.mandate.findUnique({
       where: { id: mandateId },
       include: { property: { select: { ownerId: true, title: true } } },
@@ -576,7 +590,9 @@ export class MandatesService {
     const updated = await this.prisma.mandate.update({
       where: { id: mandateId },
       data: {
-        status: immediate ? MandateStatus.TERMINATED : MandateStatus.TERMINATING,
+        status: immediate
+          ? MandateStatus.TERMINATED
+          : MandateStatus.TERMINATING,
         terminationRequestedAt: now,
         terminationEffectiveAt: effectiveAt,
         terminationReason: reason,
@@ -669,7 +685,12 @@ export class MandatesService {
     mandateId: string,
   ): Promise<
     PublicMandate & {
-      versions: Array<{ id: string; terms: unknown; proposedBy: string; createdAt: string }>;
+      versions: Array<{
+        id: string;
+        terms: unknown;
+        proposedBy: string;
+        createdAt: string;
+      }>;
       approvals: unknown[];
     }
   > {
@@ -705,7 +726,8 @@ export class MandatesService {
         terms: v.terms,
         proposedBy: v.proposedBy,
         createdAt: v.createdAt.toISOString(),
-      })),        approvals: mandate.approvals,
+      })),
+      approvals: mandate.approvals,
     };
   }
 
@@ -749,7 +771,9 @@ export class MandatesService {
         message: 'The mandate document has not been signed yet',
       });
     }
-    return { url: await this.r2.createPresignedDownload(mandate.signedDocumentKey) };
+    return {
+      url: await this.r2.createPresignedDownload(mandate.signedDocumentKey),
+    };
   }
 
   async assignAgent(
@@ -867,10 +891,7 @@ export class MandatesService {
     return mandate;
   }
 
-  private assertProposedState(
-    mandate: Mandate,
-    action: string,
-  ): void {
+  private assertProposedState(mandate: Mandate, action: string): void {
     if (
       mandate.status !== MandateStatus.PROPOSED &&
       mandate.status !== MandateStatus.COUNTERED
@@ -937,13 +958,9 @@ export class MandatesService {
   }
 
   private snapshotTerms(data: Record<string, unknown>): Prisma.InputJsonValue {
-    const pick = (
-      keys: string[],
-    ): Record<string, unknown> =>
+    const pick = (keys: string[]): Record<string, unknown> =>
       Object.fromEntries(
-        keys
-          .filter((k) => data[k] !== undefined)
-          .map((k) => [k, data[k] as unknown]),
+        keys.filter((k) => data[k] !== undefined).map((k) => [k, data[k]]),
       );
     return {
       ...pick([

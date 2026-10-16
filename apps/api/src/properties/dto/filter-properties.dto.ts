@@ -1,17 +1,6 @@
 import { Type } from 'class-transformer';
-import {
-  IsEnum,
-  IsInt,
-  IsOptional,
-  IsString,
-  Max,
-  Min,
-} from 'class-validator';
-import {
-  PropertyMode,
-  PropertyStatus,
-  PropertyType,
-} from '@prisma/client';
+import { IsEnum, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+import { PropertyMode, PropertyStatus, PropertyType } from '@prisma/client';
 
 export class FilterPropertiesDto {
   @IsOptional()
@@ -28,15 +17,21 @@ export class FilterPropertiesDto {
   type?: PropertyType;
 
   @IsOptional()
-  @Type(() => Number) @IsInt() @Min(0)
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
   minBedrooms?: number;
 
   @IsOptional()
-  @Type(() => Number) @IsInt() @Min(0)
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
   minBathrooms?: number;
 
   @IsOptional()
-  @Type(() => Number) @IsInt() @Min(0)
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
   minSurface?: number;
 
   /** Tous requis (AND) : features[] en query (ex. ?features=piscine,parking). */

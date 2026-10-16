@@ -245,7 +245,11 @@ export class BookingsService {
       });
     }
 
-    return { ...this.toPublic(booking), quote, holdExpiresAt: holdExpiresAt.toISOString() };
+    return {
+      ...this.toPublic(booking),
+      quote,
+      holdExpiresAt: holdExpiresAt.toISOString(),
+    };
   }
 
   /** Spec 07 — endpoint `POST properties/:id/stay-quote`. */
@@ -300,7 +304,10 @@ export class BookingsService {
         message: 'Only the booker can cancel a booking',
       });
     }
-    return this.cancelBookingInternal(booking, BookingStatus.CANCELLED_BY_GUEST);
+    return this.cancelBookingInternal(
+      booking,
+      BookingStatus.CANCELLED_BY_GUEST,
+    );
   }
 
   /** Spec 07 — `GET bookings/:id/cancellation-preview` (voyageur). */
@@ -550,7 +557,7 @@ export class BookingsService {
       checkInFrom: settings?.checkInFrom ?? '14:00',
       checkOutBefore: settings?.checkOutBefore ?? '11:00',
       arrivalInstructions: revealed
-        ? settings?.arrivalInstructions ?? null
+        ? (settings?.arrivalInstructions ?? null)
         : null,
       address: revealed ? booking.property.address : null,
       maskedBefore: !revealed,
@@ -830,9 +837,10 @@ export class BookingsService {
       currency: b.currency,
       status: b.status,
       /** Spec 07 — hold pose uniquement sur PENDING_PAYMENT. */
-      holdExpiresAt: b.status === BookingStatus.PENDING_PAYMENT
-        ? b.holdExpiresAt?.toISOString() ?? null
-        : null,
+      holdExpiresAt:
+        b.status === BookingStatus.PENDING_PAYMENT
+          ? (b.holdExpiresAt?.toISOString() ?? null)
+          : null,
       /** Devis fige au hold (priceBreakdown JSON). */
       quote: (b.priceBreakdown as PricingQuote | null) ?? null,
       createdAt: b.createdAt.toISOString(),

@@ -223,7 +223,8 @@ export function LeaseDetail({
     } finally {
       setLoading(false);
     }
-  }, [leaseId, loadDocs]);
+    // deps manuelles alignées sur l'inférence du React Compiler ( setters inclus)
+  }, [leaseId, loadDocs, setError, setRenewEndDate]);
 
   useEffect(() => {
     if (!ready) return;
@@ -250,7 +251,7 @@ export function LeaseDetail({
         setAction(null);
       }
     },
-    [load],
+    [load, setError],
   );
 
   const handleActivate = useCallback(() => {
@@ -286,7 +287,7 @@ export function LeaseDetail({
       setOtpCode('');
       setOtpRequested(false);
     });
-  }, [leaseId, otpCode, runAction]);
+  }, [leaseId, otpCode, runAction, setOtpCode, setError]);
 
   const handleCancel = useCallback(() => {
     if (!confirm('Annuler ce bail ?')) return;
@@ -328,7 +329,7 @@ export function LeaseDetail({
       return;
     }
     void runAction('deduction', () => proposeDeduction(leaseId, { label, amount }));
-  }, [leaseId, runAction]);
+  }, [leaseId, runAction, setError]);
 
   const handleSettleDeposit = useCallback(() => {
     if (
@@ -403,7 +404,7 @@ export function LeaseDetail({
       await createAmendment(leaseId, { changes, reason: reason || undefined });
       await loadAmendments();
     });
-  }, [leaseId, loadAmendments, runAction]);
+  }, [leaseId, loadAmendments, runAction, setError]);
 
   /** Spec 04 US 7 — propose un avenant qui fait entrer un colocataire. */
   const handleAddCoTenant = useCallback(() => {
@@ -420,7 +421,7 @@ export function LeaseDetail({
       setCoTenantPhone('');
       await loadAmendments();
     });
-  }, [coTenantPhone, leaseId, loadAmendments, runAction]);
+  }, [coTenantPhone, leaseId, loadAmendments, runAction, setCoTenantPhone, setError]);
 
   /** Spec 04 US 7 — propose un avenant qui fait sortir un colocataire. */
   const handleRemoveCoTenant = useCallback(
@@ -465,7 +466,7 @@ export function LeaseDetail({
         );
       }
     });
-  }, [leaseId, renewEndDate, renewRent, runAction]);
+  }, [leaseId, renewEndDate, renewRent, runAction, setRenewRent, setError]);
 
   const handleAmendmentOtp = useCallback(
     (version: number, submit: boolean) => {
@@ -488,7 +489,7 @@ export function LeaseDetail({
         await loadAmendments();
       });
     },
-    [amendmentCode, leaseId, loadAmendments, runAction],
+    [amendmentCode, leaseId, loadAmendments, runAction, setAmendmentCode, setError],
   );
 
   /** Spec 04 US 8 — the owner validates (or refuses) the indexed rent. */

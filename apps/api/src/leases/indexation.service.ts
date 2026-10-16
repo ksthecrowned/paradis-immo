@@ -66,12 +66,8 @@ export class IndexationService {
   }
 
   /** Public for direct invocation from tests. */
-  async proposeDueIndexations(
-    now = new Date(),
-  ): Promise<IndexationProposal[]> {
-    const horizon = new Date(
-      now.getTime() + INDEXATION_LEAD_DAYS * DAY_MS,
-    );
+  async proposeDueIndexations(now = new Date()): Promise<IndexationProposal[]> {
+    const horizon = new Date(now.getTime() + INDEXATION_LEAD_DAYS * DAY_MS);
     const leases = await this.prisma.lease.findMany({
       where: {
         status: LeaseStatus.ACTIVE,
@@ -93,19 +89,25 @@ export class IndexationService {
 
     const created: IndexationProposal[] = [];
     for (const lease of leases) {
-      const anniversary = this.nextAnniversary(lease.startDate, lease.endDate, now, horizon);
+      const anniversary = this.nextAnniversary(
+        lease.startDate,
+        lease.endDate,
+        now,
+        horizon,
+      );
       if (!anniversary) continue;
       if (await this.alreadyProposed(lease.id, anniversary)) continue;
 
       const rate = new Prisma.Decimal(lease.indexationRate ?? 0);
-      const newRent = lease.monthlyRent
-        .mul(rate.add(1))
-        .toDecimalPlaces(2);
+      const newRent = lease.monthlyRent.mul(rate.add(1)).toDecimalPlaces(2);
       // A zero or negative result is not a revision.
       if (newRent.lte(0) || newRent.eq(lease.monthlyRent)) continue;
 
-      const actionType: 'RENT_INCREASE' | 'RENT_REDUCTION' =
-        newRent.gt(lease.monthlyRent) ? 'RENT_INCREASE' : 'RENT_REDUCTION';
+      const actionType: 'RENT_INCREASE' | 'RENT_REDUCTION' = newRent.gt(
+        lease.monthlyRent,
+      )
+        ? 'RENT_INCREASE'
+        : 'RENT_REDUCTION';
 
       const mandate = await this.liveMandate(lease.propertyId);
       let approvalId: string | null = null;
@@ -195,7 +197,10 @@ export class IndexationService {
       });
     }
     if (lease.tenantId !== userId && lease.coTenants.length === 0) {
-      await this.agencyAccess.assertCanOperateOnProperty(userId, lease.propertyId);
+      await this.agencyAccess.assertCanOperateOnProperty(
+        userId,
+        lease.propertyId,
+      );
     }
 
     const rows = await this.prisma.mandateApproval.findMany({

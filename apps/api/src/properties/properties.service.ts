@@ -68,8 +68,7 @@ function assertShortStayFields(input: {
   }
   if (
     input.maxNights != null &&
-    (!Number.isInteger(input.maxNights) ||
-      input.maxNights < input.minNights)
+    (!Number.isInteger(input.maxNights) || input.maxNights < input.minNights)
   ) {
     throw new BadRequestException({
       code: 'INVALID_MAX_NIGHTS',
@@ -241,9 +240,7 @@ export class PropertiesService {
         features: (dto.features ?? null) as unknown as Prisma.InputJsonValue,
         mapViews: (dto.mapViews ?? null) as unknown as Prisma.InputJsonValue,
         listingStatus: coercedListingStatus,
-        availableFrom: dto.availableFrom
-          ? new Date(dto.availableFrom)
-          : null,
+        availableFrom: dto.availableFrom ? new Date(dto.availableFrom) : null,
         // Featured listings are admin-only (PATCH /admin/properties/:id/featured).
         isFeatured: false,
         visitEnabled: dto.visitEnabled ?? false,
@@ -310,9 +307,12 @@ export class PropertiesService {
       // (spec 08: complete()/offer-acceptance flips the listingStatus);
       // UNDER_OFFER stays visible per spec 13 visibilité publique, so only
       // OCCUPIED and SOLD are excluded.
-      ...(filter.mode === PropertyMode.RENT_LONG ||
-      !filter.mode
-        ? { listingStatus: { notIn: [ListingStatus.OCCUPIED, ListingStatus.SOLD] } }
+      ...(filter.mode === PropertyMode.RENT_LONG || !filter.mode
+        ? {
+            listingStatus: {
+              notIn: [ListingStatus.OCCUPIED, ListingStatus.SOLD],
+            },
+          }
         : filter.mode === PropertyMode.SALE
           ? { listingStatus: { notIn: [ListingStatus.SOLD] } }
           : {}),
@@ -352,8 +352,7 @@ export class PropertiesService {
       ...(filter.minSurface !== undefined
         ? { surface: { gte: filter.minSurface } }
         : {}),
-      ...(filter.furnished !== undefined &&
-      filter.furnished !== ''
+      ...(filter.furnished !== undefined && filter.furnished !== ''
         ? {
             furnished: filter.furnished === 'true',
           }
@@ -521,12 +520,16 @@ export class PropertiesService {
     const nextMode = dto.mode ?? existing.mode;
     const shortStayFields = assertShortStayFields({
       mode: nextMode,
-      minNights: dto.minNights !== undefined ? dto.minNights : existing.minNights,
-      maxNights: dto.maxNights !== undefined ? dto.maxNights : existing.maxNights,
+      minNights:
+        dto.minNights !== undefined ? dto.minNights : existing.minNights,
+      maxNights:
+        dto.maxNights !== undefined ? dto.maxNights : existing.maxNights,
       checkInTime:
         dto.checkInTime !== undefined ? dto.checkInTime : existing.checkInTime,
       checkOutTime:
-        dto.checkOutTime !== undefined ? dto.checkOutTime : existing.checkOutTime,
+        dto.checkOutTime !== undefined
+          ? dto.checkOutTime
+          : existing.checkOutTime,
     });
     let nextListingStatus: ListingStatusValue | undefined;
     if (dto.listingStatus !== undefined) {
@@ -572,12 +575,8 @@ export class PropertiesService {
           ? { orientation: dto.orientation }
           : {}),
         ...(dto.landTitle !== undefined ? { landTitle: dto.landTitle } : {}),
-        ...(dto.features !== undefined
-          ? { features: dto.features as unknown as Prisma.InputJsonValue }
-          : {}),
-        ...(dto.mapViews !== undefined
-          ? { mapViews: dto.mapViews as unknown as Prisma.InputJsonValue }
-          : {}),
+        ...(dto.features !== undefined ? { features: dto.features } : {}),
+        ...(dto.mapViews !== undefined ? { mapViews: dto.mapViews } : {}),
         ...(dto.visitEnabled !== undefined
           ? { visitEnabled: dto.visitEnabled }
           : {}),
@@ -605,9 +604,7 @@ export class PropertiesService {
         ...(dto.availableFrom !== undefined
           ? {
               availableFrom:
-                dto.availableFrom === null
-                  ? null
-                  : new Date(dto.availableFrom),
+                dto.availableFrom === null ? null : new Date(dto.availableFrom),
             }
           : {}),
       },
@@ -856,7 +853,7 @@ export class PropertiesService {
     // Field agents are auto-assigned so they can operate immediately.
     // Gérants leave assignment open (they already operate via ADMIN role).
     const assignedAgentId =
-      membership!.role === OrgMemberRole.AGENT ? userId : null;
+      membership.role === OrgMemberRole.AGENT ? userId : null;
 
     return { ownerId, agencyOrganizationId, assignedAgentId };
   }

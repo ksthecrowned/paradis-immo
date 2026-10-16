@@ -406,7 +406,9 @@ export class AmendmentsService {
       currency: lease.currency,
     })
       .filter((entry) => entry.dueDate > effectiveFrom)
-      .filter((entry) => !keptDates.has(entry.dueDate.toISOString().slice(0, 10)));
+      .filter(
+        (entry) => !keptDates.has(entry.dueDate.toISOString().slice(0, 10)),
+      );
 
     if (planned.length === 0) return;
     await this.prisma.rentSchedule.createMany({
@@ -546,7 +548,10 @@ export class AmendmentsService {
 
   private async signingPhone(
     actorId: string,
-    lease: { invitedPhone: string | null; tenant: { phone: string | null } | null },
+    lease: {
+      invitedPhone: string | null;
+      tenant: { phone: string | null } | null;
+    },
     isTenant: boolean,
   ): Promise<string | null> {
     if (isTenant) return lease.tenant?.phone ?? lease.invitedPhone ?? null;
@@ -561,7 +566,9 @@ export class AmendmentsService {
     userId: string,
     leaseId: string,
   ): Promise<{ id: string; propertyId: string; tenantId: string | null }> {
-    const lease = await this.prisma.lease.findUnique({ where: { id: leaseId } });
+    const lease = await this.prisma.lease.findUnique({
+      where: { id: leaseId },
+    });
     if (!lease) {
       throw new NotFoundException({
         code: 'LEASE_NOT_FOUND',
@@ -575,7 +582,10 @@ export class AmendmentsService {
         select: { userId: true },
       })) !== null;
     if (!isTenant) {
-      await this.agencyAccess.assertCanOperateOnProperty(userId, lease.propertyId);
+      await this.agencyAccess.assertCanOperateOnProperty(
+        userId,
+        lease.propertyId,
+      );
     }
     return lease;
   }
@@ -638,7 +648,7 @@ export class AmendmentsService {
       id: amendment.id,
       leaseId: amendment.leaseId,
       version: amendment.version,
-      changes: (amendment.changes ?? {}) as AmendmentChanges,
+      changes: amendment.changes ?? {},
       effectiveFrom: amendment.effectiveFrom.toISOString(),
       reason: amendment.reason,
       tenantSignedAt: amendment.tenantSignedAt?.toISOString() ?? null,

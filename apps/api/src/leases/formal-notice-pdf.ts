@@ -42,11 +42,7 @@ export function renderFormalNoticePdf(
       .font('Helvetica-Bold')
       .fillColor('#111')
       .text('Mise en demeure de payer');
-    doc
-      .fontSize(10)
-      .font('Helvetica')
-      .fillColor('#666')
-      .text(input.agencyName);
+    doc.fontSize(10).font('Helvetica').fillColor('#666').text(input.agencyName);
 
     doc.moveDown(1.5);
     doc.fontSize(11).font('Helvetica').fillColor('#000');
@@ -81,7 +77,10 @@ export function renderFormalNoticePdf(
 
     for (const line of input.overdueLines) {
       const y = doc.y;
-      doc.text(formatDate(line.dueDate), 50, y, { continued: true, width: 110 });
+      doc.text(formatDate(line.dueDate), 50, y, {
+        continued: true,
+        width: 110,
+      });
       doc.text(`${line.amount} ${input.currency}`, 160, y, {
         continued: true,
         width: 90,
@@ -109,8 +108,14 @@ export function renderFormalNoticePdf(
 }
 
 function drawRow(doc: PDFKit.PDFDocument, label: string, value: string): void {
-  doc.fontSize(11).font('Helvetica-Bold').text(`${label} : `, { continued: true });
-  doc.font('Helvetica').fillColor('#000').text(value || '—');
+  doc
+    .fontSize(11)
+    .font('Helvetica-Bold')
+    .text(`${label} : `, { continued: true });
+  doc
+    .font('Helvetica')
+    .fillColor('#000')
+    .text(value || '—');
 }
 
 function formatDate(date: Date): string {

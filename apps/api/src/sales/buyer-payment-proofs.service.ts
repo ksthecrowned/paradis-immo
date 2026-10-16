@@ -43,10 +43,19 @@ export class BuyerPaymentProofsService {
     private readonly events: EventPublisher,
   ) {}
 
-  async create(managerUserId: string, saleAgreementId: string): Promise<PublicBuyerPaymentProof> {
-    const agreement = await this.loadOperableAgreement(managerUserId, saleAgreementId);
+  async create(
+    managerUserId: string,
+    saleAgreementId: string,
+  ): Promise<PublicBuyerPaymentProof> {
+    const agreement = await this.loadOperableAgreement(
+      managerUserId,
+      saleAgreementId,
+    );
     if (agreement.status === 'CANCELLED') {
-      throw new BadRequestException({ code: 'AGREEMENT_CANCELLED', message: 'Ce dossier est annulé' });
+      throw new BadRequestException({
+        code: 'AGREEMENT_CANCELLED',
+        message: 'Ce dossier est annulé',
+      });
     }
     if ((await this.countPaidPayments(agreement.buyerId)) < 1) {
       throw new BadRequestException({
@@ -77,7 +86,10 @@ export class BuyerPaymentProofsService {
         include: { organization: { select: { name: true } } },
       });
     } catch (error) {
-      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
         throw new ConflictException({
           code: 'PENDING_EXISTS',
           message: 'Une demande de preuve de paiements est déjà en attente',
@@ -95,13 +107,20 @@ export class BuyerPaymentProofsService {
     return this.serialize(row, { includeSnapshot: false });
   }
 
-  async respond(buyerUserId: string, proofId: string, accept: boolean): Promise<PublicBuyerPaymentProof> {
+  async respond(
+    buyerUserId: string,
+    proofId: string,
+    accept: boolean,
+  ): Promise<PublicBuyerPaymentProof> {
     const row = await this.prisma.buyerPaymentProof.findUnique({
       where: { id: proofId },
       include: { organization: { select: { name: true } } },
     });
     if (!row || row.buyerUserId !== buyerUserId) {
-      throw new NotFoundException({ code: 'BUYER_PAYMENT_PROOF_NOT_FOUND', message: 'Demande introuvable' });
+      throw new NotFoundException({
+        code: 'BUYER_PAYMENT_PROOF_NOT_FOUND',
+        message: 'Demande introuvable',
+      });
     }
     if (row.status !== BuyerPaymentProofStatus.PENDING) {
       throw new BadRequestException({
@@ -110,15 +129,21 @@ export class BuyerPaymentProofsService {
       });
     }
     const now = new Date();
-    const status = accept ? BuyerPaymentProofStatus.GRANTED : BuyerPaymentProofStatus.DENIED;
+    const status = accept
+      ? BuyerPaymentProofStatus.GRANTED
+      : BuyerPaymentProofStatus.DENIED;
     const snapshot = accept ? await this.buildSnapshot(buyerUserId) : undefined;
     const transition = await this.prisma.buyerPaymentProof.updateMany({
       where: { id: proofId, status: BuyerPaymentProofStatus.PENDING },
       data: {
         status,
-        snapshot: accept ? (snapshot as unknown as Prisma.InputJsonValue) : Prisma.JsonNull,
+        snapshot: accept
+          ? (snapshot as unknown as Prisma.InputJsonValue)
+          : Prisma.JsonNull,
         respondedAt: now,
-        expiresAt: accept ? new Date(now.getTime() + ACCESS_DAYS * MS_PER_DAY) : null,
+        expiresAt: accept
+          ? new Date(now.getTime() + ACCESS_DAYS * MS_PER_DAY)
+          : null,
       },
     });
     if (transition.count === 0) {
@@ -132,7 +157,10 @@ export class BuyerPaymentProofsService {
       include: { organization: { select: { name: true } } },
     });
     if (!updated) {
-      throw new NotFoundException({ code: 'BUYER_PAYMENT_PROOF_NOT_FOUND', message: 'Demande introuvable' });
+      throw new NotFoundException({
+        code: 'BUYER_PAYMENT_PROOF_NOT_FOUND',
+        message: 'Demande introuvable',
+      });
     }
     return this.serialize(updated, { includeSnapshot: accept });
   }
@@ -154,7 +182,10 @@ export class BuyerPaymentProofsService {
     return { eligible: true, reason: null };
   }
 
-  async latestForAgreement(managerUserId: string, saleAgreementId: string): Promise<PublicBuyerPaymentProof | null> {
+  async latestForAgreement(
+    managerUserId: string,
+    saleAgreementId: string,
+  ): Promise<PublicBuyerPaymentProof | null> {
     await this.loadOperableAgreement(managerUserId, saleAgreementId);
     let row = await this.prisma.buyerPaymentProof.findFirst({
       where: { saleAgreementId },
@@ -183,33 +214,54 @@ export class BuyerPaymentProofsService {
     ].map((row) => this.serialize(row, { includeSnapshot: false }));
   }
 
-  private async loadOperableAgreement(managerUserId: string, saleAgreementId: string) {
+  private async loadOperableAgreement(
+    managerUserId: string,
+    saleAgreementId: string,
+  ) {
     const agreement = await this.prisma.saleAgreement.findUnique({
       where: { id: saleAgreementId },
       include: { organization: { select: { id: true, name: true } } },
     });
     if (!agreement) {
-      throw new NotFoundException({ code: 'SALE_AGREEMENT_NOT_FOUND', message: 'Dossier introuvable' });
+      throw new NotFoundException({
+        code: 'SALE_AGREEMENT_NOT_FOUND',
+        message: 'Dossier introuvable',
+      });
     }
-    await this.agencyAccess.assertCanOperateOnProperty(managerUserId, agreement.propertyId);
+    await this.agencyAccess.assertCanOperateOnProperty(
+      managerUserId,
+      agreement.propertyId,
+    );
     return agreement;
   }
 
   private async countPaidPayments(buyerUserId: string): Promise<number> {
     const [rents, installments] = await Promise.all([
-      this.prisma.rentSchedule.count({ where: { status: 'PAID', lease: { tenantId: buyerUserId } } }),
-      this.prisma.saleInstallment.count({ where: { status: 'PAID', agreement: { buyerId: buyerUserId } } }),
+      this.prisma.rentSchedule.count({
+        where: { status: 'PAID', lease: { tenantId: buyerUserId } },
+      }),
+      this.prisma.saleInstallment.count({
+        where: { status: 'PAID', agreement: { buyerId: buyerUserId } },
+      }),
     ]);
     return rents + installments;
   }
 
-  async buildSnapshot(buyerUserId: string): Promise<BuyerPaymentProofSnapshotItem[]> {
+  async buildSnapshot(
+    buyerUserId: string,
+  ): Promise<BuyerPaymentProofSnapshotItem[]> {
     const [rents, installments] = await Promise.all([
       this.prisma.rentSchedule.findMany({
         where: { status: 'PAID', lease: { tenantId: buyerUserId } },
         orderBy: { dueDate: 'desc' },
         take: 10,
-        include: { payments: { include: { payment: { select: { status: true, validatedAt: true } } } } },
+        include: {
+          payments: {
+            include: {
+              payment: { select: { status: true, validatedAt: true } },
+            },
+          },
+        },
       }),
       this.prisma.saleInstallment.findMany({
         where: { status: 'PAID', agreement: { buyerId: buyerUserId } },
@@ -218,18 +270,40 @@ export class BuyerPaymentProofsService {
       }),
     ]);
     const rentItems = rents.map((item) => {
-      const validated = item.payments.find((a) => a.payment.status === PaymentStatus.VALIDATED);
-      return this.snapshotItem('RENT', item.dueDate, item.amount, item.currency, validated?.payment.validatedAt ?? item.createdAt);
+      const validated = item.payments.find(
+        (a) => a.payment.status === PaymentStatus.VALIDATED,
+      );
+      return this.snapshotItem(
+        'RENT',
+        item.dueDate,
+        item.amount,
+        item.currency,
+        validated?.payment.validatedAt ?? item.createdAt,
+      );
     });
-    const installmentItems = await Promise.all(installments.map(async (item) => {
-      const allocation = await this.prisma.paymentAllocation.findFirst({
-        where: { type: 'SALE_INSTALLMENT', refId: item.id, payment: { status: PaymentStatus.VALIDATED } },
-        orderBy: { createdAt: 'desc' },
-        include: { payment: { select: { validatedAt: true } } },
-      });
-      return this.snapshotItem('SALE_INSTALLMENT', item.dueDate, item.amount, item.currency, allocation?.payment.validatedAt ?? item.createdAt);
-    }));
-    return [...rentItems, ...installmentItems].sort((a, b) => b.dueDate.localeCompare(a.dueDate)).slice(0, 3);
+    const installmentItems = await Promise.all(
+      installments.map(async (item) => {
+        const allocation = await this.prisma.paymentAllocation.findFirst({
+          where: {
+            type: 'SALE_INSTALLMENT',
+            refId: item.id,
+            payment: { status: PaymentStatus.VALIDATED },
+          },
+          orderBy: { createdAt: 'desc' },
+          include: { payment: { select: { validatedAt: true } } },
+        });
+        return this.snapshotItem(
+          'SALE_INSTALLMENT',
+          item.dueDate,
+          item.amount,
+          item.currency,
+          allocation?.payment.validatedAt ?? item.createdAt,
+        );
+      }),
+    );
+    return [...rentItems, ...installmentItems]
+      .sort((a, b) => b.dueDate.localeCompare(a.dueDate))
+      .slice(0, 3);
   }
 
   private snapshotItem(
@@ -247,22 +321,38 @@ export class BuyerPaymentProofsService {
       paidAt: paidAt.toISOString(),
       amount: amount.toString(),
       currency,
-      daysLate: Math.max(0, Math.floor((paid.getTime() - due.getTime()) / MS_PER_DAY)),
+      daysLate: Math.max(
+        0,
+        Math.floor((paid.getTime() - due.getTime()) / MS_PER_DAY),
+      ),
     };
   }
 
-  private async expireIfNeeded<T extends { id: string; status: BuyerPaymentProofStatus; expiresAt: Date | null }>(row: T): Promise<T> {
-    if (row.status === BuyerPaymentProofStatus.GRANTED && row.expiresAt && row.expiresAt.getTime() < Date.now()) {
-      return await this.prisma.buyerPaymentProof.update({
+  private async expireIfNeeded<
+    T extends {
+      id: string;
+      status: BuyerPaymentProofStatus;
+      expiresAt: Date | null;
+    },
+  >(row: T): Promise<T> {
+    if (
+      row.status === BuyerPaymentProofStatus.GRANTED &&
+      row.expiresAt &&
+      row.expiresAt.getTime() < Date.now()
+    ) {
+      return (await this.prisma.buyerPaymentProof.update({
         where: { id: row.id },
         data: { status: BuyerPaymentProofStatus.EXPIRED },
         include: { organization: { select: { name: true } } },
-      }) as unknown as T;
+      })) as unknown as T;
     }
     return row;
   }
 
-  private serialize(row: any, opts: { includeSnapshot: boolean }): PublicBuyerPaymentProof {
+  private serialize(
+    row: any,
+    opts: { includeSnapshot: boolean },
+  ): PublicBuyerPaymentProof {
     return {
       id: row.id,
       saleAgreementId: row.saleAgreementId,
@@ -270,7 +360,10 @@ export class BuyerPaymentProofsService {
       requesterOrgId: row.requesterOrgId,
       organizationName: row.organization.name,
       status: row.status,
-      snapshot: opts.includeSnapshot && row.snapshot ? row.snapshot as BuyerPaymentProofSnapshotItem[] : null,
+      snapshot:
+        opts.includeSnapshot && row.snapshot
+          ? (row.snapshot as BuyerPaymentProofSnapshotItem[])
+          : null,
       respondedAt: row.respondedAt?.toISOString() ?? null,
       expiresAt: row.expiresAt?.toISOString() ?? null,
       createdAt: row.createdAt.toISOString(),
@@ -279,5 +372,7 @@ export class BuyerPaymentProofsService {
 }
 
 function startOfUtcDay(date: Date): Date {
-  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+  return new Date(
+    Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()),
+  );
 }

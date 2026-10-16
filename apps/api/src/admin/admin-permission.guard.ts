@@ -41,7 +41,9 @@ export interface PermissionDef {
 
 export const ADMIN_PERMISSION_KEY = 'adminPermission';
 
-export const AdminPermission = (permission: string): MethodDecorator & ClassDecorator => {
+export const AdminPermission = (
+  permission: string,
+): MethodDecorator & ClassDecorator => {
   return (
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     target: any,
@@ -73,18 +75,25 @@ export class AdminPermissionGuard implements CanActivate {
     const required = this.reflector.get<string>(ADMIN_PERMISSION_KEY, handler);
     const className = context.getClass().name ?? 'unknown';
     const handlerName = handler?.name ?? 'anonymous';
-    console.log('[AdminPermissionGuard] canActivate start', { className, handlerName, required });
+    console.log('[AdminPermissionGuard] canActivate start', {
+      className,
+      handlerName,
+      required,
+    });
     if (!required) {
-      console.log('[AdminPermissionGuard] pas de permission requise, on laisse passer');
+      console.log(
+        '[AdminPermissionGuard] pas de permission requise, on laisse passer',
+      );
       return true; // pas de permission taggée → RBAC existant
     }
 
-    const req = context.switchToHttp().getRequest() as {
-      user?: { userId?: string; roles?: string[] };
-    };
+    const req = context.switchToHttp().getRequest();
     const userId = req.user?.userId;
     if (!userId) {
-      throw new ForbiddenException({ code: 'NOT_AUTHENTICATED', message: 'Non authentifié' });
+      throw new ForbiddenException({
+        code: 'NOT_AUTHENTICATED',
+        message: 'Non authentifié',
+      });
     }
 
     // Fallback : un GLOBAL ROLE PLATFORM_ADMIN sans AdminProfile = SUPER_ADMIN
@@ -99,7 +108,9 @@ export class AdminPermissionGuard implements CanActivate {
         where: { id: userId },
         select: { roles: { select: { role: true } } },
       });
-      const isLegacyAdmin = user?.roles.some((r) => r.role === 'PLATFORM_ADMIN');
+      const isLegacyAdmin = user?.roles.some(
+        (r) => r.role === 'PLATFORM_ADMIN',
+      );
       role = isLegacyAdmin ? AdminRole.SUPER_ADMIN : undefined;
     }
     if (!role) {
@@ -120,7 +131,9 @@ export class AdminPermissionGuard implements CanActivate {
     // Finance routes require an enrolled TOTP profile and a fresh code on
     // every request; a missing/unconfirmed profile must not bypass 2FA.
     if (required.startsWith('finance.')) {
-      const headers = (req as { headers?: Record<string, string | string[] | undefined> }).headers ?? {};
+      const headers =
+        (req as { headers?: Record<string, string | string[] | undefined> })
+          .headers ?? {};
       const rawCode = headers['x-totp-code'];
       const code = (Array.isArray(rawCode) ? rawCode[0] : rawCode)?.trim();
       if (

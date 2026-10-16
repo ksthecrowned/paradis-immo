@@ -78,7 +78,9 @@ export class BookingsController {
   @Post('bookings')
   @UseGuards(AppAuthGuard)
   @HttpCode(201)
-  @ApiOperation({ summary: 'Create a short-stay booking (hold 15 min + devis)' })
+  @ApiOperation({
+    summary: 'Create a short-stay booking (hold 15 min + devis)',
+  })
   create(
     @CurrentUser() current: AuthenticatedUser,
     @Body() dto: CreateBookingDto,
@@ -122,7 +124,10 @@ export class BookingsController {
   @UseGuards(AppAuthGuard)
   @HttpCode(200)
   @ApiOperation({ summary: 'Cancel a booking (guest, politique 07)' })
-  cancelPost(@CurrentUser() current: AuthenticatedUser, @Param('id') id: string) {
+  cancelPost(
+    @CurrentUser() current: AuthenticatedUser,
+    @Param('id') id: string,
+  ) {
     return this.bookings.cancelBooking(current.userId, id);
   }
 
@@ -141,7 +146,7 @@ export class BookingsController {
   @Post('bookings/:id/host-cancel')
   @UseGuards(AppAuthGuard)
   @HttpCode(200)
-  @ApiOperation({ summary: "Annulation hôte (remboursement 100 %)" })
+  @ApiOperation({ summary: 'Annulation hôte (remboursement 100 %)' })
   hostCancel(
     @CurrentUser() current: AuthenticatedUser,
     @Param('id') id: string,
@@ -154,7 +159,7 @@ export class BookingsController {
   @Post('bookings/:id/accept')
   @UseGuards(AppAuthGuard)
   @HttpCode(200)
-  @ApiOperation({ summary: "Accepter une demande (REQUESTED → ACCEPTED)" })
+  @ApiOperation({ summary: 'Accepter une demande (REQUESTED → ACCEPTED)' })
   accept(@CurrentUser() current: AuthenticatedUser, @Param('id') id: string) {
     return this.bookings.acceptBooking(current.userId, id);
   }
@@ -163,7 +168,7 @@ export class BookingsController {
   @Post('bookings/:id/decline')
   @UseGuards(AppAuthGuard)
   @HttpCode(200)
-  @ApiOperation({ summary: "Refuser une demande (REQUESTED → DECLINED)" })
+  @ApiOperation({ summary: 'Refuser une demande (REQUESTED → DECLINED)' })
   decline(
     @CurrentUser() current: AuthenticatedUser,
     @Param('id') id: string,

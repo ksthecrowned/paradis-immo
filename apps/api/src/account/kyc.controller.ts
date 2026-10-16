@@ -51,8 +51,7 @@ export class KycController {
     @CurrentUser() current: AuthenticatedUser,
     @UploadedFile()
     file:
-      | { buffer: Buffer; originalname: string; mimetype: string }
-      | undefined,
+      { buffer: Buffer; originalname: string; mimetype: string } | undefined,
     @Body() meta: SubmitKycMetaDto,
   ) {
     if (!file?.buffer?.length) {

@@ -19,9 +19,7 @@ export interface StatementPdfInput {
  * owner (spec 03 US 13). The `net` shown here is computed from the same
  * ledger rows listed below it.
  */
-export function renderStatementPdf(
-  input: StatementPdfInput,
-): Promise<Buffer> {
+export function renderStatementPdf(input: StatementPdfInput): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({ size: 'A4', margin: 50 });
     const chunks: Buffer[] = [];

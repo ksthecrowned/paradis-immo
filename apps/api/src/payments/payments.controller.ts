@@ -28,7 +28,10 @@ import {
 import type { Request as ExpressRequest, Response } from 'express';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AppAuthGuard } from '../common/guards/auth.guard';
-import { AdminPermissionGuard, AdminPermission } from '../admin/admin-permission.guard';
+import {
+  AdminPermissionGuard,
+  AdminPermission,
+} from '../admin/admin-permission.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { ListPaymentsQueryDto } from './dto/list-payments-query.dto';
 import type { AuthenticatedUser } from '../common/decorators/current-user.decorator';
@@ -71,7 +74,8 @@ class InitiatePaymentDto {
 
 class QuoteQueryDto {
   @IsIn(['RENT_SCHEDULE', 'SALE_INSTALLMENT', 'BOOKING', 'VISIT_BOOKING'])
-  targetType!: 'RENT_SCHEDULE' | 'SALE_INSTALLMENT' | 'BOOKING' | 'VISIT_BOOKING';
+  targetType!:
+    'RENT_SCHEDULE' | 'SALE_INSTALLMENT' | 'BOOKING' | 'VISIT_BOOKING';
 
   @IsString()
   targetId!: string;
@@ -220,8 +224,7 @@ export class PaymentsController {
   @UseGuards(AppAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({
-    summary:
-      'List cash payments awaiting validation on managed properties',
+    summary: 'List cash payments awaiting validation on managed properties',
   })
   pendingValidation(@CurrentUser() current: AuthenticatedUser) {
     return this.payments.listPendingValidation(current.userId);
@@ -277,8 +280,15 @@ export class PaymentsController {
   @ApiOperation({
     summary: 'Quote a target: amount due, partial allowed, partial minimum',
   })
-  quote(@CurrentUser() current: AuthenticatedUser, @Query() query: QuoteQueryDto) {
-    return this.payments.quote(current.userId, query.targetType, query.targetId);
+  quote(
+    @CurrentUser() current: AuthenticatedUser,
+    @Query() query: QuoteQueryDto,
+  ) {
+    return this.payments.quote(
+      current.userId,
+      query.targetType,
+      query.targetId,
+    );
   }
 
   @Get('payments/:id/status')
@@ -367,10 +377,7 @@ export class PaymentsController {
   @UseGuards(AppAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get a payment by id' })
-  getOne(
-    @CurrentUser() current: AuthenticatedUser,
-    @Param('id') id: string,
-  ) {
+  getOne(@CurrentUser() current: AuthenticatedUser, @Param('id') id: string) {
     return this.payments.getOne(current.userId, id);
   }
 
@@ -380,10 +387,7 @@ export class PaymentsController {
   @ApiOperation({
     summary: 'Timeline du paiement : événements, remboursements, litiges',
   })
-  timeline(
-    @CurrentUser() current: AuthenticatedUser,
-    @Param('id') id: string,
-  ) {
+  timeline(@CurrentUser() current: AuthenticatedUser, @Param('id') id: string) {
     return this.payments.getTimeline(current.userId, id);
   }
 
@@ -410,7 +414,8 @@ export class PaymentsController {
     @Headers() headers: Record<string, string>,
   ) {
     const raw = (req.rawBody ?? '').toString();
-    const signature = headers['x-airtel-signature'] ?? headers['x-mobile-money-signature'];
+    const signature =
+      headers['x-airtel-signature'] ?? headers['x-mobile-money-signature'];
     return this.payments.handleProviderWebhook(
       'AIRTEL',
       raw,
@@ -429,7 +434,8 @@ export class PaymentsController {
     @Headers() headers: Record<string, string>,
   ) {
     const raw = (req.rawBody ?? '').toString();
-    const signature = headers['x-momo-signature'] ?? headers['x-mobile-money-signature'];
+    const signature =
+      headers['x-momo-signature'] ?? headers['x-mobile-money-signature'];
     return this.payments.handleProviderWebhook(
       'MOMO',
       raw,

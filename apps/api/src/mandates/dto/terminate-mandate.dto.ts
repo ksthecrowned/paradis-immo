@@ -1,4 +1,10 @@
-import { IsBoolean, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import {
+  IsBoolean,
+  IsOptional,
+  IsString,
+  MaxLength,
+  MinLength,
+} from 'class-validator';
 
 /** POST /mandates/:id/decline — agency gérant declines with a reason. */
 export class DeclineMandateDto {

@@ -74,10 +74,7 @@ export class ApplicationsController {
 
   @Delete(':id')
   @ApiOperation({ summary: 'Withdraw one of my applications' })
-  withdraw(
-    @CurrentUser() current: AuthenticatedUser,
-    @Param('id') id: string,
-  ) {
+  withdraw(@CurrentUser() current: AuthenticatedUser, @Param('id') id: string) {
     return this.applications.withdraw(current.userId, id);
   }
 
@@ -103,7 +100,9 @@ export class ApplicationsController {
 
   @Post(':id/lease')
   @HttpCode(201)
-  @ApiOperation({ summary: 'Create a DRAFT lease from an accepted application' })
+  @ApiOperation({
+    summary: 'Create a DRAFT lease from an accepted application',
+  })
   createLease(
     @CurrentUser() current: AuthenticatedUser,
     @Param('id') id: string,

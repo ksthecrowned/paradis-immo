@@ -4,11 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import {
-  PaymentStatus,
-  Prisma,
-  SolvencyCheckStatus,
-} from '@prisma/client';
+import { PaymentStatus, Prisma, SolvencyCheckStatus } from '@prisma/client';
 import { EventPublisher } from '../events/event.publisher';
 import { DOMAIN_EVENTS } from '../events/event.types';
 import { AgencyAccessService } from '../mandates/agency-access.service';
@@ -128,7 +124,7 @@ export class SolvencyChecksService {
 
     if (accept) {
       const items = await this.buildSnapshot(tenantUserId);
-      snapshot = items as unknown as Prisma.InputJsonValue;
+      snapshot = items;
       expiresAt = new Date(now.getTime() + ACCESS_DAYS * MS_PER_DAY);
       status = SolvencyCheckStatus.GRANTED;
     }
@@ -312,8 +308,7 @@ export class SolvencyChecksService {
       const validated = s.payments.find(
         (a) => a.payment.status === PaymentStatus.VALIDATED,
       );
-      const paidAt =
-        validated?.payment.validatedAt ?? s.createdAt;
+      const paidAt = validated?.payment.validatedAt ?? s.createdAt;
       const daysLate = Math.max(
         0,
         Math.floor(

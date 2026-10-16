@@ -122,9 +122,7 @@ export class MandateApprovalService {
         payload: input.payload as Prisma.InputJsonValue,
         status: ApprovalStatus.PENDING,
         requestedById: input.requestedByUserId,
-        expiresAt: new Date(
-          Date.now() + mandate.approvalTtlDays * 86_400_000,
-        ),
+        expiresAt: new Date(Date.now() + mandate.approvalTtlDays * 86_400_000),
         ...(input.sourceType ? { sourceType: input.sourceType } : {}),
         ...(input.sourceId ? { sourceId: input.sourceId } : {}),
       },
@@ -205,9 +203,7 @@ export class MandateApprovalService {
 
     // RENT_REDUCTION: build the avenant PDF first so its URL lands inside
     // the same transaction as the rent changes.
-    let avenant:
-      | { key: string; name: string }
-      | undefined;
+    let avenant: { key: string; name: string } | undefined;
     if (approve && approval.actionType === 'RENT_REDUCTION') {
       avenant = await this.buildAvenant(approval);
     }
@@ -218,9 +214,7 @@ export class MandateApprovalService {
       const row = await tx.mandateApproval.update({
         where: { id: approvalId },
         data: {
-          status: approve
-            ? ApprovalStatus.APPROVED
-            : ApprovalStatus.REJECTED,
+          status: approve ? ApprovalStatus.APPROVED : ApprovalStatus.REJECTED,
           decidedAt: new Date(),
           decidedBy: userId,
           ...(comment ? { comment } : {}),
@@ -321,7 +315,11 @@ export class MandateApprovalService {
         const leaseId = String(payload.leaseId ?? '');
         const newRent = Number(payload.newMonthlyRent ?? 0);
         const effectiveFrom = new Date(String(payload.effectiveFrom ?? ''));
-        if (!leaseId || !(newRent > 0) || Number.isNaN(effectiveFrom.getTime())) {
+        if (
+          !leaseId ||
+          !(newRent > 0) ||
+          Number.isNaN(effectiveFrom.getTime())
+        ) {
           throw new BadRequestException({
             code: 'INVALID_APPROVAL_PAYLOAD',
             message: `${approval.actionType} requires leaseId, newMonthlyRent and effectiveFrom`,
@@ -437,8 +435,9 @@ export class MandateApprovalService {
       }
 
       case 'SALE_OFFER_ACCEPT': {
-        const agreementId =
-          String(payload.agreementId ?? approval.sourceId ?? '');
+        const agreementId = String(
+          payload.agreementId ?? approval.sourceId ?? '',
+        );
         if (!agreementId) return;
         const agreement = await tx.saleAgreement.findUnique({
           where: { id: agreementId },
@@ -459,9 +458,7 @@ export class MandateApprovalService {
       }
 
       case 'EXPENSE': {
-        const expenseId = String(
-          payload.expenseId ?? approval.sourceId ?? '',
-        );
+        const expenseId = String(payload.expenseId ?? approval.sourceId ?? '');
         if (!expenseId) return;
         const expense = await tx.expense.findUnique({
           where: { id: expenseId },
@@ -636,8 +633,7 @@ export class MandateApprovalService {
         return;
       case 'RENT_REDUCTION':
       case 'RENT_INCREASE': {
-        if (!payload.leaseId)
-          fail(`${actionType} requires payload.leaseId`);
+        if (!payload.leaseId) fail(`${actionType} requires payload.leaseId`);
         if (!(Number(payload.newMonthlyRent) > 0))
           fail(`${actionType} requires payload.newMonthlyRent > 0`);
         const eff = new Date(String(payload.effectiveFrom ?? ''));
@@ -646,8 +642,7 @@ export class MandateApprovalService {
         return;
       }
       case 'MAJOR_REPAIR':
-        if (!payload.ticketId)
-          fail('MAJOR_REPAIR requires payload.ticketId');
+        if (!payload.ticketId) fail('MAJOR_REPAIR requires payload.ticketId');
         return;
       case 'SALE_PRICE':
         if (!(Number(payload.price) > 0))

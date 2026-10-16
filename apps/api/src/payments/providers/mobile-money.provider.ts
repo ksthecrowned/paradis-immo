@@ -70,10 +70,9 @@ function airtelConfig(): AirtelConfig | null {
   const clientSecret = env('AIRTEL_CLIENT_SECRET');
   if (!clientId || !clientSecret) return null;
   return {
-    baseUrl: (env('AIRTEL_BASE_URL') ?? 'https://openapiuat.airtel.africa').replace(
-      TRAILING_SLASH_RE,
-      '',
-    ),
+    baseUrl: (
+      env('AIRTEL_BASE_URL') ?? 'https://openapiuat.airtel.africa'
+    ).replace(TRAILING_SLASH_RE, ''),
     clientId,
     clientSecret,
     country: env('AIRTEL_COUNTRY') ?? 'CG',
@@ -97,15 +96,15 @@ function momoConfig(): MomoConfig | null {
   if (!subscriptionKey || !apiUser || !apiKey) return null;
   const targetEnvironment = env('MOMO_TARGET_ENVIRONMENT') ?? 'sandbox';
   return {
-    baseUrl: (env('MOMO_BASE_URL') ?? 'https://sandbox.momodeveloper.mtn.com').replace(
-      TRAILING_SLASH_RE,
-      '',
-    ),
+    baseUrl: (
+      env('MOMO_BASE_URL') ?? 'https://sandbox.momodeveloper.mtn.com'
+    ).replace(TRAILING_SLASH_RE, ''),
     targetEnvironment,
     subscriptionKey,
     apiUser,
     apiKey,
-    currency: env('MOMO_CURRENCY') ?? (targetEnvironment === 'sandbox' ? 'EUR' : 'XAF'),
+    currency:
+      env('MOMO_CURRENCY') ?? (targetEnvironment === 'sandbox' ? 'EUR' : 'XAF'),
   };
 }
 
@@ -116,7 +115,9 @@ function momoConfig(): MomoConfig | null {
 async function momoToken(config: MomoConfig): Promise<string> {
   const cached = cachedToken('MOMO');
   if (cached) return cached;
-  const basic = Buffer.from(`${config.apiUser}:${config.apiKey}`).toString('base64');
+  const basic = Buffer.from(`${config.apiUser}:${config.apiKey}`).toString(
+    'base64',
+  );
   const res = await fetch(`${config.baseUrl}/collection/token/`, {
     method: 'POST',
     headers: {
@@ -126,7 +127,10 @@ async function momoToken(config: MomoConfig): Promise<string> {
     signal: AbortSignal.timeout(HTTP_TIMEOUT_MS),
   });
   if (!res.ok) throw new MobileMoneyError(`MoMo token refusé (${res.status})`);
-  const data = (await res.json()) as { access_token: string; expires_in: number };
+  const data = (await res.json()) as {
+    access_token: string;
+    expires_in: number;
+  };
   tokens.set('MOMO', {
     value: data.access_token,
     expiresAt: Date.now() + data.expires_in * 1000,
@@ -147,7 +151,8 @@ async function airtelToken(config: AirtelConfig): Promise<string> {
     }),
     signal: AbortSignal.timeout(HTTP_TIMEOUT_MS),
   });
-  if (!res.ok) throw new MobileMoneyError(`Airtel token refusé (${res.status})`);
+  if (!res.ok)
+    throw new MobileMoneyError(`Airtel token refusé (${res.status})`);
   const data = (await res.json()) as {
     access_token: string;
     expires_in: number | string;
@@ -179,7 +184,13 @@ function toNational(phone: string): string {
 
 async function momoRequestToPay(
   config: MomoConfig,
-  input: { reference: string; externalId: string; amount: number; phone: string; callbackUrl?: string },
+  input: {
+    reference: string;
+    externalId: string;
+    amount: number;
+    phone: string;
+    callbackUrl?: string;
+  },
 ): Promise<void> {
   const headers: Record<string, string> = {
     Authorization: `Bearer ${await momoToken(config)}`,
@@ -208,16 +219,23 @@ async function momoRequestToPay(
   }
 }
 
-async function momoStatus(config: MomoConfig, reference: string): Promise<ProviderOutcome> {
-  const res = await fetch(`${config.baseUrl}/collection/v1_0/requesttopay/${reference}`, {
-    headers: {
-      Authorization: `Bearer ${await momoToken(config)}`,
-      'X-Target-Environment': config.targetEnvironment,
-      'Ocp-Apim-Subscription-Key': config.subscriptionKey,
+async function momoStatus(
+  config: MomoConfig,
+  reference: string,
+): Promise<ProviderOutcome> {
+  const res = await fetch(
+    `${config.baseUrl}/collection/v1_0/requesttopay/${reference}`,
+    {
+      headers: {
+        Authorization: `Bearer ${await momoToken(config)}`,
+        'X-Target-Environment': config.targetEnvironment,
+        'Ocp-Apim-Subscription-Key': config.subscriptionKey,
+      },
+      signal: AbortSignal.timeout(HTTP_TIMEOUT_MS),
     },
-    signal: AbortSignal.timeout(HTTP_TIMEOUT_MS),
-  });
-  if (!res.ok) throw new MobileMoneyError(`Statut MoMo indisponible (${res.status})`);
+  );
+  if (!res.ok)
+    throw new MobileMoneyError(`Statut MoMo indisponible (${res.status})`);
   const data = (await res.json()) as { status?: string };
   if (data.status === 'SUCCESSFUL') return 'VALIDATED';
   if (data.status === 'FAILED' || data.status === 'REJECTED') return 'FAILED';
@@ -227,7 +245,12 @@ async function momoStatus(config: MomoConfig, reference: string): Promise<Provid
 
 async function airtelRequestToPay(
   config: AirtelConfig,
-  input: { reference: string; externalId: string; amount: number; phone: string },
+  input: {
+    reference: string;
+    externalId: string;
+    amount: number;
+    phone: string;
+  },
 ): Promise<void> {
   const token = await airtelToken(config);
   const res = await fetch(`${config.baseUrl}/merchant/v1/payments/`, {
@@ -266,18 +289,25 @@ async function airtelRequestToPay(
   }
 }
 
-async function airtelStatus(config: AirtelConfig, reference: string): Promise<ProviderOutcome> {
+async function airtelStatus(
+  config: AirtelConfig,
+  reference: string,
+): Promise<ProviderOutcome> {
   const token = await airtelToken(config);
-  const res = await fetch(`${config.baseUrl}/standard/v1/payments/${reference}`, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'X-Country': config.country,
-      'X-Currency': config.currency,
-      Accept: '*/*',
+  const res = await fetch(
+    `${config.baseUrl}/standard/v1/payments/${reference}`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'X-Country': config.country,
+        'X-Currency': config.currency,
+        Accept: '*/*',
+      },
+      signal: AbortSignal.timeout(HTTP_TIMEOUT_MS),
     },
-    signal: AbortSignal.timeout(HTTP_TIMEOUT_MS),
-  });
-  if (!res.ok) throw new MobileMoneyError(`Statut Airtel indisponible (${res.status})`);
+  );
+  if (!res.ok)
+    throw new MobileMoneyError(`Statut Airtel indisponible (${res.status})`);
   const data = (await res.json()) as {
     data?: { transaction?: { status?: string } };
   };
@@ -306,7 +336,9 @@ export interface ParsedWebhook {
 export class MobileMoneyProvider {
   /** True when real operator credentials are configured for this provider. */
   isConfigured(provider: PaymentProviderName): boolean {
-    return provider === 'MOMO' ? momoConfig() !== null : airtelConfig() !== null;
+    return provider === 'MOMO'
+      ? momoConfig() !== null
+      : airtelConfig() !== null;
   }
 
   // -- Generic HMAC (legacy route + tests) ---------------------------------
@@ -336,28 +368,38 @@ export class MobileMoneyProvider {
     signature: string | undefined,
     ip: string | undefined,
   ): WebhookVerification {
-    const allowlist = env(provider === 'MOMO' ? 'MOMO_WEBHOOK_IPS' : 'AIRTEL_WEBHOOK_IPS');
+    const allowlist = env(
+      provider === 'MOMO' ? 'MOMO_WEBHOOK_IPS' : 'AIRTEL_WEBHOOK_IPS',
+    );
     if (allowlist) {
-      const allowed = allowlist.split(',').map((entry) => entry.trim()).filter(Boolean);
+      const allowed = allowlist
+        .split(',')
+        .map((entry) => entry.trim())
+        .filter(Boolean);
       if (!ip || !allowed.includes(ip)) {
         return { valid: false, reason: 'IP_NOT_ALLOWED' };
       }
     }
     const providerSecret =
-      env(provider === 'MOMO' ? 'MOMO_WEBHOOK_SECRET' : 'AIRTEL_WEBHOOK_SECRET') ??
-      this.secret;
+      env(
+        provider === 'MOMO' ? 'MOMO_WEBHOOK_SECRET' : 'AIRTEL_WEBHOOK_SECRET',
+      ) ?? this.secret;
     if (!signature) return { valid: false, reason: 'SIGNATURE_MISSING' };
     const expected = createHmac('sha256', providerSecret)
       .update(rawPayload)
       .digest('hex');
-    if (expected.length !== signature.length) return { valid: false, reason: 'BAD_SIGNATURE' };
+    if (expected.length !== signature.length)
+      return { valid: false, reason: 'BAD_SIGNATURE' };
     return timingSafeEqual(Buffer.from(expected), Buffer.from(signature))
       ? { valid: true, reason: null }
       : { valid: false, reason: 'BAD_SIGNATURE' };
   }
 
   /** Extracts (reference, outcome) from a provider-specific webhook payload. */
-  parseWebhook(provider: PaymentProviderName, rawPayload: string): ParsedWebhook {
+  parseWebhook(
+    provider: PaymentProviderName,
+    rawPayload: string,
+  ): ParsedWebhook {
     let body: Record<string, unknown> | null = null;
     try {
       body = JSON.parse(rawPayload) as Record<string, unknown>;
@@ -373,12 +415,17 @@ export class MobileMoneyProvider {
       return { providerRef: externalId, outcome: mapMomoStatus(status) };
     }
 
-    const transaction = (body?.transaction ?? null) as Record<string, unknown> | null;
+    const transaction = (body?.transaction ?? null) as Record<
+      string,
+      unknown
+    > | null;
     const id =
       (typeof transaction?.id === 'string' ? transaction.id : null) ??
       (typeof body?.id === 'string' ? body.id : null);
     const statusCode =
-      (typeof transaction?.status_code === 'string' ? transaction.status_code : null) ??
+      (typeof transaction?.status_code === 'string'
+        ? transaction.status_code
+        : null) ??
       (typeof transaction?.status === 'string' ? transaction.status : null);
     return { providerRef: id, outcome: mapAirtelStatus(statusCode) };
   }
@@ -462,12 +509,16 @@ export class MobileMoneyProvider {
    * Polls the operator. The stub always reports PENDING, which lets the
    * expiry cron close stale payments exactly like production does.
    */
-  async getStatus(provider: PaymentProviderName, reference: string): Promise<ProviderOutcome> {
+  async getStatus(
+    provider: PaymentProviderName,
+    reference: string,
+  ): Promise<ProviderOutcome> {
     const momo = momoConfig();
     const airtel = airtelConfig();
     try {
       if (provider === 'MOMO' && momo) return await momoStatus(momo, reference);
-      if (provider === 'AIRTEL' && airtel) return await airtelStatus(airtel, reference);
+      if (provider === 'AIRTEL' && airtel)
+        return await airtelStatus(airtel, reference);
     } catch {
       // Network / operator outage: keep the payment pending rather than
       // failing real money; the next poll or the webhook will decide.

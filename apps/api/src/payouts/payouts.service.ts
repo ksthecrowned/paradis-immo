@@ -179,7 +179,7 @@ export class PayoutsService {
     });
 
     let balance = new Prisma.Decimal(0);
-    let currency = rows[0]?.currency ?? 'XAF';
+    const currency = rows[0]?.currency ?? 'XAF';
     for (const row of rows) {
       balance = balance.add(row.amount);
     }
@@ -294,9 +294,7 @@ export class PayoutsService {
    * (mobile money se terminant par 9999, compte bancaire se terminant par
    * 0000) échoue : l'échec n'est jamais retenté automatiquement.
    */
-  async executePayout(
-    payout: PayoutWithAccount,
-  ): Promise<PayoutPublic> {
+  async executePayout(payout: PayoutWithAccount): Promise<PayoutPublic> {
     const processing = await this.prisma.payout.update({
       where: { id: payout.id },
       data: { status: PayoutStatus.PROCESSING },
@@ -563,7 +561,8 @@ export class PayoutsService {
         data: {
           organizationId: orgId,
           type: input.type,
-          provider: input.type === 'MOBILE_MONEY' ? (input.provider ?? null) : null,
+          provider:
+            input.type === 'MOBILE_MONEY' ? (input.provider ?? null) : null,
           phone: input.type === 'MOBILE_MONEY' ? (input.phone ?? null) : null,
           bankName: input.type === 'BANK' ? (input.bankName ?? null) : null,
           accountNumber:
@@ -694,7 +693,10 @@ export class PayoutsService {
   async updateSettings(
     userId: string,
     orgId: string,
-    input: { payoutFrequency?: 'MONTHLY' | 'ON_DEMAND'; minPayoutAmount?: number },
+    input: {
+      payoutFrequency?: 'MONTHLY' | 'ON_DEMAND';
+      minPayoutAmount?: number;
+    },
   ): Promise<{ payoutFrequency: string; minPayoutAmount: string }> {
     await this.assertCanManageAccounts(userId, orgId);
     const org = await this.prisma.organization.update({

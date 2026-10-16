@@ -1,8 +1,9 @@
 'use client';
 
 import {
+  adaptSummaryColumns,
   DashboardMarketProperties,
-  DataTable,
+  ListDataTable,
   PropertyModeChart,
   RevenueChart,
   StatCard,
@@ -149,10 +150,11 @@ export function OwnerDashboard({
       <DashboardMarketProperties role="owner" />
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        <DataTable
+        <ListDataTable
           title="Dernières demandes de visite"
           viewAllHref={ROUTES.owner.visits}
-          columns={[
+          compact
+          columns={adaptSummaryColumns<OwnerVisitRow>([
             {
               key: 'id',
               header: 'Réf.',
@@ -180,15 +182,16 @@ export function OwnerDashboard({
                 />
               ),
             },
-          ]}
-          rows={visits}
+          ])}
+          data={visits}
           emptyMessage="Aucune demande de visite"
         />
 
-        <DataTable
+        <ListDataTable
           title="Derniers paiements"
           viewAllHref={ROUTES.owner.payments}
-          columns={[
+          compact
+          columns={adaptSummaryColumns<OwnerPaymentRow>([
             {
               key: 'id',
               header: 'Réf.',
@@ -216,8 +219,8 @@ export function OwnerDashboard({
                 />
               ),
             },
-          ]}
-          rows={payments}
+          ])}
+          data={payments}
           emptyMessage="Aucun paiement récent"
         />
       </div>

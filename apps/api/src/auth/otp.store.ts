@@ -207,7 +207,11 @@ export class OtpStore {
     // verification can answer OTP_LOCKED rather than OTP_NOT_FOUND.
     const locked = Boolean(row.lockedUntil && row.lockedUntil > new Date());
     if (row.expiresAt < new Date() && !locked) return null;
-    return { code: row.code, attempts: row.attempts, purpose: toPurpose(row.purpose) };
+    return {
+      code: row.code,
+      attempts: row.attempts,
+      purpose: toPurpose(row.purpose),
+    };
   }
 
   /**

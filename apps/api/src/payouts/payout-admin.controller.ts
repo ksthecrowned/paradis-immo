@@ -1,5 +1,8 @@
 import { Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
-import { AdminPermissionGuard, AdminPermission } from '../admin/admin-permission.guard';
+import {
+  AdminPermissionGuard,
+  AdminPermission,
+} from '../admin/admin-permission.guard';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AppAuthGuard } from '../common/guards/auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';

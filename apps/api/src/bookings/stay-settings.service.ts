@@ -52,20 +52,27 @@ export class StaySettingsService {
       data.baseNightlyRate = num(input.baseNightlyRate);
     if (input.weekendNightlyRate !== undefined)
       data.weekendNightlyRate =
-        input.weekendNightlyRate === null ? null : num(input.weekendNightlyRate);
+        input.weekendNightlyRate === null
+          ? null
+          : num(input.weekendNightlyRate);
     if (input.weeklyDiscount !== undefined)
       data.weeklyDiscount =
         input.weeklyDiscount === null ? null : num(input.weeklyDiscount);
     if (input.monthlyDiscount !== undefined)
       data.monthlyDiscount =
         input.monthlyDiscount === null ? null : num(input.monthlyDiscount);
-    if (input.cleaningFee !== undefined) data.cleaningFee = num(input.cleaningFee);
-    if (input.baseGuests !== undefined) data.baseGuests = input.baseGuests as number;
-    if (input.maxGuests !== undefined) data.maxGuests = input.maxGuests as number;
+    if (input.cleaningFee !== undefined)
+      data.cleaningFee = num(input.cleaningFee);
+    if (input.baseGuests !== undefined)
+      data.baseGuests = input.baseGuests as number;
+    if (input.maxGuests !== undefined)
+      data.maxGuests = input.maxGuests as number;
     if (input.extraGuestFee !== undefined)
       data.extraGuestFee = num(input.extraGuestFee);
-    if (input.minNights !== undefined) data.minNights = input.minNights as number;
-    if (input.maxNights !== undefined) data.maxNights = input.maxNights as number;
+    if (input.minNights !== undefined)
+      data.minNights = input.minNights as number;
+    if (input.maxNights !== undefined)
+      data.maxNights = input.maxNights as number;
     if (input.advanceNoticeHours !== undefined)
       data.advanceNoticeHours = input.advanceNoticeHours as number;
     if (input.bookingWindowDays !== undefined)
@@ -83,9 +90,9 @@ export class StaySettingsService {
     if (input.checkOutBefore !== undefined)
       data.checkOutBefore = input.checkOutBefore as string;
     if (input.houseRules !== undefined)
-      data.houseRules = (input.houseRules as string | null) ?? null;
+      data.houseRules = input.houseRules ?? null;
     if (input.arrivalInstructions !== undefined)
-      data.arrivalInstructions = (input.arrivalInstructions as string | null) ?? null;
+      data.arrivalInstructions = input.arrivalInstructions ?? null;
     if (input.serviceFeeRate !== undefined)
       data.serviceFeeRate = num(input.serviceFeeRate);
 
@@ -170,7 +177,9 @@ export class StaySettingsService {
         startDate: input.startDate,
         endDate: input.endDate,
         nightlyRate: new Decimal(input.nightlyRate),
-        ...(input.minNights !== undefined ? { minNights: input.minNights } : {}),
+        ...(input.minNights !== undefined
+          ? { minNights: input.minNights }
+          : {}),
         ...(input.label !== undefined ? { label: input.label } : {}),
       },
     });
@@ -230,7 +239,9 @@ export class StaySettingsService {
         ...(input.nightlyRate !== undefined
           ? { nightlyRate: new Decimal(input.nightlyRate) }
           : {}),
-        ...(input.minNights !== undefined ? { minNights: input.minNights } : {}),
+        ...(input.minNights !== undefined
+          ? { minNights: input.minNights }
+          : {}),
         ...(input.label !== undefined ? { label: input.label } : {}),
       },
     });
@@ -270,7 +281,8 @@ export class StaySettingsService {
     if (property.mode !== 'RENT_SHORT') {
       throw new BadRequestException({
         code: 'STAY_MODE_NOT_ALLOWED',
-        message: 'Les paramètres de séjour ne concernent que les biens RENT_SHORT',
+        message:
+          'Les paramètres de séjour ne concernent que les biens RENT_SHORT',
       });
     }
   }

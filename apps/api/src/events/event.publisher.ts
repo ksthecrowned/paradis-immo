@@ -1,11 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { randomUUID } from 'node:crypto';
-import {
-  DomainEvent,
-  DomainEventName,
-  EventPayloadOf,
-} from './event.types';
+import { DomainEvent, DomainEventName, EventPayloadOf } from './event.types';
 
 @Injectable()
 export class EventPublisher {
@@ -28,9 +24,7 @@ export class EventPublisher {
       emittedAt: new Date().toISOString(),
     };
     const listeners = this.emitter.listeners(name);
-    this.logger.debug(
-      `Emitting ${name} to ${listeners.length} listener(s)`,
-    );
+    this.logger.debug(`Emitting ${name} to ${listeners.length} listener(s)`);
     await this.emitter.emitAsync(name, event);
     return { id: randomUUID(), name };
   }

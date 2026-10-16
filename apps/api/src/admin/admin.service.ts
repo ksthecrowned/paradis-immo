@@ -1,8 +1,9 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import {
-  PropertyReportStatus,
-  PropertyStatus,
-} from '@prisma/client';
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { PropertyReportStatus, PropertyStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { EventPublisher } from '../events/event.publisher';
 import { DOMAIN_EVENTS } from '../events/event.types';
@@ -22,6 +23,7 @@ export interface AdminUserRow {
   id: string;
   phone: string | null;
   name: string | null;
+  avatarUrl: string | null;
   countryId: string;
   roles: string[];
   createdAt: string;
@@ -30,6 +32,19 @@ export interface AdminUserRow {
 export interface AdminUserListResult {
   data: AdminUserRow[];
   meta: { total: number; page: number; pageSize: number };
+}
+
+export interface AdminModerationPropertyRow {
+  id: string;
+  title: string;
+  mode: string;
+  status: PropertyStatus;
+  ownerId: string;
+  owner: {
+    id: string;
+    name: string | null;
+    avatarUrl: string | null;
+  };
 }
 
 export interface AdminReportRow {
@@ -133,6 +148,7 @@ export class AdminService {
           id: true,
           phone: true,
           name: true,
+          avatarUrl: true,
           countryId: true,
           createdAt: true,
           roles: { select: { role: true } },
@@ -144,11 +160,50 @@ export class AdminService {
         id: u.id,
         phone: u.phone,
         name: u.name,
+        avatarUrl: u.avatarUrl,
         countryId: u.countryId,
         roles: u.roles.map((r) => r.role),
         createdAt: u.createdAt.toISOString(),
       })),
       meta: { total, page, pageSize },
+    };
+  }
+
+  async listPropertiesForModeration(
+    limit: number,
+  ): Promise<{ data: AdminModerationPropertyRow[]; total: number }> {
+    const [properties, total] = await Promise.all([
+      this.prisma.property.findMany({
+        orderBy: { createdAt: 'desc' },
+        take: limit,
+        select: {
+          id: true,
+          title: true,
+          mode: true,
+          status: true,
+          ownerId: true,
+        },
+      }),
+      this.prisma.property.count(),
+    ]);
+    const owners = await this.prisma.user.findMany({
+      where: {
+        id: { in: [...new Set(properties.map(({ ownerId }) => ownerId))] },
+      },
+      select: { id: true, name: true, avatarUrl: true },
+    });
+    const ownersById = new Map(owners.map((owner) => [owner.id, owner]));
+
+    return {
+      data: properties.map((property) => ({
+        ...property,
+        owner: ownersById.get(property.ownerId) ?? {
+          id: property.ownerId,
+          name: null,
+          avatarUrl: null,
+        },
+      })),
+      total,
     };
   }
 

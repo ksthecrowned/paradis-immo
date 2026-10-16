@@ -133,7 +133,7 @@ export class SaleOffersService {
           ? { installmentsCount: input.installmentsCount }
           : {}),
         ...(input.conditions ? { conditions: input.conditions } : {}),
-       validUntil: new Date(
+        validUntil: new Date(
           Date.now() + (input.validDays ?? DEFAULT_VALID_DAYS) * 86_400_000,
         ),
         status: SaleOfferStatus.SUBMITTED,
@@ -277,7 +277,7 @@ export class SaleOffersService {
       },
     });
 
-    let status = SaleOfferStatus.FORWARDED;
+    const status = SaleOfferStatus.FORWARDED;
     let approvalId: string | null = null;
 
     if (mandate) {
@@ -292,23 +292,22 @@ export class SaleOffersService {
       // L'agent ne peut pas accepter seul au-dessus du seuil sans
       // `agentCanAcceptAboveMin`; une approbation est requise.
       if (aboveMin && !agentCanAccept) {
-        const approval =
-          await this.prisma.mandateApproval.create({
-            data: {
-              mandateId: mandate.id,
-              actionType: MandateActionType.SALE_OFFER_ACCEPT,
-              payload: {
-                offerId: offer.id,
-                price: offer.price.toString(),
-                buyerId: offer.buyerId,
-              },
-              status: 'PENDING',
-              requestedById: userId,
-              sourceType: 'SALE_OFFER',
-              sourceId: offer.id,
-              expiresAt: new Date(Date.now() + 7 * 86_400_000),
+        const approval = await this.prisma.mandateApproval.create({
+          data: {
+            mandateId: mandate.id,
+            actionType: MandateActionType.SALE_OFFER_ACCEPT,
+            payload: {
+              offerId: offer.id,
+              price: offer.price.toString(),
+              buyerId: offer.buyerId,
             },
-          });
+            status: 'PENDING',
+            requestedById: userId,
+            sourceType: 'SALE_OFFER',
+            sourceId: offer.id,
+            expiresAt: new Date(Date.now() + 7 * 86_400_000),
+          },
+        });
         approvalId = approval.id;
       }
     }
@@ -386,7 +385,8 @@ export class SaleOffersService {
       if (approval && approval.status === 'PENDING') {
         throw new BadRequestException({
           code: 'APPROVAL_REQUIRED',
-          message: "Une approbation du propriétaire est requise pour cette offre",
+          message:
+            'Une approbation du propriétaire est requise pour cette offre',
         });
       }
     }
@@ -400,7 +400,10 @@ export class SaleOffersService {
         where: {
           propertyId: offer.propertyId,
           status: SaleOfferStatus.ACCEPTED,
-          id: { not: offer.id, notIn: offer.parentOfferId ? [offer.parentOfferId] : [] },
+          id: {
+            not: offer.id,
+            notIn: offer.parentOfferId ? [offer.parentOfferId] : [],
+          },
         },
         select: { id: true },
       });
@@ -454,7 +457,12 @@ export class SaleOffersService {
   async draftAgreement(
     offerId: string,
     userId: string,
-  ): Promise<{ saleAgreementId: string; price: string; depositAmount: string | null; installmentsCount: number | null }> {
+  ): Promise<{
+    saleAgreementId: string;
+    price: string;
+    depositAmount: string | null;
+    installmentsCount: number | null;
+  }> {
     const offer = await this.prisma.saleOffer.findUnique({
       where: { id: offerId },
     });
@@ -478,7 +486,11 @@ export class SaleOffersService {
       });
     }
     const existing = await this.prisma.saleAgreement.findFirst({
-      where: { propertyId: offer.propertyId, buyerId: offer.buyerId, status: { not: 'CANCELLED' } },
+      where: {
+        propertyId: offer.propertyId,
+        buyerId: offer.buyerId,
+        status: { not: 'CANCELLED' },
+      },
       select: { id: true },
     });
     if (existing) {
@@ -608,7 +620,11 @@ export class SaleOffersService {
     }
     const updated = await this.prisma.saleOffer.update({
       where: { id: offer.id },
-      data: { status: SaleOfferStatus.WITHDRAWN, decidedById: userId, decidedAt: new Date() },
+      data: {
+        status: SaleOfferStatus.WITHDRAWN,
+        decidedById: userId,
+        decidedAt: new Date(),
+      },
     });
     return this.toPublic(updated);
   }
@@ -623,9 +639,7 @@ export class SaleOffersService {
   ): Promise<PublicSaleOffer[]> {
     const canManage = await this.canManageSale(userId, propertyId);
     const rows = await this.prisma.saleOffer.findMany({
-      where: canManage
-        ? { propertyId }
-        : { propertyId, buyerId: userId },
+      where: canManage ? { propertyId } : { propertyId, buyerId: userId },
       orderBy: { createdAt: 'desc' },
     });
     return rows.map((r) => this.toPublic(r));
@@ -735,7 +749,13 @@ export class SaleOffersService {
     deposit: string | null,
     count: number,
     currency: string,
-  ): Array<{ label: string; dueDate: Date; amount: Prisma.Decimal; currency: string; position: number }> {
+  ): Array<{
+    label: string;
+    dueDate: Date;
+    amount: Prisma.Decimal;
+    currency: string;
+    position: number;
+  }> {
     const depositAmount = deposit ? Number(deposit) : 0;
     const remaining = Number(price) - depositAmount;
     const perInstallment = Math.round(remaining / count);

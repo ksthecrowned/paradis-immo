@@ -1,13 +1,22 @@
 import { apiFetch } from '@/lib/api';
-import type { PublicProperty, PropertyStatus } from '@/lib/owner/properties';
+import type { PropertyStatus } from '@/lib/owner/properties';
+
+export interface ModerationPropertyRow {
+  id: string;
+  title: string;
+  mode: string;
+  status: PropertyStatus;
+  ownerId: string;
+  owner: { id: string; name: string | null; avatarUrl: string | null };
+}
 
 export async function listPropertiesForModeration(
   limit = 100,
-): Promise<PublicProperty[]> {
+): Promise<ModerationPropertyRow[]> {
   const result = await apiFetch<{
-    data: PublicProperty[];
+    data: ModerationPropertyRow[];
     meta: { total: number; limit: number; offset: number };
-  }>(`/properties?limit=${limit}`, { anonymous: true });
+  }>(`/admin/properties/moderation?limit=${limit}`);
   return result.data ?? [];
 }
 

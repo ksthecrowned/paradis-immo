@@ -24,19 +24,13 @@ export class SaleAgreementPaymentProofsController {
   @Post()
   @HttpCode(201)
   @ApiOperation({ summary: 'Request buyer payment proof for a sale agreement' })
-  create(
-    @CurrentUser() current: AuthenticatedUser,
-    @Param('id') id: string,
-  ) {
+  create(@CurrentUser() current: AuthenticatedUser, @Param('id') id: string) {
     return this.proofs.create(current.userId, id);
   }
 
   @Get('latest')
   @ApiOperation({ summary: 'Latest payment proof for this sale agreement' })
-  latest(
-    @CurrentUser() current: AuthenticatedUser,
-    @Param('id') id: string,
-  ) {
+  latest(@CurrentUser() current: AuthenticatedUser, @Param('id') id: string) {
     return this.proofs.latestForAgreement(current.userId, id);
   }
 

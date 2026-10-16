@@ -93,7 +93,10 @@ export class DepositsService {
   ) {}
 
   /** Spec 04 — deposit state of a lease: collected amount, deductions, refund. */
-  async getSummary(userId: string, leaseId: string): Promise<PublicDepositSummary> {
+  async getSummary(
+    userId: string,
+    leaseId: string,
+  ): Promise<PublicDepositSummary> {
     const lease = await this.requireLease(leaseId);
     await this.assertCanReadLease(userId, lease);
     return this.buildSummary(lease);
@@ -197,9 +200,7 @@ export class DepositsService {
             'A manager can only accept a deduction (status ACCEPTED); contesting is reserved to the tenant',
         });
       }
-      if (
-        deduction.status === DepositDeductionStatus.ACCEPTED
-      ) {
+      if (deduction.status === DepositDeductionStatus.ACCEPTED) {
         throw new ConflictException({
           code: 'DEPOSIT_DEDUCTION_ALREADY_ACCEPTED',
           message: 'This deduction is already accepted',
@@ -209,8 +210,7 @@ export class DepositsService {
       if (input.status !== DepositDeductionStatus.CONTESTED) {
         throw new ForbiddenException({
           code: 'DEPOSIT_DEDUCTION_STATUS_FORBIDDEN',
-          message:
-            'A tenant can only contest a deduction (status CONTESTED)',
+          message: 'A tenant can only contest a deduction (status CONTESTED)',
         });
       }
       if (!input.tenantComment || input.tenantComment.trim().length < 3) {
@@ -283,7 +283,10 @@ export class DepositsService {
       throw new ConflictException({
         code: 'DEPOSIT_ALREADY_SETTLED',
         message: 'The deposit of this lease is already settled',
-        details: { settlementId: existing.id, refundAmount: existing.refundAmount.toString() },
+        details: {
+          settlementId: existing.id,
+          refundAmount: existing.refundAmount.toString(),
+        },
       });
     }
 
@@ -298,79 +301,83 @@ export class DepositsService {
     const refund = held.minus(accepted);
     const now = new Date();
 
-    const { settlement, payout } = await this.prisma.$transaction(async (tx) => {
-      const created = await tx.depositSettlement.create({
-        data: {
-          leaseId,
-          heldAmount: held,
-          deducted: accepted,
-          refundAmount: refund,
-          contestUntil: new Date(now.getTime() + DEPOSIT_CONTEST_DAYS * 86_400_000),
-          settledAt: now,
-        },
-      });
-
-      let payoutId: string | null = null;
-      if (refund.gt(new Prisma.Decimal(0)) && lease.tenantId) {
-        const payment = await tx.payment.create({
+    const { settlement, payout } = await this.prisma.$transaction(
+      async (tx) => {
+        const created = await tx.depositSettlement.create({
           data: {
-            userId: lease.tenantId,
-            amount: refund,
-            currency: input.currency ?? lease.currency,
-            method: (input.method ?? PaymentMethod.CASH) as PaymentMethod,
-            status: PaymentStatus.PENDING_VALIDATION,
-            reference: `deposit-refund-${created.id}`,
-            idempotencyKey: `deposit-refund-${created.id}`,
-            metadata: {
-              type: 'DEPOSIT_REFUND',
-              settlementId: created.id,
-              leaseId,
-              note: input.note ?? null,
-            } as Prisma.InputJsonValue,
+            leaseId,
+            heldAmount: held,
+            deducted: accepted,
+            refundAmount: refund,
+            contestUntil: new Date(
+              now.getTime() + DEPOSIT_CONTEST_DAYS * 86_400_000,
+            ),
+            settledAt: now,
           },
         });
-        payoutId = payment.id;
-      }
 
-      await tx.depositSettlement.update({
-        where: { id: created.id },
-        data: { payoutId },
-      });
+        let payoutId: string | null = null;
+        if (refund.gt(new Prisma.Decimal(0)) && lease.tenantId) {
+          const payment = await tx.payment.create({
+            data: {
+              userId: lease.tenantId,
+              amount: refund,
+              currency: input.currency ?? lease.currency,
+              method: input.method ?? PaymentMethod.CASH,
+              status: PaymentStatus.PENDING_VALIDATION,
+              reference: `deposit-refund-${created.id}`,
+              idempotencyKey: `deposit-refund-${created.id}`,
+              metadata: {
+                type: 'DEPOSIT_REFUND',
+                settlementId: created.id,
+                leaseId,
+                note: input.note ?? null,
+              },
+            },
+          });
+          payoutId = payment.id;
+        }
 
-      const mandate = await tx.mandate.findFirst({
-        where: {
-          propertyId: lease.propertyId,
-          OR: [
-            { status: 'ACTIVE' },
-            { status: 'TERMINATING', terminationEffectiveAt: { gt: now } },
-          ],
-        },
-        select: { id: true, organizationId: true },
-      });
-      if (refund.gt(new Prisma.Decimal(0))) {
-        // Spec 04 — the refund leaves the owner's books as a negative entry.
-        await tx.ledgerEntry.create({
-          data: {
+        await tx.depositSettlement.update({
+          where: { id: created.id },
+          data: { payoutId },
+        });
+
+        const mandate = await tx.mandate.findFirst({
+          where: {
             propertyId: lease.propertyId,
-            mandateId: mandate?.id ?? null,
-            ownerOrgId: lease.property.organizationId,
-            agencyOrgId: mandate?.organizationId ?? null,
-            type: 'DEPOSIT_OUT',
-            amount: refund.neg(),
-            currency: input.currency ?? lease.currency,
-            sourceType: 'DEPOSIT_SETTLEMENT',
-            sourceId: created.id,
-            label: `Restitution de caution — ${lease.property.title}`,
-            occurredAt: now,
+            OR: [
+              { status: 'ACTIVE' },
+              { status: 'TERMINATING', terminationEffectiveAt: { gt: now } },
+            ],
           },
+          select: { id: true, organizationId: true },
         });
-      }
+        if (refund.gt(new Prisma.Decimal(0))) {
+          // Spec 04 — the refund leaves the owner's books as a negative entry.
+          await tx.ledgerEntry.create({
+            data: {
+              propertyId: lease.propertyId,
+              mandateId: mandate?.id ?? null,
+              ownerOrgId: lease.property.organizationId,
+              agencyOrgId: mandate?.organizationId ?? null,
+              type: 'DEPOSIT_OUT',
+              amount: refund.neg(),
+              currency: input.currency ?? lease.currency,
+              sourceType: 'DEPOSIT_SETTLEMENT',
+              sourceId: created.id,
+              label: `Restitution de caution — ${lease.property.title}`,
+              occurredAt: now,
+            },
+          });
+        }
 
-      return {
-        settlement: { ...created, payoutId },
-        payout: payoutId,
-      };
-    });
+        return {
+          settlement: { ...created, payoutId },
+          payout: payoutId,
+        };
+      },
+    );
 
     await this.events.emit(DOMAIN_EVENTS.DEPOSIT_SETTLED, {
       leaseId,
@@ -467,7 +474,9 @@ export class DepositsService {
         where: { leaseId: lease.id },
         orderBy: { createdAt: 'desc' },
       }),
-      this.prisma.depositSettlement.findUnique({ where: { leaseId: lease.id } }),
+      this.prisma.depositSettlement.findUnique({
+        where: { leaseId: lease.id },
+      }),
     ]);
 
     const deducted = deductions
@@ -479,7 +488,8 @@ export class DepositsService {
 
     const exitAt =
       lease.terminatedAt ?? lease.terminationEffectiveAt ?? lease.endDate;
-    const closing = lease.status === LeaseStatus.TERMINATING ||
+    const closing =
+      lease.status === LeaseStatus.TERMINATING ||
       lease.status === LeaseStatus.TERMINATED;
 
     return {
@@ -627,6 +637,9 @@ export class DepositsService {
     ) {
       return;
     }
-    await this.agencyAccess.assertCanOperateOnProperty(userId, lease.propertyId);
+    await this.agencyAccess.assertCanOperateOnProperty(
+      userId,
+      lease.propertyId,
+    );
   }
 }

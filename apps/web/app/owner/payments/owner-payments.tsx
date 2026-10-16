@@ -131,8 +131,8 @@ export function OwnerPaymentsPage(): React.JSX.Element {
 
   const sortedRows: RowsState = useMemo(() => {
     return [...searched].sort((a, b) => {
-      const av = String((a as any)[sortKey as keyof PublicPayment] ?? '');
-      const bv = String((b as any)[sortKey as keyof PublicPayment] ?? '');
+      const av = String(a[sortKey as keyof PublicPayment] ?? '');
+      const bv = String(b[sortKey as keyof PublicPayment] ?? '');
       if (sortKey === 'createdAt' || sortKey === 'validatedAt') {
         return sortDir === 'asc'
           ? new Date(av).getTime() - new Date(bv).getTime()

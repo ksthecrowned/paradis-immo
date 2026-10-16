@@ -1,7 +1,20 @@
 'use client';
 
 import { DashIcon } from '@/components/dash-icon';
-import { memo, useCallback, useMemo, useState } from 'react';
+import {
+  Children,
+  Fragment,
+  isValidElement,
+  memo,
+  useCallback,
+  useMemo,
+  useState,
+} from 'react';
+import Link from 'next/link';
+import {
+  TableActionMenu,
+  type TableActionMenuItem,
+} from './table-action-menu';
 
 export interface ListColumn<T> {
   id?: string;
@@ -17,9 +30,31 @@ export interface ListColumn<T> {
   className?: string;
 }
 
+export interface SummaryTableColumn<T> {
+  key: keyof T | string;
+  header: string;
+  render: (row: T) => React.ReactNode;
+  className?: string;
+}
+
+export function adaptSummaryColumns<T extends object>(
+  columns: SummaryTableColumn<T>[],
+): ListColumn<T>[] {
+  return columns.map(({ header, render, ...column }) => ({
+    ...column,
+    label: header,
+    render: (_value, row) => render(row),
+  }));
+}
+
 export interface ListDataTableProps<T extends object> {
   data: T[];
   columns: ListColumn<T>[];
+  title?: string;
+  subtitle?: string;
+  viewAllHref?: string;
+  viewAllLabel?: string;
+  compact?: boolean;
   searchPlaceholder?: string;
   pageSize?: number;
   emptyMessage?: React.ReactNode;
@@ -108,6 +143,138 @@ function rowMatchesSearch<T extends object>(
 
 const MAX_CELL_TEXT_LENGTH = 48;
 
+interface NativeActionProps {
+  children?: React.ReactNode;
+  href?: string;
+  onClick?: (event: React.MouseEvent<HTMLElement>) => void;
+  disabled?: boolean;
+  title?: string;
+  'aria-label'?: string;
+}
+
+interface NativeTableAction {
+  label: string;
+  href?: string;
+  onSelect?: (event: React.MouseEvent<HTMLButtonElement>) => void;
+  disabled?: boolean;
+}
+
+function actionLabel(node: React.ReactNode): string {
+  return Children.toArray(node)
+    .map((child) => {
+      if (typeof child === 'string' || typeof child === 'number') {
+        return String(child);
+      }
+      if (isValidElement<{ children?: React.ReactNode }>(child)) {
+        return actionLabel(child.props.children);
+      }
+      return '';
+    })
+    .join(' ')
+    .replace(/[→←]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function actionIcon(label: string): string {
+  const normalized = label.toLocaleLowerCase('fr');
+  if (/voir|détail|consulter/.test(normalized)) return 'solar:eye-linear';
+  if (/modifier|éditer/.test(normalized)) return 'solar:pen-linear';
+  if (/supprimer|retirer/.test(normalized)) return 'solar:trash-bin-trash-linear';
+  if (/archiver/.test(normalized)) return 'solar:archive-linear';
+  if (/refuser|annuler/.test(normalized)) return 'solar:close-circle-linear';
+  if (/valider|activer|approuver|confirmer/.test(normalized)) return 'solar:check-circle-linear';
+  if (/pause|suspendre/.test(normalized)) return 'solar:pause-circle-linear';
+  if (/paiement|payer|rembourser/.test(normalized)) return 'solar:wallet-money-linear';
+  if (/télécharger|exporter/.test(normalized)) return 'solar:download-linear';
+  if (/visite|rendez-vous/.test(normalized)) return 'solar:calendar-linear';
+  if (/ouvrir|dossier/.test(normalized)) return 'solar:folder-open-linear';
+  return 'solar:bolt-linear';
+}
+
+function collectTableActions(
+  node: React.ReactNode,
+  actions: NativeTableAction[],
+  passthrough: React.ReactNode[],
+): void {
+  Children.forEach(node, (child) => {
+    if (!isValidElement<NativeActionProps>(child)) {
+      if (child !== null && child !== undefined && child !== false) {
+        passthrough.push(child);
+      }
+      return;
+    }
+
+    if (child.type === Fragment || child.type === 'div') {
+      collectTableActions(child.props.children, actions, passthrough);
+      return;
+    }
+
+    if (child.type !== 'button' && child.type !== Link) {
+      passthrough.push(child);
+      return;
+    }
+
+    const props = child.props;
+    const label =
+      props['aria-label']?.trim() || props.title?.trim() || actionLabel(props.children);
+    if (!label) {
+      passthrough.push(child);
+      return;
+    }
+    actions.push({
+      label,
+      ...(typeof props.href === 'string' ? { href: props.href } : {}),
+      ...(props.onClick
+        ? {
+            onSelect: (event) => props.onClick?.(event),
+          }
+        : {}),
+      ...(typeof props.disabled === 'boolean'
+        ? { disabled: props.disabled }
+        : {}),
+    });
+  });
+}
+
+function renderTableActions(node: React.ReactNode): React.ReactNode {
+  const actions: NativeTableAction[] = [];
+  const passthrough: React.ReactNode[] = [];
+  collectTableActions(node, actions, passthrough);
+
+  const viewAction = actions.find(
+    (action) =>
+      action.href &&
+      /^(voir|détails?|consulter)$/i.test(action.label.trim()),
+  );
+  const menuItems: TableActionMenuItem[] = actions
+    .filter((action) => action !== viewAction)
+    .map((action) => ({
+      label: action.label,
+      icon: actionIcon(action.label),
+      ...(action.href ? { href: action.href } : {}),
+      ...(action.onSelect ? { onSelect: action.onSelect } : {}),
+      ...(action.disabled ? { disabled: true } : {}),
+      ...(/supprimer|retirer|archiver|refuser|annuler/i.test(action.label)
+        ? { destructive: true }
+        : {}),
+    }));
+
+  return (
+    <>
+      {viewAction || menuItems.length > 0 ? (
+        <TableActionMenu
+          {...(viewAction?.href
+            ? { viewHref: viewAction.href, viewLabel: viewAction.label }
+            : {})}
+          items={menuItems}
+        />
+      ) : null}
+      {passthrough}
+    </>
+  );
+}
+
 function normalizeCellValue(value: unknown): string {
   if (value === null || value === undefined) return '—';
   if (typeof value === 'string') return value.trim();
@@ -147,7 +314,7 @@ const TableCell = memo(function TableCell<T extends object>({
     return (
       <td
         key={`${col.id ?? String(col.key)}-${rowIndex}-${colIndex}`}
-        className={`max-w-[260px] overflow-hidden p-3 text-sm text-foreground ${col.className ?? ''}`}
+        className={`max-w-[260px] overflow-hidden p-3 text-sm font-normal text-foreground [&_a]:text-foreground [&_a]:no-underline [&_*]:text-sm [&_*]:font-normal ${col.className ?? ''}`}
       >
         <span
           className="block truncate"
@@ -166,7 +333,7 @@ const TableCell = memo(function TableCell<T extends object>({
   return (
     <td
       key={`${col.id ?? String(col.key)}-${rowIndex}-${colIndex}`}
-      className={`max-w-[260px] overflow-hidden p-3 text-sm text-foreground ${col.className ?? ''}`}
+      className={`max-w-[260px] overflow-hidden p-3 text-sm font-normal text-foreground [&_a]:text-foreground [&_a]:no-underline [&_*]:text-sm [&_*]:font-normal ${col.className ?? ''}`}
     >
       <span className="block truncate" title={shouldTruncate ? rawText : undefined}>
         {truncateCellValue(rawValue)}
@@ -220,13 +387,13 @@ const TableRow = memo(function TableRow<T extends object>({
         />
       ))}
       {actions ? (
-        <td className="whitespace-nowrap p-3 text-end text-sm font-medium">
+        <td className="whitespace-nowrap p-3 text-end text-sm font-normal">
           {/* Stop propagation so row-level click does not fire when acting on a row action. */}
           <div
             className="inline-flex gap-x-2"
             onClick={(event) => event.stopPropagation()}
           >
-            {actions(row)}
+            {renderTableActions(actions(row))}
           </div>
         </td>
       ) : null}
@@ -237,6 +404,11 @@ const TableRow = memo(function TableRow<T extends object>({
 export function ListDataTable<T extends object>({
   data,
   columns,
+  title,
+  subtitle,
+  viewAllHref,
+  viewAllLabel = 'Voir tout',
+  compact = false,
   searchPlaceholder = 'Recherche…',
   pageSize: pageSizeProp = 20,
   emptyMessage = 'Aucune donnée disponible.',
@@ -276,6 +448,7 @@ export function ListDataTable<T extends object>({
   const controlledSortKey = sortKey ?? internalSortKey;
   const controlledSortDir = sortDir ?? internalSortDir;
   const pageSize = serverSide ? pageSizeProp : internalPageSize;
+  const searchValue = search ?? internalSearch;
   const setSortKey = (next: string | null) => setInternalSortKey(next);
   const setSortDir = (next: 'asc' | 'desc') => setInternalSortDir(next);
 
@@ -305,27 +478,29 @@ export function ListDataTable<T extends object>({
   );
 
   const filtered = useMemo(() => {
-    if (!enableClientFilters) {
+    if (!enableClientFilters && !searchValue) {
       return data;
     }
 
     let rows = data;
-    if (internalSearch) {
-      const q = internalSearch.toLowerCase();
+    if (searchValue) {
+      const q = searchValue.toLowerCase();
       rows = rows.filter((row) => rowMatchesSearch(row, columns, q));
     }
-    Object.entries(colFilters).forEach(([key, value]) => {
-      if (!value) return;
-      const column = columns.find((col) => String(col.key) === key);
-      rows = rows.filter((row) => {
-        const text = column
-          ? getColumnFilterText(column, row)
-          : String(getRowFieldValue(row, key) ?? '');
-        return text.toLowerCase().includes(value.toLowerCase());
+    if (enableClientFilters) {
+      Object.entries(colFilters).forEach(([key, value]) => {
+        if (!value) return;
+        const column = columns.find((col) => String(col.key) === key);
+        rows = rows.filter((row) => {
+          const text = column
+            ? getColumnFilterText(column, row)
+            : String(getRowFieldValue(row, key) ?? '');
+          return text.toLowerCase().includes(value.toLowerCase());
+        });
       });
-    });
+    }
     return rows;
-  }, [columns, data, enableClientFilters, internalSearch, colFilters]);
+  }, [columns, data, enableClientFilters, searchValue, colFilters]);
 
   const sorted = useMemo(() => {
     if (!controlledSortKey) return filtered;
@@ -343,9 +518,12 @@ export function ListDataTable<T extends object>({
     });
   }, [filtered, controlledSortKey, controlledSortDir]);
 
-  const rowCount = serverSide ? (totalCount ?? 0) : sorted.length;
-  const totalPages =
-    serverSide && totalPagesProp != null
+  const searchingLoadedPage = serverSide && Boolean(searchValue);
+  const rowCount =
+    serverSide && !searchingLoadedPage ? (totalCount ?? 0) : sorted.length;
+  const totalPages = searchingLoadedPage
+    ? 1
+    : serverSide && totalPagesProp != null
       ? Math.max(1, totalPagesProp)
       : Math.max(1, Math.ceil(rowCount / pageSize) || 1);
   const paginated = serverSide
@@ -415,19 +593,43 @@ export function ListDataTable<T extends object>({
     'inline-flex items-center gap-x-2 rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground shadow-sm transition-colors hover:bg-card-hover focus:outline-none';
 
   return (
-    <div className="mx-auto flex w-full flex-col rounded-lg border border-border bg-card shadow-sm">
-      <div className="rounded-xl px-3 py-4 md:py-5">
-        <div className="mb-4 flex items-center space-x-2" data-testid="table-top">
-          {enableClientFilters ? (
+    <div className="mx-auto flex w-full flex-col rounded-xl border border-border bg-card shadow-sm">
+      {title ? (
+        <div className="flex items-center justify-between gap-3 border-b border-border px-5 py-4">
+          <div>
+            <h3 className="text-base font-semibold text-heading">{title}</h3>
+            {subtitle ? (
+              <p className="mt-0.5 text-xs text-muted">{subtitle}</p>
+            ) : null}
+          </div>
+          {viewAllHref ? (
+            <Link
+              href={viewAllHref}
+              className="whitespace-nowrap rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted transition-colors hover:border-accent/40 hover:text-foreground"
+            >
+              {viewAllLabel}
+            </Link>
+          ) : null}
+        </div>
+      ) : null}
+      <div className="px-3 py-4 md:py-5">
+        {!compact && (
+          <div className="mb-4 flex items-center space-x-2" data-testid="table-top">
             <div className="flex-1">
               <div className="relative max-w-xs">
-                <label htmlFor="list-table-search" className="sr-only">Recherche</label>
+                <label htmlFor={`${tableId}-search`} className="sr-only">
+                  Recherche
+                </label>
                 <input
-                  id="list-table-search"
-                  type="text"
-                  value={internalSearch}
+                  id={`${tableId}-search`}
+                  type="search"
+                  value={searchValue}
                   onChange={(e) => {
-                    setInternalSearch(e.target.value);
+                    if (onSearchChange) {
+                      onSearchChange(e.target.value);
+                    } else {
+                      setInternalSearch(e.target.value);
+                    }
                     setPage(1);
                   }}
                   className="block w-full rounded-lg border border-input-border bg-search py-2 ps-9 pe-3 text-sm text-foreground shadow-sm placeholder:text-placeholder focus:border-accent focus:ring-2 focus:ring-accent/30 focus:outline-none"
@@ -441,79 +643,90 @@ export function ListDataTable<T extends object>({
                 </div>
               </div>
             </div>
-          ) : null}
-          <div
-            className={
-              enableClientFilters
-                ? 'flex flex-1 items-center justify-end space-x-2'
-                : 'flex items-center justify-end space-x-2'
-            }
-          >
-            <button
-      type="button"
-      onClick={() => {
-        setInternalSearch('');
-        setColFilters({});
-        setPage(1);
-        onRefresh?.();
-      }}
-              className={toolbarBtn}
-              aria-label="Actualiser"
+            <div
+              className={
+                enableClientFilters
+                  ? 'flex flex-1 items-center justify-end space-x-2'
+                  : 'flex items-center justify-end space-x-2'
+              }
             >
-              <DashIcon icon="solar:refresh-linear" className="size-4" />
-            </button>
-            <select
-              value={pageSize}
-              onChange={(e) => {
-                setPageSize(Number(e.target.value));
-                if (!serverSide) {
-                  setPage(1);
-                }
-              }}
-              aria-label="Lignes par page"
-              className="rounded-lg border border-border bg-card py-2 pe-8 ps-3 text-sm text-foreground shadow-sm hover:bg-card-hover focus:border-accent focus:outline-none"
-            >
-              {[10, 15, 20, 25, 50].map((n) => (
-                <option key={n} value={n}>
-                  {n}
-                </option>
-              ))}
-            </select>
-            <div className="relative">
               <button
                 type="button"
-                onClick={() => setShowExport((o) => !o)}
                 className={toolbarBtn}
-                data-testid="export-btn"
+                aria-label="Actualiser"
+                onClick={() => {
+                  setInternalSearch('');
+                  onSearchChange?.('');
+                  setColFilters({});
+                  setPage(1);
+                  onRefresh?.();
+                }}
               >
-                <DashIcon icon="solar:export-linear" className="size-4 shrink-0" />
-                <DashIcon icon="solar:alt-arrow-down-linear" className="size-4" />
-              </button>              {showExport ? (
-                <>
-                  <div
-                    className="fixed inset-0 z-40"
-                    onClick={() => setShowExport(false)}
+                <DashIcon icon="solar:refresh-linear" className="size-4" />
+              </button>
+              <select
+                value={pageSize}
+                onChange={(e) => {
+                  setPageSize(Number(e.target.value));
+                  if (!serverSide) {
+                    setPage(1);
+                  }
+                }}
+                aria-label="Lignes par page"
+                className="rounded-lg border border-border bg-card py-2 pe-8 ps-3 text-sm text-foreground shadow-sm hover:bg-card-hover focus:border-accent focus:outline-none"
+              >
+                {[10, 15, 20, 25, 50].map((n) => (
+                  <option key={n} value={n}>
+                    {n}
+                  </option>
+                ))}
+              </select>
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setShowExport((o) => !o)}
+                  className={toolbarBtn}
+                  data-testid="export-btn"
+                >
+                  <DashIcon
+                    icon="solar:export-linear"
+                    className="size-4 shrink-0"
                   />
-                  <div className="absolute inset-e-0 top-full z-50 mt-2 w-36 rounded-lg border border-border bg-card shadow-xl">
-                    <div className="space-y-0.5 p-1">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          exportCSV();
-                          setShowExport(false);
-                        }}
-                        className="flex w-full items-center gap-x-2 rounded-lg px-3 py-2 text-sm text-foreground hover:bg-card-hover"
-                      >
-                        <DashIcon icon="solar:file-text-linear" className="size-4" />
-                        CSV
-                      </button>
+                  <DashIcon
+                    icon="solar:alt-arrow-down-linear"
+                    className="size-4"
+                  />
+                </button>
+                {showExport ? (
+                  <>
+                    <div
+                      className="fixed inset-0 z-40"
+                      onClick={() => setShowExport(false)}
+                    />
+                    <div className="absolute inset-e-0 top-full z-50 mt-2 w-36 rounded-lg border border-border bg-card shadow-xl">
+                      <div className="space-y-0.5 p-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            exportCSV();
+                            setShowExport(false);
+                          }}
+                          className="flex w-full items-center gap-x-2 rounded-lg px-3 py-2 text-sm text-foreground hover:bg-card-hover"
+                        >
+                          <DashIcon
+                            icon="solar:file-text-linear"
+                            className="size-4"
+                          />
+                          CSV
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                </>
-              ) : null}
+                  </>
+                ) : null}
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
         <div className="overflow-x-auto">
           <div className="inline-block min-w-full align-middle">
@@ -526,7 +739,7 @@ export function ListDataTable<T extends object>({
                       <th
                         key={`${col.id ?? String(col.key)}-${colIndex}`}
                         scope="col"
-                        className="group py-1 text-start font-normal focus:outline-none"
+                        className="group py-1 text-start text-sm font-normal focus:outline-none"
                       >
                         {enableClientFilters && col.filterable ? (
                           <div className="flex items-center">
@@ -611,11 +824,12 @@ export function ListDataTable<T extends object>({
                               ) : null}
                             </div>
                           </div>
-                        ) : (  <div
-            className={`inline-flex items-center rounded-md border border-transparent px-2.5 py-1 text-muted hover:border-border ${col.sortable ? 'cursor-pointer select-none' : ''}`}
-            onClick={() =>
-              col.sortable && handleSort(String(col.key))
-            }
+                        ) : (
+                          <div
+                            className={`inline-flex items-center rounded-md border border-transparent px-2.5 py-1 text-muted hover:border-border ${col.sortable ? 'cursor-pointer select-none' : ''}`}
+                            onClick={() =>
+                              col.sortable && handleSort(String(col.key))
+                            }
                           >
                             {col.label}
                             {col.sortable ? (
@@ -667,10 +881,11 @@ export function ListDataTable<T extends object>({
                       return (
                         <TableRow
                           key={i}
-                          row={row}      columns={columns}
-      rowIndex={i}
-      actions={actions}
-      onRowClick={onRowClick}
+                          row={row}
+                          columns={columns}
+                          rowIndex={i}
+                          actions={actions}
+                          onRowClick={onRowClick}
                           isSelected={isSelected}
                           rowIdKey={rowIdKey}
                         />
@@ -683,58 +898,64 @@ export function ListDataTable<T extends object>({
           </div>
         </div>
 
-        <div className="mt-4 flex items-center">
-          <div className="flex items-center space-x-1">
-            <button
-              type="button"
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              disabled={page === 1}
-              className="inline-flex min-w-[40px] items-center justify-center rounded-full p-2.5 text-sm text-foreground hover:bg-card-hover disabled:pointer-events-none disabled:opacity-50"
-            >
-              «
-            </button>
-            {pageItems.map((item, index) =>
-              item === 'ellipsis' ? (
-                <span
-                  key={`ellipsis-${index}`}
-                  className="px-1 text-sm text-muted"
-                >
-                  …
-                </span>
-              ) : (
-                <button
-                  key={item}
-                  type="button"
-                  onClick={() => setPage(item)}
-                  className={`inline-flex min-w-[40px] items-center justify-center rounded-full p-2.5 text-sm ${
-                    item === page
-                      ? 'bg-accent/10 text-accent font-medium'
-                      : 'text-foreground hover:bg-card-hover'
-                  }`}
-                >
-                  {item}
-                </button>
-              ),
-            )}
-            <button
-              type="button"
-              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              disabled={page === totalPages}
-              className="inline-flex min-w-[40px] items-center justify-center rounded-full p-2.5 text-sm text-foreground hover:bg-card-hover disabled:pointer-events-none disabled:opacity-50"
-            >
-              »
-            </button>
+        {!compact && (
+          <div className="mt-4 flex items-center">
+            <div className="flex items-center space-x-1">
+              <button
+                type="button"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page === 1}
+                className="inline-flex min-w-[40px] items-center justify-center rounded-full p-2.5 text-sm text-foreground hover:bg-card-hover disabled:pointer-events-none disabled:opacity-50"
+              >
+                «
+              </button>
+              {pageItems.map((item, index) =>
+                item === 'ellipsis' ? (
+                  <span
+                    key={`ellipsis-${index}`}
+                    className="px-1 text-sm text-muted"
+                  >
+                    …
+                  </span>
+                ) : (
+                  <button
+                    key={item}
+                    type="button"
+                    onClick={() => setPage(item)}
+                    className={`inline-flex min-w-[40px] items-center justify-center rounded-full p-2.5 text-sm ${
+                      item === page
+                        ? 'bg-accent/10 text-accent font-medium'
+                        : 'text-foreground hover:bg-card-hover'
+                    }`}
+                  >
+                    {item}
+                  </button>
+                ),
+              )}
+              <button
+                type="button"
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages}
+                className="inline-flex min-w-[40px] items-center justify-center rounded-full p-2.5 text-sm text-foreground hover:bg-card-hover disabled:pointer-events-none disabled:opacity-50"
+              >
+                »
+              </button>
+            </div>
+            <div className="ms-auto text-xs text-muted">
+              Page <span className="font-semibold text-foreground">{page}</span>{' '}
+              sur{' '}
+              <span className="font-semibold text-foreground">
+                {totalPages}
+              </span>
+              {' · '}
+              Affichage{' '}
+              <span className="font-semibold text-foreground">{from}</span>–
+              <span className="font-semibold text-foreground">{to}</span> sur{' '}
+              <span className="font-semibold text-foreground">{rowCount}</span>{' '}
+              {entityLabel}
+            </div>
           </div>
-          <div className="ms-auto text-xs text-muted">
-            Page <span className="font-semibold text-foreground">{page}</span> sur{' '}
-            <span className="font-semibold text-foreground">{totalPages}</span>
-            {' · '}
-            Affichage <span className="font-semibold text-foreground">{from}</span>–
-            <span className="font-semibold text-foreground">{to}</span> sur{' '}
-            <span className="font-semibold text-foreground">{rowCount}</span>{' '}
-            {entityLabel}
-          </div>
-        </div>
+        )}
       </div>
     </div>
   );

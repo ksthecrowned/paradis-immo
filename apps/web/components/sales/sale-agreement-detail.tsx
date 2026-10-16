@@ -72,6 +72,13 @@ export function SaleAgreementDetailPage({
   const [paymentProofBusy, setPaymentProofBusy] = useState(false);
   const [paymentProofHint, setPaymentProofHint] = useState<string | null>(null);
   const [canRequestProof, setCanRequestProof] = useState(true);
+  // Date.now() ne peut pas être appelé pendant le rendu (pureté) : on
+  // l'horodateur est figé en état juste après le rendu initial.
+  const [nowMs, setNowMs] = useState<number | null>(null);
+
+  useEffect(() => {
+    void Promise.resolve().then(() => setNowMs(Date.now()));
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -300,7 +307,8 @@ export function SaleAgreementDetailPage({
             paymentProof.status === 'EXPIRED' ||
             (paymentProof.status === 'GRANTED' &&
               (!paymentProof.expiresAt ||
-                new Date(paymentProof.expiresAt).getTime() <= Date.now())) ? (
+                new Date(paymentProof.expiresAt).getTime() <=
+                (nowMs ?? Number.NEGATIVE_INFINITY))) ? (
               <Button
                 type="button"
                 variant="secondary"
@@ -337,7 +345,8 @@ export function SaleAgreementDetailPage({
           {paymentProof?.status === 'GRANTED' &&
           paymentProof.snapshot &&
           paymentProof.expiresAt &&
-          new Date(paymentProof.expiresAt).getTime() > Date.now() ? (
+          new Date(paymentProof.expiresAt).getTime() >
+          (nowMs ?? Number.NEGATIVE_INFINITY) ? (
             <div className="space-y-2">
               <p className="text-sm text-muted">
                 Expire le {formatDate(paymentProof.expiresAt)}

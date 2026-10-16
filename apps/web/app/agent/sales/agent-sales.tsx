@@ -5,6 +5,7 @@ import {
   DashboardPageHeader,
   ListDataTable,
   StatusBadge,
+  UserIdentity,
   type ListColumn,
 } from '@/components/dashboard';
 import { ApiError } from '@/lib/api';
@@ -104,9 +105,12 @@ export function AgentSalesPage(): React.JSX.Element {
       {
         key: 'userId',
         label: 'Acheteur',
-        className: 'hidden sm:table-cell',
-        render: (value) => (
-          <span className="font-mono text-xs text-muted">{String(value).slice(0, 8)}…</span>
+        render: (_value, row) => (
+          <UserIdentity
+            name={row.buyer?.name}
+            avatarUrl={row.buyer?.avatarUrl}
+            fallbackName="Acheteur"
+          />
         ),
       },
       {

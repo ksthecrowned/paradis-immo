@@ -1,8 +1,9 @@
 'use client';
 
 import {
+  adaptSummaryColumns,
   DashboardMarketProperties,
-  DataTable,
+  ListDataTable,
   PropertyModeChart,
   RevenueChart,
   StatCard,
@@ -145,10 +146,11 @@ export function AgentDashboard({
       <DashboardMarketProperties role="agent" />
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        <DataTable
+        <ListDataTable
           title="Visites du jour"
           viewAllHref={ROUTES.agent.visits}
-          columns={[
+          compact
+          columns={adaptSummaryColumns<AgentVisitRow>([
             { key: 'time', header: 'Heure', render: (row) => row.time },
             {
               key: 'property',
@@ -169,15 +171,16 @@ export function AgentDashboard({
                 />
               ),
             },
-          ]}
-          rows={visits}
+          ])}
+          data={visits}
           emptyMessage="Aucune visite aujourd'hui"
         />
 
-        <DataTable
+        <ListDataTable
           title="Paiements espèces"
           viewAllHref={ROUTES.agent.paymentsValidation}
-          columns={[
+          compact
+          columns={adaptSummaryColumns<AgentPaymentRow>([
             {
               key: 'id',
               header: 'Réf.',
@@ -208,8 +211,8 @@ export function AgentDashboard({
                 />
               ),
             },
-          ]}
-          rows={payments}
+          ])}
+          data={payments}
           emptyMessage="Aucun paiement à valider"
         />
       </div>

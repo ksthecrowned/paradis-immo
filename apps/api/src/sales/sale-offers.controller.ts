@@ -1,11 +1,4 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Param,
-  Post,
-  UseGuards,
-} from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
 import {
   IsIn,
   IsInt,
@@ -27,15 +20,21 @@ import { SaleOffersService } from './sale-offers.service';
 export class CreateSaleOfferDto {
   @Type(() => Number) @IsNumber() @Min(1) price!: number;
   @IsIn(['CASH', 'INSTALLMENTS', 'BANK_LOAN']) financing:
-    | 'CASH'
-    | 'INSTALLMENTS'
-    | 'BANK_LOAN' = 'CASH';
+    'CASH' | 'INSTALLMENTS' | 'BANK_LOAN' = 'CASH';
   @IsOptional() @Type(() => Number) @IsNumber() @Min(1) depositAmount?: number;
-  @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(120)
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(120)
   installmentsCount?: number;
   @IsOptional() @IsString() @MaxLength(500) conditions?: string;
   /** Validité en jours (défaut 7, spec 08). */
-  @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(30)
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(30)
   validDays?: number;
 }
 
@@ -67,7 +66,8 @@ export class SaleOffersPropertyController {
 
   @Get()
   @ApiOperation({
-    summary: 'Offres du bien (gestionnaire/owner = fil complet ; acheteur = ses offres)',
+    summary:
+      'Offres du bien (gestionnaire/owner = fil complet ; acheteur = ses offres)',
   })
   list(
     @CurrentUser() current: AuthenticatedUser,
@@ -103,13 +103,17 @@ export class SaleOffersActionsController {
   }
 
   @Post(':id/accept')
-  @ApiOperation({ summary: "Accepter l'offre → bien UNDER_OFFER, autres rejetées" })
+  @ApiOperation({
+    summary: "Accepter l'offre → bien UNDER_OFFER, autres rejetées",
+  })
   accept(@CurrentUser() current: AuthenticatedUser, @Param('id') id: string) {
     return this.offers.accept(id, current.userId);
   }
 
   @Post(':id/reject')
-  @ApiOperation({ summary: "Refuser l'offre (côté vente ou acheteur sur contre-offre)" })
+  @ApiOperation({
+    summary: "Refuser l'offre (côté vente ou acheteur sur contre-offre)",
+  })
   reject(
     @CurrentUser() current: AuthenticatedUser,
     @Param('id') id: string,
@@ -119,7 +123,7 @@ export class SaleOffersActionsController {
   }
 
   @Post(':id/counter')
-  @ApiOperation({ summary: "Contre-proposer (acheteur comme côté vente)" })
+  @ApiOperation({ summary: 'Contre-proposer (acheteur comme côté vente)' })
   counter(
     @CurrentUser() current: AuthenticatedUser,
     @Param('id') id: string,
@@ -129,13 +133,15 @@ export class SaleOffersActionsController {
   }
 
   @Post(':id/withdraw')
-  @ApiOperation({ summary: "Retirer son offre (acheteur)" })
+  @ApiOperation({ summary: 'Retirer son offre (acheteur)' })
   withdraw(@CurrentUser() current: AuthenticatedUser, @Param('id') id: string) {
     return this.offers.withdraw(id, current.userId);
   }
 
   @Post(':id/agreement')
-  @ApiOperation({ summary: "Générer un compromis DRAFT depuis l'offre acceptée" })
+  @ApiOperation({
+    summary: "Générer un compromis DRAFT depuis l'offre acceptée",
+  })
   draftAgreement(
     @CurrentUser() current: AuthenticatedUser,
     @Param('id') id: string,

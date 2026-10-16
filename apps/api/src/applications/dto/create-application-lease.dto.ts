@@ -27,7 +27,9 @@ export class CreateApplicationLeaseDto {
 
   @IsOptional()
   @Transform(({ value }) =>
-    value === undefined || value === null || value === '' ? undefined : Number(value),
+    value === undefined || value === null || value === ''
+      ? undefined
+      : Number(value),
   )
   @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0)
@@ -35,7 +37,9 @@ export class CreateApplicationLeaseDto {
 
   @IsOptional()
   @Transform(({ value }) =>
-    value === undefined || value === null || value === '' ? undefined : Number(value),
+    value === undefined || value === null || value === ''
+      ? undefined
+      : Number(value),
   )
   @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0)

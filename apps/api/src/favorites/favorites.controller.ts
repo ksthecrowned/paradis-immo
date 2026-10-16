@@ -30,16 +30,14 @@ export class FavoritesController {
 
   @Get()
   @ApiOperation({
-    summary: "Favoris de l'utilisateur (?include=property pour biens embarqués)",
+    summary:
+      "Favoris de l'utilisateur (?include=property pour biens embarqués)",
   })
   list(
     @CurrentUser() current: AuthenticatedUser,
     @Query('include') include?: string,
   ) {
-    return this.favorites.list(
-      current.userId,
-      include === 'property',
-    );
+    return this.favorites.list(current.userId, include === 'property');
   }
 
   @Post()

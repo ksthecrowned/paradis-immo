@@ -43,10 +43,7 @@ export class SaleAgreementsController {
 
   @Get(':id')
   @ApiOperation({ summary: 'Get a managed sale agreement' })
-  one(
-    @CurrentUser() current: AuthenticatedUser,
-    @Param('id') id: string,
-  ) {
+  one(@CurrentUser() current: AuthenticatedUser, @Param('id') id: string) {
     return this.agreements.getOne(current.userId, id);
   }
 
@@ -63,30 +60,21 @@ export class SaleAgreementsController {
   @Post(':id/activate')
   @HttpCode(200)
   @ApiOperation({ summary: 'Activate a draft sale agreement' })
-  activate(
-    @CurrentUser() current: AuthenticatedUser,
-    @Param('id') id: string,
-  ) {
+  activate(@CurrentUser() current: AuthenticatedUser, @Param('id') id: string) {
     return this.agreements.activate(current.userId, id);
   }
 
   @Post(':id/complete')
   @HttpCode(200)
   @ApiOperation({ summary: 'Mark sale agreement completed' })
-  complete(
-    @CurrentUser() current: AuthenticatedUser,
-    @Param('id') id: string,
-  ) {
+  complete(@CurrentUser() current: AuthenticatedUser, @Param('id') id: string) {
     return this.agreements.complete(current.userId, id);
   }
 
   @Post(':id/cancel')
   @HttpCode(200)
   @ApiOperation({ summary: 'Cancel a sale agreement' })
-  cancel(
-    @CurrentUser() current: AuthenticatedUser,
-    @Param('id') id: string,
-  ) {
+  cancel(@CurrentUser() current: AuthenticatedUser, @Param('id') id: string) {
     return this.agreements.cancel(current.userId, id);
   }
 }
@@ -106,10 +94,7 @@ export class MeSaleAgreementsController {
 
   @Get(':id')
   @ApiOperation({ summary: 'Get my sale agreement as buyer' })
-  one(
-    @CurrentUser() current: AuthenticatedUser,
-    @Param('id') id: string,
-  ) {
+  one(@CurrentUser() current: AuthenticatedUser, @Param('id') id: string) {
     return this.agreements.getMine(current.userId, id);
   }
 }

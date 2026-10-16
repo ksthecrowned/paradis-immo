@@ -11,11 +11,14 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { PropertyReportStatus, PropertyStatus } from '@prisma/client';
 import {
-  PropertyReportStatus,
-  PropertyStatus,
-} from '@prisma/client';
-import { IsBoolean, IsEnum, IsOptional, IsString, MaxLength } from 'class-validator';
+  IsBoolean,
+  IsEnum,
+  IsOptional,
+  IsString,
+  MaxLength,
+} from 'class-validator';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AuthService } from '../auth/auth.service';
 import { AppAuthGuard } from '../common/guards/auth.guard';
@@ -25,7 +28,10 @@ import { AdminService } from './admin.service';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { AuditLogService } from '../common/audit-log.service';
-import { AdminPermissionGuard, AdminPermission } from './admin-permission.guard';
+import {
+  AdminPermissionGuard,
+  AdminPermission,
+} from './admin-permission.guard';
 import { PrismaService } from '../prisma/prisma.service';
 import { generateTotpSecret, verifyTotp } from './totp';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
@@ -108,6 +114,21 @@ export class AdminController {
     return { statusCode: 200, ...result };
   }
 
+  @Get('properties/moderation')
+  @AdminPermission('moderation')
+  @ApiOperation({ summary: 'List property owners for moderation' })
+  async listPropertiesForModeration(
+    @Query('limit', new DefaultValuePipe(100), ParseIntPipe) limit: number,
+  ) {
+    const safeLimit = Math.min(100, Math.max(1, limit));
+    const result = await this.admin.listPropertiesForModeration(safeLimit);
+    return {
+      statusCode: 200,
+      data: result.data,
+      meta: { total: result.total, limit: safeLimit, offset: 0 },
+    };
+  }
+
   @Get('reports')
   @AdminPermission('moderation')
   @ApiOperation({ summary: 'List property reports for moderation' })
@@ -119,11 +140,7 @@ export class AdminController {
   ) {
     const safePage = Math.max(1, page);
     const safeSize = Math.min(100, Math.max(1, pageSize));
-    const result = await this.admin.listReports(
-      safePage,
-      safeSize,
-      status,
-    );
+    const result = await this.admin.listReports(safePage, safeSize, status);
     return { statusCode: 200, ...result };
   }
 
@@ -140,7 +157,8 @@ export class AdminController {
   @HttpCode(200)
   @AdminPermission('moderation')
   @ApiOperation({
-    summary: 'Moderate a property (status + motif, notifié au propriétaire — spec 15 A2)',
+    summary:
+      'Moderate a property (status + motif, notifié au propriétaire — spec 15 A2)',
   })
   async moderate(
     @CurrentUser() current: AuthenticatedUser,
@@ -167,7 +185,9 @@ export class AdminController {
   @Patch('properties/:id/featured')
   @HttpCode(200)
   @AdminPermission('moderation')
-  @ApiOperation({ summary: 'Feature or unfeature a property (marketplace highlight)' })
+  @ApiOperation({
+    summary: 'Feature or unfeature a property (marketplace highlight)',
+  })
   async setFeatured(@Param('id') id: string, @Body() dto: SetFeaturedDto) {
     const updated = await this.admin.setPropertyFeatured(id, dto.isFeatured);
     return {
@@ -276,11 +296,18 @@ export class AdminController {
   @Post('security/totp/setup')
   @HttpCode(201)
   @AdminPermission('admins.manage')
-  @ApiOperation({ summary: 'Provision a TOTP secret for the admin (returns base32 secret)' })
+  @ApiOperation({
+    summary: 'Provision a TOTP secret for the admin (returns base32 secret)',
+  })
   async setupTotp(@CurrentUser() current: AuthenticatedUser) {
     let profile = await this.prisma.adminProfile.findUnique({
       where: { userId: current.userId },
-      select: { userId: true, totpSecret: true, totpEnabledAt: true, role: true },
+      select: {
+        userId: true,
+        totpSecret: true,
+        totpEnabledAt: true,
+        role: true,
+      },
     });
 
     // Le profil peut ne pas exister encore pour un SUPER_ADMIN ; on le crée.
@@ -290,7 +317,12 @@ export class AdminController {
       });
       profile = await this.prisma.adminProfile.findUniqueOrThrow({
         where: { userId: current.userId },
-        select: { userId: true, totpSecret: true, totpEnabledAt: true, role: true },
+        select: {
+          userId: true,
+          totpSecret: true,
+          totpEnabledAt: true,
+          role: true,
+        },
       });
     }
 
@@ -320,8 +352,13 @@ export class AdminController {
   @Patch('security/totp/setup')
   @HttpCode(200)
   @AdminPermission('admins.manage')
-  @ApiOperation({ summary: 'Activate TOTP after verifying the first code (setup → verify)' })
-  async confirmTotp(@CurrentUser() current: AuthenticatedUser, @Body() dto: SetupTotpDto) {
+  @ApiOperation({
+    summary: 'Activate TOTP after verifying the first code (setup → verify)',
+  })
+  async confirmTotp(
+    @CurrentUser() current: AuthenticatedUser,
+    @Body() dto: SetupTotpDto,
+  ) {
     const profile = await this.prisma.adminProfile.findUnique({
       where: { userId: current.userId },
       select: { userId: true, totpSecret: true, totpEnabledAt: true },
@@ -335,7 +372,8 @@ export class AdminController {
     if (!profile.totpSecret) {
       throw new BadRequestException({
         code: 'TOTP_SECRET_MISSING',
-        message: 'Le secret TOTP doit d’abord être provisionné (POST /admin/security/totp/setup)',
+        message:
+          'Le secret TOTP doit d’abord être provisionné (POST /admin/security/totp/setup)',
       });
     }
     if (profile.totpEnabledAt) {
@@ -372,8 +410,14 @@ export class AdminController {
   @Post('security/totp/verify')
   @HttpCode(200)
   @AdminPermission('admins.manage')
-  @ApiOperation({ summary: 'Verify a TOTP code for the admin (used before sensitive finance actions in tests)' })
-  async verifyTotp(@CurrentUser() current: AuthenticatedUser, @Body() dto: VerifyTotpDto) {
+  @ApiOperation({
+    summary:
+      'Verify a TOTP code for the admin (used before sensitive finance actions in tests)',
+  })
+  async verifyTotp(
+    @CurrentUser() current: AuthenticatedUser,
+    @Body() dto: VerifyTotpDto,
+  ) {
     const profile = await this.prisma.adminProfile.findUnique({
       where: { userId: current.userId },
       select: { userId: true, totpSecret: true, totpEnabledAt: true },

@@ -75,7 +75,7 @@ export class InspectionsController {
   constructor(private readonly inspections: InspectionsService) {}
 
   @Post('leases/:id/inspections')
-  @ApiOperation({ summary: "Crée un EDL (CHECK_IN ou CHECK_OUT) sur le bail" })
+  @ApiOperation({ summary: 'Crée un EDL (CHECK_IN ou CHECK_OUT) sur le bail' })
   create(
     @CurrentUser() current: AuthenticatedUser,
     @Param('id') leaseId: string,

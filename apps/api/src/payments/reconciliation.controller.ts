@@ -9,7 +9,10 @@ import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { ReconciliationService } from './reconciliation.service';
-import { AdminPermissionGuard, AdminPermission } from '../admin/admin-permission.guard';
+import {
+  AdminPermissionGuard,
+  AdminPermission,
+} from '../admin/admin-permission.guard';
 
 /** POST admin/reconciliation — import d'un relevé fournisseur. */
 class ImportReconciliationDto {

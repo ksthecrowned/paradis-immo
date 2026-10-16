@@ -31,7 +31,10 @@ export interface StaleFixture {
   orgPrefixes?: string[];
 }
 
-export async function purgeStaleFixture(db: Db, fixture: StaleFixture): Promise<void> {
+export async function purgeStaleFixture(
+  db: Db,
+  fixture: StaleFixture,
+): Promise<void> {
   const users = await db.user.findMany({
     where: { phone: { in: fixture.phones } },
     select: { id: true },
@@ -40,7 +43,9 @@ export async function purgeStaleFixture(db: Db, fixture: StaleFixture): Promise<
 
   const orgs = fixture.orgPrefixes?.length
     ? await db.organization.findMany({
-        where: { OR: fixture.orgPrefixes.map((p) => ({ name: { startsWith: p } })) },
+        where: {
+          OR: fixture.orgPrefixes.map((p) => ({ name: { startsWith: p } })),
+        },
         select: { id: true },
       })
     : [];
@@ -59,7 +64,10 @@ export async function purgeStaleFixture(db: Db, fixture: StaleFixture): Promise<
   });
   const propIds: string[] = props.map((x: { id: string }) => x.id);
   const leases = propIds.length
-    ? await db.lease.findMany({ where: { propertyId: { in: propIds } }, select: { id: true } })
+    ? await db.lease.findMany({
+        where: { propertyId: { in: propIds } },
+        select: { id: true },
+      })
     : [];
   const leaseIds: string[] = leases.map((l: { id: string }) => l.id);
   const scheduleIds: string[] = leaseIds.length
@@ -93,7 +101,8 @@ export async function purgeStaleFixture(db: Db, fixture: StaleFixture): Promise<
     await safe(db, 'paymentAllocation', { paymentId: { in: payIds } });
     await safe(db, 'payment', { id: { in: payIds } });
   }
-  if (scheduleIds.length) await safe(db, 'rentReceipt', { rentScheduleId: { in: scheduleIds } });
+  if (scheduleIds.length)
+    await safe(db, 'rentReceipt', { rentScheduleId: { in: scheduleIds } });
 
   // Lease tree.
   if (leaseIds.length) {
@@ -113,7 +122,10 @@ export async function purgeStaleFixture(db: Db, fixture: StaleFixture): Promise<
     await safe(db, 'ledgerEntry', { propertyId: { in: propIds } });
     await safe(db, 'expense', { propertyId: { in: propIds } });
     const mandateIds: string[] = (
-      await db.mandate.findMany({ where: { propertyId: { in: propIds } }, select: { id: true } })
+      await db.mandate.findMany({
+        where: { propertyId: { in: propIds } },
+        select: { id: true },
+      })
     ).map((m: { id: string }) => m.id);
     if (mandateIds.length) {
       await safe(db, 'mandateApproval', { mandateId: { in: mandateIds } });
@@ -142,9 +154,13 @@ export async function purgeStaleFixture(db: Db, fixture: StaleFixture): Promise<
     await safe(db, 'payout', { organizationId: { in: orgIds } });
     await safe(db, 'payoutAccount', { organizationId: { in: orgIds } });
     await safe(db, 'organizationMember', { organizationId: { in: orgIds } });
-    await safe(db, 'organizationInvitation', { organizationId: { in: orgIds } });
+    await safe(db, 'organizationInvitation', {
+      organizationId: { in: orgIds },
+    });
     await safe(db, 'organizationReview', { organizationId: { in: orgIds } });
-    await safe(db, 'organizationServiceArea', { organizationId: { in: orgIds } });
+    await safe(db, 'organizationServiceArea', {
+      organizationId: { in: orgIds },
+    });
     await safe(db, 'organizationRequest', { organizationId: { in: orgIds } });
     await safe(db, 'organization', { id: { in: orgIds } });
   }

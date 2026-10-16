@@ -1,11 +1,7 @@
 import { BadRequestException } from '@nestjs/common';
 
 export type ListingStatusValue =
-  | 'AVAILABLE'
-  | 'SOLD'
-  | 'UNDER_OFFER'
-  | 'OCCUPIED'
-  | 'AVAILABLE_SOON';
+  'AVAILABLE' | 'SOLD' | 'UNDER_OFFER' | 'OCCUPIED' | 'AVAILABLE_SOON';
 
 const SALE_ALLOWED: ReadonlySet<ListingStatusValue> = new Set([
   'AVAILABLE',
@@ -96,7 +92,9 @@ export function resolvePublicListing(input: {
   };
 }
 
-export function isListingStatusValue(value: unknown): value is ListingStatusValue {
+export function isListingStatusValue(
+  value: unknown,
+): value is ListingStatusValue {
   return (
     value === 'AVAILABLE' ||
     value === 'SOLD' ||

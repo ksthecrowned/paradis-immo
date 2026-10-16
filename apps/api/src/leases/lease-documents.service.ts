@@ -28,10 +28,7 @@ export class LeaseDocumentsService {
     private readonly r2: R2Service,
   ) {}
 
-  async list(
-    userId: string,
-    leaseId: string,
-  ): Promise<LeaseDocumentItem[]> {
+  async list(userId: string, leaseId: string): Promise<LeaseDocumentItem[]> {
     await this.assertCanRead(userId, leaseId);
     const rows = await this.prisma.leaseDocument.findMany({
       where: { leaseId },
@@ -144,7 +141,10 @@ export class LeaseDocumentsService {
   }
 
   private assertFile(file: { buffer: Buffer; mimetype: string }): void {
-    if (!file.mimetype.startsWith('image/') && file.mimetype !== 'application/pdf') {
+    if (
+      !file.mimetype.startsWith('image/') &&
+      file.mimetype !== 'application/pdf'
+    ) {
       throw new BadRequestException({
         code: 'UNSUPPORTED_CONTENT_TYPE',
         message: 'Documents must be PDF or image',

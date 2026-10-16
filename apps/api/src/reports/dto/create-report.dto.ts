@@ -1,4 +1,10 @@
-import { IsEnum, IsOptional, IsString, Length, MaxLength } from 'class-validator';
+import {
+  IsEnum,
+  IsOptional,
+  IsString,
+  Length,
+  MaxLength,
+} from 'class-validator';
 import { PropertyReportReason } from '@prisma/client';
 
 export class CreatePropertyReportDto {

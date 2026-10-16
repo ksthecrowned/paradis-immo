@@ -220,10 +220,9 @@ export class VisitSlotsService {
     const affected = await this.prisma.visitBooking.findMany({
       where: {
         propertyId: input.propertyId,
-        status: { in: [
-          VisitBookingStatus.PENDING,
-          VisitBookingStatus.CONFIRMED,
-        ] },
+        status: {
+          in: [VisitBookingStatus.PENDING, VisitBookingStatus.CONFIRMED],
+        },
         slot: {
           startAt: { lt: input.endsAt },
           endAt: { gt: input.startsAt },
@@ -275,10 +274,7 @@ export class VisitSlotsService {
   }
 
   /** Lever un blackout : les slots BLOCKED de la plage redeviennent AVAILABLE. */
-  async deleteBlackout(
-    userId: string,
-    blackoutId: string,
-  ): Promise<void> {
+  async deleteBlackout(userId: string, blackoutId: string): Promise<void> {
     const blackout = await this.prisma.visitBlackout.findUnique({
       where: { id: blackoutId },
     });
@@ -537,11 +533,11 @@ export class VisitSlotsService {
         },
       });
       if (slotResult.count === 0) {
-      throw new ConflictException({
-        code: 'SLOT_NOT_AVAILABLE',
-        message: 'This slot is no longer available',
-      });
-    }
+        throw new ConflictException({
+          code: 'SLOT_NOT_AVAILABLE',
+          message: 'This slot is no longer available',
+        });
+      }
 
       const holdExpiresAt = isFree
         ? null
@@ -561,21 +557,21 @@ export class VisitSlotsService {
       });
     });
 
-      if (isFree) {
-        await this.events.emit(DOMAIN_EVENTS.VISIT_BOOKING_CONFIRMED, {
-          bookingId: booking.id,
-          slotId: booking.slotId,
-          userId: booking.userId,
-        });
-      } else {
-        await this.events.emit(DOMAIN_EVENTS.VISIT_BOOKING_HELD, {
-          bookingId: booking.id,
-          slotId: booking.slotId,
-          userId: booking.userId,
-          holdExpiresAt: booking.holdExpiresAt?.toISOString() ?? null,
-        });
-      }
-      return this.bookingToPublic(booking);
+    if (isFree) {
+      await this.events.emit(DOMAIN_EVENTS.VISIT_BOOKING_CONFIRMED, {
+        bookingId: booking.id,
+        slotId: booking.slotId,
+        userId: booking.userId,
+      });
+    } else {
+      await this.events.emit(DOMAIN_EVENTS.VISIT_BOOKING_HELD, {
+        bookingId: booking.id,
+        slotId: booking.slotId,
+        userId: booking.userId,
+        holdExpiresAt: booking.holdExpiresAt?.toISOString() ?? null,
+      });
+    }
+    return this.bookingToPublic(booking);
   }
 
   /**
@@ -1105,7 +1101,9 @@ export class VisitSlotsService {
           status: VisitSlotStatus.AVAILABLE,
         },
         data: {
-          status: wasPaidPending ? VisitSlotStatus.HELD : VisitSlotStatus.BOOKED,
+          status: wasPaidPending
+            ? VisitSlotStatus.HELD
+            : VisitSlotStatus.BOOKED,
         },
       });
       if (moved.count === 0) {

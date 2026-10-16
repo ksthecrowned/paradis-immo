@@ -310,6 +310,11 @@ describe('SalesService', () => {
     const ours = list.filter((i) => createdInquiryIds.includes(i.id));
     expect(ours.length).toBeGreaterThanOrEqual(1);
     expect(ours.every((i) => i.propertyId === salePropertyId)).toBe(true);
+    expect(ours[0].buyer).toEqual({
+      id: buyerUserId,
+      name: 'Marie NGOMA',
+      avatarUrl: null,
+    });
   });
 
   it('lists inquiries submitted by a buyer', async () => {
@@ -317,5 +322,6 @@ describe('SalesService', () => {
     const tracked = mine.filter((i) => createdInquiryIds.includes(i.id));
     expect(tracked.length).toBeGreaterThanOrEqual(1);
     expect(tracked.every((i) => i.userId === buyerUserId)).toBe(true);
+    expect(tracked.every((i) => i.buyer === undefined)).toBe(true);
   });
 });

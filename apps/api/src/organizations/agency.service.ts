@@ -57,13 +57,7 @@ export interface PublicInvitation {
 }
 
 /** Auto-moderation: reviews containing these never go public as PUBLISHED. */
-const BLOCKED_WORDS = [
-  'arnaque',
-  'escroc',
-  'fou',
-  'con',
-  'idiot',
-];
+const BLOCKED_WORDS = ['arnaque', 'escroc', 'fou', 'con', 'idiot'];
 
 function sha256(value: string): string {
   return crypto.createHash('sha256').update(value).digest('hex');
@@ -145,7 +139,9 @@ export class AgencyService {
         submittedById: input.submittedById ?? null,
       },
     });
-    this.logger.log(`Organization request ${request.id} (${request.type}) submitted`);
+    this.logger.log(
+      `Organization request ${request.id} (${request.type}) submitted`,
+    );
     return {
       reference: formatRequestReference(request),
       requestId: request.id,
@@ -297,10 +293,7 @@ export class AgencyService {
   // Members (spec 02 — P1)
   // ------------------------------------------------------------------
 
-  async listMembers(
-    viewerId: string,
-    orgId: string,
-  ): Promise<PublicMember[]> {
+  async listMembers(viewerId: string, orgId: string): Promise<PublicMember[]> {
     await this.requireMember(viewerId, orgId);
     const rows = await this.prisma.organizationMember.findMany({
       where: { organizationId: orgId },
@@ -550,10 +543,7 @@ export class AgencyService {
         organizationId: orgId,
         status: InvitationStatus.PENDING,
         expiresAt: { gt: new Date() },
-        OR: [
-          ...(phone ? [{ phone }] : []),
-          ...(email ? [{ email }] : []),
-        ],
+        OR: [...(phone ? [{ phone }] : []), ...(email ? [{ email }] : [])],
       },
       select: { id: true },
     });
@@ -755,10 +745,9 @@ export class AgencyService {
 
   /** Resolve a raw token and reject anything not usable (410). */
   private async loadUsableInvitation(token: string) {
-    const invitation =
-      await this.prisma.organizationInvitation.findUnique({
-        where: { tokenHash: sha256(token) },
-      });
+    const invitation = await this.prisma.organizationInvitation.findUnique({
+      where: { tokenHash: sha256(token) },
+    });
     if (!invitation) {
       throw new NotFoundException({
         code: 'INVITATION_NOT_FOUND',
@@ -848,22 +837,28 @@ export class AgencyService {
         ...(input.name !== undefined ? { name: input.name.trim() } : {}),
         ...(input.tagline !== undefined ? { tagline: input.tagline } : {}),
         ...(input.address !== undefined ? { address: input.address } : {}),
-        ...(input.cityLabel !== undefined ? { cityLabel: input.cityLabel } : {}),
+        ...(input.cityLabel !== undefined
+          ? { cityLabel: input.cityLabel }
+          : {}),
         ...(input.phone !== undefined ? { phone: input.phone } : {}),
         ...(input.email !== undefined ? { email: input.email } : {}),
         ...(input.description !== undefined
           ? { description: input.description }
           : {}),
-        ...(input.shortName !== undefined ? { shortName: input.shortName } : {}),
-        ...(input.logoColor !== undefined ? { logoColor: input.logoColor } : {}),
+        ...(input.shortName !== undefined
+          ? { shortName: input.shortName }
+          : {}),
+        ...(input.logoColor !== undefined
+          ? { logoColor: input.logoColor }
+          : {}),
         ...(input.foundedYear !== undefined
           ? { foundedYear: input.foundedYear }
           : {}),
         ...(input.openingHours !== undefined
-          ? { openingHours: input.openingHours as object }
+          ? { openingHours: input.openingHours }
           : {}),
         ...(input.socialLinks !== undefined
-          ? { socialLinks: input.socialLinks as object }
+          ? { socialLinks: input.socialLinks }
           : {}),
       },
     });
@@ -1011,13 +1006,24 @@ export class AgencyService {
         message: 'Le commentaire doit faire entre 20 et 1000 caractères.',
       });
     }
-    if (!Number.isInteger(input.rating) || input.rating < 1 || input.rating > 5) {
+    if (
+      !Number.isInteger(input.rating) ||
+      input.rating < 1 ||
+      input.rating > 5
+    ) {
       throw new BadRequestException({
         code: 'REVIEW_RATING_RANGE',
         message: 'La note doit être un entier entre 1 et 5.',
       });
     }
-    if (!(await this.isEligible(input.sourceType, input.sourceId, authorId, orgId))) {
+    if (
+      !(await this.isEligible(
+        input.sourceType,
+        input.sourceId,
+        authorId,
+        orgId,
+      ))
+    ) {
       throw new ForbiddenException({
         code: 'REVIEW_NOT_ELIGIBLE',
         message: 'Aucune interaction éligible avec cette agence.',
@@ -1101,9 +1107,7 @@ export class AgencyService {
       }),
     ]);
 
-    const done = new Set(
-      posted.map((r) => `${r.sourceType}:${r.sourceId}`),
-    );
+    const done = new Set(posted.map((r) => `${r.sourceType}:${r.sourceId}`));
     const items: {
       sourceType: ReviewSourceType;
       sourceId: string;
@@ -1134,11 +1138,7 @@ export class AgencyService {
   }
 
   /** Public reply to a review (ADMIN of that org only). */
-  async replyToReview(
-    actorId: string,
-    reviewId: string,
-    reply: string,
-  ) {
+  async replyToReview(actorId: string, reviewId: string, reply: string) {
     const review = await this.requireOwnReview(actorId, reviewId);
     const text = reply.trim();
     if (text.length < 5 || text.length > 1000) {
@@ -1235,10 +1235,16 @@ export class AgencyService {
   private async receivedRequests(orgId: string, since: Date): Promise<number> {
     const [inquiries, bookings] = await Promise.all([
       this.prisma.saleInquiry.count({
-        where: { createdAt: { gte: since }, property: { organizationId: orgId } },
+        where: {
+          createdAt: { gte: since },
+          property: { organizationId: orgId },
+        },
       }),
       this.prisma.booking.count({
-        where: { createdAt: { gte: since }, property: { organizationId: orgId } },
+        where: {
+          createdAt: { gte: since },
+          property: { organizationId: orgId },
+        },
       }),
     ]);
     return inquiries + bookings;

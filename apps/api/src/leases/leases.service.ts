@@ -422,7 +422,9 @@ export class LeasesService {
           }
         : {}),
       ...(input.autoRenew !== undefined ? { autoRenew: input.autoRenew } : {}),
-      ...(input.templateId !== undefined ? { templateId: input.templateId } : {}),
+      ...(input.templateId !== undefined
+        ? { templateId: input.templateId }
+        : {}),
     };
     return data;
   }
@@ -500,10 +502,7 @@ export class LeasesService {
   async listMyLeases(userId: string): Promise<PublicLease[]> {
     const rows = await this.prisma.lease.findMany({
       where: {
-        OR: [
-          { tenantId: userId },
-          { coTenants: { some: { userId } } },
-        ],
+        OR: [{ tenantId: userId }, { coTenants: { some: { userId } } }],
       },
       orderBy: { createdAt: 'desc' },
       include: { tenant: { select: { phone: true, name: true } } },
@@ -593,7 +592,12 @@ export class LeasesService {
       include: {
         tenant: { select: { phone: true, name: true } },
         property: {
-          select: { id: true, ownerId: true, organizationId: true, title: true },
+          select: {
+            id: true,
+            ownerId: true,
+            organizationId: true,
+            title: true,
+          },
         },
       },
     });
@@ -768,7 +772,12 @@ export class LeasesService {
       data: { status: LeaseStatus.CANCELLED },
     });
     await this.prisma.rentSchedule.deleteMany({
-      where: { leaseId, status: { in: [RentScheduleStatus.PENDING, RentScheduleStatus.OVERDUE] } },
+      where: {
+        leaseId,
+        status: {
+          in: [RentScheduleStatus.PENDING, RentScheduleStatus.OVERDUE],
+        },
+      },
     });
     return this.toPublic(updated);
   }
@@ -972,7 +981,10 @@ export class LeasesService {
   }
 
   /** Withdraw a notice during the notice period (spec 04). */
-  async withdrawTermination(userId: string, leaseId: string): Promise<PublicLease> {
+  async withdrawTermination(
+    userId: string,
+    leaseId: string,
+  ): Promise<PublicLease> {
     const lease = await this.requireLease(leaseId);
     if (lease.status !== LeaseStatus.TERMINATING) {
       throw new BadRequestException({
@@ -1072,7 +1084,10 @@ export class LeasesService {
         where: { id: lease.propertyId },
         data: released
           ? { listingStatus: ListingStatus.AVAILABLE, availableFrom: null }
-          : { listingStatus: ListingStatus.AVAILABLE_SOON, availableFrom: exitAt },
+          : {
+              listingStatus: ListingStatus.AVAILABLE_SOON,
+              availableFrom: exitAt,
+            },
       });
       return u;
     });
@@ -1114,7 +1129,9 @@ export class LeasesService {
     userId: string,
     leaseId: string,
   ): Promise<PublicRentScheduleEntry[]> {
-    const lease = await this.prisma.lease.findUnique({ where: { id: leaseId } });
+    const lease = await this.prisma.lease.findUnique({
+      where: { id: leaseId },
+    });
     if (!lease) {
       throw new NotFoundException({
         code: 'LEASE_NOT_FOUND',
@@ -1215,7 +1232,9 @@ export class LeasesService {
     const rentChanged =
       input.newMonthlyRent !== undefined &&
       !new Prisma.Decimal(input.newMonthlyRent).eq(lease.monthlyRent);
-    const mandate = rentChanged ? await this.findActiveMandate(lease.propertyId) : null;
+    const mandate = rentChanged
+      ? await this.findActiveMandate(lease.propertyId)
+      : null;
 
     if (mandate && input.newMonthlyRent !== undefined) {
       const actionType = new Prisma.Decimal(input.newMonthlyRent).gt(
@@ -1321,7 +1340,9 @@ export class LeasesService {
 
   private async requireLease(
     leaseId: string,
-  ): Promise<Lease & { tenant: { phone: string | null; name: string | null } | null }> {
+  ): Promise<
+    Lease & { tenant: { phone: string | null; name: string | null } | null }
+  > {
     const lease = await this.prisma.lease.findUnique({
       where: { id: leaseId },
       include: { tenant: { select: { phone: true, name: true } } },

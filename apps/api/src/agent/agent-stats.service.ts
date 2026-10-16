@@ -42,8 +42,7 @@ export class AgentStatsService {
   ) {}
 
   async getStats(userId: string): Promise<AgentStats> {
-    const propertyIds =
-      await this.agencyAccess.listOperablePropertyIds(userId);
+    const propertyIds = await this.agencyAccess.listOperablePropertyIds(userId);
     if (propertyIds.length === 0) {
       return {
         mandatedProperties: 0,

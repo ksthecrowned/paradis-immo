@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import {
   LedgerEntryType,
   MemberStatus,
@@ -122,7 +126,9 @@ export class AccountingService {
   }
 
   /** GET accounting/owner/statements — stored statements (US 13). */
-  async listStatements(userId: string): Promise<Array<Record<string, unknown>>> {
+  async listStatements(
+    userId: string,
+  ): Promise<Array<Record<string, unknown>>> {
     const orgIds = await this.ownerOrgIds(userId);
     if (orgIds.length === 0) return [];
     const rows = await this.prisma.ownerStatement.findMany({
@@ -193,11 +199,11 @@ export class AccountingService {
     };
 
     const mandateLabel = input.mandateId
-      ? (
+      ? ((
           await this.prisma.mandate
             .findUnique({ where: { id: input.mandateId } })
             .catch(() => null)
-        )?.id ?? input.mandateId
+        )?.id ?? input.mandateId)
       : undefined;
 
     const pdf = await renderStatementPdf({
@@ -222,10 +228,12 @@ export class AccountingService {
     });
 
     const ownerOrgId =
-      (await this.prisma.property.findFirst({
-        where: { ownerId: userId },
-        select: { organizationId: true },
-      }))?.organizationId ?? scope.ownerOrgIds[0];
+      (
+        await this.prisma.property.findFirst({
+          where: { ownerId: userId },
+          select: { organizationId: true },
+        })
+      )?.organizationId ?? scope.ownerOrgIds[0];
 
     const row = await this.prisma.ownerStatement.create({
       data: {
@@ -233,7 +241,7 @@ export class AccountingService {
         ownerOrgId,
         periodStart: input.periodStart,
         periodEnd: input.periodEnd,
-        totals: totalsJson as Prisma.InputJsonValue,
+        totals: totalsJson,
         fileKey: uploaded.key,
       },
     });
@@ -309,10 +317,7 @@ export class AccountingService {
   }
 
   /** GET accounting/export.csv — raw ledger export (spec 03 P2). */
-  async exportCsv(
-    userId: string,
-    filter: RangeFilter,
-  ): Promise<string> {
+  async exportCsv(userId: string, filter: RangeFilter): Promise<string> {
     const isOwner = (await this.ownerOrgIds(userId)).length > 0;
     const isManager =
       (await this.prisma.organizationMember.count({

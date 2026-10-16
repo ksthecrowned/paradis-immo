@@ -23,6 +23,11 @@ Rôles : `BUYER` / `SEEKER`, `AGENT`, `MANAGER`, `OWNER`.
 - Il n'y a ni écran web ni écran mobile pour créer et suivre les offres et contre-offres.
 - La disponibilité de l'offre en API ne vaut pas réalisation de son parcours utilisateur.
 
+### Complément mobile client (2026-10-16)
+- Le formulaire `property/[id]/sale-inquiry` envoie actuellement message, budget et téléphone, mais ne collecte pas le mode de financement.
+- `purchases/[id]` suit une `SaleInquiry` avec un parcours d'état succinct, tandis que `achats/` et `achats/[id]` suivent des `SaleAgreement` à échéancier. Ces écrans ne doivent pas confondre une demande d'intérêt avec un compromis ou avec un achat par paliers.
+- Le client mobile ne propose pas encore le suivi complet de la demande, l'interface d'offre/contre-offre, les documents du compromis et sa progression jusqu'à la clôture.
+
 ## User stories
 1. En tant qu'acheteur, j'envoie une demande sur un bien en vente avec mon message, mon budget, mon mode de financement (comptant, échelonné, crédit) et mon téléphone (prérempli, modifiable). L'agence est notifiée immédiatement.
 2. Je ne peux pas envoyer deux demandes ouvertes sur le même bien. Je suis ma demande (statut, agent attribué) dans l'app.
@@ -141,7 +146,7 @@ model Mandate {
 | Méthode | Route | Rôle | Description |
 |---|---|---|---|
 | POST | `sales/inquiries` | BUYER | **Modifié** : `{ propertyId, message, phone, budget, financing }`, 409 si doublon |
-| GET | `sales/inquiries/mine` | BUYER | Avec statut et agent |
+| GET | `sales/inquiries/my` | BUYER | Route constatée dans le contrôleur ; renvoyer statut et interlocuteur public |
 | DELETE | `sales/inquiries/:id` | BUYER | Retirer |
 | GET | `sales/inquiries/managed` | gestionnaire | **Modifié** : périmètre via mandat, filtres, pagination |
 | PATCH | `sales/inquiries/:id` | gestionnaire | `{ status, assignedAgentId, internalNotes, nextActionAt, lostReason }` |
@@ -164,10 +169,11 @@ model Mandate {
 
 ## Écrans
 - **Mobile, acheteur**
-  - `property/[id]/sale-inquiry` : brancher réellement `createSaleInquiry` et envoyer budget, téléphone et financement (P0).
-  - `sales/inquiries` : mes demandes.
-  - `property/[id]/offer` : faire une offre, voir les contre-offres, accepter ou contre-proposer.
-  - `sale/[id]` : compromis, signature, échéancier et paiement, étapes (timeline), documents, attestation.
+  - `property/[id]/sale-inquiry` : demande avec message, budget, téléphone et financement ; détecter/réouvrir une demande ouverte existante.
+  - `sales/inquiries` (ou section « Demandes d'achat » dans le hub client) : liste paginée des demandes classiques ; `sales/inquiries/[id]` : statut, interlocuteur communiqué, historique et prochaine action. Aucune note interne n'est exposée.
+  - `property/[id]/offer` et `sales/offers/[id]` : offre, validité, conditions et fil des contre-offres ; soumettre, accepter, refuser, contre-proposer ou retirer uniquement selon le statut et les permissions API.
+  - `sale/[id]` : compromis, signatures, échéancier, paiements, étapes de clôture, documents et attestation de paiement intégral lorsqu'elle existe.
+  - Séparer visuellement les demandes/offres (`SaleInquiry`/`SaleOffer`) des dossiers et compromis (`SaleAgreement`) déjà représentés par `achats/` et `achats/[id]`. Le paiement par paliers est une modalité possible du dossier, pas une demande indépendante ; un dossier converti ne doit pas être dupliqué dans le hub.
 - **Web, agent**
   - `/agent/sales` : pipeline kanban (Nouveau, Contacté, Visite, Offre, Gagné, Perdu) avec notes et prochaines actions.
   - `/agent/sales/offers/[id]` : fil de négociation.
@@ -176,13 +182,16 @@ model Mandate {
   - `/owner/sales/[id]` : offres reçues (accepter, refuser, contre-proposer) et suivi des étapes.
 
 ## Critères d'acceptation
-- Envoyer le formulaire mobile crée bien une `SaleInquiry` avec `budget` et `phone` en base (test e2e). Le gestionnaire est notifié en moins d'une minute.
+- Envoyer le formulaire mobile crée bien une `SaleInquiry` avec `budget`, `phone` et `financing` en base (test e2e). Le gestionnaire est notifié en moins d'une minute.
 - Une 2ᵉ demande ouverte sur le même bien renvoie 409 `INQUIRY_ALREADY_OPEN`.
 - Un ADMIN de l'agence mandatée (pas seulement un AGENT de l'org du bien) voit la demande dans `managed`.
 - Accepter une offre : bien `UNDER_OFFER`, autres offres ouvertes `REJECTED`, acheteurs notifiés.
 - Une offre inférieure à `minSalePrice` ne peut pas être acceptée par l'agent (403) ; une approbation est requise.
 - `complete()` avec une échéance non payée renvoie 409 `INSTALLMENTS_UNPAID`. Après succès, `listingStatus = SOLD` et le bien est absent de la recherche.
 - `cancel()` remet `AVAILABLE` et génère un remboursement de l'acompte selon la clause.
+- Le formulaire mobile transmet et persiste `financing` (`CASH`, `INSTALLMENTS`, `BANK_LOAN`) ; le détail d'une `SaleInquiry` affiche les champs client et transitions publiques sans notes internes.
+- Une `SaleInquiry`/`SaleOffer` et un `SaleAgreement` sont présentés dans des sections distinctes. Après conversion d'une offre acceptée, le `SaleAgreement` est affiché une seule fois comme dossier/compromis, avec son échéancier si applicable. Une demande ne peut pas être prise pour un compromis signé.
+- Après acceptation d'une offre, l'acheteur accède au compromis, à ses signatures, à l'échéancier, aux jalons et aux documents selon ses droits ; seules les données confirmées par l'API sont présentées comme acquises.
 
 ## Priorité
 - **P0** : [x] demande de vente et champs de qualification côté API ; [x] premiers changements locaux du formulaire mobile et de l'API ; [ ] vérifier le parcours complet « Mes demandes » et les notifications.
@@ -196,3 +205,4 @@ model Mandate {
 | 08.2 | P1 | Construire les interfaces d'offres/contre-offres pour acheteur, agent et propriétaire. | À faire |
 | 08.3 | P1 | Signer le compromis et gérer ses jalons et documents. | À faire |
 | 08.4 | P2 | Ajouter le pipeline de gestion, l'attestation de paiement et le traitement du défaut de paiement. | À faire |
+| 08.5 | P1 | Compléter le parcours mobile client classique : financement de la demande, suivi, offres/contre-offres, compromis/documentation, et séparation du flux par paliers. | Partiel |

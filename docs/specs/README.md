@@ -3,6 +3,8 @@
 Specs des fonctionnalités à ajouter à la plateforme (API `apps/api`, dashboards `apps/web`, app `apps/mobile`).
 Elles s'appuient sur un audit du code au 2026-10 et ne contiennent aucun code applicatif, seulement des contrats : règles, modèle de données, endpoints, écrans, critères d'acceptation et deltas d'implémentation.
 
+Pour la carte des applications et des modules, voir [l'architecture générale](../ARCHITECTURE.md), [l'architecture API](../architecture/api.md) et [l'architecture web/mobile](../architecture/clients.md). Une spec décrit une cible produit, pas une preuve d'implémentation ; les constats datés doivent être revalidés dans le code courant.
+
 ## Index
 
 | # | Fichier | Domaine |
@@ -20,7 +22,7 @@ Elles s'appuient sur un audit du code au 2026-10 et ne contiennent aucun code ap
 | 11 | [11-notifications.md](11-notifications.md) | Handlers d'événements, templates, multi-appareils, préférences, retry |
 | 12 | [12-admin-back-office.md](12-admin-back-office.md) | Utilisateurs, organisations, paiements, modération, audit log, configuration |
 | 13 | [13-recherche-annonces.md](13-recherche-annonces.md) | Filtres, recherche texte et géo, tri, alertes, documents du bien |
-| 14 | [14-mobile-transverse.md](14-mobile-transverse.md) | Corrections des écrans factices, stockage sécurisé, deep links, offline, espace gestionnaire |
+| 14 | [14-mobile-transverse.md](14-mobile-transverse.md) | Parcours mobiles clients, stockage sécurisé, deep links, offline et suivi des dossiers |
 | 15 | [15-consolidation.md](15-consolidation.md) | Index des chantiers transverses restants, référencés dans les deltas canoniques |
 | 16 | [16-preparation-lancement-et-exigences-transverses.md](16-preparation-lancement-et-exigences-transverses.md) | Isolation multi-agences, parcours mobiles, validations financières, exploitation et porte de lancement |
 

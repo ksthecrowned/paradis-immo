@@ -6,7 +6,11 @@ const Decimal = Prisma.Decimal;
 
 export interface PriceBreakdown {
   /** Tarif par nuit (index = numéro de la nuit). */
-  nightly: { date: string; rate: string; source: 'SEASONAL' | 'WEEKEND' | 'BASE' }[];
+  nightly: {
+    date: string;
+    rate: string;
+    source: 'SEASONAL' | 'WEEKEND' | 'BASE';
+  }[];
   nights: number;
   subtotal: string;
   weeklyDiscount: string;
@@ -115,10 +119,7 @@ export class PricingService {
     const taxable = subtotal.sub(discounts);
     const serviceFee = taxable.mul(settings.serviceFeeRate);
 
-    const total = taxable
-      .add(cleaningFee)
-      .add(extraGuestFee)
-      .add(serviceFee);
+    const total = taxable.add(cleaningFee).add(extraGuestFee).add(serviceFee);
 
     return {
       currency: 'XAF',
@@ -143,5 +144,4 @@ export class PricingService {
       guests: input.guests,
     };
   }
-
 }

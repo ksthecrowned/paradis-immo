@@ -12,7 +12,7 @@ export interface TableActionMenuItem {
   /** Render as a link to this href. */
   href?: string;
   /** Render as a button calling onSelect. */
-  onSelect?: () => void;
+  onSelect?: (event: React.MouseEvent<HTMLButtonElement>) => void;
   /** Visual variant for destructive actions. */
   destructive?: boolean;
   disabled?: boolean;
@@ -266,9 +266,9 @@ export function TableActionMenu({
                       type="button"
                       role="menuitem"
                       disabled={item.disabled}
-                      onClick={() => {
+                      onClick={(event) => {
                         setOpen(false);
-                        item.onSelect?.();
+                        item.onSelect?.(event);
                       }}
                       className={`${baseClass} ${variantClass} ${disabledClass}`}
                     >

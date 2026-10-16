@@ -2,9 +2,12 @@ export { BrandMark } from './brand-mark';
 export { Breadcrumb, type BreadcrumbItem, type BreadcrumbProps } from './breadcrumb';
 export { DashboardDecorations } from './dashboard-decorations';
 export { DashboardPageHeader, type DashboardPageHeaderProps } from './dashboard-page-header';
-export { DataTable, StatusBadge, type DataTableColumn, type DataTableProps } from './data-table';
+export { StatusBadge } from './status-badge';
+export { UserIdentity, type UserIdentityProps } from './user-identity';
 export {
+  adaptSummaryColumns,
   ListDataTable,
+  type SummaryTableColumn,
   type ListColumn,
   type ListDataTableProps
 } from './list-data-table';

@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -214,7 +218,7 @@ export class ReconciliationService {
         fileKey,
         periodStart: input.periodStart,
         periodEnd: input.periodEnd,
-        summary: summary as Prisma.InputJsonValue,
+        summary: summary,
         createdById,
       },
     });

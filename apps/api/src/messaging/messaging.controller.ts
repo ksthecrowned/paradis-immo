@@ -10,12 +10,18 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import {
-  ApiBearerAuth,
-  ApiOperation,
-  ApiTags,
-} from '@nestjs/swagger';
-import { IsEnum, IsIn, IsInt, IsOptional, IsString, Max, MaxLength, Min, MinLength } from 'class-validator';
+  IsEnum,
+  IsIn,
+  IsInt,
+  IsOptional,
+  IsString,
+  Max,
+  MaxLength,
+  Min,
+  MinLength,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 import { ConversationContext } from '@prisma/client';
 import { AppAuthGuard } from '../common/guards/auth.guard';
@@ -108,7 +114,9 @@ export class MessagingController {
   constructor(private readonly messaging: MessagingService) {}
 
   @Post('conversations')
-  @ApiOperation({ summary: 'Open (or reuse) a conversation for a context (spec 10)' })
+  @ApiOperation({
+    summary: 'Open (or reuse) a conversation for a context (spec 10)',
+  })
   open(
     @CurrentUser() current: AuthenticatedUser,
     @Body() dto: OpenConversationDto,
@@ -122,11 +130,7 @@ export class MessagingController {
     @CurrentUser() current: AuthenticatedUser,
     @Query() query: ListConversationsQueryDto,
   ) {
-    return this.messaging.listMine(
-      current.userId,
-      query.page,
-      query.pageSize,
-    );
+    return this.messaging.listMine(current.userId, query.page, query.pageSize);
   }
 
   @Get('conversations/unread-count')

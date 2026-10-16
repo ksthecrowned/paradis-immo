@@ -47,6 +47,9 @@ export function AgentLeasesPage(): React.JSX.Element {
   const [actionId, setActionId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<string | undefined>();
   const [overdueOnly, setOverdueOnly] = useState(false);
+  // Bumping this key reloads the (paginated) table after an action.
+  // Déclaration avant runAction : le setter est utilisé par ce callback.
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const runAction = useCallback(
     async (id: string, label: string, fn: () => Promise<unknown>) => {
@@ -63,9 +66,6 @@ export function AgentLeasesPage(): React.JSX.Element {
     },
     [],
   );
-
-  // Bumping this key reloads the (paginated) table after an action.
-  const [refreshKey, setRefreshKey] = useState(0);
 
   const columns = useMemo<ListColumn<PublicLease>[]>(
     () => [

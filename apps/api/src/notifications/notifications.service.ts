@@ -324,10 +324,7 @@ export class NotificationsService {
         return `Paradis Immo — révision annuelle : loyer ${this.stringField(
           payload,
           'previousMonthlyRent',
-        )} → ${this.stringField(
-          payload,
-          'newMonthlyRent',
-        )} ${this.stringField(
+        )} → ${this.stringField(payload, 'newMonthlyRent')} ${this.stringField(
           payload,
           'currency',
           'XAF',
@@ -364,9 +361,9 @@ export class NotificationsService {
               'propertyTitle',
             )} (priorité ${this.stringField(payload, 'priority')}).`
           : `Paradis Immo — votre demande de maintenance a bien été enregistrée (priorité ${this.stringField(
-            payload,
-            'priority',
-          )}).`;
+              payload,
+              'priority',
+            )}).`;
       case 'PAYMENT_INITIATED':
         return `Paradis Immo — paiement de ${this.stringField(
           payload,
@@ -483,10 +480,11 @@ export class NotificationsService {
           'refundDeadline',
         )}.`;
       case 'LEASE_TERMINATION_NOTICE':
-        return `Paradis Immo — un congé a été déposé sur votre bail${this.stringField(
-          payload,
-          'effectiveAt',
-        ) ? `, effectif au ${this.stringField(payload, 'effectiveAt')}` : ''}.`;
+        return `Paradis Immo — un congé a été déposé sur votre bail${
+          this.stringField(payload, 'effectiveAt')
+            ? `, effectif au ${this.stringField(payload, 'effectiveAt')}`
+            : ''
+        }.`;
       default:
         return `Paradis Immo — ${type}`;
     }
@@ -609,26 +607,38 @@ export class NotificationsService {
   ): Promise<PublicNotification> {
     // Spec 11 — le statut doit refléter l'échec (sinon la ligne reste
     // PENDING à jamais et aucune relance/audit n'est possible).
-    const row = await this.prisma.notification.update({
-      where: { id },
-      data: {
-        status: NotificationStatus.FAILED,
-        payload: { ...(await this.notificationPayload(id)), failReason: reason },
-      },
-    }).catch(async (err) => {
-      // La ligne a pu disparaître entre-temps (nettoyage) : pas bloquant.
-      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2025') {
-        this.logger.warn(`Notification ${id} disappeared mid-fail`);
-        const fallback = await this.prisma.notification.findUnique({ where: { id } });
-        if (fallback) return fallback;
-      }
-      throw err;
-    });
+    const row = await this.prisma.notification
+      .update({
+        where: { id },
+        data: {
+          status: NotificationStatus.FAILED,
+          payload: {
+            ...(await this.notificationPayload(id)),
+            failReason: reason,
+          },
+        },
+      })
+      .catch(async (err) => {
+        // La ligne a pu disparaître entre-temps (nettoyage) : pas bloquant.
+        if (
+          err instanceof Prisma.PrismaClientKnownRequestError &&
+          err.code === 'P2025'
+        ) {
+          this.logger.warn(`Notification ${id} disappeared mid-fail`);
+          const fallback = await this.prisma.notification.findUnique({
+            where: { id },
+          });
+          if (fallback) return fallback;
+        }
+        throw err;
+      });
     this.logger.warn(`Notification ${id} delivery failed (${reason})`);
     return this.toPublic(row);
   }
 
-  private async notificationPayload(id: string): Promise<Record<string, unknown>> {
+  private async notificationPayload(
+    id: string,
+  ): Promise<Record<string, unknown>> {
     const row = await this.prisma.notification.findUnique({
       where: { id },
       select: { payload: true },

@@ -21,6 +21,11 @@ import { HoldExpiryProcessor } from './hold-expiry.processor';
     AvailabilityService,
     HoldExpiryProcessor,
   ],
-  exports: [BookingsService, PricingService, StaySettingsService, AvailabilityService],
+  exports: [
+    BookingsService,
+    PricingService,
+    StaySettingsService,
+    AvailabilityService,
+  ],
 })
 export class BookingsModule {}

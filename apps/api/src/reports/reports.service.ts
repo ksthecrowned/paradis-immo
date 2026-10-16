@@ -4,10 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import {
-  PropertyReportReason,
-  PropertyReportStatus,
-} from '@prisma/client';
+import { PropertyReportReason, PropertyReportStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()

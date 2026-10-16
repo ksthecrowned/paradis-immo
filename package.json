@@ -12,7 +12,8 @@
     "test:e2e": "cd apps/api && bun run test:e2e",
     "lint": "cd apps/web && bun run lint",
     "export:openapi": "cd apps/api && bun run export:openapi",
-    "generate:types": "node scripts/generate-types.mjs"
+    "generate:types": "node scripts/generate-types.mjs",
+    "docs:check": "node scripts/docs/check.mjs"
   },
   "engines": {
     "node": ">=18"

@@ -81,7 +81,8 @@ export class VisitsController {
   @Post(':id/reschedule')
   @HttpCode(200)
   @ApiOperation({
-    summary: 'Move a PENDING/CONFIRMED visit to another available slot — spec 06',
+    summary:
+      'Move a PENDING/CONFIRMED visit to another available slot — spec 06',
   })
   reschedule(
     @CurrentUser() current: AuthenticatedUser,
@@ -126,7 +127,9 @@ export class VisitsController {
   }
 
   @Get('assignable-agents')
-  @ApiOperation({ summary: 'List active agents available for visit assignment' })
+  @ApiOperation({
+    summary: 'List active agents available for visit assignment',
+  })
   assignableAgents(
     @CurrentUser() current: AuthenticatedUser,
     @Query('propertyId') propertyId: string,

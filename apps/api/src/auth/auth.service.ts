@@ -420,8 +420,7 @@ export class AuthService {
       }
       throw new ForbiddenException({
         code: 'AGENT_ROLE_REQUIRES_INVITATION',
-        message:
-          'Le rôle agent s’obtient sur invitation d’une agence.',
+        message: 'Le rôle agent s’obtient sur invitation d’une agence.',
       });
     }
     const refreshed = await this.prisma.user.findUniqueOrThrow({
@@ -476,7 +475,8 @@ export class AuthService {
       );
       throw new UnauthorizedException({
         code: 'REFRESH_REPLAYED',
-        message: 'Refresh token already used; all sessions of this device were revoked',
+        message:
+          'Refresh token already used; all sessions of this device were revoked',
       });
     }
     if (stored.userId !== payload.sub) {
@@ -528,7 +528,9 @@ export class AuthService {
       where: { userId, revokedAt: null },
       data: { revokedAt: new Date() },
     });
-    this.logger.warn(`Account ${userId} suspended (${revoked.count} sessions revoked)`);
+    this.logger.warn(
+      `Account ${userId} suspended (${revoked.count} sessions revoked)`,
+    );
     return { sessionsRevoked: revoked.count };
   }
 
@@ -622,15 +624,13 @@ export class AuthService {
     if (purpose === 'LOGIN' && !existing) {
       throw new NotFoundException({
         code: 'USER_NOT_FOUND',
-        message:
-          'Aucun compte associé à ce numéro. Créez un compte d’abord.',
+        message: 'Aucun compte associé à ce numéro. Créez un compte d’abord.',
       });
     }
     if (purpose === 'REGISTER' && existing) {
       throw new ConflictException({
         code: 'USER_ALREADY_EXISTS',
-        message:
-          'Un compte existe déjà pour ce numéro. Connectez-vous.',
+        message: 'Un compte existe déjà pour ce numéro. Connectez-vous.',
       });
     }
   }
@@ -643,8 +643,7 @@ export class AuthService {
     if (!existing) {
       throw new NotFoundException({
         code: 'USER_NOT_FOUND',
-        message:
-          'Aucun compte associé à ce numéro. Créez un compte d’abord.',
+        message: 'Aucun compte associé à ce numéro. Créez un compte d’abord.',
       });
     }
     return existing;

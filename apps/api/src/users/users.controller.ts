@@ -139,7 +139,9 @@ export class UsersController {
 
   @Post('me/phone/confirm')
   @HttpCode(200)
-  @ApiOperation({ summary: 'Confirm the new phone number with the OTP (spec 01)' })
+  @ApiOperation({
+    summary: 'Confirm the new phone number with the OTP (spec 01)',
+  })
   async confirmPhoneChange(
     @CurrentUser() current: AuthenticatedUser,
     @Body() dto: ConfirmPhoneChangeDto,

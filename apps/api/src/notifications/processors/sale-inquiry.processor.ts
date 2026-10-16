@@ -56,6 +56,8 @@ export class SaleInquiryNotificationProcessor {
         phone: inquiry?.phone ?? null,
       },
     });
-    this.logger.log(`Owner ${property.ownerId} notified of inquiry ${inquiryId}`);
+    this.logger.log(
+      `Owner ${property.ownerId} notified of inquiry ${inquiryId}`,
+    );
   }
 }

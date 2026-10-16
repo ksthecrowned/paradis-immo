@@ -99,7 +99,9 @@ export class AccountingController {
 
   // ---------------------------------------------------------------- Expenses
   @Post('properties/:id/expenses')
-  @ApiOperation({ summary: 'Record an expense on a property (invoice attached)' })
+  @ApiOperation({
+    summary: 'Record an expense on a property (invoice attached)',
+  })
   @ApiConsumes('multipart/form-data')
   @UseInterceptors(
     FileInterceptor('file', { limits: { fileSize: 8 * 1024 * 1024 } }),

@@ -244,7 +244,11 @@ export class MaintenanceService {
     }
     if (
       !isManager &&
-      !(input.to === 'CANCELLED' || input.to === 'CLOSED' || from === 'RESOLVED')
+      !(
+        input.to === 'CANCELLED' ||
+        input.to === 'CLOSED' ||
+        from === 'RESOLVED'
+      )
     ) {
       throw new ForbiddenException({
         code: 'NOT_TICKET_PARTY',
@@ -256,7 +260,9 @@ export class MaintenanceService {
     // Verrou approbation : une transition qui débloque le travail exige
     // l'APPROVED si requiresOwnerApproval (spec 09).
     if (
-      (input.to === 'ASSIGNED' || input.to === 'SCHEDULED' || input.to === 'IN_PROGRESS') &&
+      (input.to === 'ASSIGNED' ||
+        input.to === 'SCHEDULED' ||
+        input.to === 'IN_PROGRESS') &&
       ticket.requiresOwnerApproval
     ) {
       await this.assertRepairApproved(ticketId);
@@ -350,12 +356,12 @@ export class MaintenanceService {
     // Spec 03: a per-mandate `repairApprovalThreshold` replaces the legacy
     // priority-only rule when present.
     const mandateThreshold = input.mandateId
-      ? (
+      ? ((
           await this.prisma.mandate.findUnique({
             where: { id: input.mandateId },
             select: { repairApprovalThreshold: true },
           })
-        )?.repairApprovalThreshold ?? null
+        )?.repairApprovalThreshold ?? null)
       : null;
     const requiresOwnerApproval = this.computeRequiresOwnerApproval(
       input,

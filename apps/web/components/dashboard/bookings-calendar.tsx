@@ -8,7 +8,7 @@ import {
 } from '@/lib/bookings';
 import { Icon } from '@iconify/react';
 import { useMemo, useState } from 'react';
-import { StatusBadge } from './data-table';
+import { StatusBadge } from './status-badge';
 
 export type BookingSummary = PublicBooking & {
   /** Required for calendar display — bookings without dates are filtered out. */
@@ -407,7 +407,7 @@ export function BookingsCalendar({
             className="ml-2 inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-sm font-medium text-foreground transition-colors hover:bg-card-hover"
           >
             <Icon icon="solar:calendar-linear" className="size-4" />
-            Aujourd'hui
+            Aujourd&apos;hui
           </button>
         </div>
         <p className="text-sm text-muted">

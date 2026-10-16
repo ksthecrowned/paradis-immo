@@ -3,8 +3,9 @@ import type { PaginatedListQuery, PaginatedResult } from '@/lib/http/types';
 
 export interface AdminUser {
   id: string;
-  phone: string;
+  phone: string | null;
   name: string | null;
+  avatarUrl: string | null;
   countryId: string;
   roles: string[];
   createdAt: string;

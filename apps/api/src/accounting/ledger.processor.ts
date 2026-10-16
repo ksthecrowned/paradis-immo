@@ -127,7 +127,10 @@ export class LedgerProcessor {
           propertyId: property.id,
           OR: [
             { status: 'ACTIVE' },
-            { status: 'TERMINATING', terminationEffectiveAt: { gt: new Date() } },
+            {
+              status: 'TERMINATING',
+              terminationEffectiveAt: { gt: new Date() },
+            },
           ],
         },
       });

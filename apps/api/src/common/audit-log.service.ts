@@ -52,7 +52,10 @@ export class AuditLogService {
     }
   }
 
-  async recordIn(tx: Prisma.TransactionClient, entry: AuditEntry): Promise<void> {
+  async recordIn(
+    tx: Prisma.TransactionClient,
+    entry: AuditEntry,
+  ): Promise<void> {
     // Dans une transaction, un échec d'audit est bloquant : mieux vaut
     // avorter l'action que livrer une écriture sensible non auditée.
     await tx.auditLog.create({

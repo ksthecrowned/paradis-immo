@@ -215,58 +215,58 @@ export type EventPayloadOf<E extends DomainEventName> = E extends
                           newMonthlyRent: string;
                           approvalId: string | null;
                         }
-                    : E extends typeof DOMAIN_EVENTS.RENT_INDEXATION_PROPOSED
-                      ? {
-                          leaseId: string;
-                          propertyId: string;
-                          ownerId: string;
-                          anniversary: string;
-                          previousMonthlyRent: string;
-                          newMonthlyRent: string;
-                          currency: string;
-                          approvalId: string | null;
-                        }
-    : E extends typeof DOMAIN_EVENTS.MANDATE_ACTION_PENDING
+                      : E extends typeof DOMAIN_EVENTS.RENT_INDEXATION_PROPOSED
+                        ? {
+                            leaseId: string;
+                            propertyId: string;
+                            ownerId: string;
+                            anniversary: string;
+                            previousMonthlyRent: string;
+                            newMonthlyRent: string;
+                            currency: string;
+                            approvalId: string | null;
+                          }
+                        : E extends typeof DOMAIN_EVENTS.MANDATE_ACTION_PENDING
                           ? {
                               approvalId: string;
                               mandateId: string;
                               actionType: string;
                             }
-      : E extends typeof DOMAIN_EVENTS.MANDATE_ACTION_DECIDED
-        ? {
-            approvalId: string;
-            mandateId: string;
-            actionType: string;
-            decision: 'APPROVED' | 'REJECTED';
-            decidedBy: string;
-          }
-        : E extends
-              | typeof DOMAIN_EVENTS.MANDATE_PROPOSED
-              | typeof DOMAIN_EVENTS.MANDATE_ACCEPTED
-              | typeof DOMAIN_EVENTS.MANDATE_DECLINED
-              | typeof DOMAIN_EVENTS.MANDATE_EXPIRING
+                          : E extends typeof DOMAIN_EVENTS.MANDATE_ACTION_DECIDED
+                            ? {
+                                approvalId: string;
+                                mandateId: string;
+                                actionType: string;
+                                decision: 'APPROVED' | 'REJECTED';
+                                decidedBy: string;
+                              }
+                            : E extends
+                                  | typeof DOMAIN_EVENTS.MANDATE_PROPOSED
+                                  | typeof DOMAIN_EVENTS.MANDATE_ACCEPTED
+                                  | typeof DOMAIN_EVENTS.MANDATE_DECLINED
+                                  | typeof DOMAIN_EVENTS.MANDATE_EXPIRING
                               ? {
                                   mandateId: string;
                                   propertyId: string;
                                   organizationId: string;
                                 }
-          : E extends typeof DOMAIN_EVENTS.MANDATE_TERMINATED
-            ? {
-                mandateId: string;
-                propertyId: string;
-                organizationId: string;
-                effectiveAt: string;
-                reason: string;
-              }
-            : E extends typeof DOMAIN_EVENTS.EXPENSE_APPROVED
-              ? { expenseId: string }
-              : E extends typeof DOMAIN_EVENTS.MANDATE_AGENT_ASSIGNED
-                ? {
-                    mandateId: string;
-                    agentUserId: string;
-                    assignedBy: string;
-                  }
-                : E extends typeof DOMAIN_EVENTS.VISIT_BOOKING_CONFIRMED
+                              : E extends typeof DOMAIN_EVENTS.MANDATE_TERMINATED
+                                ? {
+                                    mandateId: string;
+                                    propertyId: string;
+                                    organizationId: string;
+                                    effectiveAt: string;
+                                    reason: string;
+                                  }
+                                : E extends typeof DOMAIN_EVENTS.EXPENSE_APPROVED
+                                  ? { expenseId: string }
+                                  : E extends typeof DOMAIN_EVENTS.MANDATE_AGENT_ASSIGNED
+                                    ? {
+                                        mandateId: string;
+                                        agentUserId: string;
+                                        assignedBy: string;
+                                      }
+                                    : E extends typeof DOMAIN_EVENTS.VISIT_BOOKING_CONFIRMED
                                       ? {
                                           bookingId: string;
                                           slotId: string;
@@ -296,214 +296,215 @@ export type EventPayloadOf<E extends DomainEventName> = E extends
                                                 cancelledById: string;
                                               }
                                             : E extends typeof DOMAIN_EVENTS.VISIT_REMINDER
-                                            ? {
-                                                bookingId: string;
-                                                slotId: string;
-                                                userId: string;
-                                                agentId: string | null;
-                                                kind: 'J1' | 'H2';
-                                              }
-        : E extends typeof DOMAIN_EVENTS.MAINTENANCE_OPENED
                                               ? {
-                                                  ticketId: string;
-                                                  propertyId: string;
-                                                  priority: string;
+                                                  bookingId: string;
+                                                  slotId: string;
+                                                  userId: string;
+                                                  agentId: string | null;
+                                                  kind: 'J1' | 'H2';
                                                 }
-          : E extends typeof DOMAIN_EVENTS.RENT_DUE_SOON
+                                              : E extends typeof DOMAIN_EVENTS.MAINTENANCE_OPENED
                                                 ? {
-                                                    rentScheduleId: string;
-                                                    dueDate: string;
+                                                    ticketId: string;
+                                                    propertyId: string;
+                                                    priority: string;
                                                   }
-            : E extends typeof DOMAIN_EVENTS.RENT_OVERDUE
+                                                : E extends typeof DOMAIN_EVENTS.RENT_DUE_SOON
                                                   ? {
                                                       rentScheduleId: string;
-                                                      daysOverdue: number;
+                                                      dueDate: string;
                                                     }
-              : E extends typeof DOMAIN_EVENTS.SOLVENCY_CHECK_REQUESTED
-                ? {
-                    checkId: string;
-                    tenantUserId: string;
-                    requesterOrgId: string;
-                    organizationName: string;
-                    /** Spec 04 — set when the check targets a candidature. */
-                    applicationId?: string;
-                  }
-                : E extends typeof DOMAIN_EVENTS.SOLVENCY_CHECK_DECIDED
-                  ? {
-                      checkId: string;
-                      tenantUserId: string;
-                      status: string;
-                                                          applicationId:
-                                                            string | null;
-                    }
-                  : E extends typeof DOMAIN_EVENTS.APPLICATION_SUBMITTED
-                    ? {
-                        applicationId: string;
-                        propertyId: string;
-                        applicantId: string;
-                        organizationId: string;
-                        propertyTitle: string;
-                      }
-                    : E extends typeof DOMAIN_EVENTS.APPLICATION_ACCEPTED
-                      ? {
-                          applicationId: string;
-                          propertyId: string;
-                          applicantId: string;
-                          /** Ids of the sibling applications auto-rejected. */
-                          autoRejectedIds: string[];
-                        }
-                      : E extends typeof DOMAIN_EVENTS.APPLICATION_REJECTED
-                        ? {
-                            applicationId: string;
-                            applicantId: string;
-                                                                rejectionMessage:
-                                                                  string | null;
-                            /** True when auto-rejected by accepting a sibling. */
-                            auto: boolean;
-                          }
-                        : E extends typeof DOMAIN_EVENTS.APPLICATION_WITHDRAWN
-                          ? {
-                              applicationId: string;
-                              propertyId: string;
-                              applicantId: string;
-                              organizationId: string;
+                                                  : E extends typeof DOMAIN_EVENTS.RENT_OVERDUE
+                                                    ? {
+                                                        rentScheduleId: string;
+                                                        daysOverdue: number;
+                                                      }
+                                                    : E extends typeof DOMAIN_EVENTS.SOLVENCY_CHECK_REQUESTED
+                                                      ? {
+                                                          checkId: string;
+                                                          tenantUserId: string;
+                                                          requesterOrgId: string;
+                                                          organizationName: string;
+                                                          /** Spec 04 — set when the check targets a candidature. */
+                                                          applicationId?: string;
+                                                        }
+                                                      : E extends typeof DOMAIN_EVENTS.SOLVENCY_CHECK_DECIDED
+                                                        ? {
+                                                            checkId: string;
+                                                            tenantUserId: string;
+                                                            status: string;
+                                                            applicationId:
+                                                              string | null;
+                                                          }
+                                                        : E extends typeof DOMAIN_EVENTS.APPLICATION_SUBMITTED
+                                                          ? {
+                                                              applicationId: string;
+                                                              propertyId: string;
+                                                              applicantId: string;
+                                                              organizationId: string;
+                                                              propertyTitle: string;
+                                                            }
+                                                          : E extends typeof DOMAIN_EVENTS.APPLICATION_ACCEPTED
+                                                            ? {
+                                                                applicationId: string;
+                                                                propertyId: string;
+                                                                applicantId: string;
+                                                                /** Ids of the sibling applications auto-rejected. */
+                                                                autoRejectedIds: string[];
+                                                              }
+                                                            : E extends typeof DOMAIN_EVENTS.APPLICATION_REJECTED
+                                                              ? {
+                                                                  applicationId: string;
+                                                                  applicantId: string;
+                                                                  rejectionMessage:
+                                                                    | string
+                                                                    | null;
+                                                                  /** True when auto-rejected by accepting a sibling. */
+                                                                  auto: boolean;
                                                                 }
-                                                              : E extends typeof DOMAIN_EVENTS.BUYER_PAYMENT_PROOF_REQUESTED
-                    ? {
-                        proofId: string;
-                        buyerUserId: string;
-                        saleAgreementId: string;
-                        requesterOrgId: string;
-                        organizationName: string;
-                      }
-                    : E extends typeof DOMAIN_EVENTS.DEPOSIT_DEDUCTION_PROPOSED
-                      ? {
-                          leaseId: string;
-                          deductionId: string;
-                                                                      tenantId:
-                                                                        | string
-                                                                        | null;
-                          label: string;
-                          amount: string;
-                        }
-                      : E extends typeof DOMAIN_EVENTS.DEPOSIT_DEDUCTION_CONTESTED
-                        ? {
-                            leaseId: string;
-                            deductionId: string;
+                                                              : E extends typeof DOMAIN_EVENTS.APPLICATION_WITHDRAWN
+                                                                ? {
+                                                                    applicationId: string;
+                                                                    propertyId: string;
+                                                                    applicantId: string;
+                                                                    organizationId: string;
+                                                                  }
+                                                                : E extends typeof DOMAIN_EVENTS.BUYER_PAYMENT_PROOF_REQUESTED
+                                                                  ? {
+                                                                      proofId: string;
+                                                                      buyerUserId: string;
+                                                                      saleAgreementId: string;
+                                                                      requesterOrgId: string;
+                                                                      organizationName: string;
+                                                                    }
+                                                                  : E extends typeof DOMAIN_EVENTS.DEPOSIT_DEDUCTION_PROPOSED
+                                                                    ? {
+                                                                        leaseId: string;
+                                                                        deductionId: string;
                                                                         tenantId:
                                                                           | string
                                                                           | null;
-                            label: string;
-                            amount: string;
-                                                                        comment:
-                                                                          | string
-                                                                          | null;
-                          }
-                        : E extends typeof DOMAIN_EVENTS.DEPOSIT_SETTLED
-                          ? {
-                              leaseId: string;
-                              settlementId: string;
+                                                                        label: string;
+                                                                        amount: string;
+                                                                      }
+                                                                    : E extends typeof DOMAIN_EVENTS.DEPOSIT_DEDUCTION_CONTESTED
+                                                                      ? {
+                                                                          leaseId: string;
+                                                                          deductionId: string;
                                                                           tenantId:
                                                                             | string
                                                                             | null;
-                              deducted: string;
-                              refundAmount: string;
-                              currency: string;
-                                                                          payoutId:
+                                                                          label: string;
+                                                                          amount: string;
+                                                                          comment:
                                                                             | string
                                                                             | null;
-                            }
-                      : E extends typeof DOMAIN_EVENTS.DEPOSIT_REFUND_DUE
-                        ? {
-                            leaseId: string;
+                                                                        }
+                                                                      : E extends typeof DOMAIN_EVENTS.DEPOSIT_SETTLED
+                                                                        ? {
+                                                                            leaseId: string;
+                                                                            settlementId: string;
                                                                             tenantId:
                                                                               | string
                                                                               | null;
-                            refundDeadline: string;
-                            ownerId: string;
-                          }
-                        : E extends
-                            | typeof DOMAIN_EVENTS.PAYMENT_FAILED
-                            | typeof DOMAIN_EVENTS.PAYMENT_EXPIRED
-                          ? {
-                              paymentId: string;
-                              userId: string;
-                              amount: string;
-                              currency: string;
-                                                                              reason:
+                                                                            deducted: string;
+                                                                            refundAmount: string;
+                                                                            currency: string;
+                                                                            payoutId:
+                                                                              | string
+                                                                              | null;
+                                                                          }
+                                                                        : E extends typeof DOMAIN_EVENTS.DEPOSIT_REFUND_DUE
+                                                                          ? {
+                                                                              leaseId: string;
+                                                                              tenantId:
                                                                                 | string
                                                                                 | null;
-                            }
-                          : E extends typeof DOMAIN_EVENTS.PAYMENT_DISPUTED
-                            ? {
-                                paymentId: string;
-                                disputeId: string;
-                                openedBy: string;
-                                reason: string;
-                              }
-                            : E extends typeof DOMAIN_EVENTS.PAYMENT_REFUNDED
-                              ? {
-                                  paymentId: string;
-                                  refundId: string;
-                                  amount: string;
-                                  currency: string;
+                                                                              refundDeadline: string;
+                                                                              ownerId: string;
+                                                                            }
+                                                                          : E extends
+                                                                                | typeof DOMAIN_EVENTS.PAYMENT_FAILED
+                                                                                | typeof DOMAIN_EVENTS.PAYMENT_EXPIRED
+                                                                            ? {
+                                                                                paymentId: string;
+                                                                                userId: string;
+                                                                                amount: string;
+                                                                                currency: string;
+                                                                                reason:
+                                                                                  | string
+                                                                                  | null;
+                                                                              }
+                                                                            : E extends typeof DOMAIN_EVENTS.PAYMENT_DISPUTED
+                                                                              ? {
+                                                                                  paymentId: string;
+                                                                                  disputeId: string;
+                                                                                  openedBy: string;
+                                                                                  reason: string;
                                                                                 }
-                                                                              : E extends
-                                  | typeof DOMAIN_EVENTS.PAYOUT_PAID
-                                  | typeof DOMAIN_EVENTS.PAYOUT_FAILED
-                                ? {
-                                    payoutId: string;
-                                    organizationId: string;
-                                    amount: string;
-                                    currency: string;
-                                                                                    reason:
-                                                                                      | string
-                                                                                      | null;
-                                  }
-                                : E extends
-                                    | typeof DOMAIN_EVENTS.BOOKING_HELD
-                                    | typeof DOMAIN_EVENTS.BOOKING_HOLD_EXPIRED
-                                    | typeof DOMAIN_EVENTS.BOOKING_REQUESTED
-                                    | typeof DOMAIN_EVENTS.BOOKING_CANCELLED
-                                    | typeof DOMAIN_EVENTS.BOOKING_ACCEPTED
-                                    | typeof DOMAIN_EVENTS.BOOKING_DECLINED
-                                    | typeof DOMAIN_EVENTS.BOOKING_EXPIRED
-                                    | typeof DOMAIN_EVENTS.BOOKING_CONFIRMED
-                                    | typeof DOMAIN_EVENTS.BOOKING_CHECKED_IN
-                                    | typeof DOMAIN_EVENTS.BOOKING_CHECKED_OUT
-                                    | typeof DOMAIN_EVENTS.BOOKING_COMPLETED
-                                    | typeof DOMAIN_EVENTS.BOOKING_DAMAGE_REPORTED
-                                  ? {
-                                      bookingId: string;
-                                      userId: string;
-                                      propertyId?: string;
-                                      holdExpiresAt?: string;
-                                      refundPercent?: number;
-                                      refundAmount?: string;
-                                                                                      reason?:
+                                                                              : E extends typeof DOMAIN_EVENTS.PAYMENT_REFUNDED
+                                                                                ? {
+                                                                                    paymentId: string;
+                                                                                    refundId: string;
+                                                                                    amount: string;
+                                                                                    currency: string;
+                                                                                  }
+                                                                                : E extends
+                                                                                      | typeof DOMAIN_EVENTS.PAYOUT_PAID
+                                                                                      | typeof DOMAIN_EVENTS.PAYOUT_FAILED
+                                                                                  ? {
+                                                                                      payoutId: string;
+                                                                                      organizationId: string;
+                                                                                      amount: string;
+                                                                                      currency: string;
+                                                                                      reason:
                                                                                         | string
                                                                                         | null;
-                                      reportId?: string;
-                                      amount?: string;
-                                    }
-                                : E extends typeof DOMAIN_EVENTS.SALE_INQUIRY_CREATED
+                                                                                    }
+                                                                                  : E extends
+                                                                                        | typeof DOMAIN_EVENTS.BOOKING_HELD
+                                                                                        | typeof DOMAIN_EVENTS.BOOKING_HOLD_EXPIRED
+                                                                                        | typeof DOMAIN_EVENTS.BOOKING_REQUESTED
+                                                                                        | typeof DOMAIN_EVENTS.BOOKING_CANCELLED
+                                                                                        | typeof DOMAIN_EVENTS.BOOKING_ACCEPTED
+                                                                                        | typeof DOMAIN_EVENTS.BOOKING_DECLINED
+                                                                                        | typeof DOMAIN_EVENTS.BOOKING_EXPIRED
+                                                                                        | typeof DOMAIN_EVENTS.BOOKING_CONFIRMED
+                                                                                        | typeof DOMAIN_EVENTS.BOOKING_CHECKED_IN
+                                                                                        | typeof DOMAIN_EVENTS.BOOKING_CHECKED_OUT
+                                                                                        | typeof DOMAIN_EVENTS.BOOKING_COMPLETED
+                                                                                        | typeof DOMAIN_EVENTS.BOOKING_DAMAGE_REPORTED
                                                                                     ? {
-                                                                                        inquiryId: string;
-                                                                                        propertyId: string;
-                                                                                        buyerUserId: string;
+                                                                                        bookingId: string;
+                                                                                        userId: string;
+                                                                                        propertyId?: string;
+                                                                                        holdExpiresAt?: string;
+                                                                                        refundPercent?: number;
+                                                                                        refundAmount?: string;
+                                                                                        reason?:
+                                                                                          | string
+                                                                                          | null;
+                                                                                        reportId?: string;
+                                                                                        amount?: string;
                                                                                       }
-                                : E extends
-                                    | typeof DOMAIN_EVENTS.SALE_OFFER_SUBMITTED
-                                    | typeof DOMAIN_EVENTS.SALE_OFFER_DECIDED
-                                    | typeof DOMAIN_EVENTS.SALE_OFFER_FORWARDED
-                                  ? {
-                                      offerId: string;
-                                      propertyId: string;
-                                      buyerId: string;
-                                      price: string;
-                                      decision?: string;
-                                    }
-                                                                                      : Record<
-                                                                                          string,
-                                                                                          unknown
-                                                                                        >;
+                                                                                    : E extends typeof DOMAIN_EVENTS.SALE_INQUIRY_CREATED
+                                                                                      ? {
+                                                                                          inquiryId: string;
+                                                                                          propertyId: string;
+                                                                                          buyerUserId: string;
+                                                                                        }
+                                                                                      : E extends
+                                                                                            | typeof DOMAIN_EVENTS.SALE_OFFER_SUBMITTED
+                                                                                            | typeof DOMAIN_EVENTS.SALE_OFFER_DECIDED
+                                                                                            | typeof DOMAIN_EVENTS.SALE_OFFER_FORWARDED
+                                                                                        ? {
+                                                                                            offerId: string;
+                                                                                            propertyId: string;
+                                                                                            buyerId: string;
+                                                                                            price: string;
+                                                                                            decision?: string;
+                                                                                          }
+                                                                                        : Record<
+                                                                                            string,
+                                                                                            unknown
+                                                                                          >;

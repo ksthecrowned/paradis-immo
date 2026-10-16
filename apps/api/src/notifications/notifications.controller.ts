@@ -51,7 +51,8 @@ class RegisterDeviceDto {
 @ApiBearerAuth()
 @Controller('notifications')
 @UseGuards(AppAuthGuard)
-export class NotificationsController {  constructor(private readonly notifications: NotificationsService) {}
+export class NotificationsController {
+  constructor(private readonly notifications: NotificationsService) {}
 
   @Get('my')
   @ApiOperation({ summary: 'List notifications for the current user' })
@@ -67,10 +68,7 @@ export class NotificationsController {  constructor(private readonly notificatio
 
   @Patch(':id/read')
   @ApiOperation({ summary: 'Mark a notification as read' })
-  markRead(
-    @CurrentUser() current: AuthenticatedUser,
-    @Param('id') id: string,
-  ) {
+  markRead(@CurrentUser() current: AuthenticatedUser, @Param('id') id: string) {
     return this.notifications.markRead(current.userId, id);
   }
 
@@ -119,7 +117,9 @@ export class UserDevicesController {
 
   @Post('devices')
   @HttpCode(201)
-  @ApiOperation({ summary: 'Register or refresh a push device (documented path)' })
+  @ApiOperation({
+    summary: 'Register or refresh a push device (documented path)',
+  })
   registerDevice(
     @CurrentUser() current: AuthenticatedUser,
     @Body() dto: RegisterDeviceDto,
@@ -128,7 +128,9 @@ export class UserDevicesController {
   }
 
   @Get('devices')
-  @ApiOperation({ summary: 'List my registered push devices (documented path)' })
+  @ApiOperation({
+    summary: 'List my registered push devices (documented path)',
+  })
   listDevices(@CurrentUser() current: AuthenticatedUser) {
     return this.notifications.listDevices(current.userId);
   }

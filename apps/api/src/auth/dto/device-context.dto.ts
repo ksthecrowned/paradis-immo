@@ -11,7 +11,8 @@ import { IsIn, IsOptional, IsString, MaxLength } from 'class-validator';
  */
 export class DeviceContextDto {
   @ApiPropertyOptional({
-    description: 'Stable id generated once per install (persisted client-side).',
+    description:
+      'Stable id generated once per install (persisted client-side).',
   })
   @IsOptional()
   @IsString()

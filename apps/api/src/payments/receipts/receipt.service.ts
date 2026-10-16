@@ -241,7 +241,9 @@ export class ReceiptService {
     if (rentAllocation?.rentScheduleId) {
       const schedule = await this.prisma.rentSchedule.findUnique({
         where: { id: rentAllocation.rentScheduleId },
-        select: { lease: { select: { property: { select: { organizationId: true } } } } },
+        select: {
+          lease: { select: { property: { select: { organizationId: true } } } },
+        },
       });
       const orgId = schedule?.lease.property.organizationId;
       if (orgId) return orgId;

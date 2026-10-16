@@ -23,7 +23,9 @@ export class DepositsController {
   constructor(private readonly deposits: DepositsService) {}
 
   @Get(':id/deposit')
-  @ApiOperation({ summary: 'Deposit state: collected amount, deductions, refund' })
+  @ApiOperation({
+    summary: 'Deposit state: collected amount, deductions, refund',
+  })
   getSummary(
     @CurrentUser() current: AuthenticatedUser,
     @Param('id') id: string,

@@ -14,6 +14,11 @@ export interface PublicSaleInquiry {
   status: SaleInquiryStatus;
   createdAt: string;
   updatedAt: string;
+  buyer?: {
+    id: string;
+    name: string | null;
+    avatarUrl: string | null;
+  };
 }
 
 export async function listManagedInquiries(): Promise<PublicSaleInquiry[]> {

@@ -1,4 +1,12 @@
-import { Body, Controller, Get, HttpCode, Post, Query, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AppAuthGuard } from '../common/guards/auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
@@ -24,8 +32,13 @@ export class PayoutsController {
 
   @Post('request')
   @HttpCode(201)
-  @ApiOperation({ summary: 'Reversement à la demande (solde ≥ minPayoutAmount)' })
-  request(@CurrentUser() current: AuthenticatedUser, @Body() dto: RequestPayoutDto) {
+  @ApiOperation({
+    summary: 'Reversement à la demande (solde ≥ minPayoutAmount)',
+  })
+  request(
+    @CurrentUser() current: AuthenticatedUser,
+    @Body() dto: RequestPayoutDto,
+  ) {
     return this.payouts.requestPayout(current.userId, dto);
   }
 }

@@ -301,7 +301,9 @@ export class SaleAgreementsService {
     const rows = await this.prisma.saleAgreement.findMany({
       where: {
         buyerId: buyerUserId,
-        status: { in: [SaleAgreementStatus.ACTIVE, SaleAgreementStatus.COMPLETED] },
+        status: {
+          in: [SaleAgreementStatus.ACTIVE, SaleAgreementStatus.COMPLETED],
+        },
       },
       orderBy: { createdAt: 'desc' },
       include: this.detailInclude(),
@@ -309,10 +311,7 @@ export class SaleAgreementsService {
     return rows.map((r) => this.serialize(r));
   }
 
-  async getMine(
-    buyerUserId: string,
-    id: string,
-  ): Promise<PublicSaleAgreement> {
+  async getMine(buyerUserId: string, id: string): Promise<PublicSaleAgreement> {
     const row = await this.prisma.saleAgreement.findFirst({
       where: { id, buyerId: buyerUserId },
       include: this.detailInclude(),
@@ -392,32 +391,30 @@ export class SaleAgreementsService {
     };
   }
 
-  private serialize(
-    row: {
+  private serialize(row: {
+    id: string;
+    propertyId: string;
+    organizationId: string;
+    saleInquiryId: string | null;
+    agreedPrice: Prisma.Decimal;
+    currency: string;
+    status: SaleAgreementStatus;
+    activatedAt: Date | null;
+    completedAt: Date | null;
+    createdAt: Date;
+    updatedAt: Date;
+    property: { title: string };
+    buyer: { id: string; name: string | null; phone: string | null };
+    installments: Array<{
       id: string;
-      propertyId: string;
-      organizationId: string;
-      saleInquiryId: string | null;
-      agreedPrice: Prisma.Decimal;
+      label: string | null;
+      dueDate: Date;
+      amount: Prisma.Decimal;
       currency: string;
-      status: SaleAgreementStatus;
-      activatedAt: Date | null;
-      completedAt: Date | null;
-      createdAt: Date;
-      updatedAt: Date;
-      property: { title: string };
-      buyer: { id: string; name: string | null; phone: string | null };
-      installments: Array<{
-        id: string;
-        label: string | null;
-        dueDate: Date;
-        amount: Prisma.Decimal;
-        currency: string;
-        status: SaleInstallmentStatus;
-        position: number;
-      }>;
-    },
-  ): PublicSaleAgreement {
+      status: SaleInstallmentStatus;
+      position: number;
+    }>;
+  }): PublicSaleAgreement {
     const now = Date.now();
     return {
       id: row.id,

@@ -26,36 +26,36 @@ export function LandingFooter(): React.JSX.Element {
           </p>
           <ul className="mt-4 space-y-3 text-[15px]">
             <li>
-              <a
+              <Link
                 href="/#properties"
                 className="text-(--lp-cool) transition-colors hover:text-(--lp-on-navy)"
               >
                 Biens
-              </a>
+              </Link>
             </li>
             <li>
-              <a
+              <Link
                 href="/#paths"
                 className="text-(--lp-cool) transition-colors hover:text-(--lp-on-navy)"
               >
                 La plateforme
-              </a>
+              </Link>
             </li>
             <li>
-              <a
+              <Link
                 href="/#app"
                 className="text-(--lp-cool) transition-colors hover:text-(--lp-on-navy)"
               >
                 Application
-              </a>
+              </Link>
             </li>
             <li>
-              <a
+              <Link
                 href="/#manage"
                 className="text-(--lp-cool) transition-colors hover:text-(--lp-on-navy)"
               >
                 Gestion
-              </a>
+              </Link>
             </li>
           </ul>
         </nav>

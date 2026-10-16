@@ -24,7 +24,10 @@ export function renderAmendmentPdf(input: AmendmentPdfInput): Promise<Buffer> {
 
     doc.fontSize(20).font('Helvetica-Bold').text('Paradis Immo');
     doc.moveDown(0.3);
-    doc.fontSize(16).font('Helvetica-Bold').text('Avenant de bail — réduction de loyer');
+    doc
+      .fontSize(16)
+      .font('Helvetica-Bold')
+      .text('Avenant de bail — réduction de loyer');
     doc.moveDown(1);
 
     doc.fontSize(11).font('Helvetica');
@@ -36,9 +39,7 @@ export function renderAmendmentPdf(input: AmendmentPdfInput): Promise<Buffer> {
     doc.text(
       `Applicable à compter du : ${input.effectiveFrom.toLocaleDateString('fr-FR')}`,
     );
-    doc.text(
-      `Approuvé le : ${input.decidedAt.toLocaleDateString('fr-FR')}`,
-    );
+    doc.text(`Approuvé le : ${input.decidedAt.toLocaleDateString('fr-FR')}`);
     doc.moveDown(2);
     doc
       .fontSize(9)

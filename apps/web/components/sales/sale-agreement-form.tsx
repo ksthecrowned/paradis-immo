@@ -82,7 +82,7 @@ export function SaleAgreementFormPage({
     const last = next[next.length - 1]!;
     last.amount = Math.max(0, Number(last.amount || 0) + remainder);
     setRows(next);
-  }, [rows, remainder]);
+  }, [rows, remainder, setRows]);
 
   const submit = async (): Promise<void> => {
     setBusy(true);

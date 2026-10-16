@@ -1,7 +1,8 @@
 'use client';
 
 import {
-  DataTable,
+  adaptSummaryColumns,
+  ListDataTable,
   PropertyModeChart,
   RevenueChart,
   StatCard,
@@ -119,11 +120,12 @@ export function AdminDashboard({ stats }: AdminDashboardProps): React.JSX.Elemen
       </div>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        <DataTable
+        <ListDataTable
           title="Nouveaux comptes"
           subtitle="Données de démonstration"
           viewAllHref={ROUTES.admin.users}
-          columns={[
+          compact
+          columns={adaptSummaryColumns<(typeof DEMO_USERS)[number]>([
             {
               key: 'name',
               header: 'Utilisateur',
@@ -154,14 +156,15 @@ export function AdminDashboard({ stats }: AdminDashboardProps): React.JSX.Elemen
                 />
               ),
             },
-          ]}
-          rows={DEMO_USERS}
+          ])}
+          data={DEMO_USERS}
         />
 
-        <DataTable
+        <ListDataTable
           title="Transactions récentes"
           subtitle="Données de démonstration"
-          columns={[
+          compact
+          columns={adaptSummaryColumns<(typeof DEMO_TX)[number]>([
             { key: 'date', header: 'Date', render: (row) => row.date },
             {
               key: 'amount',
@@ -180,8 +183,8 @@ export function AdminDashboard({ stats }: AdminDashboardProps): React.JSX.Elemen
               ),
             },
             { key: 'label', header: 'Description', render: (row) => row.label },
-          ]}
-          rows={DEMO_TX}
+          ])}
+          data={DEMO_TX}
         />
       </div>
     </section>

@@ -89,8 +89,8 @@ export function maskDisplayName(name: string | null): string | null {
   const trimmed = name?.trim();
   if (!trimmed) return null;
   const parts = trimmed.split(/\s+/);
-  if (parts.length === 1) return parts[0]!;
-  const lastInitial = parts[parts.length - 1]!.charAt(0).toUpperCase();
+  if (parts.length === 1) return parts[0];
+  const lastInitial = parts[parts.length - 1].charAt(0).toUpperCase();
   return `${parts[0]} ${lastInitial}.`;
 }
 
@@ -200,7 +200,11 @@ export class UsersService {
       });
     }
     const taken = await this.prisma.user.findFirst({
-      where: { phone: normalized, countryId: user.countryId, NOT: { id: userId } },
+      where: {
+        phone: normalized,
+        countryId: user.countryId,
+        NOT: { id: userId },
+      },
       select: { id: true },
     });
     if (taken) {
@@ -272,7 +276,11 @@ export class UsersService {
       select: { phone: true, countryId: true },
     });
     const taken = await this.prisma.user.findFirst({
-      where: { phone: normalized, countryId: user.countryId, NOT: { id: userId } },
+      where: {
+        phone: normalized,
+        countryId: user.countryId,
+        NOT: { id: userId },
+      },
       select: { id: true },
     });
     if (taken) {
@@ -338,7 +346,10 @@ export class UsersService {
         HttpStatus.SERVICE_UNAVAILABLE,
       );
     }
-    const { rawToken } = await this.magicLinks.create(normalized, 'VERIFY_EMAIL');
+    const { rawToken } = await this.magicLinks.create(
+      normalized,
+      'VERIFY_EMAIL',
+    );
     await this.email.sendMagicLink(normalized, rawToken, 'VERIFY_EMAIL');
     return { message: 'Lien de vérification envoyé.' };
   }
@@ -639,8 +650,7 @@ export class UsersService {
     if (!trimmedName) {
       throw new BadRequestException({
         code: 'USER_NAME_REQUIRED',
-        message:
-          'Nom requis pour créer un profil sans compte Paradis Immo',
+        message: 'Nom requis pour créer un profil sans compte Paradis Immo',
       });
     }
 
@@ -745,7 +755,9 @@ export class UsersService {
               emailVerifiedAt: null,
             }
           : {}),
-        ...(patch.avatarUrl !== undefined ? { avatarUrl: patch.avatarUrl } : {}),
+        ...(patch.avatarUrl !== undefined
+          ? { avatarUrl: patch.avatarUrl }
+          : {}),
         ...(patch.fcmToken !== undefined ? { fcmToken: patch.fcmToken } : {}),
         ...(patch.notificationChannel !== undefined
           ? {
@@ -758,10 +770,10 @@ export class UsersService {
             }
           : {}),
         ...(patch.seekerIntent !== undefined
-          ? { seekerIntent: patch.seekerIntent as SeekerIntent }
+          ? { seekerIntent: patch.seekerIntent }
           : {}),
         ...(patch.seekerExperience !== undefined
-          ? { seekerExperience: patch.seekerExperience as SeekerExperience }
+          ? { seekerExperience: patch.seekerExperience }
           : {}),
         ...(patch.budgetMinXaf !== undefined
           ? { budgetMinXaf: patch.budgetMinXaf }
@@ -798,8 +810,7 @@ export class UsersService {
     // Report the stored preference as-is: WhatsApp is the default for new
     // accounts (schema default), but an explicit PUSH choice must survive
     // `getMe` (spec: SMS is never a delivery channel).
-    const channel: PublicUser['notificationChannel'] =
-      user.notificationChannel;
+    const channel: PublicUser['notificationChannel'] = user.notificationChannel;
     return {
       id: user.id,
       phone: user.phone,

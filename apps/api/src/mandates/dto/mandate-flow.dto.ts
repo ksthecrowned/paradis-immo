@@ -16,13 +16,17 @@ import { MandateScope } from '@prisma/client';
 
 /** POST /mandates/:id/counter — revised conditions (spec 03 P2). */
 export class CounterMandateDto {
-  @IsOptional() @IsArray()
+  @IsOptional()
+  @IsArray()
   @IsEnum(MandateScope, { each: true })
   scopes?: MandateScope[];
 
   @IsOptional() @IsBoolean() exclusive?: boolean;
 
-  @IsOptional() @IsNumber() @Min(0) @Max(1)
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(1)
   managementFeeRate?: number;
   @IsOptional() @IsNumber() @Min(0) lettingFee?: number;
   @IsOptional() @IsNumber() @Min(0) lettingFeeMonths?: number;

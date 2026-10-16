@@ -20,6 +20,165 @@ Rôles : `OWNER`, `MANAGER`, `AGENT`, `PLATFORM_ADMIN` (consultation).
 - Pas de page web « mandats » côté agent. `owner/mandate` liste les approbations.
 - Pas de comptabilité : ni honoraires, ni dépenses, ni reversements, ni relevés.
 
+## Audit source du tableau de bord Owner / agence / Agent (2026-10-15)
+
+Cette section décrit les parcours présents dans le code web et les services de stats correspondants, pas l'état cible des anciennes user stories. « Admin agence » désigne ici le membre `ADMIN` d'une organisation `AGENCY` ; ce rôle n'a pas de route dashboard distincte.
+
+### État réellement câblé
+
+| Surface | Source observée | Limite fonctionnelle actuelle |
+|---|---|---|
+| Dashboard Owner | `/owner/dashboard` appelle `/owner/stats` et charge aussi paiements, visites, biens et baux via des requêtes séparées. Il affiche 4 compteurs : biens actifs, baux actifs, paiements en attente et demandes de visite. | Pas de synthèse du net propriétaire, des loyers encaissés/impayés, des dépenses, des reversements, des candidatures, des séjours ou des demandes d'approbation sur le dashboard. Les compteurs API de paiements couvrent les échéances de loyers allouées, pas nécessairement tous les types de paiement. |
+| Dashboard Admin agence | Le membre organisation `ADMIN` est résolu comme rôle dashboard `agent`, puis utilise `/agent/dashboard` et `/agent/stats`, comme un Agent. | Aucun dashboard gérant distinct, aucun sélecteur d'agence active ni indicateurs d'équipe/org. Le périmètre repose sur les biens que `AgencyAccessService.listOperablePropertyIds` rend opérables ; pour un `ADMIN`, il peut couvrir les mandats actifs de l'agence et les biens d'organisation sans mandat. |
+| Dashboard Agent | `/agent/dashboard` affiche biens mandatés, visites aujourd'hui, paiements espèces à valider et tickets maintenance ouverts. Le service API calcule les visites sur le jour calendaire `Africa/Brazzaville`. | Le champ « biens mandatés » compte en réalité les biens actifs du périmètre opérable, qui peut ne pas correspondre strictement aux biens sous mandat. Le comptage des paiements espèces inclut un scan plafonné à 500 paiements cash non alloués pour retrouver ceux reliés par metadata, pouvant sous-compter les cas au-delà de cette limite. Les actions du tableau n'affichent pas le nom du bien ou du client, seulement un identifiant court dans plusieurs endroits. |
+| Graphique « Revenus encaissés » partagé | `RevenueChart` calcule côté navigateur une série à partir des paiements chargés par les pages Owner/Agent. Il considère `VALIDATED` et `PAID`, regroupe par `createdAt` et rend montant + nombre de paiements. | Les pages ne chargent que la première page de 100 paiements : au-delà, historique incomplet. La date d'encaissement n'est pas utilisée (le calcul s'appuie sur `createdAt`) et le montant du paiement n'est pas nécessairement le revenu net/honoraires/revenu propriétaire. Le libellé « revenus encaissés » peut donc induire en erreur. |
+| Graphique « Biens par mode » partagé | Construit dans le navigateur avec `/properties/managed?limit=100`. | Limité aux 100 premiers biens, sans total ni navigation ; peut être faux dès que le portefeuille dépasse 100 biens. La répartition ne précise pas si elle porte sur tous les statuts ou seulement les biens actifs. |
+| Sparklines des compteurs | Construites dans le navigateur à partir des listes courantes. | Les séries « biens » et « baux » du Owner répètent le total actuel sur 7 jours ; « biens » Agent répète le nombre de biens chargés. Ces valeurs ne sont pas une évolution historique. Les autres courbes sont dérivées des listes récentes/courantes, donc bornées à 100 paiements ou au périmètre renvoyé par la route. Elles ne doivent pas être présentées comme des tendances historiques fiables. |
+| Activité récente Owner | Affiche jusqu'à cinq visites et cinq paiements à partir des listes chargées. | Les visites sont des demandes récentes par date de création, pas nécessairement les prochaines visites à traiter. Les lignes utilisent l'ID court du bien au lieu de son titre/adresse. |
+| Activité récente Agent | Filtre les visites renvoyées sur aujourd'hui à Brazzaville et les trie par début de créneau ; affiche jusqu'à cinq paiements espèces `PENDING_VALIDATION` dans les 100 paiements chargés. | Les paiements à valider peuvent être omis si plus de 100 paiements plus récents existent ; les deux blocs n'affichent pas le nom du bien, ni le payeur/demandeur. |
+| Chargement et erreurs | Les appels de stats, paiements, visites, biens et baux/maintenance sont lancés ensemble. Les stats échouées affichent un bandeau mais des compteurs à zéro ; la plupart des autres erreurs sont converties en listes vides. | Une panne partielle peut être présentée comme une absence réelle de données. Un zéro de repli n'est pas distingué de la valeur serveur. Les widgets n'ont pas d'état d'erreur/retry indépendant. |
+| Carte des biens du marché | Le composant réutilisé Owner/Agent charge les biens puis choisit jusqu'à quatre actifs, sinon les quatre premiers disponibles. | Erreurs avalées sans message ; la section peut être vide sans distinguer panne et absence de biens. Le titre « sur le marché » peut inclure des biens non actifs lorsque aucun bien actif n'est présent. |
+
+### Périmètre des rôles et accès
+- Le web résout une appartenance d'organisation `ADMIN` ou `AGENT` vers l'unique rôle dashboard `agent`. Le commutateur de rôle distingue `owner`, `agent` et `admin` (plateforme), pas `ADMIN` d'agence et Agent.
+- Un utilisateur `ADMIN` d'agence et un utilisateur `AGENT` partagent donc les mêmes composants et routes du dashboard, mais le service `AgencyAccessService` applique des périmètres de biens différents : l'ADMIN d'organisation peut opérer les biens actifs de mandats de l'organisation et ses biens sans mandat ; l'AGENT de terrain est limité aux biens où il est assigné sous mandat actif.
+- Un membre `ADMIN` d'agence ne doit pas être confondu avec le `PLATFORM_ADMIN` : ce dernier utilise `/admin/dashboard` et ses indicateurs de plateforme.
+- La définition des indicateurs dans l'API et les listes qui alimentent les graphiques doit appliquer le même périmètre d'accès. Les cartes ne doivent jamais mélanger données personnelles d'un propriétaire et données de plusieurs organisations sans contexte explicite.
+
+### Tableau de bord à finaliser — champs et comportements attendus
+
+| Vue | Contenu minimal à afficher |
+|---|---|
+| Owner `/owner/dashboard` | Sélecteur de période et bien si le portefeuille le justifie ; cartes : biens actifs/en brouillon, baux actifs, paiements/loyers en attente, échéances en retard, approbations en attente, visites à venir, tickets maintenance ouverts. Synthèse financière issue du ledger : loyers encaissés, dépenses approuvées, honoraires, reversements effectués et solde net à reverser (montant + devise + période). |
+| Admin agence `/agent/dashboard` lorsque le membre est `ADMIN` | Sélecteur d'organisation active si plusieurs affiliations, période et périmètre ; cartes : biens actifs et sous mandat, mandats à traiter/expirant, visites du jour/à venir, candidatures en attente, paiements espèces à valider, impayés, tickets ouverts/en retard SLA, ventes/réservations à action requise. Synthèse honoraires d'agence par période et activité de l'équipe (visites/dossiers par agent), avec liens filtrés vers les listes existantes. |
+| Agent `/agent/dashboard` lorsque le membre est `AGENT` | Cartes limitées aux biens assignés : visites du jour et prochaines (date/heure, bien, statut, client), paiements espèces réellement à valider (bien, montant/devise, payeur masqué, date), tickets assignés/urgents (bien, priorité, ancienneté), candidatures et tâches/dossiers qui lui sont assignés. Ne pas montrer les finances globales de l'agence ou des biens non assignés. |
+| Activité récente Owner | Visites futures à venir (triées par `slotStartAt`, pas par date de création), paiements récemment validés/échoués/en attente et échéances à traiter ; titre/référence du bien, statut, montant/devise lorsque pertinent, date métier, CTA vers le détail. |
+| Activité récente gérant/agence | File actionnable regroupant demandes de mandat/approbation, paiements cash à valider, visites prochaines, candidatures, maintenance urgente ou hors SLA et litiges. Chaque élément précise ancienneté, agent assigné, bien et lien vers la page de traitement. |
+| Graphiques | Remplacer les calculs client sur échantillons par des agrégats API exhaustifs et scoped. Revenus/encaissements séparent montant brut, commissions/frais, dépenses et net ; date de comptabilisation pertinente (ledger/validation) ; devise explicite. Répartition des biens expose le total, la définition du statut compté et le périmètre. Un graphique absent de contrat fiable doit être retiré ou clairement indiqué indisponible, jamais rempli de zéro par défaut. |
+| Tendances des cartes | Une sparkline est affichée uniquement si l'API fournit une série temporelle réelle pour la même mesure et périmètre. Inclure période comparée et unité ; sinon présenter la valeur seule sans sparkline. |
+
+### Contrats de données / états UI requis pour fermer le dashboard
+- Fournir un contrat de synthèse par rôle/périmètre, avec `generatedAt`, période demandée, fuseau horaire, devise ou liste de devises, compteurs nommés, séries temporelles et `meta` signalant une éventuelle troncature. La page ne doit pas reconstituer un agrégat financier complet à partir de la première page d'une liste.
+- Les listes « à traiter » et « prochains » sont paginées/limitées côté API avec un total ou un `hasMore`, triées selon la date métier et le statut d'action ; afficher « Voir tout » vers la bonne page avec filtres correspondant au widget.
+- Chaque widget gère indépendamment chargement, valeur, absence, erreur et réessai. Une erreur de source n'est jamais transformée en `[]` ou compteur `0` sans indication visible.
+- Les cartes KPI sont accessibles au clavier et leur cible de navigation correspond à leur définition exacte (ex. échéances en retard → impayés/échéances, et non modération).
+- Le changement de rôle ou d'organisation invalide les caches et recharge les stats, listes et charts pour le nouveau périmètre. L'organisation sélectionnée est persistée dans l'URL ou le contexte de navigation si plusieurs sont accessibles.
+
+### Spécification de clôture détaillée — dashboards de gestion
+
+Cette définition est basée sur les appels et composants actuellement présents dans `apps/web/app/{owner,agent}/dashboard`, `apps/web/components/dashboard` et les services stats correspondants dans `apps/api/src/{owner,agent}`. Les nouveaux contrats ci-dessous sont des travaux à implémenter, pas des endpoints supposés existants.
+
+#### 1. Définitions stables des indicateurs
+
+| Indicateur | Définition attendue | Destination du clic |
+|---|---|---|
+| Biens actifs | Nombre de biens du périmètre de l'utilisateur dont `Property.status = ACTIVE`. Ne pas nommer ce compteur « biens mandatés » si la requête inclut aussi des biens possédés ou gérés sans mandat. | Liste de biens avec filtre `status=ACTIVE` et périmètre conservé. |
+| Biens sous mandat actif | Biens distincts reliés à un mandat en vigueur dans l'organisation/périmètre courant. C'est un compteur distinct de « biens actifs ». | Liste des mandats ou du portefeuille avec filtre mandat actif. |
+| Baux actifs | Baux du périmètre avec statut métier actif ; dédupliquer au niveau bail. | Liste des baux avec `status=ACTIVE`. |
+| Paiements à valider | Paiements espèces ayant `status=PENDING_VALIDATION`, liés à un bien du périmètre par allocation ou lien métier confirmé. Le comptage ne doit pas reposer sur un échantillon plafonné de 500 lignes. | Validation des paiements avec statut et méthode préfiltrés. |
+| Paiements en attente (Owner) | Garder explicitement le sens actuel si retenu : paiements `INITIATED` ou `PENDING_VALIDATION` reliés à des échéances de loyer du périmètre. Renommer « Loyers en attente de paiement/validation » si ce n'est pas tous les paiements. Les paiements sans allocation ne sont pas comptés comme échéance de loyer. | Échéances/impayés ou paiements selon la définition retenue, avec filtre équivalent. |
+| Échéances en retard | Échéances de loyer dues avant l'instant de calcul et toujours non réglées selon les statuts métier retenus. Exclure les échéances annulées/waivées ; ne pas confondre avec paiements échoués. | Liste des impayés/échéances en retard. |
+| Visites aujourd'hui | Réservations PENDING ou CONFIRMED dont le créneau `slot.startAt` tombe dans le jour calendaire `Africa/Brazzaville`. L'indicateur et la liste utilisent la même requête et les mêmes statuts. | Agenda filtré sur aujourd'hui et le périmètre. |
+| Tickets maintenance ouverts | Tickets dans les statuts ouverts définis par le domaine (au minimum OPEN et IN_PROGRESS ; documenter l'inclusion d'ASSIGNED). Gérant voit l'organisation ; Agent voit seulement ses tickets assignés ou biens assignés. | Maintenance avec filtres de statut/assignation correspondants. |
+| Montants financiers | Toute somme doit préciser nature (brut encaissé, commission, dépense approuvée, reversement, solde), période de comptabilisation et devise. En cas de plusieurs devises, afficher une ligne par devise ; ne pas sommer les devises entre elles. | Finances/relevé avec période, devise et périmètre conservés. |
+
+Chaque carte affiche le libellé métier, la valeur, l'unité/devise si applicable, l'intervalle de période, un texte d'aide décrivant ce qui est compté, et une cible de navigation exacte. `0` ne signifie « aucune donnée » que si la requête a réussi et confirme zéro.
+
+#### 2. Contrat API de synthèse
+
+Faire évoluer `GET /owner/stats` et `GET /agent/stats` ou créer des routes dashboard dédiées, sans que le web télécharge les listes de paiements/biens pour les agréger dans le navigateur.
+
+Paramètres communs :
+- `from`, `to` : bornes ISO inclusives/exclusives documentées ; valeur par défaut définie par le produit (période en cours), dates validées côté serveur.
+- `propertyId` : filtre facultatif, autorisé seulement si le bien appartient au périmètre opérable.
+- `organizationId` : utilisé pour les vues d'organisation ; doit correspondre à une appartenance active et un rôle qui peut lire les indicateurs de l'agence.
+- Les dates calendaires sont interprétées en `Africa/Brazzaville`. L'API retourne les bornes effectives afin que l'interface les affiche sans ambiguïté.
+
+Réponse minimale :
+```json
+{
+  "data": {
+    "scope": { "role": "OWNER|AGENCY_ADMIN|AGENT", "organizationId": null, "propertyId": null },
+    "period": { "from": "ISO-8601", "to": "ISO-8601", "timeZone": "Africa/Brazzaville" },
+    "generatedAt": "ISO-8601",
+    "metrics": {
+      "activeProperties": 0,
+      "activeMandatedProperties": 0,
+      "activeLeases": 0,
+      "pendingRentPayments": 0,
+      "overdueRentSchedules": 0,
+      "visitsToday": 0,
+      "pendingCashValidations": 0,
+      "openMaintenanceTickets": 0
+    },
+    "financials": [
+      { "currency": "XAF", "grossCollected": "0", "fees": "0", "approvedExpenses": "0", "paidOut": "0", "netBalance": "0" }
+    ],
+    "series": [],
+    "meta": { "truncated": false }
+  }
+}
+```
+- Les métriques non applicables au rôle peuvent être omises selon un schéma typé/versionné ; une métrique absente n'est pas convertie en zéro.
+- `series` contient des points agrégés par jour/semaine/mois, avec dates/bornes et définition de mesure ; le serveur applique le même scope et la même devise que les KPI. Si aucune série historique correcte n'est disponible, l'API la laisse absente et le client n'affiche pas de sparkline.
+- Aucun total financier ne doit être construit à partir des 100 paiements chargés par `listManagedPayments`. Utiliser le ledger pour les valeurs de comptabilité/revenu net et une date comptable déterministe (`occurredAt`/date de validation conforme au domaine), pas `createdAt` par commodité.
+- Les erreurs d'accès à un `organizationId` ou `propertyId` hors périmètre renvoient une erreur autorisation standard, sans retourner une synthèse vide.
+
+#### 3. Contrats API des blocs actionnables
+
+Les listes de dashboard sont des aperçus serveur dédiés (ou des listes métier déjà paginées avec filtres explicites), et jamais un `slice()` sur un échantillon non exhaustif côté client.
+
+| Bloc | Ordre et champs minimaux par ligne | Requête/navigation |
+|---|---|---|
+| Prochaines visites | `id`, `slotStartAt`, `status`, `property { id, title, addressLabel }`, `visitor { displayNameMasked }`, `assignedAgent { id, name }` | Futures visites non annulées, tri croissant par `slotStartAt`; « Voir tout » ouvre l'agenda sur le même intervalle. |
+| Paiements à valider | `id`, `createdAt`, `amount`, `currency`, `property { id, title }`, `payerDisplayNameMasked`, `payerPhoneMasked`, `status`, `method` | `PENDING_VALIDATION` + `CASH`, tri par ancienneté croissante ; destination de validation préfiltrée. |
+| Maintenance à traiter | `id`, `title`, `priority`, `status`, `createdAt`, `updatedAt`, `property { id, title }`, `assignee { id, name }`, `slaDueAt` si calculé | Urgents puis SLA dépassé puis plus ancien ; Agent limité à ses objets assignés. |
+| Activité Owner | Paiements récents avec `validatedAt` et statut, visites à venir, échéances en retard, approbations en attente ; pour chaque entrée, `id`, date métier, statut, montant/devise si pertinent, bien identifiable et lien relatif sûr. | Trier chaque type selon sa date métier ; afficher des blocs séparés plutôt qu'un mélange de dates/statuts incomparables. |
+| Activité agence | Dossiers et tâches en attente d'action : type, référence, date de création/échéance, bien, agent assigné, urgence/statut. | Filtrer selon organisation active, autorisations et files réellement implémentées. Ne pas afficher de catégorie sans source API fonctionnelle. |
+
+Chaque endpoint de bloc retourne `data`, `meta.total` (ou `hasMore` documenté), période et scope. Le dashboard ne demande que les quelques entrées à afficher, mais les compteurs globaux restent exhaustifs. Si une source n'existe pas, le bloc est masqué jusqu'à implémentation ; il n'est pas simulé.
+
+#### 4. Vues, périmètres et sélection de contexte
+
+- **Owner** : utiliser les biens accessibles en propriété/gestion selon les règles API existantes. Si plusieurs biens, un filtre « Tous les biens »/bien individuel s'applique de manière cohérente aux KPI, blocs et graphiques. Ne pas afficher les finances d'une agence comme si elles étaient celles du propriétaire.
+- **Admin agence (`OrganizationMember.role=ADMIN`)** : vue de pilotage de l'organisation, distincte de celle Agent. Si plusieurs organisations ADMIN actives, proposer un sélecteur avec nom/type/ville et persister `organizationId` dans l'URL ; sinon sélectionner automatiquement l'unique organisation. Les agrégats sont strictement ceux de cette organisation, pas l'union silencieuse de toutes les appartenances.
+- **Agent (`OrganizationMember.role=AGENT`)** : vue de travail individuel. Les biens, visites, paiements et tickets doivent être limités aux objets assignés conformément à `AgencyAccessService` et aux règles propres à chaque domaine. Aucun total financier organisationnel ni donnée d'autres agents.
+- **Comptes ayant plusieurs rôles dashboard** : le changement Owner/Agent/Admin plateforme déclenche un nouveau chargement complet. Le rôle Admin plateforme n'est pas l'Admin agence. La navigation et le titre indiquent toujours le rôle/périmètre courant.
+- Les écrans d'erreur 403/404 ne doivent pas révéler le nom ou l'existence d'une organisation ou propriété inaccessible.
+
+#### 5. Comportement UI et traitements d'erreur
+
+- Charger chaque widget indépendamment ; afficher un squelette local puis l'état réel. Échec de visites ne bloque pas les stats ni le graphique.
+- Un widget en erreur montre une explication courte et une action « Réessayer » ; ne pas effacer une valeur précédente lors d'un refresh en cours sauf si son périmètre a changé.
+- Un widget vide explique l'absence (ex. « Aucune visite à venir sur cette période ») et propose une action pertinente si le rôle peut en créer/consulter. Les erreurs HTTP ne sont jamais rendues comme des états vides.
+- Ajouter l'actualisation manuelle du dashboard et une date « Mis à jour à … ». Si un rafraîchissement automatique est ajouté, il ne doit pas interrompre une saisie ou une action en cours.
+- Un changement de période, de bien ou d'organisation recharge tous les widgets dépendants, remet à zéro les pages/filtres des blocs, met à jour l'URL et empêche l'affichage transitoire de données du scope précédent.
+- Pour les événements qui changent l'état (validation paiement, réservation/visite, action maintenance), le dashboard ne préjuge pas du succès ; après navigation retour, actualiser les données depuis le serveur.
+- Utiliser des libellés et formats de nombres/dates cohérents en `fr-FR`; toutes dates de visite/activité sont explicitement en `Africa/Brazzaville`.
+- Les lignes sont navigables au clavier et indiquent une destination accessible ; les champs sensibles (téléphone/client) sont masqués selon les permissions et ne sont pas inclus dans les sparklines ou exports.
+
+#### 6. Plan de réalisation depuis l'état du code
+
+1. **P0 — enlever les signaux trompeurs** : renommer « Biens mandatés » si le compteur reste celui des biens actifs opérables ; corriger les liens KPI ; retirer les sparklines calculées par répétition d'une valeur actuelle et celles présentées comme tendances historiques sans série complète ; remplacer les références de biens seules par titre et ville via le contrat de bloc.
+2. **P0 — erreurs et périmètre** : arrêter les `.catch(() => [])`/compteurs à zéro silencieux sur les chargements dashboard ; ajouter état et retry par widget ; supprimer le plafond métier de 500 dans le comptage cash non alloué ou créer un lien relationnel/agrégat serveur exact.
+3. **P1 — agrégats exhaustifs** : faire évoluer les stats Owner/Agent avec périodes et filtres scoped ; calculer les finances à partir des données comptables correspondantes ; fournir au serveur les séries et compteurs exacts. Les listes consommées par le dashboard doivent charger uniquement les lignes d'aperçu nécessaires.
+4. **P1 — expérience gérant et tâches** : distinguer `AGENCY_ADMIN` d'`AGENT` dans le rôle UI, ajouter le contexte organisation, les cartes/actions d'équipe au gérant, les tâches assignées à l'agent ; ne montrer que les sources effectivement présentes et autorisées.
+5. **P1 — activités utiles** : remplacer visites Owner récentes par prochaines visites, trier par date de créneau ; afficher données contextuelles et statut métier ; conserver filtres dans les destinations.
+6. **P2 — enrichissement analytique** : ajouter conversion visites→baux, tendances d'activité et SLA uniquement lorsque le calcul métier, la période, le dénominateur et la couverture historique sont vérifiés et documentés.
+
+#### 7. Critères d'acceptation fonctionnels et de données
+
+1. Pour un jeu de données de test de plus de 100 paiements et plus de 100 biens, les compteurs et graphiques dashboard égalent les agrégats serveur complets et ne sont pas limités à la première page.
+2. Les appels sous propriétaire, administrateur d'agence et agent montrent uniquement leurs données autorisées ; deux organisations du même compte ne sont jamais fusionnées si une organisation est sélectionnée.
+3. Un utilisateur `ADMIN` d'agence voit un dashboard gérant distinct ; un `AGENT` n'obtient ni KPI financier global ni détails de biens non assignés.
+4. Le total « visites aujourd'hui » est égal au nombre de lignes de l'agenda pour le jour `Africa/Brazzaville` avec les mêmes statuts et le même périmètre.
+5. Un paiement cash `PENDING_VALIDATION` associé au portefeuille par allocation ou relation canonique est compté même s'il se trouve après les 500 anciens enregistrements non alloués ; un paiement d'un autre portefeuille n'est jamais compté.
+6. Les revenus affichés sont calculés depuis l'événement comptable approprié, excluent les statuts non encaissés, séparent brut/frais/net et ne mélangent aucune devise. Le libellé correspond exactement à la mesure.
+7. Une panne isolée d'un endpoint produit un widget en erreur avec retry ; elle n'affiche ni « 0 » ni « Aucun élément » à la place des données inconnues.
+8. Chaque sparkline affichée contient des points historiques réels pour la même métrique, période et scope que la carte ; sinon aucune sparkline n'est rendue.
+9. Les blocs de visites, paiements et maintenance affichent titre du bien, statut et date métier, présentent `Voir tout` avec filtres équivalents et n'utilisent pas un ID court comme unique identification humaine.
+10. Changer organisation, période, bien ou rôle n'affiche jamais les résultats du contexte précédent pendant le chargement et recharge tous les widgets concernés.
+
 ## User stories
 ### Mandat
 1. En tant que propriétaire, je propose un mandat à une agence. Je choisis le type (LOCATION_LONGUE, SEJOURS, VENTE, ou plusieurs), la durée, l'exclusivité, la commission et les seuils d'approbation.
@@ -228,6 +387,11 @@ model OwnerStatement {
 - **Mobile** (espace propriétaire, voir 14) : approbations avec push actionnable (Approuver / Refuser), relevés PDF.
 
 ## Critères d'acceptation
+- Les KPI et listes visibles au dashboard correspondent au périmètre réellement autorisé : propriétaire, gérant d'agence ou agent assigné ; aucun agrégat n'est tronqué par la première page d'une liste.
+- Pour un compte membre `ADMIN` d'agence, le dashboard affiche explicitement l'organisation/périmètre actif et les indicateurs d'équipe ; pour un `AGENT`, il ne divulgue pas les finances globales ou biens non assignés.
+- Une panne d'une seule source du dashboard affiche l'erreur sur le widget concerné avec un retry, sans remplacer la valeur par zéro ou une liste vide présentée comme réelle.
+- Les graphiques financiers utilisent la date de comptabilisation pertinente, une définition et une devise explicites ; aucune sparkline n'est calculée en répétant la valeur actuelle sur des dates passées.
+- Les raccourcis des cartes et des listes ouvrent la page métier correspondante avec les filtres/période applicables.
 - Un mandat créé par le propriétaire est PROPOSED et ne donne aucun accès à l'agence avant `accept`.
 - Deux mandats ACTIVE exclusifs sur le même bien et le même scope sont impossibles (409 `MANDATE_CONFLICT`).
 - Approuver un `RENT_REDUCTION` met à jour `Lease.monthlyRent` et les `RentSchedule` PENDING concernées dans la même transaction, et crée un avenant (test).
@@ -250,5 +414,6 @@ model OwnerStatement {
 | 03.2 | P0 | Garantir que toute approbation validée applique son effet métier et que les transitions associées sont idempotentes et auditées. | **Partiel.** Décisions et effets sont transactionnels pour plusieurs actions (bail, loyer, réparation, prix/offre de vente, dépense) ; l'expiration des demandes est implémentée. Couvrir les actions sans effet, les transitions rejouées et l'idempotence concurrente par contrainte de base de données. |
 | 03.3 | P1 | Finaliser commissions, ledger immuable, dépenses, reversements calculés et relevés propriétaires. | **Partiel.** Dépenses approuvées, écritures de paiement/remboursement, calcul de solde et relevés existent localement. Vérifier l'unicité/idempotence du ledger sous concurrence, les commissions et le rapprochement complet avec les reversements réels. |
 | 03.4 | P2 | Ajouter contre-propositions versionnées, signature électronique, renouvellement tacite et export CSV. | **Partiel.** Avenants et prolongation de bail sont produits lors de certaines approbations. Contre-propositions versionnées, signature électronique du mandat, renouvellement tacite et export CSV restent à compléter/confirmer. |
+| 03.5 | P1 | Fiabiliser et différencier les dashboards Owner, gérant d'agence et Agent à partir de données complètes, temporelles et scoped. | **Partiel côté UI.** Les vues Owner et Agent affichent des KPI et tableaux réels, mais les charts/sparklines sont construits à partir de listes limitées ou de valeurs répétées ; le dashboard gérant d'agence n'est pas distinct de celui Agent ; les erreurs de chargement partielles sont parfois converties en listes vides. Implémenter les agrégats complets, séparer les responsabilités gérant/agent et couvrir les états widgets. |
 
 État établi par inspection du code local ; aucun rapprochement financier de production ni validation bancaire n'a été effectué.

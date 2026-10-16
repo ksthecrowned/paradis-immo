@@ -29,10 +29,7 @@ export class PayoutAccountsController {
 
   @Get()
   @ApiOperation({ summary: 'Comptes de reversement de l’organisation' })
-  list(
-    @CurrentUser() current: AuthenticatedUser,
-    @Param('id') orgId: string,
-  ) {
+  list(@CurrentUser() current: AuthenticatedUser, @Param('id') orgId: string) {
     return this.payouts.listAccounts(current.userId, orgId);
   }
 
