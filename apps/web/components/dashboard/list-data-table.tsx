@@ -564,7 +564,7 @@ export function ListDataTable<T extends object>({
     'inline-flex items-center gap-x-2 rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground shadow-sm transition-colors hover:bg-card-hover focus:outline-none';
 
   return (
-    <div className="mx-auto flex w-full flex-col rounded-xl border border-border bg-card shadow-sm">
+    <div className="mx-auto flex w-full flex-col rounded-xl border border-border bg-table shadow-sm">
       {title ? (
         <div className="flex items-center justify-between gap-3 border-b border-border px-5 py-4">
           <div>
@@ -703,7 +703,7 @@ export function ListDataTable<T extends object>({
           <div className="inline-block min-w-full align-middle">
             <div className="overflow-hidden">
               <table id={tableId} className="min-w-full table-fixed">
-                <thead className="border-b border-border bg-card-hover/30">
+                <thead className="border-b border-border bg-card">
                   <tr>
 
                     {columns.map((col, colIndex) => (
@@ -912,17 +912,17 @@ export function ListDataTable<T extends object>({
                 »
               </button>
             </div>
-            <div className="ms-auto text-xs text-muted">
-              Page <span className="font-semibold text-foreground">{page}</span>{' '}
+            <div className="ms-auto text-sm text-muted">
+              Page <span className="text-foreground">{page}</span>{' '}
               sur{' '}
-              <span className="font-semibold text-foreground">
+              <span className="text-foreground">
                 {totalPages}
               </span>
               {' · '}
               Affichage{' '}
-              <span className="font-semibold text-foreground">{from}</span>–
-              <span className="font-semibold text-foreground">{to}</span> sur{' '}
-              <span className="font-semibold text-foreground">{rowCount}</span>{' '}
+              <span className="text-foreground">{from}</span>–
+              <span className="text-foreground">{to}</span> sur{' '}
+              <span className="text-foreground">{rowCount}</span>{' '}
               {entityLabel}
             </div>
           </div>

@@ -16,6 +16,7 @@ html[data-bs-theme="dark"] {
 
   --topbar: #1d2329;
   --sidebar: #1d2329;
+  --table: #1d2329;
   --card: #242b33;
   --card-hover: #2a3139;
   --border: #272f37;
@@ -44,6 +45,7 @@ html[data-bs-theme="light"] {
 
   --topbar: #ffffff;
   --sidebar: #ffffff;
+  --table: #ffffff;
   --card: #ffffff;
   --card-hover: #f3efe6;
   --border: #e6e2da;
@@ -70,6 +72,7 @@ html[data-bs-theme="light"] {
   --color-foreground: var(--foreground);
   --color-topbar: var(--topbar);
   --color-sidebar: var(--sidebar);
+  --color-table: var(--table);
   --color-card: var(--card);
   --color-card-hover: var(--card-hover);
   --color-border: var(--border);

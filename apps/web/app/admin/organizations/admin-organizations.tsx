@@ -14,6 +14,7 @@ import {
   AFFILIATION_LABELS,
   affiliationTone,
   type AdminOrganizationRow,
+  type AffiliationStatus,
   type OrganizationType,
 } from '@/lib/admin/organizations';
 import { useRequireSession } from '@/hooks/use-require-session';
