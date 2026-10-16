@@ -114,6 +114,14 @@ export class AdminController {
     return { statusCode: 200, ...result };
   }
 
+  @Get('users/:id')
+  @AdminPermission('users.read')
+  @ApiOperation({ summary: 'Get user details for platform administration' })
+  async getUserDetail(@Param('id') id: string) {
+    const data = await this.admin.getUserDetail(id);
+    return { statusCode: 200, data };
+  }
+
   @Get('properties/moderation')
   @AdminPermission('moderation')
   @ApiOperation({ summary: 'List property owners for moderation' })
@@ -142,6 +150,14 @@ export class AdminController {
     const safeSize = Math.min(100, Math.max(1, pageSize));
     const result = await this.admin.listReports(safePage, safeSize, status);
     return { statusCode: 200, ...result };
+  }
+
+  @Get('reports/:id')
+  @AdminPermission('moderation')
+  @ApiOperation({ summary: 'Get a property report detail' })
+  async getReport(@Param('id') id: string) {
+    const data = await this.admin.getReport(id);
+    return { statusCode: 200, data };
   }
 
   @Patch('reports/:id')

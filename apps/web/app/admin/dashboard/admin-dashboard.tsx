@@ -4,40 +4,37 @@ import {
   adaptSummaryColumns,
   ListDataTable,
   PropertyModeChart,
-  RevenueChart,
   StatCard,
   StatusBadge,
+  UserIdentity,
 } from '@/components/dashboard';
-import { DASH_CHART_COLORS, DASH_STAT_ICONS } from '@/lib/dash-icons';
+import {
+  REPORT_REASON_LABELS,
+  REPORT_STATUS_LABELS,
+  reportStatusTone,
+  type AdminReportRow,
+} from '@/lib/admin/reports';
 import type { AdminStats } from '@/lib/admin/stats';
+import type { AdminUser } from '@/lib/admin/users';
+import type { PropertyModeSeries } from '@/lib/dashboard/chart-series';
+import { DASH_CHART_COLORS, DASH_STAT_ICONS } from '@/lib/dash-icons';
 import { ROUTES } from '@/lib/routes';
+import { useRouter } from 'next/navigation';
 
-const DEMO_USERS = [
-  { id: 'u1', name: 'Marie Koumba', date: '27 juin 2026', status: 'verified', username: '@marie.k' },
-  { id: 'u2', name: 'Jean Mabiala', date: '26 juin 2026', status: 'pending', username: '@jean.m' },
-  { id: 'u3', name: 'Amina Nzouba', date: '25 juin 2026', status: 'verified', username: '@amina.n' },
-  { id: 'u4', name: 'Paul Okemba', date: '24 juin 2026', status: 'blocked', username: '@paul.o' },
-];
-
-const DEMO_TX = [
-  { id: 't1', date: '27 juin', amount: '450 000 XAF', type: 'credit', label: 'Loyer juin' },
-  { id: 't2', date: '26 juin', amount: '25 000 XAF', type: 'debit', label: 'Commission' },
-  { id: 't3', date: '26 juin', amount: '180 000 XAF', type: 'credit', label: 'Location courte' },
-  { id: 't4', date: '25 juin', amount: '12 000 XAF', type: 'debit', label: 'Frais visite' },
-];
-
-function userTone(status: string): 'success' | 'warning' | 'danger' | 'neutral' {
-  if (status === 'verified') return 'success';
-  if (status === 'pending') return 'warning';
-  if (status === 'blocked') return 'danger';
+function userTone(
+  status: AdminUser['status'],
+): 'success' | 'warning' | 'danger' | 'neutral' {
+  if (status === 'ACTIVE') return 'success';
+  if (status === 'SUSPENDED') return 'danger';
+  if (status === 'DELETED') return 'neutral';
   return 'neutral';
 }
 
-function userLabel(status: string): string {
-  const map: Record<string, string> = {
-    verified: 'Vérifié',
-    pending: 'En attente',
-    blocked: 'Bloqué',
+function userLabel(status: AdminUser['status']): string {
+  const map: Record<AdminUser['status'], string> = {
+    ACTIVE: 'Actif',
+    SUSPENDED: 'Suspendu',
+    DELETED: 'Supprimé',
   };
   return map[status] ?? status;
 }
@@ -46,11 +43,35 @@ function formatCount(value: number): string {
   return new Intl.NumberFormat('fr-FR').format(value);
 }
 
-export interface AdminDashboardProps {
-  stats: AdminStats;
+function formatDate(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return '—';
+  return date.toLocaleDateString('fr-FR', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
 }
 
-export function AdminDashboard({ stats }: AdminDashboardProps): React.JSX.Element {
+export interface AdminDashboardProps {
+  stats: AdminStats;
+  recentUsers: AdminUser[];
+  openReports: AdminReportRow[];
+  modeSeries?: PropertyModeSeries;
+  usersError?: string | null;
+  reportsError?: string | null;
+}
+
+export function AdminDashboard({
+  stats,
+  recentUsers,
+  openReports,
+  modeSeries,
+  usersError,
+  reportsError,
+}: AdminDashboardProps): React.JSX.Element {
+  const router = useRouter();
+
   return (
     <section className="space-y-6">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -59,134 +80,155 @@ export function AdminDashboard({ stats }: AdminDashboardProps): React.JSX.Elemen
           value={formatCount(stats.totalUsers)}
           href={ROUTES.admin.users}
           icon={DASH_STAT_ICONS.users}
+          iconColor={DASH_CHART_COLORS.purple}
         />
         <StatCard
           label="Biens"
           value={formatCount(stats.totalProperties)}
           href={ROUTES.admin.moderation}
           icon={DASH_STAT_ICONS.buildings}
-          sparklineColor={DASH_CHART_COLORS.green}
+          iconColor={DASH_CHART_COLORS.green}
         />
         <StatCard
           label="Baux actifs"
           value={formatCount(stats.activeLeases)}
           icon={DASH_STAT_ICONS.document}
-          sparklineColor={DASH_CHART_COLORS.violet}
+          iconColor={DASH_CHART_COLORS.blue}
         />
         <StatCard
           label="Échéances en retard"
           value={formatCount(stats.overdueSchedules)}
           href={ROUTES.admin.moderation}
-          icon={DASH_STAT_ICONS.shield}
-          sparklineColor={DASH_CHART_COLORS.amber}
+          icon={DASH_STAT_ICONS.bills}
+          iconColor={DASH_CHART_COLORS.rose}
         />
         <StatCard
           label="Signalements ouverts"
           value={formatCount(stats.openReports ?? 0)}
           href={ROUTES.admin.reports}
-          icon={DASH_STAT_ICONS.shield}
-          sparklineColor={DASH_CHART_COLORS.amber}
+          icon={DASH_STAT_ICONS.flag}
+          iconColor={DASH_CHART_COLORS.amber}
         />
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <div className="rounded-xl border border-border bg-card px-5 py-4">
-          <p className="text-xs text-muted">Organisations</p>
-          <p className="mt-1 text-2xl font-semibold text-foreground">
-            {formatCount(stats.totalOrganizations)}
-          </p>
-        </div>
-        <div className="rounded-xl border border-border bg-card px-5 py-4">
-          <p className="text-xs text-muted">Échéances en attente</p>
-          <p className="mt-1 text-2xl font-semibold text-foreground">
-            {formatCount(stats.pendingRentSchedules)}
-          </p>
-        </div>
-        <div className="rounded-xl border border-border bg-card px-5 py-4">
-          <p className="text-xs text-muted">Biens + baux</p>
-          <p className="mt-1 text-2xl font-semibold text-foreground">
-            {formatCount(stats.totalProperties + stats.activeLeases)}
-          </p>
-        </div>
+        <StatCard
+          label="Organisations"
+          value={formatCount(stats.totalOrganizations)}
+          href={ROUTES.admin.moderation}
+          icon={DASH_STAT_ICONS.handshake}
+          iconColor={DASH_CHART_COLORS.teal}
+        />
+        <StatCard
+          label="Échéances en attente"
+          value={formatCount(stats.pendingRentSchedules)}
+          href={ROUTES.admin.moderation}
+          icon={DASH_STAT_ICONS.clock}
+          iconColor={DASH_CHART_COLORS.violet}
+        />
+        <StatCard
+          label="Biens + baux"
+          value={formatCount(stats.totalProperties + stats.activeLeases)}
+          href={ROUTES.admin.moderation}
+          icon={DASH_STAT_ICONS.chart}
+          iconColor={DASH_CHART_COLORS.slate}
+        />
       </div>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
-        <div className="xl:col-span-6">
-          <RevenueChart />
+        <div className="xl:col-span-5">
+          <PropertyModeChart
+            data={modeSeries}
+            emptyMessage="Aucun bien à analyser"
+          />
         </div>
-        <div className="xl:col-span-6">
-          <PropertyModeChart />
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        <ListDataTable
-          title="Nouveaux comptes"
-          subtitle="Données de démonstration"
-          viewAllHref={ROUTES.admin.users}
-          compact
-          columns={adaptSummaryColumns<(typeof DEMO_USERS)[number]>([
-            {
-              key: 'name',
-              header: 'Utilisateur',
-              render: (row) => (
-                <div className="flex items-center gap-2">
-                  <span className="flex size-8 items-center justify-center rounded-full bg-accent/20 text-xs font-semibold text-accent">
-                    {row.name
-                      .split(' ')
-                      .map((n) => n[0])
-                      .join('')
-                      .slice(0, 2)}
-                  </span>
-                  <div>
-                    <p className="font-medium">{row.name}</p>
-                    <p className="text-xs text-muted">{row.username}</p>
+        <div className="xl:col-span-7">
+          <ListDataTable
+            title="Signalements ouverts"
+            subtitle="À traiter en priorité"
+            viewAllHref={ROUTES.admin.reports}
+            compact
+            columns={adaptSummaryColumns<AdminReportRow>([
+              {
+                key: 'property',
+                header: 'Bien',
+                render: (row) => (
+                  <div className="min-w-0">
+                    <p className="truncate font-medium">{row.propertyTitle}</p>
+                    <p className="truncate text-xs text-muted">
+                      {REPORT_REASON_LABELS[row.reason] ?? row.reason}
+                    </p>
                   </div>
-                </div>
-              ),
-            },
-            { key: 'date', header: 'Date', render: (row) => row.date },
-            {
-              key: 'status',
-              header: 'Statut',
-              render: (row) => (
-                <StatusBadge
-                  label={userLabel(row.status)}
-                  tone={userTone(row.status)}
-                />
-              ),
-            },
-          ])}
-          data={DEMO_USERS}
-        />
-
-        <ListDataTable
-          title="Transactions récentes"
-          subtitle="Données de démonstration"
-          compact
-          columns={adaptSummaryColumns<(typeof DEMO_TX)[number]>([
-            { key: 'date', header: 'Date', render: (row) => row.date },
-            {
-              key: 'amount',
-              header: 'Montant',
-              render: (row) => (
-                <span
-                  className={
-                    row.type === 'credit'
-                      ? 'font-medium text-success'
-                      : 'font-medium text-danger'
-                  }
-                >
-                  {row.type === 'credit' ? '+' : '−'}
-                  {row.amount}
-                </span>
-              ),
-            },
-            { key: 'label', header: 'Description', render: (row) => row.label },
-          ])}
-          data={DEMO_TX}
-        />
+                ),
+              },
+              {
+                key: 'date',
+                header: 'Date',
+                render: (row) => formatDate(row.createdAt),
+              },
+              {
+                key: 'status',
+                header: 'Statut',
+                render: (row) => (
+                  <StatusBadge
+                    label={REPORT_STATUS_LABELS[row.status]}
+                    tone={reportStatusTone(row.status)}
+                  />
+                ),
+              },
+            ])}
+            data={openReports}
+            emptyMessage={
+              reportsError
+                ? reportsError
+                : 'Aucun signalement ouvert'
+            }
+            onRowClick={(row) => router.push(ROUTES.admin.report(row.id))}
+          />
+        </div>
       </div>
+
+      <ListDataTable
+        title="Nouveaux comptes"
+        subtitle="Derniers inscrits"
+        viewAllHref={ROUTES.admin.users}
+        compact
+        columns={adaptSummaryColumns<AdminUser>([
+          {
+            key: 'name',
+            header: 'Utilisateur',
+            render: (row) => (
+              <UserIdentity
+                name={row.name ?? row.phone}
+                avatarUrl={row.avatarUrl}
+                fallbackName="Utilisateur"
+              />
+            ),
+          },
+          {
+            key: 'date',
+            header: 'Inscription',
+            render: (row) => formatDate(row.createdAt),
+          },
+          {
+            key: 'country',
+            header: 'Pays',
+            render: (row) => row.countryName || '—',
+          },
+          {
+            key: 'status',
+            header: 'Statut',
+            render: (row) => (
+              <StatusBadge
+                label={userLabel(row.status)}
+                tone={userTone(row.status)}
+              />
+            ),
+          },
+        ])}
+        data={recentUsers}
+        emptyMessage={
+          usersError ? usersError : 'Aucun utilisateur récent'
+        }
+        onRowClick={(row) => router.push(ROUTES.admin.user(row.id))}
+      />
     </section>
   );
 }

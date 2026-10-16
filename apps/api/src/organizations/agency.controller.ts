@@ -329,6 +329,13 @@ export class AdminOrganizationRequestsController {
     return this.agency.listRequests(status);
   }
 
+  @Get(':id')
+  @AdminPermission('orgs.read')
+  @ApiOperation({ summary: 'Get a sign-up dossier — spec 02 / 12' })
+  get(@Param('id') id: string) {
+    return this.agency.getRequest(id);
+  }
+
   @Patch(':id')
   @HttpCode(200)
   @AdminPermission('orgs.manage')

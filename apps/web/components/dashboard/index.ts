@@ -20,6 +20,11 @@ export {
   PropertyModeChart,
   RevenueChart,
 } from './revenue-chart';
+export {
+  FilterTabs,
+  type FilterTabItem,
+  type FilterTabsProps,
+} from './filter-tabs';
 export { GlobalSearch, type GlobalSearchProps } from './global-search';
 export { NotificationsDropdown } from './notifications-dropdown';
 export { WebPushBootstrap } from './web-push-bootstrap';

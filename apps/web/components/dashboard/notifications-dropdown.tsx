@@ -13,6 +13,7 @@ import {
   notificationsPath,
   type NotificationView,
 } from '@/lib/notifications';
+import { ROUTES } from '@/lib/routes';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
@@ -216,11 +217,11 @@ export function NotificationsDropdown({
                   Notifications
                 </h4>
                 <Link
-                  href={pageHref}
+                  href={ROUTES.profile.notifications}
                   onClick={() => setOpen(false)}
                   className="p-1 text-muted transition-colors hover:text-foreground"
-                  aria-label="Voir toutes les notifications"
-                  title="Voir toutes"
+                  aria-label="Préférences de notification"
+                  title="Préférences"
                 >
                   <DashIcon icon={DASH_ICONS.settings} width={16} height={16} />
                 </Link>

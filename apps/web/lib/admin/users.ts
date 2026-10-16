@@ -7,9 +7,16 @@ export interface AdminUser {
   name: string | null;
   avatarUrl: string | null;
   countryName: string;
-  status: 'ACTIVE' | 'SUSPENDED';
+  status: 'ACTIVE' | 'SUSPENDED' | 'DELETED';
   roles: string[];
   createdAt: string;
+}
+
+export interface AdminUserDetail extends AdminUser {
+  email: string | null;
+  kycStatus: string;
+  suspendedAt: string | null;
+  suspendedReason: string | null;
 }
 
 export async function listUsers(
@@ -30,6 +37,10 @@ export async function listUsers(
       totalPages: result.meta.totalPages,
     },
   };
+}
+
+export function getAdminUser(id: string): Promise<AdminUserDetail> {
+  return apiFetch<AdminUserDetail>(`/admin/users/${encodeURIComponent(id)}`);
 }
 
 export async function suspendUser(

@@ -185,8 +185,9 @@ function actionIcon(label: string): string {
   if (/modifier|éditer/.test(normalized)) return 'solar:pen-linear';
   if (/supprimer|retirer/.test(normalized)) return 'solar:trash-bin-trash-linear';
   if (/archiver/.test(normalized)) return 'solar:archive-linear';
-  if (/refuser|annuler/.test(normalized)) return 'solar:close-circle-linear';
-  if (/valider|activer|approuver|confirmer/.test(normalized)) return 'solar:check-circle-linear';
+  if (/refuser|rejeter|annuler/.test(normalized)) return 'solar:close-circle-linear';
+  if (/valider|activer|approuver|confirmer|traité|traite/.test(normalized))
+    return 'solar:check-circle-linear';
   if (/pause|suspendre/.test(normalized)) return 'solar:pause-circle-linear';
   if (/paiement|payer|rembourser/.test(normalized)) return 'solar:wallet-money-linear';
   if (/télécharger|exporter/.test(normalized)) return 'solar:download-linear';
@@ -262,14 +263,16 @@ function renderTableActions(
       ...(action.href ? { href: action.href } : {}),
       ...(action.onSelect ? { onSelect: action.onSelect } : {}),
       ...(action.disabled ? { disabled: true } : {}),
-      ...(/supprimer|retirer|archiver|refuser|annuler|suspendre|bloquer/i.test(action.label)
+      ...(/supprimer|retirer|archiver|refuser|rejeter|annuler|suspendre|bloquer/i.test(
+        action.label,
+      )
         ? { destructive: true }
         : {}),
     }));
 
   return (
     <>
-      {viewAction || menuItems.length > 0 ? (
+      {directViewHref || viewAction || menuItems.length > 0 ? (
         <TableActionMenu
           {...(directViewHref
             ? { viewHref: directViewHref, viewLabel }

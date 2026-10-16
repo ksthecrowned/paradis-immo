@@ -4,10 +4,13 @@ import { appDialog } from '@/components/dialogs/app-dialog';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   DashboardPageHeader,
+  FilterTabs,
   ListDataTable,
   StatusBadge,
+  type FilterTabItem,
   type ListColumn,
 } from '@/components/dashboard';
+import { ApiErrorBanner } from '@/components/forms';
 import { ApiError } from '@/lib/api';
 import {
   listAdminOrgRequests,
@@ -16,10 +19,15 @@ import {
   ORG_REQUEST_STATUS_LABELS,
   ORG_REQUEST_TYPE_LABELS,
   orgRequestStatusTone,
+  formatOrgRequestDate,
   type AdminOrgRequestRow,
   type OrganizationRequestStatus,
 } from '@/lib/admin/organization-requests';
+import { DASH_ICONS } from '@/lib/dash-icons';
+import { ROUTES } from '@/lib/routes';
 import { useRequireSession } from '@/hooks/use-require-session';
+
+type OnboardingFilter = OrganizationRequestStatus | 'ALL';
 
 /**
  * Admin validation of the public sign-up dossiers (spec 02): invite the
@@ -33,18 +41,12 @@ export function AdminOnboardingPage(): React.JSX.Element {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [actionId, setActionId] = useState<string | null>(null);
-  const [filter, setFilter] = useState<OrganizationRequestStatus | 'ALL'>(
-    'PENDING',
-  );
+  const [filter, setFilter] = useState<OnboardingFilter>('PENDING');
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      setRows(
-        await listAdminOrgRequests({
-          status: filter === 'ALL' ? undefined : filter,
-        }),
-      );
+      setRows(await listAdminOrgRequests({}));
       setError(null);
     } catch (err) {
       setError(
@@ -55,12 +57,61 @@ export function AdminOnboardingPage(): React.JSX.Element {
     } finally {
       setLoading(false);
     }
-  }, [filter]);
+  }, []);
 
   useEffect(() => {
     if (!ready) return;
     void Promise.resolve().then(() => load());
   }, [load, ready]);
+
+  const counts = useMemo(() => {
+    const next: Record<OnboardingFilter, number> = {
+      ALL: rows.length,
+      PENDING: 0,
+      INVITED: 0,
+      REJECTED: 0,
+    };
+    for (const row of rows) {
+      next[row.status] += 1;
+    }
+    return next;
+  }, [rows]);
+
+  const visibleRows = useMemo(
+    () =>
+      filter === 'ALL' ? rows : rows.filter((row) => row.status === filter),
+    [filter, rows],
+  );
+
+  const filterItems = useMemo<FilterTabItem<OnboardingFilter>[]>(
+    () => [
+      {
+        id: 'ALL',
+        label: 'Tous',
+        icon: DASH_ICONS.dashboard,
+        count: counts.ALL,
+      },
+      {
+        id: 'PENDING',
+        label: ORG_REQUEST_STATUS_LABELS.PENDING,
+        icon: DASH_ICONS.activity,
+        count: counts.PENDING,
+      },
+      {
+        id: 'INVITED',
+        label: ORG_REQUEST_STATUS_LABELS.INVITED,
+        icon: 'solar:check-circle-linear',
+        count: counts.INVITED,
+      },
+      {
+        id: 'REJECTED',
+        label: ORG_REQUEST_STATUS_LABELS.REJECTED,
+        icon: DASH_ICONS.close,
+        count: counts.REJECTED,
+      },
+    ],
+    [counts],
+  );
 
   const handleInvite = useCallback(
     async (id: string) => {
@@ -143,26 +194,6 @@ export function AdminOnboardingPage(): React.JSX.Element {
       },
       { key: 'name', label: 'Nom', sortable: true },
       {
-        key: 'email',
-        label: 'Contact',
-        render: (_value, row) => (
-          <div className="text-xs">
-            <p>{row.email}</p>
-            {row.phone ? <p className="text-muted">{row.phone}</p> : null}
-          </div>
-        ),
-      },
-      {
-        key: 'cityLabel',
-        label: 'Localisation',
-        render: (_value, row) => (
-          <>
-            {[row.cityLabel, row.address].filter(Boolean).join(' — ') || '—'}
-            {row.rccm ? ` · RCCM ${row.rccm}` : ''}
-          </>
-        ),
-      },
-      {
         key: 'status',
         label: 'Statut',
         render: (value) => {
@@ -179,73 +210,26 @@ export function AdminOnboardingPage(): React.JSX.Element {
         key: 'createdAt',
         label: 'Date',
         sortable: true,
-        render: (value) => new Date(String(value)).toLocaleDateString('fr-FR'),
-      },
-      {
-        key: 'id',
-        label: 'Actions',
-        render: (_value, row) => (
-          <div className="flex flex-wrap gap-2">
-            {row.status === 'PENDING' ? (
-              <>
-                <button
-                  type="button"
-                  className="text-sm text-emerald-700 underline disabled:opacity-50"
-                  disabled={actionId === row.id}
-                  onClick={() => void handleInvite(row.id)}
-                >
-                  Valider
-                </button>
-                <button
-                  type="button"
-                  className="text-sm text-red-600 underline disabled:opacity-50"
-                  disabled={actionId === row.id}
-                  onClick={() => void handleReject(row.id)}
-                >
-                  Rejeter
-                </button>
-              </>
-            ) : (
-              <span className="text-sm text-slate-400">
-                {row.rejectionReason ?? '—'}
-              </span>
-            )}
-          </div>
-        ),
+        render: (value) =>
+          formatOrgRequestDate(value == null ? null : String(value), 'compact'),
       },
     ],
-    [actionId, handleInvite, handleReject],
+    [],
   );
 
   return (
     <section className="space-y-4">
-      <DashboardPageHeader
-        title="Dossiers d’ouverture"
+      <DashboardPageHeader title="Dossiers d’ouverture" />
+      <FilterTabs
+        ariaLabel="Filtrer les dossiers d’ouverture"
+        items={filterItems}
+        value={filter}
+        onChange={setFilter}
       />
-      <div className="flex flex-wrap gap-2">
-        {(['PENDING', 'ALL', 'INVITED', 'REJECTED'] as const).map((key) => (
-          <button
-            key={key}
-            type="button"
-            onClick={() => setFilter(key)}
-            className={`rounded-full px-3 py-1 text-sm font-medium ${
-              filter === key
-                ? 'bg-slate-900 text-white'
-                : 'bg-slate-100 text-slate-700'
-            }`}
-          >
-            {key === 'ALL' ? 'Tous' : ORG_REQUEST_STATUS_LABELS[key]}
-          </button>
-        ))}
-      </div>
-      {error ? (
-        <p className="text-sm text-red-600" role="alert">
-          {error}
-        </p>
-      ) : null}
+      <ApiErrorBanner message={error} />
       {notice ? (
         <p
-          className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800"
+          className="rounded-lg border border-success/30 bg-success/10 px-3 py-2 text-sm text-success"
           role="status"
         >
           {notice}
@@ -254,12 +238,36 @@ export function AdminOnboardingPage(): React.JSX.Element {
       <ListDataTable
         tableId="admin-onboarding-table"
         columns={columns}
-        data={rows}
+        data={visibleRows}
         loading={loading}
         onRefresh={load}
+        viewHref={(row) => ROUTES.admin.onboardingRequest(row.id)}
+        viewLabel="Voir les détails"
         entityLabel="dossiers"
         searchPlaceholder="Rechercher un dossier…"
         emptyMessage="Aucun dossier d’ouverture."
+        actions={(row) =>
+          row.status === 'PENDING' ? (
+            <>
+              <button
+                type="button"
+                disabled={actionId === row.id}
+                aria-label="Valider le dossier"
+                onClick={() => void handleInvite(row.id)}
+              >
+                {actionId === row.id ? 'Mise à jour…' : 'Valider'}
+              </button>
+              <button
+                type="button"
+                disabled={actionId === row.id}
+                aria-label="Rejeter le dossier"
+                onClick={() => void handleReject(row.id)}
+              >
+                Rejeter
+              </button>
+            </>
+          ) : null
+        }
       />
     </section>
   );

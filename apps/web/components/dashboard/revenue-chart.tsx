@@ -168,7 +168,7 @@ export function RevenueChart({
   );
 
   return (
-    <div className="flex h-full flex-col rounded-lg border border-border bg-card p-5">
+    <div className="flex h-full flex-col rounded-xl border border-border bg-table p-5">
       <div className="mb-3 flex items-center justify-between gap-2">
         <h3 className="text-base font-semibold text-heading">Revenus encaissés</h3>
         <ChartRangeToggle range={range} onChange={setRange} />
@@ -191,21 +191,23 @@ export function RevenueChart({
 
 export function PropertyModeChart({
   data = EMPTY_MODE,
+  emptyMessage = 'Aucun bien dans le portefeuille',
 }: {
   data?: PropertyModeSeries;
+  emptyMessage?: string;
 }): React.JSX.Element {
   const { theme } = useTheme();
   const options = useMemo(() => buildDonutOptions(theme), [theme]);
   const empty = data.series.every((n) => n === 0);
 
   return (
-    <div className="flex h-full flex-col rounded-lg border border-border bg-card p-5">
+    <div className="flex h-full flex-col rounded-xl border border-border bg-table p-5">
       <div className="mb-3 flex items-center justify-between gap-2">
         <h3 className="text-base font-semibold text-heading">Biens par mode</h3>
       </div>
       {empty ? (
-        <div className="flex h-[180px] items-center justify-center text-sm text-muted">
-          Aucun bien dans le portefeuille
+        <div className="flex h-75 items-center justify-center text-sm text-muted">
+          {emptyMessage}
         </div>
       ) : (
         <ReactApexChart

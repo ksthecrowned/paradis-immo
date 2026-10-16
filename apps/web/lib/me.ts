@@ -1,15 +1,38 @@
 import { apiFetch } from '@/lib/api';
 import type { ActiveRole } from '@/lib/active-role';
 
+export type NotificationChannelPreference = 'PUSH' | 'SMS' | 'WHATSAPP';
+
 export interface PublicUser {
   id: string;
   phone: string;
   email: string | null;
   name: string | null;
   avatarUrl: string | null;
+  notificationChannel: NotificationChannelPreference;
   countryId: string;
   roles: string[];
   createdAt: string;
+  marketingOptIn?: boolean;
+  kycStatus?: string;
+}
+
+export interface UpdateMeInput {
+  name?: string;
+  email?: string;
+  avatarUrl?: string;
+  fcmToken?: string;
+  notificationChannel?: NotificationChannelPreference;
+}
+
+export async function requestAccountDeletion(): Promise<{
+  message: string;
+  deletedAt: string;
+}> {
+  return apiFetch<{ message: string; deletedAt: string }>(
+    '/users/me/deletion',
+    { method: 'POST' },
+  );
 }
 
 export interface PublicOrganization {
@@ -21,6 +44,13 @@ export interface PublicOrganization {
 
 export async function getMe(): Promise<PublicUser> {
   return apiFetch<PublicUser>('/users/me');
+}
+
+export async function updateMe(patch: UpdateMeInput): Promise<PublicUser> {
+  return apiFetch<PublicUser>('/users/me', {
+    method: 'PATCH',
+    body: patch,
+  });
 }
 
 export async function listMyOrganizations(): Promise<PublicOrganization[]> {

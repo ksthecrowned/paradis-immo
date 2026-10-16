@@ -73,7 +73,7 @@ export function PageHeader({
   const hasActions = hasTypedItems || actions != null;
 
   return (
-    <div className="mb-6">
+    <div className="mb-4">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0 flex-1">
           <h1 className="text-2xl font-semibold leading-tight tracking-tight text-foreground sm:text-[28px]">

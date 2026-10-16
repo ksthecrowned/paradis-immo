@@ -5,6 +5,7 @@ import { invalidateAccessTokenCache } from '@/lib/api';
 import { logout } from '@/lib/auth';
 import { DASH_ICONS } from '@/lib/dash-icons';
 import { getMe, type PublicUser } from '@/lib/me';
+import { ROUTES } from '@/lib/routes';
 import { useSession } from 'next-auth/react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -225,7 +226,7 @@ function UserMenuItems({
       <div className="my-1 border-t border-border" />
       <div className="flex flex-col gap-0.5">
         <MenuLink
-          href="/profile"
+          href={ROUTES.profile.account}
           icon={DASH_ICONS.user}
           label="Mon profil"
           onNavigate={() => {
@@ -234,9 +235,18 @@ function UserMenuItems({
           }}
         />
         <MenuLink
-          href="/settings"
-          icon={DASH_ICONS.settings}
-          label="Paramètres"
+          href={ROUTES.profile.security}
+          icon={DASH_ICONS.shield}
+          label="Sécurité"
+          onNavigate={() => {
+            onClose();
+            onAction?.();
+          }}
+        />
+        <MenuLink
+          href={ROUTES.profile.notifications}
+          icon={DASH_ICONS.bell}
+          label="Notifications"
           onNavigate={() => {
             onClose();
             onAction?.();

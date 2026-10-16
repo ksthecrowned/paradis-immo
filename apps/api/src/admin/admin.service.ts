@@ -3,7 +3,11 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { PropertyReportStatus, PropertyStatus, UserStatus } from '@prisma/client';
+import {
+  PropertyReportStatus,
+  PropertyStatus,
+  UserStatus,
+} from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { EventPublisher } from '../events/event.publisher';
 import { DOMAIN_EVENTS } from '../events/event.types';
@@ -28,6 +32,13 @@ export interface AdminUserRow {
   status: UserStatus;
   roles: string[];
   createdAt: string;
+}
+
+export interface AdminUserDetail extends AdminUserRow {
+  email: string | null;
+  kycStatus: string;
+  suspendedAt: string | null;
+  suspendedReason: string | null;
 }
 
 export interface AdminUserListResult {
@@ -59,6 +70,22 @@ export interface AdminReportRow {
   adminNote: string | null;
   reviewedAt: string | null;
   createdAt: string;
+}
+
+export interface AdminReportDetail extends AdminReportRow {
+  property: {
+    id: string;
+    title: string;
+    status: PropertyStatus;
+    mode: string;
+    address: string;
+    quartierName: string | null;
+    owner: {
+      id: string;
+      name: string | null;
+      phone: string | null;
+    };
+  };
 }
 
 export interface AdminReportListResult {
@@ -169,6 +196,46 @@ export class AdminService {
         createdAt: u.createdAt.toISOString(),
       })),
       meta: { total, page, pageSize },
+    };
+  }
+
+  async getUserDetail(id: string): Promise<AdminUserDetail> {
+    const user = await this.prisma.user.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        phone: true,
+        email: true,
+        name: true,
+        avatarUrl: true,
+        country: { select: { name: true } },
+        roles: { select: { role: true } },
+        status: true,
+        kycStatus: true,
+        suspendedAt: true,
+        suspendedReason: true,
+        createdAt: true,
+      },
+    });
+    if (!user) {
+      throw new NotFoundException({
+        code: 'USER_NOT_FOUND',
+        message: `User ${id} not found`,
+      });
+    }
+    return {
+      id: user.id,
+      phone: user.phone,
+      email: user.email,
+      name: user.name,
+      avatarUrl: user.avatarUrl,
+      countryName: user.country.name,
+      roles: user.roles.map(({ role }) => role),
+      status: user.status,
+      kycStatus: user.kycStatus,
+      suspendedAt: user.suspendedAt?.toISOString() ?? null,
+      suspendedReason: user.suspendedReason,
+      createdAt: user.createdAt.toISOString(),
     };
   }
 
@@ -304,19 +371,53 @@ export class AdminService {
       }),
     ]);
     return {
-      data: rows.map((r) => ({
-        id: r.id,
-        propertyId: r.propertyId,
-        propertyTitle: r.property.title,
-        reason: r.reason,
-        description: r.description,
-        status: r.status,
-        reporterKey: r.reporterKey,
-        adminNote: r.adminNote,
-        reviewedAt: r.reviewedAt?.toISOString() ?? null,
-        createdAt: r.createdAt.toISOString(),
-      })),
+      data: rows.map((r) => this.toReportRow(r)),
       meta: { total, page, pageSize },
+    };
+  }
+
+  async getReport(id: string): Promise<AdminReportDetail> {
+    const row = await this.prisma.propertyReport.findUnique({
+      where: { id },
+      include: {
+        property: {
+          select: {
+            id: true,
+            title: true,
+            status: true,
+            mode: true,
+            address: true,
+            ownerId: true,
+            quartier: { select: { name: true } },
+          },
+        },
+      },
+    });
+    if (!row) {
+      throw new NotFoundException({
+        code: 'REPORT_NOT_FOUND',
+        message: `Report ${id} not found`,
+      });
+    }
+    const owner = await this.prisma.user.findUnique({
+      where: { id: row.property.ownerId },
+      select: { id: true, name: true, phone: true },
+    });
+    return {
+      ...this.toReportRow(row),
+      property: {
+        id: row.property.id,
+        title: row.property.title,
+        status: row.property.status,
+        mode: row.property.mode,
+        address: row.property.address,
+        quartierName: row.property.quartier?.name ?? null,
+        owner: owner ?? {
+          id: row.property.ownerId,
+          name: null,
+          phone: null,
+        },
+      },
     };
   }
 
@@ -324,7 +425,7 @@ export class AdminService {
     id: string,
     status: PropertyReportStatus,
     adminNote?: string,
-  ) {
+  ): Promise<AdminReportRow> {
     const existing = await this.prisma.propertyReport.findUnique({
       where: { id },
     });
@@ -343,17 +444,32 @@ export class AdminService {
       },
       include: { property: { select: { title: true } } },
     });
+    return this.toReportRow(updated);
+  }
+
+  private toReportRow(row: {
+    id: string;
+    propertyId: string;
+    reason: string;
+    description: string | null;
+    status: PropertyReportStatus;
+    reporterKey: string;
+    adminNote: string | null;
+    reviewedAt: Date | null;
+    createdAt: Date;
+    property: { title: string };
+  }): AdminReportRow {
     return {
-      id: updated.id,
-      propertyId: updated.propertyId,
-      propertyTitle: updated.property.title,
-      reason: updated.reason,
-      description: updated.description,
-      status: updated.status,
-      reporterKey: updated.reporterKey,
-      adminNote: updated.adminNote,
-      reviewedAt: updated.reviewedAt?.toISOString() ?? null,
-      createdAt: updated.createdAt.toISOString(),
+      id: row.id,
+      propertyId: row.propertyId,
+      propertyTitle: row.property.title,
+      reason: row.reason,
+      description: row.description,
+      status: row.status,
+      reporterKey: row.reporterKey,
+      adminNote: row.adminNote,
+      reviewedAt: row.reviewedAt?.toISOString() ?? null,
+      createdAt: row.createdAt.toISOString(),
     };
   }
 }

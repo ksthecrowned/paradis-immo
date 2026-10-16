@@ -2,7 +2,14 @@ import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { isWebAccountActive, resolveDashboardPath } from '@/lib/web-account';
 
-const PROTECTED_PREFIXES = ['/owner', '/agent', '/admin'];
+const PROTECTED_PREFIXES = [
+  '/owner',
+  '/agent',
+  '/admin',
+  '/profile',
+  '/notifications',
+  '/settings',
+];
 const AUTH_OPEN_PREFIXES = [
   '/login',
   '/register',
@@ -134,6 +141,11 @@ export const config = {
     '/owner/:path*',
     '/agent/:path*',
     '/admin/:path*',
+    '/profile',
+    '/profile/:path*',
+    '/notifications',
+    '/settings',
+    '/settings/:path*',
     '/onboarding/:path*',
     '/auth/continue',
     '/login',

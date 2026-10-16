@@ -5,6 +5,12 @@
 
 export const ROUTES = {
   login: '/login',
+  profile: {
+    root: '/profile',
+    account: '/profile/account',
+    security: '/profile/security',
+    notifications: '/profile/notifications',
+  },
   owner: {
     dashboard: '/owner/dashboard',
     properties: '/owner/properties',
@@ -80,9 +86,12 @@ export const ROUTES = {
   admin: {
     dashboard: '/admin/dashboard',
     users: '/admin/users',
+    user: (id: string) => `/admin/users/${id}`,
     onboarding: '/admin/onboarding',
+    onboardingRequest: (id: string) => `/admin/onboarding/${id}`,
     moderation: '/admin/moderation',
     reports: '/admin/reports',
+    report: (id: string) => `/admin/reports/${id}`,
     config: '/admin/config',
     notifications: '/admin/notifications',
   },
@@ -285,6 +294,10 @@ const BREADCRUMB_LABELS: Record<string, string> = {
   validation: 'Validation paiements',
   disputes: 'Litiges',
   settings: 'Paramètres',
+  profile: 'Profil',
+  account: 'Compte',
+  security: 'Sécurité',
+  notifications: 'Notifications',
   payout: 'Reversements',
   maintenance: 'Maintenance',
   mandate: 'Mandats',
@@ -300,7 +313,6 @@ const BREADCRUMB_LABELS: Record<string, string> = {
   moderation: 'Modération',
   reports: 'Signalements',
   config: 'Configuration',
-  notifications: 'Notifications',
 };
 
 export function breadcrumbForPath(pathname: string): { label: string; href?: string }[] {

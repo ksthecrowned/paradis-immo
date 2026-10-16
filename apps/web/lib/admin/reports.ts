@@ -27,6 +27,22 @@ export interface AdminReportRow {
   createdAt: string;
 }
 
+export interface AdminReportDetail extends AdminReportRow {
+  property: {
+    id: string;
+    title: string;
+    status: string;
+    mode: string;
+    address: string;
+    quartierName: string | null;
+    owner: {
+      id: string;
+      name: string | null;
+      phone: string | null;
+    };
+  };
+}
+
 export const REPORT_REASON_LABELS: Record<PropertyReportReason, string> = {
   ALREADY_SOLD_OR_RENTED: 'Déjà vendu / loué',
   FRAUDULENT: 'Annonce frauduleuse',
@@ -42,6 +58,15 @@ export const REPORT_STATUS_LABELS: Record<PropertyReportStatus, string> = {
   DISMISSED: 'Rejeté',
   ACTIONED: 'Traité',
 };
+
+export function reportStatusTone(
+  status: PropertyReportStatus,
+): 'success' | 'warning' | 'danger' | 'neutral' {
+  if (status === 'OPEN') return 'warning';
+  if (status === 'ACTIONED') return 'success';
+  if (status === 'DISMISSED') return 'neutral';
+  return 'neutral';
+}
 
 export async function listAdminReports(options?: {
   status?: PropertyReportStatus;
@@ -59,6 +84,10 @@ export async function listAdminReports(options?: {
     data: result.data,
     meta: { total: result.meta.total },
   };
+}
+
+export async function getAdminReport(id: string): Promise<AdminReportDetail> {
+  return apiFetch<AdminReportDetail>(`/admin/reports/${id}`);
 }
 
 export async function updateAdminReport(

@@ -82,7 +82,7 @@ export function DashboardShell({
   return (
     <div className="min-h-screen bg-background text-foreground">
       <WebPushBootstrap />
-      <header className="sticky top-0 z-40 flex h-[70px] bg-topbar">
+      <header className="sticky top-0 z-40 flex h-17.5 bg-topbar">
         <div
           className="hidden shrink-0 items-center border-e border-border px-5 transition-[width] duration-200 lg:flex"
           style={{ width: isLg ? sidebarWidth : SIDEBAR_FULL }}
@@ -103,7 +103,7 @@ export function DashboardShell({
 
       <aside
         className={
-          'fixed bottom-0 start-0 top-[70px] z-50 border-e border-border bg-sidebar transition-[width,transform] duration-200 lg:translate-x-0 ' +
+          'fixed bottom-0 inset-s-0 top-17.5 z-50 border-e border-border bg-sidebar transition-[width,transform] duration-200 lg:translate-x-0 ' +
           (mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0')
         }
         style={{ width: mobileOpen ? SIDEBAR_FULL : sidebarWidth }}

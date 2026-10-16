@@ -49,15 +49,21 @@ export const DASH_STAT_ICONS = {
   chart: 'solar:pie-chart-2-bold',
   user: 'solar:user-bold',
   bills: 'solar:bills-bold',
+  handshake: 'solar:hand-shake-bold',
+  flag: 'solar:flag-bold',
+  clock: 'solar:clock-circle-bold',
 } as const;
 
-/** Chart / sparkline hex colors aligned with brand tokens. */
+/** Chart / sparkline / KPI icon hex colors aligned with brand tokens. */
 export const DASH_CHART_COLORS = {
   purple: '#d6b77c',
   green: '#22c997',
   amber: '#f5a623',
   violet: '#8fa9b8',
-  blue: '#8fa9b8',
+  blue: '#5b8def',
+  rose: '#e05a5a',
+  teal: '#2bb8a8',
+  slate: '#6b7c8a',
 } as const;
 
 export type DashIconName = string;

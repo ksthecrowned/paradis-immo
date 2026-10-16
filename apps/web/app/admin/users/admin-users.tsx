@@ -17,6 +17,7 @@ import {
   unsuspendUser,
   type AdminUser,
 } from '@/lib/admin/users';
+import { ROUTES } from '@/lib/routes';
 import { useRequireSession } from '@/hooks/use-require-session';
 
 const ROLE_LABELS: Record<string, string> = {
@@ -115,10 +116,13 @@ export function AdminUsersPage(): React.JSX.Element {
         filterOptions: [
           { value: 'ACTIVE', label: 'Actif' },
           { value: 'SUSPENDED', label: 'Suspendu' },
+          { value: 'DELETED', label: 'Supprimé' },
         ],
         render: (value) =>
           value === 'SUSPENDED' ? (
             <StatusBadge label="Suspendu" tone="danger" />
+          ) : value === 'DELETED' ? (
+            <StatusBadge label="Supprimé" tone="neutral" />
           ) : (
             <StatusBadge label="Actif" tone="success" />
           ),
@@ -217,24 +221,27 @@ export function AdminUsersPage(): React.JSX.Element {
           onError={handleError}
           tableId="admin-users-table"
           enableClientFilters
-          actions={(user) => (
-            <button
-              type="button"
-              aria-label={
-                user.status === 'SUSPENDED'
-                  ? 'Réactiver le compte'
-                  : 'Suspendre le compte'
-              }
-              disabled={actionId === user.id}
-              onClick={() => void handleUserStatusAction(user)}
-            >
-              {actionId === user.id
-                ? 'Mise à jour…'
-                : user.status === 'SUSPENDED'
-                  ? 'Réactiver le compte'
-                  : 'Suspendre le compte'}
-            </button>
-          )}
+          viewHref={(user) => ROUTES.admin.user(user.id)}
+          actions={(user) =>
+            user.status === 'DELETED' ? null : (
+              <button
+                type="button"
+                aria-label={
+                  user.status === 'SUSPENDED'
+                    ? 'Réactiver le compte'
+                    : 'Suspendre le compte'
+                }
+                disabled={actionId === user.id}
+                onClick={() => void handleUserStatusAction(user)}
+              >
+                {actionId === user.id
+                  ? 'Mise à jour…'
+                  : user.status === 'SUSPENDED'
+                    ? 'Réactiver le compte'
+                    : 'Suspendre le compte'}
+              </button>
+            )
+          }
         />
       ) : (
         <div className="h-48 animate-pulse rounded-xl border border-border bg-card" />

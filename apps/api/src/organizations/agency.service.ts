@@ -187,6 +187,22 @@ export class AgencyService {
     return { requests: rows };
   }
 
+  async getRequest(requestId: string) {
+    const request = await this.prisma.organizationRequest.findUnique({
+      where: { id: requestId },
+    });
+    if (!request) {
+      throw new NotFoundException({
+        code: 'REQUEST_NOT_FOUND',
+        message: 'Demande introuvable.',
+      });
+    }
+    return {
+      ...request,
+      reference: formatRequestReference(request),
+    };
+  }
+
   /**
    * Turn an approved dossier into an organization + invitation (spec 02).
    * The org is created **without members**: the applicant only becomes its

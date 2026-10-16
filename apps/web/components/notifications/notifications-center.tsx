@@ -3,11 +3,14 @@
 import { DashIcon } from '@/components/dash-icon';
 import {
   DashboardPageHeader,
+  FilterTabs,
   type DashboardRole,
+  type FilterTabItem,
 } from '@/components/dashboard';
 import { ApiErrorBanner } from '@/components/forms';
 import { Button } from '@/components/primitives/Button';
 import { ApiError } from '@/lib/api';
+import { DASH_ICONS } from '@/lib/dash-icons';
 import {
   groupNotificationsByDay,
   listMyNotifications,
@@ -128,18 +131,27 @@ export function NotificationsCenter({
 
       <ApiErrorBanner message={error} />
 
-      <div className="flex flex-wrap items-center gap-2">
-        <FilterChip
-          active={filter === 'all'}
-          onClick={() => setFilter('all')}
-          label={`Toutes (${items.length})`}
-        />
-        <FilterChip
-          active={filter === 'unread'}
-          onClick={() => setFilter('unread')}
-          label={`Non lues (${unreadCount})`}
-        />
-      </div>
+      <FilterTabs
+        ariaLabel="Filtrer les notifications"
+        value={filter}
+        onChange={setFilter}
+        items={
+          [
+            {
+              id: 'all',
+              label: 'Toutes',
+              icon: DASH_ICONS.bell,
+              count: items.length,
+            },
+            {
+              id: 'unread',
+              label: 'Non lues',
+              icon: DASH_ICONS.activity,
+              count: unreadCount,
+            },
+          ] satisfies FilterTabItem<Filter>[]
+        }
+      />
 
       {loading ? (
         <div className="rounded-xl border border-border bg-card p-8 text-sm text-muted">
@@ -203,31 +215,6 @@ export function NotificationsCenter({
         </div>
       ) : null}
     </section>
-  );
-}
-
-function FilterChip({
-  active,
-  onClick,
-  label,
-}: {
-  active: boolean;
-  onClick: () => void;
-  label: string;
-}): React.JSX.Element {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={
-        'rounded-full px-3 py-1.5 text-sm transition-colors ' +
-        (active
-          ? 'bg-accent text-on-accent'
-          : 'bg-card text-muted ring-1 ring-border hover:bg-card-hover hover:text-foreground')
-      }
-    >
-      {label}
-    </button>
   );
 }
 

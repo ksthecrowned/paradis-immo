@@ -157,6 +157,36 @@ describe('Agency request → invitation HTTP (spec 02)', () => {
       .expect(400);
   });
 
+  it('lets an admin read a request detail and returns 404 for an unknown request', async () => {
+    const res = await request(app.getHttpServer())
+      .get(`/api/v1/admin/organization-requests/${requestId}`)
+      .set('x-test-user', adminId)
+      .set('x-test-roles', 'PLATFORM_ADMIN')
+      .expect(200);
+
+    expect(res.body).toMatchObject({
+      id: requestId,
+      reference: expect.stringMatching(/^PI-AG-/),
+      name: 'HTTP Immo',
+      email: founderEmail,
+      status: 'PENDING',
+    });
+
+    await request(app.getHttpServer())
+      .get('/api/v1/admin/organization-requests/unknown-request')
+      .set('x-test-user', adminId)
+      .set('x-test-roles', 'PLATFORM_ADMIN')
+      .expect(404);
+  });
+
+  it('refuses request detail to a non-admin (403)', async () => {
+    await request(app.getHttpServer())
+      .get(`/api/v1/admin/organization-requests/${requestId}`)
+      .set('x-test-user', founderId)
+      .set('x-test-roles', 'TENANT')
+      .expect(403);
+  });
+
   it('refuses approval to a non-admin (403)', async () => {
     await request(app.getHttpServer())
       .patch(`/api/v1/admin/organization-requests/${requestId}`)

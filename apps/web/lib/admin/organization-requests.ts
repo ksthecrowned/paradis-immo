@@ -24,6 +24,10 @@ export interface AdminOrgRequestRow {
   createdAt: string;
 }
 
+export interface AdminOrgRequestDetail extends AdminOrgRequestRow {
+  reference: string;
+}
+
 export const ORG_REQUEST_TYPE_LABELS: Record<OrganizationRequestType, string> = {
   OWNER: 'Propriétaire',
   AGENCY: 'Agence',
@@ -59,6 +63,29 @@ export function orgRequestReference(row: {
   return `PI-${kind}-${row.id.slice(0, 8).toUpperCase()}`;
 }
 
+export function formatOrgRequestDate(
+  value: string | null,
+  format: 'compact' | 'full' = 'full',
+): string {
+  if (!value) return '—';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'Date invalide';
+  const options: Intl.DateTimeFormatOptions =
+    format === 'compact'
+      ? {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+        }
+      : { dateStyle: 'long', timeStyle: 'short' };
+  return new Intl.DateTimeFormat('fr-FR', {
+    ...options,
+    timeZone: 'Africa/Brazzaville',
+  }).format(date);
+}
+
 export async function listAdminOrgRequests(options?: {
   status?: OrganizationRequestStatus;
 }): Promise<AdminOrgRequestRow[]> {
@@ -69,6 +96,12 @@ export async function listAdminOrgRequests(options?: {
     `/admin/organization-requests${qs ? `?${qs}` : ''}`,
   );
   return result.requests ?? [];
+}
+
+export async function getAdminOrgRequest(
+  id: string,
+): Promise<AdminOrgRequestDetail> {
+  return apiFetch<AdminOrgRequestDetail>(`/admin/organization-requests/${id}`);
 }
 
 export async function reviewAdminOrgRequest(

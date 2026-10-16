@@ -415,6 +415,37 @@ describe('Admin (e2e)', () => {
     ).toBe('ACTIVE');
   });
 
+  it('returns platform user details including country name and suspension state', async () => {
+    const res = await request(app.getHttpServer())
+      .get(`/api/v1/admin/users/${tenantUserId}`)
+      .set('x-test-user', adminUserId)
+      .set('x-test-roles', 'PLATFORM_ADMIN')
+      .expect(200);
+
+    expect(res.body.data).toMatchObject({
+      id: tenantUserId,
+      name: 'Admin Test Tenant',
+      countryName: (
+        await prisma.country.findUniqueOrThrow({
+          where: { id: countryId },
+          select: { name: true },
+        })
+      ).name,
+      status: 'ACTIVE',
+      roles: ['TENANT'],
+    });
+    expect(res.body.data).not.toHaveProperty('countryId');
+    expect(res.body.data.suspendedReason).toBeNull();
+  });
+
+  it('returns 404 when platform user details are requested for an unknown user', async () => {
+    await request(app.getHttpServer())
+      .get('/api/v1/admin/users/00000000-0000-4000-8000-000000000000')
+      .set('x-test-user', adminUserId)
+      .set('x-test-roles', 'PLATFORM_ADMIN')
+      .expect(404);
+  });
+
   // ------------------------------------------------------------------
   // Moderation
   // ------------------------------------------------------------------
