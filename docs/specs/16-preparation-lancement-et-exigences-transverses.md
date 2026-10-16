@@ -25,6 +25,7 @@ Il n'existe ni portail web client, ni accès direct au système pour les prestat
 - Un propriétaire ne voit que ses biens, mandats, revenus, documents et opérations autorisés.
 - Les routes et pages web sont limitées au portail de gestion ; les clients finaux utilisent les parcours privés mobiles.
 - La séparation entre utilisateurs de la plateforme et administrateurs d'agence doit être explicite : les droits d'administration plateforme ne sont pas accordés par une adhésion à une agence.
+- **Clients CRM et mandats papier (ADR-0001)** : une fiche CRM ou un dépôt de mandat hors plateforme ne prouve ni la propriété ni le consentement plateforme. Les PDF de mandat et justificatifs restent en stockage privé ; téléchargement borné aux parties et à la file de revue `PLATFORM_ADMIN` ; retention et accès ultérieur alignés sur les documents privés/KYC. Après révocation d'accès provisoire, invalider selon TTL les URLs présignées.
 
 ### Matrice minimale de tests négatifs
 
@@ -38,6 +39,9 @@ Pour chaque ressource protégée, tester au minimum :
 | Client final | Ouvrir une route de portail de gestion ou une page privée web | Redirection/refus ; accès client via l'app mobile uniquement |
 | Utilisateur non authentifié | Lire une ressource privée par identifiant deviné | Refus, sans fuite d'existence ou de contenu sensible |
 | Propriétaire | Lire les données privées d'un autre propriétaire | Refus |
+| ADMIN/AGENT d'agence | Décider la revue documentaire d'un mandat papier | Refus |
+| Membre agence A | Lire CRM / mandat / document privé de l'agence B | Refus |
+| Agent | Créer/éditer/archiver un client CRM | Refus |
 
 Les tests doivent couvrir les accès directs par ID et les accès par collection/filtre, y compris les téléchargements et exports. Les refus doivent être cohérents (`403` ou `404` selon la politique anti-énumération), sans exposer de champs sensibles.
 

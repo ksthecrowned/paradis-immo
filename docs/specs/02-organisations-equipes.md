@@ -21,6 +21,9 @@ Permettre à une agence de s'inscrire, d'être affiliée, de gérer son équipe 
 6. En tant que client ayant eu une interaction réelle (bail terminé, séjour COMPLETED, vente COMPLETED, visite COMPLETED), je laisse un avis sur l'agence.
 7. En tant qu'agence, je réponds publiquement à un avis et je peux le signaler.
 8. En tant que propriétaire particulier, mon org OWNER est créée automatiquement à l'onboarding. Elle n'est pas listée publiquement comme agence.
+9. En tant qu'ADMIN d'agence, je gère le **portefeuille clients** de mon agence : recherche d'un compte Paradis Immo par numéro (résultat minimal), ajout CRM avec notification d'information, ou création d'un contact externe sans compte. Un client n'est pas un membre de l'agence.
+10. En tant qu'AGENT, je consulte et sélectionne un client de mon agence lors de la création ou modification autorisée d'un bien ; je ne crée, n'édite ni n'archive les fiches CRM.
+11. En tant que contact externe devenu utilisateur, je confirme explicitement (OTP + décision) le rattachement à la fiche CRM de l'agence ; le refus ne fusionne rien et l'agence ne reçoit qu'un état générique.
 
 ## Règles métier
 - **Création d'agence**
@@ -35,8 +38,15 @@ Permettre à une agence de s'inscrire, d'être affiliée, de gérer son équipe 
   - Au moins un membre ADMIN actif par agence : on ne peut pas retirer ou rétrograder le dernier.
   - Retirer un agent : `Mandate.assignedAgentId` repasse à null (les mandats retournent au gérant), avec une notification au gérant.
 - **Permissions**
-  - ADMIN : tout dans l'org, dont équipe, vitrine, finances et attribution des mandats.
-  - AGENT : biens et mandats assignés seulement, sans accès aux finances globales de l'agence.
+  - ADMIN : tout dans l'org, dont équipe, vitrine, finances, attribution des mandats, **portefeuille clients CRM** et **dépôt/remplacement des mandats papier** (voir 03 et ADR-0001).
+  - AGENT : biens et mandats assignés seulement, sans accès aux finances globales de l'agence ; **consultation/sélection** des clients de l'agence pour rattacher un bien, sans mutation CRM.
+- **Clients d'agence (CRM)** — distinct des membres
+  - Chaque fiche `AgencyClient` appartient à une seule agence. Le même compte utilisateur peut être client de plusieurs agences ; aucune fuite CRM, biens ou mandats entre agences.
+  - Contact externe : nom, téléphone normalisé E.164, e-mail facultatif, notes internes selon politique de données ; **pas** de ligne `User` artificielle.
+  - Compte lié : `userId` renseigné après lookup confirmé ou rattachement explicite ; les champs vérifiés du compte ne sont pas écrasés par la saisie agence.
+  - Statuts de liaison (ou demande dédiée) : `UNLINKED` | `CLAIM_PENDING` | `LINKED` | `CLAIM_DECLINED` — ne jamais déduire `LINKED` du seul numéro saisi par l'agence.
+  - Ajout d'un compte existant au CRM : résultat de recherche minimal (identité suffisante pour confirmation) ; **notification d'information** au compte ; aucun accès aux biens du compte ; ne vaut pas acceptation de mandat.
+  - Rattachement contact → compte : correspondance exacte du numéro vérifié, OTP, confirmation explicite ; en cas de conflit/doublon/numéro inaccessible → parcours admin plateforme, pas de fusion automatique.
 - **Avis**
   - Note de 1 à 5 et commentaire de 20 à 1 000 caractères.
   - Un avis par interaction éligible (`sourceType` + `sourceId` uniques).
@@ -148,6 +158,9 @@ model OrganizationReview {
 - Retirer un agent remet ses mandats à `assignedAgentId = null` et notifie le gérant.
 - Un avis sans interaction éligible renvoie 403 `REVIEW_NOT_ELIGIBLE`. Un second avis sur la même interaction renvoie 409.
 - `rating` de l'org égale la moyenne des avis PUBLISHED (test).
+- Un AGENT reçoit 403 sur création/édition/archivage CRM ; un membre d'une autre agence ne lit ni ne mute les clients CRM.
+- Créer un contact externe ne crée aucun `User` ; lier un compte existant envoie une notification d'information et n'accorde aucun droit sur les biens du compte.
+- Le rattachement contact→compte exige confirmation explicite après OTP ; un refus laisse la fiche CRM inchangée côté fusion.
 
 ## Priorité
 - **P0** : création d'agence et invitations (en remplacement de l'affiliation automatique).
@@ -161,5 +174,6 @@ model OrganizationReview {
 | 02.2 | P0 | Sécuriser invitations, rôles, retrait/désactivation des membres et réassignation des mandats ; interdire toute adhésion implicite. | **Partiel.** Invitations à cible unique avec jeton haché, expiration, révocation et contrôle de correspondance ; gestion des membres, protection du dernier administrateur et réaffectation des mandats existent. Les accès portefeuille/mandat/KYC et la vitrine filtrent désormais les appartenances ACTIVE ; auditer les autres routes et l'acceptation concurrente/à usage unique. |
 | 02.3 | P1 | Terminer la vitrine, avis éligibles/modérés et recalcul des indicateurs. | **Présent localement.** Vitrine, avis liés à une interaction éligible, filtre automatique, réponses et recalcul des métriques sont implémentés. La modération humaine et la cohérence des métriques restent à valider selon les règles produit. |
 | 02.4 | P2 | Compléter zones d'intervention, réponses/signalements d'avis et taux de succès calculé. | **Partiel.** Zones d'intervention, réponses et calcul du taux de succès sont présents ; compléter/vérifier le signalement et le traitement de modération des avis. |
+| 02.5 | P0 | Portefeuille clients d'agence (CRM), isolation multi-agence, permissions ADMIN/AGENT et rattachement contact→compte. | **À faire.** Contrat figé dans cette spec et ADR-0001 ; implémentation lots 1–2 du plan agency-clients. |
 
 État établi par inspection du code local ; la couverture automatisée et les contrôles d'accès négatifs doivent être confirmés avant de clôturer les critères de lancement.

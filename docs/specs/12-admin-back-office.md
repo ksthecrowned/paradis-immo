@@ -67,6 +67,7 @@ Les routes existantes sont conservées lorsqu'elles conviennent. Les nouvelles r
 | `/admin/users` et `/admin/users/[id]` | Recherche serveur par identifiant, nom, téléphone et e-mail ; filtres rôle, statut, pays et période d'inscription ; pagination conservée dans l'URL. La fiche 360° présente identité et statut, rôles, organisations, biens liés, baux/séjours, paiements, incidents/signalements et historique pertinent, avec liens vers les dossiers sources. Suspendre/réactiver avec motif obligatoire et confirmation ; afficher le résultat et l'état courant. Les actions interdites au rôle courant sont absentes ou désactivées avec explication. |
 | `/admin/organizations` et `/admin/organizations/[id]` | Recherche, filtres type/statut/pays/ville et pagination serveur. La fiche présente coordonnées, vérification/KYC, statut d'affiliation, membres et rôles, biens, mandats, indicateurs d'activité et historique. Traiter l'affiliation/KYC, suspendre/réactiver avec motif lorsque permis, et afficher l'impact et les notifications attendues avant confirmation. Les demandes d'ouverture restent dans `/admin/onboarding` et sont reliées à la fiche créée après validation. |
 | `/admin/moderation` et `/admin/cases` | File de modération paginée et filtrable par statut, motif, type de bien, organisation et date. Chaque ligne ouvre un aperçu détaillé : annonce, propriétaire/agence, médias, historique et signalements associés. Approuver, demander une correction ou refuser avec motif structuré et commentaire ; avant une action irréversible, confirmer. Le dossier de signalement peut être assigné, annoté en interne puis résolu ; l'issue et la note destinée au déclarant sont distinctes. |
+| `/admin/mandate-reviews` (nom final selon routes) | File paginée des mandats papier / preuves hors plateforme en attente de revue. Filtres statut de revue, agence, date. Détail : parties, bien, versions de fichiers, checklist (pages lisibles, identité parties, bien identifiable, périmètre/durée, signatures, justificatif propriété/autorisation). Décisions `APPROVED` / `NEEDS_CORRECTION` / `REJECTED` + motif ; audit de chaque accès et décision. Accès documents limité à cette file et aux permissions ; pas d'URL publique. |
 | `/admin/finance` | Vue globale en lecture et filtres pour paiements, remboursements, litiges, reversements, rapprochement et rapports mensuels. Les actions financières sont exposées uniquement si autorisées, affichent les montants/devise, référence, statut, historique et conséquences, demandent confirmation et exigent la ré-authentification TOTP selon la politique de la spec 05. Les exports respectent les filtres et permissions courants. |
 | `/admin/audit` | Journal paginé, filtrable par période, acteur, action, type/cible et exportable. Le détail présente horodatage, acteur, adresse IP disponible, cible, résultat et changements avant/après ; les secrets, jetons et documents privés ne sont jamais exposés. Écran en lecture seule. |
 | `/admin/config` | Remplacer la page informative actuelle par des sections séparées : paramètres métier, référentiels, annonces système, versions minimales de l'application et feature flags. Présenter la valeur courante, validation, portée/pays concernés et effet ; toute modification affiche un aperçu, demande confirmation et conserve l'historique/audit. Les liens de boutiques ne sont éditables que s'ils sont effectivement pilotés par la configuration plateforme ; ne pas présenter une valeur d'environnement comme modifiable depuis l'admin. |
@@ -156,6 +157,7 @@ Ordre de réalisation recommandé d'après les blocages constatés : (1) corrige
 7. Je traite la file KYC des utilisateurs et des organisations (01).
 8. Je suspends une agence : ses annonces passent en pause, et ses gestionnaires et mandants sont notifiés.
 9. Je vois les indicateurs d'une agence : biens, mandats, volume encaissé, litiges, avis, SLA de maintenance.
+9bis. Je traite la **file de revue des mandats papier** déposés pour des clients externes (sans compte) : preview sécurisé, checklist documentaire, décisions `APPROVED` | `NEEDS_CORRECTION` | `REJECTED` avec motif obligatoire, historique immuable. L'écran précise que la revue ne certifie ni l'authenticité légale des signatures ni une propriété opposable (ADR-0001, spec 03).
 
 ### Modération
 10. Je modère les annonces : file des nouvelles publications (pré-modération optionnelle par configuration), approbation, demande de correction ou refus, avec un motif choisi dans une liste et un commentaire. Le propriétaire ou l'agence est notifié.
@@ -310,6 +312,7 @@ model AppVersionPolicy { platform DevicePlatform @id minVersion String latestVer
 - `/admin/users` : recherche et filtres. `/admin/users/[id]` : fiche 360° avec actions.
 - `/admin/organizations` et `/admin/organizations/[id]`, plus `/admin/kyc`.
 - `/admin/moderation` : file avec aperçu de l'annonce, motifs et historique. `/admin/cases`.
+- `/admin/mandate-reviews` : file de revue documentaire des mandats papier (clients externes) ; preview privé, décisions et historique (03, ADR-0001).
 - `/admin/finance` : onglets Paiements, Remboursements, Litiges, Reversements, Rapprochement, Rapports.
 - `/admin/support` : conversations SUPPORT (10).
 - `/admin/notifications` (11).
@@ -326,9 +329,12 @@ model AppVersionPolicy { platform DevicePlatform @id minVersion String latestVer
 - Modifier `stay.serviceFeeRate` dans la configuration impacte les nouveaux devis en moins de 60 s, sans changer les réservations existantes.
 - `GET app/config` renvoie `minVersion`. Le mobile force la mise à jour si la version installée est inférieure.
 - La recherche `admin/users?q=0612` trouve par téléphone partiel.
+- Une décision de revue de mandat papier sans motif renvoie 400 ; un ADMIN/AGENT d'agence ne peut pas décider la revue plateforme (403).
+- L'approbation documentaire n'active pas un libellé « signature certifiée » et n'accorde pas de droit financier au-delà des règles existantes.
+- Après `REJECTED`, l'accès provisoire agence est révoqué et l'annonce concernée passe en `PAUSED` (03).
 
 ## Priorité
-- **P0** : [x] suspension, modération avec motif, base du journal d'audit et TOTP présents localement ; [ ] confirmer notification de modération et couverture des actions sensibles.
+- **P0** : [x] suspension, modération avec motif, base du journal d'audit et TOTP présents localement ; [ ] confirmer notification de modération et couverture des actions sensibles ; [ ] file de revue des mandats papier (12.5).
 - **P1** : [ ] fiche 360°, gestion organisations/KYC, finance, RBAC complet, dossiers de modération génériques et configuration éditable.
 - **P2** : [ ] impersonation, détection de fraude/doublons, annonces système, force update et KPI avancés.
 
@@ -339,3 +345,4 @@ model AppVersionPolicy { platform DevicePlatform @id minVersion String latestVer
 | 12.2 | P1 | Compléter les écrans admin utilisateurs, organisations/KYC, finance et RBAC. | À faire |
 | 12.3 | P1 | Terminer les dossiers de modération génériques, le suivi déclarant et la configuration/référentiels. | À faire |
 | 12.4 | P2 | Ajouter impersonation, détection fraude/doublons, annonces, politiques de version et KPI avancés. | À faire |
+| 12.5 | P0 | File plateforme de revue documentaire des mandats papier (clients externes), checklist, décisions versionnées et audit d'accès. | **À faire.** Contrat figé ; implémentation lots 3 et 5 du plan agency-clients. |

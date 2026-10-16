@@ -36,4 +36,4 @@ Nommer `NNNN-titre-court.md` avec un numéro séquentiel à quatre chiffres.
 
 | ADR | Titre | Statut |
 |---|---|---|
-| Aucun enregistré | Les décisions actuellement implicites doivent être consignées au fil des changements structurants. | — |
+| [0001](0001-agency-clients-owner-model-and-provisional-access.md) | Clients d’agence, propriétaire de bien et accès provisoire | Accepted |
