@@ -89,6 +89,10 @@ export const DOMAIN_EVENTS = {
   MANDATE_TERMINATED: 'mandate.terminated',
   MANDATE_EXPIRING: 'mandate.expiring',
   MANDATE_AGENT_ASSIGNED: 'mandate.agent.assigned',
+  /** ADR-0001 — agency deposited / replaced a paper mandate PDF. */
+  MANDATE_DOCUMENT_DEPOSITED: 'mandate.document.deposited',
+  /** ADR-0001 — platform documentary review decision. */
+  MANDATE_DOCUMENT_REVIEWED: 'mandate.document.reviewed',
   EXPENSE_APPROVED: 'expense.approved',
   VISIT_BOOKING_CONFIRMED: 'visit.booking.confirmed',
   MAINTENANCE_OPENED: 'maintenance.opened',
@@ -266,7 +270,24 @@ export type EventPayloadOf<E extends DomainEventName> = E extends
                                         agentUserId: string;
                                         assignedBy: string;
                                       }
-                                    : E extends typeof DOMAIN_EVENTS.VISIT_BOOKING_CONFIRMED
+                                    : E extends typeof DOMAIN_EVENTS.MANDATE_DOCUMENT_DEPOSITED
+                                      ? {
+                                          mandateId: string;
+                                          propertyId: string;
+                                          organizationId: string;
+                                          documentVersion: number;
+                                        }
+                                      : E extends typeof DOMAIN_EVENTS.MANDATE_DOCUMENT_REVIEWED
+                                        ? {
+                                            mandateId: string;
+                                            propertyId: string;
+                                            organizationId: string;
+                                            decision:
+                                              | 'APPROVED'
+                                              | 'NEEDS_CORRECTION'
+                                              | 'REJECTED';
+                                          }
+                                        : E extends typeof DOMAIN_EVENTS.VISIT_BOOKING_CONFIRMED
                                       ? {
                                           bookingId: string;
                                           slotId: string;

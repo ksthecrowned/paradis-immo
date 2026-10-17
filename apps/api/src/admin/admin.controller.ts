@@ -120,7 +120,7 @@ export class AdminController {
     @Query('pageSize', new DefaultValuePipe(20), ParseIntPipe) pageSize: number,
   ) {
     const result = await this.mandateDocReview.listPending(page, pageSize);
-    return { statusCode: 200, ...result };
+    return { statusCode: 200, data: result };
   }
 
   @Post('mandate-reviews/:mandateId/decide')

@@ -17,7 +17,6 @@ import {
   Input,
   MetaList,
   NumberInput,
-  PhoneInput,
   Select,
   SelectSearch,
   StatusPill,
@@ -25,17 +24,16 @@ import {
   Textarea,
   TipBox,
   ActionList,
-  getPhoneE164,
-  isPhoneComplete,
   type FormTab,
 } from '@/components/forms';
 import { useRequireSession } from '@/hooks/use-require-session';
 import { useResourceForm } from '@/hooks/use-resource-form';
+import { listSelectableAgencyClients } from '@/lib/agent/clients';
 import { ApiError } from '@/lib/api';
 import {
-  DEFAULT_PHONE_COUNTRY,
-  type PhoneCountrySelection,
-} from '@/lib/phone';
+  agentOrganizationIds,
+  listMyOrganizations,
+} from '@/lib/me';
 import {
   listArrondissements,
   listCities,
@@ -83,6 +81,7 @@ import {
   type VisitType,
 } from '@/lib/owner/properties';
 import { ROUTES } from '@/lib/routes';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import {
@@ -136,9 +135,8 @@ type FormValues = {
   cityId: string;
   arrondissementId: string;
   quartierId: string;
-  /** Agent-on-behalf only */
-  ownerPhoneNational: string;
-  ownerName: string;
+  /** Agent-on-behalf only — CRM client of the agency */
+  agencyClientId: string;
 };
 
 const PROPERTY_MODES: PropertyMode[] = ['RENT_LONG', 'RENT_SHORT', 'SALE'];
@@ -189,15 +187,13 @@ const defaultValues = (): FormValues => ({
   cityId: '',
   arrondissementId: '',
   quartierId: '',
-  ownerPhoneNational: '',
-  ownerName: '',
+  agencyClientId: '',
 });
 
 const validate = (
   v: FormValues,
   opts: {
     variant: 'owner' | 'agent';
-    phoneCountry: PhoneCountrySelection;
     /** Agent-on-behalf fields only required when creating. */
     requireOwnerContact?: boolean;
   },
@@ -207,10 +203,8 @@ const validate = (
   if (!e.title && v.title.trim().length < 3) e.title = 'Minimum 3 caractères.';
   e.description = validateRequired(v.description, 'La description') ?? '';
   if (opts.variant === 'agent' && opts.requireOwnerContact !== false) {
-    if (!isPhoneComplete(v.ownerPhoneNational, opts.phoneCountry)) {
-      e.ownerPhoneNational = 'Numéro de téléphone du propriétaire invalide.';
-    }
-    e.ownerName = validateRequired(v.ownerName, 'Le nom du propriétaire') ?? '';
+    e.agencyClientId =
+      validateRequired(v.agencyClientId, 'Le client propriétaire') ?? '';
   }
   if (!e.description && v.description.trim().length < 10)
     e.description = 'Minimum 10 caractères.';
@@ -301,8 +295,8 @@ const validate = (
 const toCreateInput = (
   v: FormValues,
   onBehalf?: {
-    ownerPhone: string;
-    ownerName: string;
+    agencyClientId: string;
+    organizationId?: string;
   },
 ): CreatePropertyInput => {
   const bedrooms = parseNumeric(v.bedrooms);
@@ -368,8 +362,10 @@ const toCreateInput = (
       : {}),
     ...(onBehalf
       ? {
-          ownerPhone: onBehalf.ownerPhone,
-          ownerName: onBehalf.ownerName,
+          agencyClientId: onBehalf.agencyClientId,
+          ...(onBehalf.organizationId
+            ? { organizationId: onBehalf.organizationId }
+            : {}),
         }
       : {}),
   };
@@ -459,9 +455,12 @@ export function PropertyForm({
   const router = useRouter();
   const { ready } = useRequireSession();
   const isAgentVariant = variant === 'agent';
-  const [phoneCountry, setPhoneCountry] = useState<PhoneCountrySelection>(
-    DEFAULT_PHONE_COUNTRY,
+  const [agencyOrganizationId, setAgencyOrganizationId] = useState<string | null>(
+    null,
   );
+  const [clientOptions, setClientOptions] = useState<
+    { value: string; label: string; hint?: string }[]
+  >([]);
   const [cities, setCities] = useState<PublicCity[]>([]);
   const [arrondissements, setArrondissements] = useState<PublicArrondissement[]>([]);
   const [quartiers, setQuartiers] = useState<PublicQuartier[]>([]);
@@ -593,7 +592,6 @@ export function PropertyForm({
     validate: (v) =>
       validate(v, {
         variant,
-        phoneCountry,
         requireOwnerContact: isAgentVariant && !propertyId,
       }),
     onSubmit: async (values) => {
@@ -607,19 +605,12 @@ export function PropertyForm({
         );
       } else {
         const onBehalf = isAgentVariant
-          ? (() => {
-              const ownerPhone = getPhoneE164(
-                values.ownerPhoneNational,
-                phoneCountry,
-              );
-              if (!ownerPhone) {
-                throw new Error('Numéro de téléphone du propriétaire invalide.');
-              }
-              return {
-                ownerPhone,
-                ownerName: values.ownerName.trim(),
-              };
-            })()
+          ? {
+              agencyClientId: values.agencyClientId,
+              ...(agencyOrganizationId
+                ? { organizationId: agencyOrganizationId }
+                : {}),
+            }
           : undefined;
         const created = await createProperty(toCreateInput(values, onBehalf));
         await uploadAllPending(created.id);
@@ -631,6 +622,39 @@ export function PropertyForm({
       }
     },
   });
+
+  useEffect(() => {
+    if (!ready || !isAgentVariant || propertyId) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const orgs = await listMyOrganizations();
+        const orgId = agentOrganizationIds(orgs)[0] ?? null;
+        if (cancelled) return;
+        setAgencyOrganizationId(orgId);
+        if (!orgId) {
+          setClientOptions([]);
+          return;
+        }
+        const clients = await listSelectableAgencyClients(orgId);
+        if (cancelled) return;
+        setClientOptions(
+          clients.map((c) => ({
+            value: c.id,
+            label: c.displayName,
+            hint: c.hasAccount
+              ? `Compte · ${c.phoneE164 ?? '—'}`
+              : `Externe · ${c.phoneE164 ?? '—'}`,
+          })),
+        );
+      } catch {
+        if (!cancelled) setClientOptions([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [ready, isAgentVariant, propertyId]);
 
   useEffect(() => {
     if (!ready) return;
@@ -883,43 +907,36 @@ export function PropertyForm({
           {isAgentVariant && !propertyId ? (
             <div className="space-y-4 rounded-lg border border-border bg-muted/30 p-4">
               <p className="text-sm font-medium text-heading">
-                Propriétaire du bien
+                Client propriétaire
               </p>
               <p className="text-sm text-muted">
-                Le bien sera enregistré au nom de ce propriétaire. Votre agence
-                reçoit automatiquement un mandat ; vous êtes assigné si vous êtes
-                agent de terrain, sinon le gérant laisse l’affectation ouverte.
+                Choisissez un client du CRM de votre agence. Un mandat est proposé
+                au propriétaire s’il a un compte ; sinon un dépôt de mandat papier
+                sera requis. L’agence peut préparer le bien pendant l’attente.
               </p>
               <FormField
-                name="ownerPhoneNational"
-                label="Téléphone du propriétaire"
+                name="agencyClientId"
+                label="Client"
                 required
-                error={form.errors.ownerPhoneNational}
+                error={form.errors.agencyClientId}
               >
-                <PhoneInput
-                  name="ownerPhoneNational"
-                  label=""
-                  value={form.values.ownerPhoneNational}
-                  country={phoneCountry}
-                  onCountryChange={setPhoneCountry}
-                  onChange={(v) => form.setField('ownerPhoneNational', v)}
-                  invalid={!!form.errors.ownerPhoneNational}
+                <SelectSearch
+                  name="agencyClientId"
+                  value={form.values.agencyClientId}
+                  onChange={(v) => form.setField('agencyClientId', v)}
+                  options={clientOptions}
+                  placeholder="Sélectionner un client…"
+                  searchPlaceholder="Rechercher un client…"
+                  emptyLabel="Aucun client — ajoutez-en dans Clients"
+                  invalid={!!form.errors.agencyClientId}
                 />
               </FormField>
-              <FormField
-                name="ownerName"
-                label="Nom du propriétaire"
-                required
-                error={form.errors.ownerName}
-              >
-                <Input
-                  id="ownerName"
-                  value={form.values.ownerName}
-                  onChange={(e) => form.setField('ownerName', e.target.value)}
-                  placeholder="Nom complet"
-                  invalid={!!form.errors.ownerName}
-                />
-              </FormField>
+              <p className="text-xs text-muted">
+                Gérer le portefeuille :{' '}
+                <Link href={ROUTES.agent.clients} className="text-accent underline">
+                  Clients
+                </Link>
+              </p>
             </div>
           ) : null}
           <FormField

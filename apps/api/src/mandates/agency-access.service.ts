@@ -20,6 +20,10 @@ import { PrismaService } from '../prisma/prisma.service';
  *
  * DECLINED / REJECTED document review / EXPIRED / TERMINATED do not grant access.
  * Listing status (ACTIVE vs PAUSED) is orthogonal and enforced elsewhere.
+ *
+ * Finance surfaces (payouts to external beneficiaries, commission ledger that
+ * implies a final agreement) must keep their own ACTIVE/consent gates — this
+ * provisional filter does not enlarge payout or ledger rights.
  */
 export function operableMandateFilter(): Prisma.MandateWhereInput {
   return {

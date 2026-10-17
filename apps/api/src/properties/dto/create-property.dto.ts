@@ -208,6 +208,14 @@ export class CreatePropertyDto {
   @IsOptional()
   @IsString()
   organizationId?: string;
+
+  /**
+   * Agency CRM client (preferred on-behalf path — ADR-0001).
+   * Mutually exclusive with ownerId / ownerPhone.
+   */
+  @IsOptional()
+  @IsString()
+  agencyClientId?: string;
 }
 
 export class UpdatePropertyDto {

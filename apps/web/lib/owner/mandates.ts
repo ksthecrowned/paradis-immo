@@ -34,6 +34,10 @@ export interface PublicMandate {
   signedDocumentKey: string | null;
   ownerSignedAt: string | null;
   agencySignedAt: string | null;
+  initiator?: string;
+  documentReviewStatus?: string;
+  documentReviewReason?: string | null;
+  documentVersion?: number;
 }
 
 export interface PublicMandateVersion {

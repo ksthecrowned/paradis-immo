@@ -6,6 +6,7 @@ import { DetailCard } from '@/components/detail';
 import { ApiErrorBanner } from '@/components/forms';
 import { Button } from '@/components/primitives';
 import { ApiError } from '@/lib/api';
+import { depositPaperMandate } from '@/lib/agent/mandates';
 import {
   approvalStatusLabel,
   commissionSummary,
@@ -73,12 +74,15 @@ type MandateDetailViewProps = {
   onChanged: () => Promise<void> | void;
   /** Affiche le bloc de résiliation (owner ou gérant). */
   canTerminate?: boolean;
+  /** Agency ADMIN — dépôt/remplacement du mandat papier (clients externes). */
+  canDepositPaper?: boolean;
 };
 
 export function MandateDetailView({
   detail,
   onChanged,
   canTerminate = true,
+  canDepositPaper = false,
 }: MandateDetailViewProps): React.JSX.Element {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -87,9 +91,14 @@ export function MandateDetailView({
   const [terminateReason, setTerminateReason] = useState('');
   const [terminateImmediate, setTerminateImmediate] = useState(false);
   const [showTerminate, setShowTerminate] = useState(false);
+  const [paperFile, setPaperFile] = useState<File | null>(null);
 
   const bothSigned = Boolean(detail.ownerSignedAt && detail.agencySignedAt);
   const signable = !bothSigned && detail.status === 'ACTIVE';
+  const reviewStatus = detail.documentReviewStatus ?? 'NOT_APPLICABLE';
+  const paperDepositable =
+    canDepositPaper &&
+    (reviewStatus === 'PENDING' || reviewStatus === 'NEEDS_CORRECTION');
 
   const run = useCallback(
     async (fn: () => Promise<void>) => {
@@ -154,6 +163,17 @@ export function MandateDetailView({
       setShowTerminate(false);
     });
   }, [detail.id, run, terminateImmediate, terminateReason]);
+
+  const handlePaperDeposit = useCallback(() => {
+    if (!paperFile) {
+      setError('Choisissez un fichier PDF ou image du mandat signé.');
+      return;
+    }
+    void run(async () => {
+      await depositPaperMandate(detail.id, paperFile);
+      setPaperFile(null);
+    });
+  }, [detail.id, paperFile, run]);
 
   const conditions: Array<{ label: string; value: string | null }> = [
     { label: 'Périmètre', value: detail.scopes.map(mandateScopeLabel).join(' + ') || null },
@@ -220,6 +240,54 @@ export function MandateDetailView({
           {detail.terminationReason ? ` · motif : ${detail.terminationReason}` : ''}
         </p>
       </DetailCard>
+
+      {reviewStatus !== 'NOT_APPLICABLE' ? (
+        <DetailCard title="Mandat papier (hors plateforme)">
+          <div className="space-y-3 px-5 py-4 text-sm">
+            <p>
+              Revue documentaire :{' '}
+              <strong>{reviewStatus}</strong>
+              {detail.documentVersion
+                ? ` · version ${detail.documentVersion}`
+                : ''}
+            </p>
+            {detail.documentReviewReason ? (
+              <p className="text-muted">Motif : {detail.documentReviewReason}</p>
+            ) : null}
+            <p className="text-xs text-muted">
+              La revue plateforme vérifie la lisibilité et la complétude ; elle ne
+              certifie pas l’authenticité juridique de la signature.
+            </p>
+            {paperDepositable ? (
+              <div className="flex flex-wrap items-end gap-3">
+                <input
+                  type="file"
+                  accept="application/pdf,image/jpeg,image/png"
+                  onChange={(e) => setPaperFile(e.target.files?.[0] ?? null)}
+                />
+                <Button
+                  type="button"
+                  loading={busy}
+                  disabled={!paperFile}
+                  onClick={handlePaperDeposit}
+                >
+                  Déposer / remplacer
+                </Button>
+              </div>
+            ) : null}
+            {detail.signedDocumentKey ? (
+              <Button
+                type="button"
+                variant="secondary"
+                loading={busy}
+                onClick={handleDownload}
+              >
+                Télécharger le document déposé
+              </Button>
+            ) : null}
+          </div>
+        </DetailCard>
+      ) : null}
 
       <DetailCard title="Signature électronique">
         <div className="space-y-3 px-5 py-4">

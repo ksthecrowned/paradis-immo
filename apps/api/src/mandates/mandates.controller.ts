@@ -1,23 +1,34 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
   Get,
+  HttpCode,
   Param,
   Patch,
   Post,
   Query,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { Type } from 'class-transformer';
 import { IsEnum, IsInt, IsOptional, Max, Min } from 'class-validator';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiConsumes,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
 import { MandateScope, MandateStatus } from '@prisma/client';
 import { AppAuthGuard } from '../common/guards/auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { MandatesService } from './mandates.service';
 import { MandateApprovalService } from './mandate-approval.service';
+import { MandateDocumentReviewService } from './mandate-document-review.service';
 import { CreateMandateDto } from './dto/create-mandate.dto';
 import {
   DeclineMandateDto,
@@ -58,6 +69,7 @@ export class MandatesController {
   constructor(
     private readonly mandates: MandatesService,
     private readonly approvals: MandateApprovalService,
+    private readonly documentReview: MandateDocumentReviewService,
   ) {}
 
   @Post()
@@ -130,13 +142,47 @@ export class MandatesController {
   }
 
   @Post(':id/decline')
-  @ApiOperation({ summary: 'Agency gérant declines the proposal' })
+  @ApiOperation({
+    summary:
+      'Decline a pending mandate (gérant for OWNER→agency; owner for AGENCY→client)',
+  })
   decline(
     @CurrentUser() current: AuthenticatedUser,
     @Param('id') id: string,
     @Body() dto: DeclineMandateDto,
   ) {
     return this.mandates.declineMandate(current.userId, id, dto.reason);
+  }
+
+  @Post(':id/paper-document')
+  @HttpCode(201)
+  @ApiConsumes('multipart/form-data')
+  @UseInterceptors(
+    FileInterceptor('file', { limits: { fileSize: 16 * 1024 * 1024 } }),
+  )
+  @ApiOperation({
+    summary:
+      'Agency ADMIN deposits/replaces the signed paper mandate (external clients)',
+  })
+  depositPaper(
+    @CurrentUser() current: AuthenticatedUser,
+    @Param('id') id: string,
+    @UploadedFile()
+    file:
+      | { buffer: Buffer; originalname: string; mimetype: string }
+      | undefined,
+  ) {
+    if (!file?.buffer?.length) {
+      throw new BadRequestException({
+        code: 'FILE_REQUIRED',
+        message: 'Multipart field "file" is required',
+      });
+    }
+    return this.documentReview.depositPaperDocument({
+      mandateId: id,
+      userId: current.userId,
+      file,
+    });
   }
 
   @Post(':id/terminate')

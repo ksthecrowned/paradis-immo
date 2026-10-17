@@ -6,6 +6,8 @@ import {
 } from '@nestjs/common';
 import {
   ListingStatus,
+  MandateDocumentReviewStatus,
+  MandateInitiator,
   MandateStatus,
   MemberStatus,
   OrgMemberRole,
@@ -17,6 +19,7 @@ import {
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { EventPublisher } from '../events/event.publisher';
+import { DOMAIN_EVENTS } from '../events/event.types';
 import {
   CreatePropertyDto,
   UpdatePropertyDto,
@@ -202,13 +205,22 @@ export class PropertiesService {
     const shortStayFields = assertShortStayFields(dto);
 
     const onBehalf = await this.resolveOnBehalfOwner(userId, dto);
-    const effectiveOwnerId = onBehalf?.ownerId ?? userId;
+    const effectiveOwnerId = onBehalf
+      ? onBehalf.ownerId
+      : userId;
 
-    // Auto-create / reuse the owner's personal OWNER org
-    const ownerOrg = await this.orgs.ensureOwnerOrg(
-      effectiveOwnerId,
-      dto.countryId,
-    );
+    // Self-create / linked owner → personal OWNER org.
+    // External CRM contact (no User) → listing lives on the agency org.
+    let organizationId: string;
+    if (onBehalf && !effectiveOwnerId) {
+      organizationId = onBehalf.agencyOrganizationId;
+    } else {
+      const ownerOrg = await this.orgs.ensureOwnerOrg(
+        effectiveOwnerId!,
+        dto.countryId,
+      );
+      organizationId = ownerOrg.id;
+    }
 
     const created = await this.prisma.property.create({
       data: {
@@ -225,7 +237,8 @@ export class PropertiesService {
         lng: dto.lng ?? null,
         countryId: dto.countryId,
         ownerId: effectiveOwnerId,
-        organizationId: ownerOrg.id,
+        agencyClientId: onBehalf?.agencyClientId ?? null,
+        organizationId,
         bedrooms: dto.bedrooms ?? null,
         ...shortStayFields,
         bathrooms: dto.bathrooms ?? null,
@@ -260,16 +273,26 @@ export class PropertiesService {
     });
 
     if (onBehalf) {
-      await this.prisma.mandate.create({
+      // ADR-0001: agency-initiated mandate starts PROPOSED with provisional access.
+      // External (no account) → paper document review PENDING.
+      const isExternal = !onBehalf.ownerId;
+      const mandate = await this.prisma.mandate.create({
         data: {
           propertyId: created.id,
           organizationId: onBehalf.agencyOrganizationId,
-          status: MandateStatus.ACTIVE,
+          status: MandateStatus.PROPOSED,
+          initiator: MandateInitiator.AGENCY,
           assignedAgentId: onBehalf.assignedAgentId,
-          // Spec 03: every mandate records who proposed it. Property created
-          // by the agency on behalf of the owner → the creating agent.
           proposedById: userId,
+          documentReviewStatus: isExternal
+            ? MandateDocumentReviewStatus.PENDING
+            : MandateDocumentReviewStatus.NOT_APPLICABLE,
         },
+      });
+      await this.events.emit(DOMAIN_EVENTS.MANDATE_PROPOSED, {
+        mandateId: mandate.id,
+        propertyId: mandate.propertyId,
+        organizationId: mandate.organizationId,
       });
     }
 
@@ -759,24 +782,27 @@ export class PropertiesService {
   }
 
   /**
-   * When creating for a third-party owner: resolve owner + caller's agency
-   * membership. Returns null for classic self-create.
+   * When creating for a third-party owner: resolve owner / CRM client + caller's
+   * agency membership. Returns null for classic self-create.
    */
   private async resolveOnBehalfOwner(
     userId: string,
     dto: CreatePropertyDto,
   ): Promise<{
-    ownerId: string;
+    ownerId: string | null;
+    agencyClientId: string | null;
     agencyOrganizationId: string;
     assignedAgentId: string | null;
   } | null> {
-    const wantsOnBehalf = Boolean(dto.ownerId || dto.ownerPhone);
-    if (!wantsOnBehalf) return null;
-
-    if (dto.ownerId && dto.ownerPhone) {
+    const refCount = [dto.agencyClientId, dto.ownerId, dto.ownerPhone].filter(
+      Boolean,
+    ).length;
+    if (refCount === 0) return null;
+    if (refCount > 1) {
       throw new BadRequestException({
         code: 'OWNER_REF_AMBIGUOUS',
-        message: 'Provide either ownerId or ownerPhone, not both',
+        message:
+          'Provide exactly one of agencyClientId, ownerId, or ownerPhone',
       });
     }
 
@@ -821,8 +847,27 @@ export class PropertiesService {
       });
     }
 
-    let ownerId: string;
-    if (dto.ownerPhone) {
+    let ownerId: string | null = null;
+    let agencyClientId: string | null = null;
+
+    if (dto.agencyClientId) {
+      const client = await this.prisma.agencyClient.findFirst({
+        where: {
+          id: dto.agencyClientId,
+          organizationId: agencyOrganizationId,
+          archivedAt: null,
+        },
+        select: { id: true, userId: true },
+      });
+      if (!client) {
+        throw new NotFoundException({
+          code: 'AGENCY_CLIENT_NOT_FOUND',
+          message: 'Client not found in this agency',
+        });
+      }
+      agencyClientId = client.id;
+      ownerId = client.userId;
+    } else if (dto.ownerPhone) {
       const resolved = await this.users.resolveOrCreateByPhone(
         dto.ownerPhone,
         dto.ownerName,
@@ -842,20 +887,20 @@ export class PropertiesService {
       ownerId = owner.id;
     }
 
-    if (ownerId === userId) {
+    if (ownerId && ownerId === userId) {
       throw new BadRequestException({
         code: 'OWNER_IS_SELF',
         message:
-          'Use self-create (omit ownerId/ownerPhone) to list your own property',
+          'Use self-create (omit ownerId/ownerPhone/agencyClientId) to list your own property',
       });
     }
 
     // Field agents are auto-assigned so they can operate immediately.
     // Gérants leave assignment open (they already operate via ADMIN role).
     const assignedAgentId =
-      membership.role === OrgMemberRole.AGENT ? userId : null;
+      membership!.role === OrgMemberRole.AGENT ? userId : null;
 
-    return { ownerId, agencyOrganizationId, assignedAgentId };
+    return { ownerId, agencyClientId, agencyOrganizationId, assignedAgentId };
   }
 
   /** Spec 15 B3 — include public exposé (favoris embarqués). */
