@@ -7,11 +7,13 @@ import {
 } from '@nestjs/common';
 import {
   Mandate,
+  MandateInitiator,
   MandateScope,
   MandateStatus,
   MemberStatus,
   OrgMemberRole,
   Prisma,
+  PropertyStatus,
 } from '@prisma/client';
 import { randomInt } from 'node:crypto';
 import { PrismaService } from '../prisma/prisma.service';
@@ -234,7 +236,15 @@ export class MandatesService {
     this.assertProposedState(mandate, 'accept');
     const isOwner = mandate.property.ownerId === userId;
     const isGerant = await this.isAgencyGerant(userId, mandate.organizationId);
-    if (!isOwner && !isGerant) {
+    // ADR-0001: agency-initiated proposals await the linked owner only.
+    if (mandate.initiator === MandateInitiator.AGENCY) {
+      if (!isOwner) {
+        throw new ForbiddenException({
+          code: 'NOT_MANDATE_OWNER',
+          message: 'Only the property owner can accept an agency-proposed mandate',
+        });
+      }
+    } else if (!isOwner && !isGerant) {
       throw new ForbiddenException({
         code: 'NOT_MANDATE_PARTY',
         message: 'Only a mandate party can accept the proposal',
@@ -259,27 +269,65 @@ export class MandatesService {
     return this.toPublic(updated);
   }
 
-  /** Agency gérant declines the proposal with a reason (US 2). */
+  /**
+   * Decline a pending proposal.
+   * - OWNER-initiated: agency gérant declines (US 2).
+   * - AGENCY-initiated (ADR-0001): linked owner declines → provisional access
+   *   ends and the listing is PAUSED.
+   */
   async declineMandate(
     userId: string,
     mandateId: string,
     reason: string,
   ): Promise<PublicMandate> {
-    const mandate = await this.requireMandate(mandateId);
-    this.assertProposedState(mandate, 'decline');
-    await this.agencyAccess.assertIsAgencyGerant(
-      userId,
-      mandate.organizationId,
-    );
-
-    const updated = await this.prisma.mandate.update({
+    const mandate = await this.prisma.mandate.findUnique({
       where: { id: mandateId },
-      data: {
-        status: MandateStatus.DECLINED,
-        terminationReason: reason,
-        terminatedById: userId,
-      },
+      include: { property: { select: { ownerId: true, status: true } } },
     });
+    if (!mandate) {
+      throw new NotFoundException({
+        code: 'MANDATE_NOT_FOUND',
+        message: 'Mandate does not exist',
+      });
+    }
+    this.assertProposedState(mandate, 'decline');
+
+    const isOwner = mandate.property.ownerId === userId;
+    const isAgencyInitiated = mandate.initiator === MandateInitiator.AGENCY;
+
+    if (isAgencyInitiated) {
+      if (!isOwner) {
+        throw new ForbiddenException({
+          code: 'NOT_MANDATE_OWNER',
+          message:
+            'Only the property owner can decline an agency-proposed mandate',
+        });
+      }
+    } else {
+      await this.agencyAccess.assertIsAgencyGerant(
+        userId,
+        mandate.organizationId,
+      );
+    }
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const row = await tx.mandate.update({
+        where: { id: mandateId },
+        data: {
+          status: MandateStatus.DECLINED,
+          terminationReason: reason,
+          terminatedById: userId,
+        },
+      });
+      if (isAgencyInitiated) {
+        await tx.property.update({
+          where: { id: mandate.propertyId },
+          data: { status: PropertyStatus.PAUSED },
+        });
+      }
+      return row;
+    });
+
     await this.events.emit(DOMAIN_EVENTS.MANDATE_DECLINED, {
       mandateId: updated.id,
       propertyId: updated.propertyId,
@@ -1017,6 +1065,10 @@ export class MandatesService {
       signedDocumentKey: m.signedDocumentKey,
       ownerSignedAt: m.ownerSignedAt?.toISOString() ?? null,
       agencySignedAt: m.agencySignedAt?.toISOString() ?? null,
+      initiator: m.initiator,
+      documentReviewStatus: m.documentReviewStatus,
+      documentReviewReason: m.documentReviewReason,
+      documentVersion: m.documentVersion,
     };
   }
 }

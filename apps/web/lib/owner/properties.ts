@@ -171,6 +171,8 @@ export interface CreatePropertyInput {
   /** Agency-on-behalf: E.164 phone (resolve or create) */
   ownerPhone?: string;
   ownerName?: string;
+  /** Agency CRM client (preferred ADR-0001 path) */
+  agencyClientId?: string;
   /** Agency org when the agent belongs to several */
   organizationId?: string;
 }

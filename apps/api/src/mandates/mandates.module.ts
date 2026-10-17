@@ -8,6 +8,8 @@ import { AgencyAccessService } from './agency-access.service';
 import { MandatesController } from './mandates.controller';
 import { MandatesService } from './mandates.service';
 import { MandateApprovalService } from './mandate-approval.service';
+import { MandateDocumentReviewService } from './mandate-document-review.service';
+import { AuditLogModule } from '../common/audit-log.module';
 
 @Module({
   // MediaModule already imports MandatesModule (agency access checks), so
@@ -19,15 +21,22 @@ import { MandateApprovalService } from './mandate-approval.service';
     PrismaModule,
     EventModule,
     AuthModule,
+    AuditLogModule,
     forwardRef(() => MediaModule),
   ],
   controllers: [MandatesController],
   providers: [
     MandatesService,
     MandateApprovalService,
+    MandateDocumentReviewService,
     AgencyAccessService,
     RentScheduleGenerator,
   ],
-  exports: [MandatesService, MandateApprovalService, AgencyAccessService],
+  exports: [
+    MandatesService,
+    MandateApprovalService,
+    MandateDocumentReviewService,
+    AgencyAccessService,
+  ],
 })
 export class MandatesModule {}

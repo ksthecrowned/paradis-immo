@@ -101,3 +101,21 @@ export async function listOrganizationAgents(
   );
   return org.agents ?? [];
 }
+
+/** POST /mandates/:id/paper-document — dépôt mandat papier (ADMIN agence). */
+export async function depositPaperMandate(
+  mandateId: string,
+  file: File,
+): Promise<{
+  id: string;
+  documentVersion: number;
+  documentReviewStatus: string;
+  signedDocumentKey: string | null;
+}> {
+  const form = new FormData();
+  form.append('file', file);
+  return apiFetch(`/mandates/${encodeURIComponent(mandateId)}/paper-document`, {
+    method: 'POST',
+    body: form,
+  });
+}

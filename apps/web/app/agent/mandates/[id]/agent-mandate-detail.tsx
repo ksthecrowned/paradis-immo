@@ -21,6 +21,7 @@ export function AgentMandateDetail({
   const { ready } = useRequireSession();
   const [detail, setDetail] = useState<PublicMandateDetail | null>(null);
   const [canTerminate, setCanTerminate] = useState(false);
+  const [canDepositPaper, setCanDepositPaper] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -32,10 +33,10 @@ export function AgentMandateDetail({
         listMyOrganizations().catch(() => []),
       ]);
       setDetail(rows);
-      setCanTerminate(
-        isAgencyGerant(orgs) &&
-          agentOrganizationIds(orgs).length > 0,
-      );
+      const gerant =
+        isAgencyGerant(orgs) && agentOrganizationIds(orgs).length > 0;
+      setCanTerminate(gerant);
+      setCanDepositPaper(gerant);
       setError(null);
     } catch (err) {
       setError(
@@ -75,6 +76,7 @@ export function AgentMandateDetail({
           detail={detail}
           onChanged={load}
           canTerminate={canTerminate}
+          canDepositPaper={canDepositPaper}
         />
       ) : null}
     </section>

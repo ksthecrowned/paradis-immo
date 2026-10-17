@@ -211,6 +211,15 @@ Chaque endpoint de bloc retourne `data`, `meta.total` (ou `hasMore` documenté),
 
 ## Règles métier
 - **Statuts de mandat** : `PROPOSED` → `ACTIVE` | `DECLINED` | `COUNTERED` ; `ACTIVE` → `TERMINATING` (préavis) → `TERMINATED` ; `ACTIVE` → `EXPIRED`. `REVOKED` est conservé pour l'existant et migré vers `TERMINATED` avec `terminationReason = OWNER_REVOKED`.
+- **Deux axes distincts (ADR-0001)** — ne pas confondre :
+  1. **Validation / preuve du mandat** : acceptation authentifiée du propriétaire (mandat virtuel, client lié à un compte) **ou** revue documentaire plateforme du mandat papier (contact externe). La revue a ses propres états : `APPROVED` | `NEEDS_CORRECTION` | `REJECTED` (motif obligatoire). Elle vérifie lisibilité, complétude, cohérence des parties/bien, dates/signatures visibles et justificatif de propriété ou d'autorisation de gestion ; elle **ne certifie pas** l'authenticité juridique de la signature.
+  2. **Accès opérationnel provisoire** : pendant l'attente (mandat `PROPOSED` / revue en cours / `NEEDS_CORRECTION`), l'agence peut préparer et modifier le bien, le publier, organiser les visites et gérer les opérations locatives, sous appartenance ACTIVE et assignation agent. Les contrôles d'approbation owner déjà prévus (signature de bail, réparation au-dessus du seuil, etc.) restent. Les ventes et mouvements financiers suivent leurs permissions propres et ne sont pas élargis. Pas de reversement vers un bénéficiaire externe non vérifié.
+- **Initiateur et décideur** : représenter clairement qui a proposé le mandat (OWNER → agence, ou agence → client lié) et qui doit décider. Un simple dépôt CRM ou une notification n'est pas un consentement.
+- **Fin d'attente négative** :
+  - Refus propriétaire (`DECLINED`) ou **rejet définitif** documentaire (`REJECTED`) ou expiration/révocation : révoquer l'accès provisoire, empêcher de nouvelles opérations au nom du propriétaire, passer l'annonce en `PAUSED` (historique conservé).
+  - `NEEDS_CORRECTION` : accès provisoire maintenu ; resoumission versionnée ; l'ancienne version n'est plus courante.
+- **Propriétaire déclaré du bien** : `agencyClientId` (CRM de l'agence) et/ou `ownerId` (User, nullable pour contact externe). Pas de faux compte. Biens auto-déclarés OWNER conservent `ownerId`. Une seule identité propriétaire valide par bien. Voir ADR-0001.
+- **Changement de client sur un bien** : AGENT/ADMIN peut remplacer par un autre client de la **même** agence ; changement audité ; n'altère pas silencieusement l'historique des mandats/pièces.
 - **Unicité** : un seul mandat ACTIVE par bien et par périmètre (`scope`). Un mandat exclusif bloque tout autre mandat sur le même scope.
 - **Commission**
   - Gestion locative : `managementFeeRate`, en % des loyers encaissés (8 % par défaut, modifiable).
@@ -392,8 +401,10 @@ model OwnerStatement {
 - Une panne d'une seule source du dashboard affiche l'erreur sur le widget concerné avec un retry, sans remplacer la valeur par zéro ou une liste vide présentée comme réelle.
 - Les graphiques financiers utilisent la date de comptabilisation pertinente, une définition et une devise explicites ; aucune sparkline n'est calculée en répétant la valeur actuelle sur des dates passées.
 - Les raccourcis des cartes et des listes ouvrent la page métier correspondante avec les filtres/période applicables.
-- Un mandat créé par le propriétaire est PROPOSED et ne donne aucun accès à l'agence avant `accept`.
+- Un mandat en `PROPOSED` (ou dossier en revue documentaire / `NEEDS_CORRECTION`) **n'est pas** un mandat accepté/signé ; l'UI et les exports ne doivent pas l'étiqueter comme ACTIVE. L'accès opérationnel provisoire est autorisé selon la matrice ci-dessous et ADR-0001, indépendamment du label de consentement.
+- Refus propriétaire ou rejet définitif documentaire révoque l'accès provisoire et passe l'annonce en `PAUSED`.
 - Deux mandats ACTIVE exclusifs sur le même bien et le même scope sont impossibles (409 `MANDATE_CONFLICT`).
+- Un contact externe n'apparaît pas dans les surfaces OWNER comme s'il avait un compte ; après rattachement confirmé, les biens/documents liés deviennent visibles avec leur état réel (sans accepter le mandat automatiquement).
 - Approuver un `RENT_REDUCTION` met à jour `Lease.monthlyRent` et les `RentSchedule` PENDING concernées dans la même transaction, et crée un avenant (test).
 - Approuver un `MAJOR_REPAIR` permet au ticket de passer en ASSIGNED. Avant approbation, la transition renvoie 409 `OWNER_APPROVAL_REQUIRED`.
 - Chaque `MANDATE_ACTION_PENDING` produit une notification au propriétaire (11).
@@ -415,5 +426,24 @@ model OwnerStatement {
 | 03.3 | P1 | Finaliser commissions, ledger immuable, dépenses, reversements calculés et relevés propriétaires. | **Partiel.** Dépenses approuvées, écritures de paiement/remboursement, calcul de solde et relevés existent localement. Vérifier l'unicité/idempotence du ledger sous concurrence, les commissions et le rapprochement complet avec les reversements réels. |
 | 03.4 | P2 | Ajouter contre-propositions versionnées, signature électronique, renouvellement tacite et export CSV. | **Partiel.** Avenants et prolongation de bail sont produits lors de certaines approbations. Contre-propositions versionnées, signature électronique du mandat, renouvellement tacite et export CSV restent à compléter/confirmer. |
 | 03.5 | P1 | Fiabiliser et différencier les dashboards Owner, gérant d'agence et Agent à partir de données complètes, temporelles et scoped. | **Partiel côté UI.** Les vues Owner et Agent affichent des KPI et tableaux réels, mais les charts/sparklines sont construits à partir de listes limitées ou de valeurs répétées ; le dashboard gérant d'agence n'est pas distinct de celui Agent ; les erreurs de chargement partielles sont parfois converties en listes vides. Implémenter les agrégats complets, séparer les responsabilités gérant/agent et couvrir les états widgets. |
+| 03.6 | P0 | Accès provisoire orthogonal au consentement ; mandats virtuels agence→propriétaire ; dépôt/revue documentaire hors plateforme ; propriétaire via `AgencyClient`. | **À faire.** Contrat figé (cette section + ADR-0001) ; implémentation lots 3–4 du plan agency-clients. L'ancien critère « PROPOSED = aucun accès » est **retiré**. |
 
-État établi par inspection du code local ; aucun rapprochement financier de production ni validation bancaire n'a été effectué.
+## Matrice rôle × action × état (clients / mandats / accès)
+
+Légende : ✅ autorisé · ⛔ refusé · — non applicable. « Attente » = mandat `PROPOSED` ou revue documentaire en cours / `NEEDS_CORRECTION`. « Après refus » = `DECLINED` propriétaire ou revue `REJECTED` (accès provisoire révoqué, listing `PAUSED`).
+
+| Action | ADMIN agence | AGENT assigné | OWNER (compte) | PLATFORM_ADMIN | Attente | Après refus |
+|---|---|---|---|---|---|---|
+| CRM créer / éditer / archiver / lier compte | ✅ | ⛔ | — | — (sauf résolution assistée) | ✅ | ✅ (CRM inchangé) |
+| CRM consulter / sélectionner pour un bien | ✅ | ✅ | — | — | ✅ | selon accès bien |
+| Créer / modifier bien rattaché au client | ✅ | ✅ (assigné) | ✅ (ses biens) | — | ✅ provisoire | ⛔ nouvelles ops agence |
+| Publier / gérer listing | ✅* | ✅* | ✅ | ✅ modération | ✅ provisoire | ⛔ ; listing `PAUSED` |
+| Visites / créneaux / locatif (baux selon règles) | ✅* | ✅* | selon bien | — | ✅ provisoire | ⛔ nouvelles ops agence |
+| Approbations owner (bail, réparation seuil…) | demande | demande | décide | — | inchangé | inchangé |
+| Déposer / remplacer mandat papier | ✅ | ⛔ | — | — | ✅ | resoumission si corrigeable |
+| Accepter / refuser mandat virtuel | — | — | ✅ | — | décideur | — |
+| Décider revue documentaire | ⛔ | ⛔ | — | ✅ | décideur | — |
+| Finance / reversements / ventes | permissions propres (non élargies par l'attente) | idem | idem | selon 12 | pas d'élargissement | pas d'élargissement |
+
+\* Sous appartenance ACTIVE, périmètre org/assignation, et règles d'org APPROVED pour publication. Listing `ACTIVE` et mandat encore en attente peuvent coexister ; ne pas étiqueter le mandat comme signé.
+

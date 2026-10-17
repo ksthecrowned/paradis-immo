@@ -78,6 +78,8 @@ export const ROUTES = {
     bookings: '/agent/bookings',
     mandates: '/agent/mandates',
     mandate: (id: string) => `/agent/mandates/${id}`,
+    clients: '/agent/clients',
+    client: (id: string) => `/agent/clients/${id}`,
     expenses: '/agent/expenses',
     finances: '/agent/finances',
     leaseTemplates: '/agent/settings/lease-templates',
@@ -94,6 +96,7 @@ export const ROUTES = {
     moderation: '/admin/moderation',
     reports: '/admin/reports',
     report: (id: string) => `/admin/reports/${id}`,
+    mandateReviews: '/admin/mandate-reviews',
     config: '/admin/config',
     notifications: '/admin/notifications',
   },
@@ -140,6 +143,7 @@ export const OWNER_NAV: NavItem[] = [
 export const AGENT_NAV: NavItem[] = [
   { href: ROUTES.agent.dashboard, label: 'Tableau de bord', exact: true },
   { href: ROUTES.agent.portfolio, label: 'Biens' },
+  { href: ROUTES.agent.clients, label: 'Clients' },
   { href: ROUTES.agent.mandates, label: 'Mandats' },
   { href: ROUTES.agent.maintenance, label: 'Maintenance' },
   { href: ROUTES.agent.bookings, label: 'Réservations' },
@@ -168,6 +172,7 @@ export const ADMIN_NAV: NavItem[] = [
   { href: ROUTES.admin.onboarding, label: 'Dossiers d’ouverture' },
   { href: ROUTES.admin.moderation, label: 'Modération' },
   { href: ROUTES.admin.reports, label: 'Signalements' },
+  { href: ROUTES.admin.mandateReviews, label: 'Mandats papier' },
   { href: ROUTES.admin.config, label: 'Configuration' },
 ];
 
@@ -219,6 +224,7 @@ export const AGENT_NAV_GROUPS: NavGroup[] = [
     label: 'Patrimoine',
     items: [
       { href: ROUTES.agent.portfolio, label: 'Biens' },
+      { href: ROUTES.agent.clients, label: 'Clients' },
       { href: ROUTES.agent.mandates, label: 'Mandats' },
       { href: ROUTES.agent.maintenance, label: 'Maintenance' },
     ],
@@ -261,6 +267,7 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
       { href: ROUTES.admin.onboarding, label: 'Dossiers d’ouverture' },
       { href: ROUTES.admin.moderation, label: 'Modération' },
       { href: ROUTES.admin.reports, label: 'Signalements' },
+      { href: ROUTES.admin.mandateReviews, label: 'Mandats papier' },
     ],
   },
   {
@@ -306,6 +313,8 @@ const BREADCRUMB_LABELS: Record<string, string> = {
   mandates: 'Mandats',
   finances: 'Finances',
   expenses: 'Dépenses',
+  clients: 'Clients',
+  'mandate-reviews': 'Mandats papier',
   portfolio: 'Biens',
   sales: 'Vente',
   agreements: 'Dossiers',
