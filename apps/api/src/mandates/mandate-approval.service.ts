@@ -215,8 +215,12 @@ export class MandateApprovalService {
     const postActions: Array<() => Promise<void>> = [];
 
     const updated = await this.prisma.$transaction(async (tx) => {
-      const row = await tx.mandateApproval.update({
-        where: { id: approvalId },
+      // Spec 03 — décision idempotente : l'update est conditionné au statut
+      // PENDING pour qu'une course entre deux décisions simultanées du
+      // propriétaire ne puisse pas appliquer deux fois les effets
+      // (dépense double, avenant double, double lever de quota).
+      const decided = await tx.mandateApproval.updateMany({
+        where: { id: approvalId, status: ApprovalStatus.PENDING },
         data: {
           status: approve ? ApprovalStatus.APPROVED : ApprovalStatus.REJECTED,
           decidedAt: new Date(),
@@ -224,6 +228,28 @@ export class MandateApprovalService {
           ...(comment ? { comment } : {}),
           ...(approve ? { appliedAt: new Date() } : {}),
         },
+      });
+      if (decided.count === 0) {
+        // Recharge pour rendre un diagnostic exact (ALREADY_DECIDED vs EXPIRED)
+        // et faire échouer proprement l'appel plutôt que d'appliquer les
+        // effets une seconde fois.
+        const current = await tx.mandateApproval.findUniqueOrThrow({
+          where: { id: approvalId },
+          select: { status: true },
+        });
+        if (current.status === ApprovalStatus.EXPIRED) {
+          throw new BadRequestException({
+            code: 'APPROVAL_EXPIRED',
+            message: 'This approval has expired and can no longer be decided',
+          });
+        }
+        throw new BadRequestException({
+          code: 'APPROVAL_ALREADY_DECIDED',
+          message: `This approval has already been ${current.status.toLowerCase()}`,
+        });
+      }
+      const row = await tx.mandateApproval.findUniqueOrThrow({
+        where: { id: approvalId },
       });
       if (approve) {
         await this.applyApprovedEffect(

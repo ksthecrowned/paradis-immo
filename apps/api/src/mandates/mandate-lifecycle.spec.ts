@@ -23,6 +23,8 @@ describe('Spec 03 — mandate lifecycle, termination and approval effects', () =
   let agencyOrgId: string;
   let propertyId: string;
   let secondPropertyId: string;
+  let racePropertyId: string;
+  let raceMandateId: string;
   let mandateId: string;
   let activeLeaseId: string;
   let draftLeaseId: string;
@@ -250,6 +252,17 @@ describe('Spec 03 — mandate lifecycle, termination and approval effects', () =
         .deleteMany({ where: { id: secondPropertyId } })
         .catch(() => undefined);
     }
+    if (racePropertyId) {
+      await prisma.mandateApproval
+        .deleteMany({ where: { mandate: { propertyId: racePropertyId } } })
+        .catch(() => undefined);
+      await prisma.mandate
+        .deleteMany({ where: { propertyId: racePropertyId } })
+        .catch(() => undefined);
+      await prisma.property
+        .deleteMany({ where: { id: racePropertyId } })
+        .catch(() => undefined);
+    }
     if (propertyId) {
       const leases = await prisma.lease.findMany({
         where: { propertyId },
@@ -336,7 +349,10 @@ describe('Spec 03 — mandate lifecycle, termination and approval effects', () =
       where: { leaseId: activeLeaseId, type: 'AMENDMENT' },
     });
     expect(amendments.length).toBe(1);
-    expect(amendments[0].url).toContain('avenant');
+    // Le document d'avenant est stocké en privé (patron storage actuel) :
+    // la clé pointe vers le PDF, l'URL publique reste vide jusqu'à l'achat.
+    expect(amendments[0].fileKey).toContain('avenant');
+    expect(amendments[0].url).toBeNull();
 
     expect(
       emittedEvents.find((e) => e.name === 'mandate.action.decided'),
@@ -578,6 +594,62 @@ describe('Spec 03 — mandate lifecycle, termination and approval effects', () =
   });
 
   // ---------------------------------------------------------------------
+  // Courses d'approbation (P0, spec 03) — le mandat principal est encore actif
+  // ---------------------------------------------------------------------
+
+  it('deux décisions simultanées sur la même approbation : un seul effet appliqué', async () => {
+    const approval = await approvals.createApproval(gerantUserId, mandateId, {
+      actionType: 'RENT_REDUCTION',
+      sourceType: 'LEASE',
+      sourceId: activeLeaseId,
+      payload: {
+        leaseId: activeLeaseId,
+        newMonthlyRent: 140000,
+        effectiveFrom: '2026-12-15',
+        previousMonthlyRent: 130000,
+        currency: 'XAF',
+      },
+    });
+    createdApprovalIds.push(approval.id);
+
+    const amendmentsBefore = await prisma.leaseDocument.count({
+      where: { leaseId: activeLeaseId, type: 'AMENDMENT' },
+    });
+    const eventsBefore = emittedEvents.filter(
+      (e) => e.name === 'mandate.action.decided',
+    ).length;
+
+    const results = await Promise.allSettled([
+      approvals.decideApproval(ownerUserId, approval.id, {
+        decision: 'APPROVE',
+      }),
+      approvals.decideApproval(ownerUserId, approval.id, {
+        decision: 'REJECT',
+      }),
+    ]);
+
+    const fulfilled = results.filter((r) => r.status === 'fulfilled');
+    const rejected = results.filter((r) => r.status === 'rejected');
+    expect(fulfilled.length).toBe(1);
+    expect(rejected.length).toBe(1);
+    const reason = (rejected[0] as PromiseRejectedResult).reason;
+    expect(reason).toMatchObject({
+      response: { code: 'APPROVAL_ALREADY_DECIDED' },
+    });
+
+    // Effet appliqué exactement une fois : un avenant en base et un seul
+    // événement métier de décision.
+    const amendments = await prisma.leaseDocument.count({
+      where: { leaseId: activeLeaseId, type: 'AMENDMENT' },
+    });
+    expect(amendments - amendmentsBefore).toBe(1);
+    expect(
+      emittedEvents.filter((e) => e.name === 'mandate.action.decided').length -
+        eventsBefore,
+    ).toBe(1);
+  });
+
+  // ---------------------------------------------------------------------
   // Résiliation (P0)
   // ---------------------------------------------------------------------
 
@@ -657,4 +729,94 @@ describe('Spec 03 — mandate lifecycle, termination and approval effects', () =
     expect(declined.status).toBe('DECLINED');
     await prisma.mandate.deleteMany({ where: { id: second.id } });
   });
+
+  // ---------------------------------------------------------------------
+  // Courses et idempotence des transitions (P0, spec 03)
+  // ---------------------------------------------------------------------
+
+  it('deux acceptations simultanées du même mandat : une seule transition', async () => {
+    // Fixture dédiée, nettoyée par afterAll (racePropertyId).
+    const raceProperty = await prisma.property.create({
+      data: {
+        title: 'Lifecycle Race Property',
+        description: 'x',
+        type: 'APARTMENT',
+        mode: 'RENT_LONG',
+        price: 80000,
+        currency: 'XAF',
+        priceUnit: 'MONTH',
+        quartierId,
+        address: 'x',
+        countryId,
+        ownerId: ownerUserId,
+        organizationId: ownerOrgId,
+      },
+    });
+    racePropertyId = raceProperty.id;
+    const proposal = await mandates.createMandate(ownerUserId, {
+      propertyId: racePropertyId,
+      organizationId: agencyOrgId,
+      scopes: ['LONG_TERM_RENTAL'],
+      managementFeeRate: 0.08,
+    });
+    raceMandateId = proposal.id;
+    const eventsBefore = emittedEvents.filter(
+      (e) => e.name === 'mandate.accepted',
+    ).length;
+
+    const results = await Promise.allSettled([
+      mandates.acceptMandate(ownerUserId, proposal.id),
+      mandates.acceptMandate(ownerUserId, proposal.id),
+    ]);
+
+    const fulfilled = results.filter((r) => r.status === 'fulfilled');
+    const rejected = results.filter((r) => r.status === 'rejected');
+    expect(fulfilled.length).toBe(1);
+    expect(rejected.length).toBe(1);
+
+    const final = await prisma.mandate.findUniqueOrThrow({
+      where: { id: proposal.id },
+    });
+    expect(final.status).toBe('ACTIVE');
+
+    // Un seul événement métier, même si la course a dû attendre les deux
+    // acceptations simultanées.
+    expect(
+      emittedEvents.filter((e) => e.name === 'mandate.accepted').length -
+        eventsBefore,
+    ).toBe(1);
+  });
+
+  it('deux résiliations simultanées du même mandat actif : une seule transition', async () => {
+    expect(raceMandateId).toBeTruthy();
+    const eventsBefore = emittedEvents.filter(
+      (e) => e.name === 'mandate.terminated',
+    ).length;
+
+    const results = await Promise.allSettled([
+      mandates.terminateMandate(ownerUserId, raceMandateId, {
+        reason: 'Course A',
+        immediate: true,
+      }),
+      mandates.terminateMandate(gerantUserId, raceMandateId, {
+        reason: 'Course B',
+        immediate: true,
+      }),
+    ]);
+
+    const fulfilled = results.filter((r) => r.status === 'fulfilled');
+    const rejected = results.filter((r) => r.status === 'rejected');
+    expect(fulfilled.length).toBe(1);
+    expect(rejected.length).toBe(1);
+    const final = await prisma.mandate.findUniqueOrThrow({
+      where: { id: raceMandateId },
+    });
+    expect(final.status).toBe('TERMINATED');
+
+    expect(
+      emittedEvents.filter((e) => e.name === 'mandate.terminated').length -
+        eventsBefore,
+    ).toBe(1);
+  });
+
 });

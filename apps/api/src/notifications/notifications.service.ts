@@ -1,4 +1,10 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import {
   Notification,
   NotificationChannel,
@@ -8,6 +14,21 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { InfobipService } from './infobip.service';
 import { FcmService } from './fcm.service';
+
+/** Spec 11 P0 — 3 tentatives d'envoi avec backoff avant un FAILED définitif. */
+const MAX_SEND_ATTEMPTS = 3;
+/**
+ * Backoff après le 1er et le 2e échec (spec 11 : 1 min, 5 min ; le 3e échec
+ * est définitif).
+ */
+const RETRY_DELAYS_MS: readonly number[] = [60_000, 300_000];
+
+/** Spec 12 — masque le téléphone destinataire dans la file admin. */
+function maskPhone(phone: string | null | undefined): string | null {
+  if (!phone) return null;
+  if (phone.length <= 6) return '****';
+  return `${phone.slice(0, 4)}***${phone.slice(-3)}`;
+}
 
 export interface PublicNotification {
   id: string;
@@ -19,6 +40,10 @@ export interface PublicNotification {
   sentAt: string | null;
   readAt: string | null;
   createdAt: string;
+  /** Spec 11 P0 — télémétrie de fiabilité (optionnels pour compat clients). */
+  attempts?: number;
+  lastError?: string | null;
+  retryAfter?: string | null;
 }
 
 /** Spec 11 — upsert payload for `POST users/me/devices`. */
@@ -37,6 +62,31 @@ export interface PublicUserDevice {
   appVersion: string | null;
   locale: string | null;
   lastSeenAt: string;
+}
+
+/** Spec 11/12 — row returned by `GET admin/notifications/failed`. */
+export interface AdminFailedNotification {
+  id: string;
+  type: string;
+  channel: NotificationChannel;
+  status: string;
+  attempts: number;
+  lastError: string | null;
+  retryAfter: string | null;
+  createdAt: string;
+  sentAt: string | null;
+  recipient: {
+    userId: string;
+    phoneMasked: string | null;
+    name: string | null;
+  };
+  /** Non persisté en schéma aujourd'hui — toujours null pour l'UI. */
+  providerMessageId: string | null;
+}
+
+export interface AdminFailedListResult {
+  data: AdminFailedNotification[];
+  meta: { total: number; page: number; pageSize: number };
 }
 
 export interface SendInput {
@@ -96,22 +146,18 @@ export class NotificationsService {
     // Push targets: legacy User.fcmToken + every registered UserDevice
     // (mobile + web). Resolved before channel selection so PUSH preference
     // works when only UserDevice rows exist (web portal).
-    const devices = await this.prisma.userDevice.findMany({
-      where: { userId: input.userId },
-      select: { fcmToken: true },
-    });
-    const tokens = new Set<string>();
-    if (user.fcmToken) tokens.add(user.fcmToken);
-    for (const device of devices) {
-      if (device.fcmToken) tokens.add(device.fcmToken);
-    }
-    const hasPushTarget = tokens.size > 0;
+    const tokens = await this.resolvePushTokens(input.userId, user.fcmToken);
 
-    const requested =
+    const requestedChannel =
       input.channel ??
-      (user.notificationChannel === NotificationChannel.PUSH && hasPushTarget
+      (user.notificationChannel === NotificationChannel.PUSH && tokens.size > 0
         ? NotificationChannel.PUSH
         : NotificationChannel.WHATSAPP);
+    const requested =
+      requestedChannel === NotificationChannel.PUSH &&
+      user.notificationChannel !== NotificationChannel.PUSH
+        ? NotificationChannel.WHATSAPP
+        : requestedChannel;
     // WhatsApp is the default channel — an SMS preference is delivered
     // as a WhatsApp message too (no SMS anywhere, spec: WhatsApp only).
     const channel =
@@ -129,66 +175,181 @@ export class NotificationsService {
       },
     });
 
-    let result: { ok: boolean; reason?: string; providerMessageId?: string };
+    return this.deliverAndRecord(row, input, user, tokens, channel);
+  }
 
+  /** Resolves every FCM target: legacy User.fcmToken + registered UserDevice. */
+  private async resolvePushTokens(
+    userId: string,
+    legacyFcmToken: string | null,
+  ): Promise<Set<string>> {
+    const devices = await this.prisma.userDevice.findMany({
+      where: { userId },
+      select: { fcmToken: true },
+    });
+    const tokens = new Set<string>();
+    if (legacyFcmToken) tokens.add(legacyFcmToken);
+    for (const device of devices) {
+      if (device.fcmToken) tokens.add(device.fcmToken);
+    }
+    return tokens;
+  }
+
+  /** One delivery attempt against the resolved channel (shared send/retry). */
+  private async deliverAndRecord(
+    row: Notification,
+    input: SendInput,
+    user: {
+      phone: string | null;
+      fcmToken: string | null;
+      notificationChannel: NotificationChannel;
+    },
+    tokens: Set<string>,
+    channel: NotificationChannel,
+  ): Promise<PublicNotification> {
     if (channel === NotificationChannel.WHATSAPP) {
       if (!user.phone) {
         return this.markFailed(row.id, 'NO_PHONE');
       }
       const message = this.renderWhatsAppMessage(input.type, input.payload);
-      result = await this.infobip.sendWhatsApp(user.phone, message);
-    } else {
-      // Push goes to EVERY registered device (specs 11/14): the upserted
-      // `userDevice` rows plus the legacy `User.fcmToken` column kept for
-      // backwards compatibility with older clients.
-      const title = this.renderPushTitle(input.type);
-      const body = this.renderPushBody(input.payload);
-      const data = this.renderPushData(input.type, input.payload);
-
-      if (!hasPushTarget) {
-        return this.markFailed(row.id, 'NO_DEVICE_TOKEN');
-      }
-
-      const invalid: string[] = [];
-      let anyOk = false;
-      let reason: string | undefined;
-      let messageId: string | undefined;
-      for (const token of tokens) {
-        const push = await this.fcm.sendPush(token, title, body, data);
-        if (push.ok) {
-          anyOk = true;
-          messageId = push.messageId;
-        } else {
-          reason = reason ?? push.reason;
-          if (push.reason === 'INVALID_TOKEN') invalid.push(token);
-        }
-      }
-      // Cleanup dead tokens so the queue stops failing on them.
-      if (invalid.length > 0) {
-        await this.prisma
-          .$transaction([
-            this.prisma.userDevice.deleteMany({
-              where: { userId: input.userId, fcmToken: { in: invalid } },
-            }),
-            ...(user.fcmToken && invalid.includes(user.fcmToken)
-              ? [
-                  this.prisma.user.update({
-                    where: { id: input.userId },
-                    data: { fcmToken: null },
-                  }),
-                ]
-              : []),
-          ])
-          .catch(() => undefined);
-      }
-      result = anyOk
-        ? { ok: true, providerMessageId: messageId }
-        : { ok: false, reason: reason ?? 'PROVIDER_ERROR' };
+      const result = await this.infobip.sendWhatsApp(user.phone, message);
+      return this.recordAttempt(row, result);
     }
 
-    return result.ok
-      ? await this.markSent(row.id)
-      : await this.markFailed(row.id, result.reason ?? 'PROVIDER_ERROR');
+    // Push goes to EVERY registered device (specs 11/14): the upserted
+    // `userDevice` rows plus the legacy `User.fcmToken` column kept for
+    // backwards compatibility with older clients.
+    const title = this.renderPushTitle(input.type);
+    const body = this.renderPushBody(input.payload);
+    const data = this.renderPushData(input.type, input.payload);
+
+    if (tokens.size === 0) {
+      return this.markFailed(row.id, 'NO_DEVICE_TOKEN');
+    }
+
+    const invalid: string[] = [];
+    let anyOk = false;
+    let reason: string | undefined;
+    let messageId: string | undefined;
+    for (const token of tokens) {
+      const push = await this.fcm.sendPush(token, title, body, data);
+      if (push.ok) {
+        anyOk = true;
+        messageId = push.messageId;
+      } else {
+        reason = reason ?? push.reason;
+        if (push.reason === 'INVALID_TOKEN') invalid.push(token);
+      }
+    }
+    // Cleanup dead tokens so the queue stops failing on them.
+    if (invalid.length > 0) {
+      await this.prisma
+        .$transaction([
+          this.prisma.userDevice.deleteMany({
+            where: { userId: row.userId, fcmToken: { in: invalid } },
+          }),
+          ...(user.fcmToken && invalid.includes(user.fcmToken)
+            ? [
+                this.prisma.user.update({
+                  where: { id: row.userId },
+                  data: { fcmToken: null },
+                }),
+              ]
+            : []),
+        ])
+        .catch(() => undefined);
+    }
+    return this.recordAttempt(
+      row,
+      anyOk
+        ? { ok: true, providerMessageId: messageId }
+        : { ok: false, reason: reason ?? 'PROVIDER_ERROR' },
+    );
+  }
+
+  /**
+   * Spec 11 P0 — enregistre une tentative d'envoi. Un échec fournisseur
+   * transitoire repart dans la file (status QUEUED) deux fois avec backoff
+   * (1 min puis 5 min) ; le 3ᵉ échec est définitif (FAILED + lastError).
+   * Les échecs structurels (NO_PHONE, NO_DEVICE_TOKEN) échouent d'emblée :
+   * aucune relance ne peut les corriger.
+   */
+  private async recordAttempt(
+    row: Notification,
+    result: { ok: boolean; reason?: string; providerMessageId?: string },
+  ): Promise<PublicNotification> {
+    if (result.ok) return this.markSent(row.id, row.attempts + 1);
+    const reason = result.reason ?? 'PROVIDER_ERROR';
+    const attempts = row.attempts + 1;
+    if (attempts < MAX_SEND_ATTEMPTS) {
+      const delay = RETRY_DELAYS_MS[attempts - 1] ?? RETRY_DELAYS_MS[0];
+      const retryAfter = new Date(Date.now() + delay);
+      const updated = await this.prisma.notification.update({
+        where: { id: row.id },
+        data: {
+          status: NotificationStatus.QUEUED,
+          attempts,
+          lastError: reason,
+          retryAfter,
+        },
+      });
+      this.logger.warn(
+        `Notification ${row.id} attempt ${attempts} failed (${reason}) — requeued for ${retryAfter.toISOString()}`,
+      );
+      return this.toPublic(updated);
+    }
+    return this.markFailed(row.id, reason, attempts);
+  }
+
+  /**
+   * Spec 11 P0 — cron : re-délivre les notifications QUEUED dont retryAfter
+   * est passé (lot de 50 par minute, triées par échéance).
+   */
+  @Cron(CronExpression.EVERY_MINUTE, { timeZone: 'Africa/Brazzaville' })
+  async retryDueNotifications(): Promise<void> {
+    const due = await this.prisma.notification.findMany({
+      where: {
+        status: NotificationStatus.QUEUED,
+        retryAfter: { lte: new Date() },
+      },
+      orderBy: [{ retryAfter: 'asc' }, { id: 'asc' }],
+      take: 50,
+      select: { id: true },
+    });
+    for (const { id } of due) {
+      await this.redeliver(id);
+    }
+  }
+
+  /** Re-sends one queued notification; public so tests can drive retries. */
+  async redeliver(id: string): Promise<void> {
+    const row = await this.prisma.notification.findUnique({ where: { id } });
+    if (!row || row.status !== NotificationStatus.QUEUED) return;
+    if (row.retryAfter && row.retryAfter > new Date()) return;
+    const user = await this.prisma.user.findUnique({
+      where: { id: row.userId },
+      select: { phone: true, fcmToken: true, notificationChannel: true },
+    });
+    if (!user) {
+      await this.markFailed(row.id, 'USER_NOT_FOUND', row.attempts + 1);
+      return;
+    }
+    const tokens = await this.resolvePushTokens(row.userId, user.fcmToken);
+    const requested =
+      user.notificationChannel === NotificationChannel.PUSH && tokens.size > 0
+        ? NotificationChannel.PUSH
+        : NotificationChannel.WHATSAPP;
+    await this.deliverAndRecord(
+      row,
+      {
+        userId: row.userId,
+        type: row.type,
+        payload: (row.payload as Record<string, unknown>) ?? {},
+      },
+      user,
+      tokens,
+      requested,
+    );
   }
 
   /**
@@ -203,7 +364,9 @@ export class NotificationsService {
     text: string,
   ): Promise<{ ok: boolean; reason?: string }> {
     const result = await this.infobip.sendWhatsApp(phone, text);
-    const ref = payload.leaseId ? ` (lease ${payload.leaseId})` : '';
+    const leaseId =
+      typeof payload.leaseId === 'string' ? payload.leaseId : undefined;
+    const ref = leaseId ? ` (lease ${leaseId})` : '';
     this.logger.log(
       `${type}${ref} -> WhatsApp ${phone}: ${
         result.ok ? 'sent' : `failed (${result.reason})`
@@ -219,6 +382,109 @@ export class NotificationsService {
       take: 100,
     });
     return rows.map((r) => this.toPublic(r));
+  }
+
+  /**
+   * Spec 11/12 — file admin des envois en échec ou en backoff (QUEUED).
+   * Destinataire masqué ; pas de token FCM ni payload confidentiel.
+   */
+  async listFailedForAdmin(options?: {
+    page?: number;
+    pageSize?: number;
+    /** `FAILED` | `QUEUED` | omit/`ALL` pour les deux. */
+    status?: 'FAILED' | 'QUEUED' | 'ALL';
+  }): Promise<AdminFailedListResult> {
+    const page = Math.max(1, options?.page ?? 1);
+    const pageSize = Math.min(100, Math.max(1, options?.pageSize ?? 20));
+    const statusFilter = options?.status ?? 'ALL';
+    const where: Prisma.NotificationWhereInput = {
+      status:
+        statusFilter === 'FAILED'
+          ? NotificationStatus.FAILED
+          : statusFilter === 'QUEUED'
+            ? NotificationStatus.QUEUED
+            : { in: [NotificationStatus.FAILED, NotificationStatus.QUEUED] },
+    };
+    const [total, rows] = await Promise.all([
+      this.prisma.notification.count({ where }),
+      this.prisma.notification.findMany({
+        where,
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+        include: {
+          user: { select: { id: true, phone: true, name: true } },
+        },
+      }),
+    ]);
+    return {
+      data: rows.map((n) => ({
+        id: n.id,
+        type: n.type,
+        channel: n.channel,
+        status: n.status,
+        attempts: n.attempts,
+        lastError: n.lastError,
+        retryAfter: n.retryAfter?.toISOString() ?? null,
+        createdAt: n.createdAt.toISOString(),
+        sentAt: n.sentAt?.toISOString() ?? null,
+        recipient: {
+          userId: n.user.id,
+          phoneMasked: maskPhone(n.user.phone),
+          name: n.user.name,
+        },
+        providerMessageId: null,
+      })),
+      meta: { total, page, pageSize },
+    };
+  }
+
+  /**
+   * Spec 11/12 — relance manuelle admin.
+   * - FAILED : nouveau cycle (attempts remis à 0) puis livraison immédiate.
+   * - QUEUED : ignore le backoff et tente maintenant.
+   */
+  async adminRetry(id: string): Promise<PublicNotification> {
+    const row = await this.prisma.notification.findUnique({ where: { id } });
+    if (!row) {
+      throw new NotFoundException({
+        code: 'NOTIFICATION_NOT_FOUND',
+        message: 'Notification introuvable',
+      });
+    }
+    if (
+      row.status !== NotificationStatus.FAILED &&
+      row.status !== NotificationStatus.QUEUED
+    ) {
+      throw new BadRequestException({
+        code: 'NOTIFICATION_NOT_RETRYABLE',
+        message: `Seules les notifications FAILED ou QUEUED peuvent être relancées (statut actuel : ${row.status})`,
+      });
+    }
+
+    const dueNow = new Date(Date.now() - 1000);
+    if (row.status === NotificationStatus.FAILED) {
+      await this.prisma.notification.update({
+        where: { id },
+        data: {
+          status: NotificationStatus.QUEUED,
+          attempts: 0,
+          lastError: null,
+          retryAfter: dueNow,
+        },
+      });
+    } else {
+      await this.prisma.notification.update({
+        where: { id },
+        data: { retryAfter: dueNow },
+      });
+    }
+
+    await this.redeliver(id);
+    const updated = await this.prisma.notification.findUniqueOrThrow({
+      where: { id },
+    });
+    return this.toPublic(updated);
   }
 
   async markRead(userId: string, id: string): Promise<PublicNotification> {
@@ -408,7 +674,11 @@ export class NotificationsService {
         return `Paradis Immo — votre annonce « ${this.stringField(
           payload,
           'propertyTitle',
-        )} » a été modérée (${payload.status ?? ''}). Motif : ${this.stringField(payload, 'reason', 'non précisé')}.`;
+        )} » a été modérée (${this.stringField(
+          payload,
+          'status',
+          'statut non précisé',
+        )}). Motif : ${this.stringField(payload, 'reason', 'non précisé')}.`;
       case 'SALE_OFFER_RECEIVED':
         return `Paradis Immo — nouvelle offre d’achat de ${this.stringField(
           payload,
@@ -490,6 +760,55 @@ export class NotificationsService {
             ? `, effectif au ${this.stringField(payload, 'effectiveAt')}`
             : ''
         }.`;
+      case 'DISPUTE_OPENED':
+        return `Paradis Immo — un paiement a été contesté${
+          this.stringField(payload, 'reason')
+            ? ` (motif : ${this.stringField(payload, 'reason')})`
+            : ''
+        }. Ouvrez le portail pour le traiter.`;
+      case 'REFUND_DONE':
+        return `Paradis Immo — vos ${this.stringField(
+          payload,
+          'amount',
+        )} ${this.stringField(
+          payload,
+          'currency',
+          'XAF',
+        )} viennent d'être remboursés.`;
+      case 'APPROVAL_DECIDED':
+        return `Paradis Immo — votre demande d'approbation (${this.stringField(
+          payload,
+          'actionType',
+          'action',
+        )}) a été ${
+          payload.decision === 'APPROVED' ? 'approuvée' : 'refusée'
+        }.`;
+      case 'MANDATE_ACCEPTED':
+        return `Paradis Immo — le mandat de gestion sur ${this.stringField(
+          payload,
+          'propertyId',
+          'un bien',
+        )} a été accepté.`;
+      case 'MANDATE_DECLINED':
+        return `Paradis Immo — le mandat de gestion sur ${this.stringField(
+          payload,
+          'propertyId',
+          'un bien',
+        )} a été refusé.`;
+      case 'MANDATE_TERMINATED':
+        return `Paradis Immo — le mandat sur ${this.stringField(
+          payload,
+          'propertyId',
+          'un bien',
+        )} est terminé${
+          this.stringField(payload, 'effectiveAt')
+            ? `, effectif au ${this.stringField(payload, 'effectiveAt')}`
+            : ''
+        }${
+          this.stringField(payload, 'reason')
+            ? ` (${this.stringField(payload, 'reason')})`
+            : ''
+        }.`;
       default:
         return `Paradis Immo — ${type}`;
     }
@@ -550,6 +869,18 @@ export class NotificationsService {
         return 'Avenant appliqué';
       case 'RENT_INDEXATION_PROPOSED':
         return 'Révision annuelle';
+      case 'DISPUTE_OPENED':
+        return 'Paiement contesté';
+      case 'REFUND_DONE':
+        return 'Remboursement effectué';
+      case 'APPROVAL_DECIDED':
+        return 'Approbation tranchée';
+      case 'MANDATE_ACCEPTED':
+        return 'Mandat accepté';
+      case 'MANDATE_DECLINED':
+        return 'Mandat refusé';
+      case 'MANDATE_TERMINATED':
+        return 'Mandat terminé';
       default:
         return `Paradis Immo · ${type}`;
     }
@@ -598,10 +929,19 @@ export class NotificationsService {
     return data;
   }
 
-  private async markSent(id: string): Promise<PublicNotification> {
+  private async markSent(
+    id: string,
+    attempts?: number,
+  ): Promise<PublicNotification> {
     const updated = await this.prisma.notification.update({
       where: { id },
-      data: { status: 'SENT', sentAt: new Date() },
+      data: {
+        status: 'SENT',
+        sentAt: new Date(),
+        // Spec 11 P0 — télémétrie : chaque essai est comptabilisé, y compris
+        // celui qui aboutit après relance.
+        ...(attempts !== undefined ? { attempts } : {}),
+      },
     });
     return this.toPublic(updated);
   }
@@ -609,6 +949,7 @@ export class NotificationsService {
   private async markFailed(
     id: string,
     reason: string,
+    attempts?: number,
   ): Promise<PublicNotification> {
     // Spec 11 — le statut doit refléter l'échec (sinon la ligne reste
     // PENDING à jamais et aucune relance/audit n'est possible).
@@ -617,6 +958,9 @@ export class NotificationsService {
         where: { id },
         data: {
           status: NotificationStatus.FAILED,
+          ...(attempts !== undefined ? { attempts } : {}),
+          lastError: reason,
+          retryAfter: null,
           payload: {
             ...(await this.notificationPayload(id)),
             failReason: reason,
@@ -662,6 +1006,9 @@ export class NotificationsService {
       sentAt: n.sentAt?.toISOString() ?? null,
       readAt: n.readAt?.toISOString() ?? null,
       createdAt: n.createdAt.toISOString(),
+      attempts: n.attempts,
+      lastError: n.lastError,
+      retryAfter: n.retryAfter?.toISOString() ?? null,
     };
   }
 

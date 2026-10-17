@@ -8,7 +8,7 @@ import {
 } from '@/lib/auth';
 import type { SeekerExperience, SeekerIntent } from '@/lib/seeker-setup';
 
-export type NotificationChannelPreference = 'PUSH' | 'SMS';
+export type NotificationChannelPreference = 'PUSH' | 'SMS' | 'WHATSAPP';
 
 export type PublicUser = {
   id: string;

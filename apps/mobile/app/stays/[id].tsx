@@ -1,10 +1,14 @@
 import { CircleIconButton } from '@/components/ui/CircleIconButton';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { colors, radii, spacing } from '@/constants/theme';
+import { useFeedback } from '@/context/FeedbackContext';
 import { ensureAuthenticated } from '@/lib/auth-guard';
 import {
+  canCancelBooking,
   bookingStatusLabel,
   bookingStatusTone,
+  cancelBooking,
+  getBookingCancellationPreview,
   listMyBookings,
   type PublicBooking,
 } from '@/lib/bookings';
@@ -38,6 +42,7 @@ function nightsBetween(start: string, end: string): number {
 
 export default function StayDetailScreen(): React.JSX.Element {
   const insets = useSafeAreaInsets();
+  const { showFeedback } = useFeedback();
   const { id } = useLocalSearchParams<{ id: string }>();
   const stayId = String(id ?? '');
   const [ready, setReady] = useState(false);
@@ -45,6 +50,7 @@ export default function StayDetailScreen(): React.JSX.Element {
   const [stay, setStay] = useState<PublicBooking | null>(null);
   const [property, setProperty] = useState<Property | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [cancelling, setCancelling] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -65,6 +71,62 @@ export default function StayDetailScreen(): React.JSX.Element {
       setLoading(false);
     }
   }, [stayId]);
+
+  const requestCancellation = async (): Promise<void> => {
+    if (!stay || cancelling || !canCancelBooking(stay.status)) return;
+    setCancelling(true);
+    try {
+      const preview = await getBookingCancellationPreview(stay.id);
+      showFeedback({
+        type: 'warning',
+        title: 'Annuler ce séjour ?',
+        message: `Remboursement estimé : ${Number(preview.refundAmount).toLocaleString('fr-FR')} ${preview.currency} (${preview.refundPercent} %). Le remboursement éventuel sera traité séparément.`,
+        buttons: [
+          {
+            text: 'Garder le séjour',
+            style: 'cancel',
+            onPress: () => setCancelling(false),
+          },
+          {
+            text: 'Confirmer l’annulation',
+            style: 'destructive',
+            onPress: () => {
+              void (async () => {
+                try {
+                  const updated = await cancelBooking(stay.id);
+                  setStay(updated);
+                  showFeedback({
+                    type: 'success',
+                    title: 'Demande enregistrée',
+                    message: `Le séjour est annulé. Remboursement annoncé : ${Number(updated.refundAmount ?? preview.refundAmount).toLocaleString('fr-FR')} ${updated.currency}.`,
+                  });
+                } catch (err) {
+                  showFeedback({
+                    type: 'error',
+                    title: 'Annulation impossible',
+                    message: getErrorMessage(err, 'Le séjour n’a pas été annulé.'),
+                  });
+                } finally {
+                  setCancelling(false);
+                }
+              })();
+            },
+          },
+        ],
+        onDismiss: () => setCancelling(false),
+      });
+    } catch (err) {
+      setCancelling(false);
+      showFeedback({
+        type: 'error',
+        title: 'Aperçu indisponible',
+        message: getErrorMessage(
+          err,
+          'Impossible de calculer le remboursement. Le séjour n’a pas été annulé.',
+        ),
+      });
+    }
+  };
 
   useFocusEffect(
     useCallback(() => {
@@ -162,6 +224,19 @@ export default function StayDetailScreen(): React.JSX.Element {
           </View>
         )}
 
+        {canCancelBooking(stay.status) ? (
+          <Pressable
+            style={[styles.cancelBtn, cancelling && styles.cancelBtnDisabled]}
+            onPress={() => void requestCancellation()}
+            disabled={cancelling}
+            accessibilityRole="button"
+          >
+            <Text style={styles.cancelText}>
+              {cancelling ? 'Calcul du remboursement…' : 'Annuler le séjour'}
+            </Text>
+          </Pressable>
+        ) : null}
+
         <Pressable
           style={styles.secondaryBtn}
           onPress={() => router.push(`/property/${property.id}`)}
@@ -235,4 +310,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   secondaryText: { fontSize: 15, fontWeight: '700', color: colors.ink },
+  cancelBtn: {
+    minHeight: 48,
+    borderRadius: radii.full,
+    borderWidth: 1,
+    borderColor: colors.danger,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelBtnDisabled: { opacity: 0.6 },
+  cancelText: { fontSize: 15, fontWeight: '700', color: colors.danger },
 });

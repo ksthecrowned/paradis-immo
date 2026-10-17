@@ -7,6 +7,7 @@ import { listMyLeases, type PublicLease } from '@/lib/leases';
 import {
   canCreateMaintenanceForLease,
   createMaintenanceTicket,
+  type MaintenanceCategory,
   type MaintenancePriority,
 } from '@/lib/maintenance';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,6 +18,7 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   View,
@@ -29,6 +31,18 @@ const URGENCY: Array<{ key: MaintenancePriority; label: string }> = [
   { key: 'HIGH', label: 'Haute' },
   { key: 'URGENT', label: 'Urgente' },
 ];
+const CATEGORIES: Array<{ key: MaintenanceCategory; label: string }> = [
+  { key: 'PLUMBING', label: 'Plomberie' },
+  { key: 'ELECTRICAL', label: 'Électricité' },
+  { key: 'LOCKSMITH', label: 'Serrurerie' },
+  { key: 'HVAC', label: 'Climatisation' },
+  { key: 'PESTS', label: 'Nuisibles' },
+  { key: 'STRUCTURE', label: 'Structure' },
+  { key: 'APPLIANCE', label: 'Équipement' },
+  { key: 'GENERATOR', label: 'Groupe électrogène' },
+  { key: 'WATER_SUPPLY', label: 'Approvisionnement en eau' },
+  { key: 'OTHER', label: 'Autre' },
+];
 
 export default function NewMaintenanceScreen(): React.JSX.Element {
   const insets = useSafeAreaInsets();
@@ -40,6 +54,9 @@ export default function NewMaintenanceScreen(): React.JSX.Element {
   const [lease, setLease] = useState<PublicLease | null>(null);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [category, setCategory] = useState<MaintenanceCategory>('OTHER');
+  const [availability, setAvailability] = useState('');
+  const [entryPermission, setEntryPermission] = useState(false);
   const [urgency, setUrgency] = useState<MaintenancePriority>('MEDIUM');
   const [submitting, setSubmitting] = useState(false);
 
@@ -87,24 +104,37 @@ export default function NewMaintenanceScreen(): React.JSX.Element {
     }, [leaseId, load]),
   );
 
-  const canSubmit = title.trim().length >= 3 && !submitting && !!lease;
+  const canSubmit =
+    title.trim().length >= 3 &&
+    description.trim().length >= 10 &&
+    !submitting &&
+    !!lease;
 
   const handleSubmit = async (): Promise<void> => {
     if (!canSubmit || !lease) return;
     setSubmitting(true);
     try {
-      await createMaintenanceTicket({
+      const ticket = await createMaintenanceTicket({
         propertyId: lease.propertyId,
+        leaseId: lease.id,
         title: title.trim(),
         description: description.trim(),
         priority: urgency,
+        category,
+        ...(availability.trim() ? { availability: availability.trim() } : {}),
+        entryPermission,
       });
       showFeedback({
         type: 'success',
         title: 'Ticket créé',
         message: 'Votre signalement a bien été enregistré.',
+        buttons: [
+          {
+            text: 'Suivre ma demande',
+            onPress: () => router.replace(`/maintenance/${ticket.id}`),
+          },
+        ],
       });
-      router.back();
     } catch (err) {
       showFeedback({
         type: 'error',
@@ -163,6 +193,51 @@ export default function NewMaintenanceScreen(): React.JSX.Element {
           multiline
           textAlignVertical="top"
         />
+
+        <Text style={styles.label}>Catégorie</Text>
+        <View style={styles.chips}>
+          {CATEGORIES.map((item) => {
+            const active = category === item.key;
+            return (
+              <Pressable
+                key={item.key}
+                style={[styles.chip, active && styles.chipActive]}
+                onPress={() => setCategory(item.key)}
+                accessibilityRole="button"
+                accessibilityState={{ selected: active }}
+              >
+                <Text style={[styles.chipText, active && styles.chipTextActive]}>
+                  {item.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+
+        <Text style={styles.label}>Disponibilités pour l’intervention</Text>
+        <TextInput
+          style={styles.input}
+          value={availability}
+          onChangeText={setAvailability}
+          placeholder="Ex. en semaine après 16 h"
+          placeholderTextColor="#4B5563"
+          maxLength={500}
+        />
+
+        <View style={styles.permissionRow}>
+          <View style={styles.permissionCopy}>
+            <Text style={styles.label}>Autoriser l’entrée en mon absence</Text>
+            <Text style={styles.permissionHint}>
+              À confirmer avec l’équipe avant toute intervention.
+            </Text>
+          </View>
+          <Switch
+            value={entryPermission}
+            onValueChange={setEntryPermission}
+            trackColor={{ false: colors.border, true: colors.primary }}
+            thumbColor={colors.onPrimary}
+          />
+        </View>
 
         <Text style={styles.label}>Urgence</Text>
         <View style={styles.chips}>
@@ -273,6 +348,21 @@ const styles = StyleSheet.create({
   },
   chipTextActive: {
     color: colors.primary,
+  },
+  permissionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  permissionCopy: {
+    flex: 1,
+  },
+  permissionHint: {
+    marginTop: 4,
+    fontSize: 12,
+    lineHeight: 17,
+    color: colors.muted,
   },
   submit: {
     marginTop: 16,

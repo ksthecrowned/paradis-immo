@@ -5,10 +5,11 @@ import {
   type PropertyFeatureId,
   type PropertyMode,
 } from '@/types/property';
+import type { PropertyFilters } from '@/lib/properties';
 
 export type SearchFilters = {
   q: string;
-  mode: PropertyMode | 'RENT_LONG';
+  mode: PropertyMode | 'ALL';
   cityId: string | null;
   cityName: string | null;
   quartierId: string | null;
@@ -26,7 +27,7 @@ export type SearchFilters = {
 
 export const DEFAULT_SEARCH_FILTERS: SearchFilters = {
   q: '',
-  mode: 'RENT_LONG',
+  mode: 'ALL',
   cityId: null,
   cityName: null,
   quartierId: null,
@@ -44,7 +45,7 @@ export const DEFAULT_SEARCH_FILTERS: SearchFilters = {
 
 export function countActiveFilters(filters: SearchFilters): number {
   let count = 0;
-  if (filters.mode !== 'RENT_LONG') count += 1;
+  if (filters.mode !== 'ALL') count += 1;
   if (filters.cityId) count += 1;
   if (filters.quartierId) count += 1;
   if (filters.minPrice != null || filters.maxPrice != null) count += 1;
@@ -57,6 +58,46 @@ export function countActiveFilters(filters: SearchFilters): number {
   return count;
 }
 
+export function searchFiltersToApiFilters(
+  filters: SearchFilters,
+  page: { limit: number; offset: number },
+): PropertyFilters {
+  const currentYear = new Date().getFullYear();
+  const propertyTypes: Record<PropertyCategory, string> = {
+    apartment: 'APARTMENT',
+    house: 'HOUSE',
+    land: 'LAND',
+    commercial: 'COMMERCIAL',
+  };
+  return {
+    ...(filters.q.trim() ? { q: filters.q.trim() } : {}),
+    ...(filters.mode !== 'ALL' ? { mode: filters.mode } : {}),
+    ...(filters.cityId ? { cityId: filters.cityId } : {}),
+    ...(filters.quartierId ? { quartierId: filters.quartierId } : {}),
+    ...(filters.minPrice != null ? { minPrice: filters.minPrice } : {}),
+    ...(filters.maxPrice != null ? { maxPrice: filters.maxPrice } : {}),
+    ...(filters.minBedrooms != null
+      ? { minBedrooms: filters.minBedrooms }
+      : {}),
+    ...(filters.minBathrooms != null
+      ? { minBathrooms: filters.minBathrooms }
+      : {}),
+    ...(filters.categories.length
+      ? { types: filters.categories.map((category) => propertyTypes[category]) }
+      : {}),
+    ...(filters.features.length ? { features: filters.features.join(',') } : {}),
+    ...(filters.availableOnly ? { availableOnly: true } : {}),
+    ...(filters.maxAgeYears != null
+      ? { minYearBuilt: currentYear - filters.maxAgeYears }
+      : {}),
+    ...(filters.minAgeYears != null
+      ? { maxYearBuilt: currentYear - filters.minAgeYears }
+      : {}),
+    limit: page.limit,
+    offset: page.offset,
+  };
+}
+
 export function filterProperties(
   properties: Property[],
   filters: SearchFilters,
@@ -65,7 +106,7 @@ export function filterProperties(
   const yearNow = new Date().getFullYear();
 
   return properties.filter((property) => {
-    if (filters.mode !== 'RENT_LONG' && property.mode !== filters.mode) {
+    if (filters.mode !== 'ALL' && property.mode !== filters.mode) {
       return false;
     }
 
@@ -147,7 +188,7 @@ export function filterProperties(
 export function filtersToParams(filters: SearchFilters): Record<string, string> {
   const params: Record<string, string> = {};
   if (filters.q.trim()) params.q = filters.q.trim();
-  if (filters.mode !== 'RENT_LONG') params.mode = filters.mode;
+  if (filters.mode !== 'ALL') params.mode = filters.mode;
   if (filters.cityId) params.city = filters.cityId;
   if (filters.cityName) params.cityName = filters.cityName;
   if (filters.quartierId) params.quartier = filters.quartierId;
@@ -190,9 +231,12 @@ export function paramsToFilters(
 
   const modeRaw = raw('mode');
   const mode: SearchFilters['mode'] =
-    modeRaw === 'SALE' || modeRaw === 'RENT_LONG' || modeRaw === 'RENT_SHORT'
+    modeRaw === 'ALL' ||
+    modeRaw === 'SALE' ||
+    modeRaw === 'RENT_LONG' ||
+    modeRaw === 'RENT_SHORT'
       ? modeRaw
-      : 'RENT_LONG';
+      : 'ALL';
 
   const parsePositiveInt = (value: string): number | null => {
     const n = Number.parseInt(value, 10);

@@ -11,7 +11,10 @@ import {
   CTA_SCROLL_THRESHOLD,
 } from '@/components/property/detail/constants';
 import { colors } from '@/constants/theme';
+import { useFeedback } from '@/context/FeedbackContext';
+import { ensureAuthenticated } from '@/lib/auth-guard';
 import { fetchCatalogProperty } from '@/lib/catalog';
+import { isAuthenticated } from '@/lib/auth';
 import { isFavorite, toggleFavorite } from '@/lib/favorites';
 import { getErrorMessage } from '@/lib/feedback';
 import { getPropertyGallery } from '@/lib/property-gallery';
@@ -46,6 +49,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function PropertyScreen(): React.JSX.Element {
   const insets = useSafeAreaInsets();
+  const { showFeedback } = useFeedback();
   const { id } = useLocalSearchParams<{ id: string }>();
   const propertyId = String(id ?? '');
   const [property, setProperty] = useState<Property | null>(null);
@@ -134,13 +138,25 @@ export default function PropertyScreen(): React.JSX.Element {
   useEffect(() => {
     if (!propertyId) return;
     let cancelled = false;
-    void isFavorite(propertyId).then((value) => {
-      if (!cancelled) setFavorited(value);
-    });
+    void (async () => {
+      try {
+        if (!(await isAuthenticated())) return;
+        const value = await isFavorite(propertyId);
+        if (!cancelled) setFavorited(value);
+      } catch (err) {
+        if (!cancelled) {
+          showFeedback({
+            type: 'error',
+            title: 'Favoris',
+            message: getErrorMessage(err, 'Impossible de charger ce favori'),
+          });
+        }
+      }
+    })();
     return () => {
       cancelled = true;
     };
-  }, [propertyId]);
+  }, [propertyId, showFeedback]);
 
   const handleScroll = (
     event: NativeSyntheticEvent<NativeScrollEvent>,
@@ -176,12 +192,25 @@ export default function PropertyScreen(): React.JSX.Element {
     router.push(`/property/${property.id}/visit`);
   };
 
-  const handleToggleFavorite = (): void => {
+  const handleToggleFavorite = async (): Promise<void> => {
+    const authenticated = await ensureAuthenticated(
+      router,
+      `/property/${property.id}`,
+    );
+    if (!authenticated) return;
     const next = !favorited;
     setFavorited(next);
-    void toggleFavorite(property.id).catch(() => {
+    try {
+      const saved = await toggleFavorite(property.id);
+      setFavorited(saved);
+    } catch (err) {
       setFavorited(!next);
-    });
+      showFeedback({
+        type: 'error',
+        title: 'Favoris',
+        message: getErrorMessage(err, 'Impossible de mettre à jour ce favori'),
+      });
+    }
   };
 
   const handleShare = async (): Promise<void> => {

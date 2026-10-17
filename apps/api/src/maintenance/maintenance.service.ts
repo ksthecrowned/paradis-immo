@@ -115,6 +115,22 @@ export interface PublicMaintenanceTicket {
   requiresOwnerApproval: boolean;
   createdAt: string;
   updatedAt: string;
+  category?: string;
+  availability?: string | null;
+  entryPermission?: boolean;
+  scheduledAt?: string | null;
+  resolvedAt?: string | null;
+}
+
+export interface PublicMaintenanceTicketDetail
+  extends PublicMaintenanceTicket {
+  history: Array<{ from: MaintenanceStatus; to: MaintenanceStatus; createdAt: string }>;
+  comments: Array<{ id: string; authorId: string | null; body: string; createdAt: string }>;
+}
+
+export interface PaginatedMaintenanceTickets {
+  data: PublicMaintenanceTicket[];
+  meta: { total: number; limit: number; offset: number };
 }
 
 @Injectable()
@@ -352,6 +368,55 @@ export class MaintenanceService {
     // Spec 15 A1 — contrôle d'éligibilité à l'ouverture : locataire du bail
     // ACTIVE/TERMINATING, voyageur CHECKED_IN, gestionnaire, propriétaire.
     await this.assertCanOpenTicket(input.propertyId, input.reporterId);
+    const managesProperty =
+      property.ownerId === input.reporterId ||
+      (await this.agencyAccess.canOperateOnProperty(
+        input.reporterId,
+        input.propertyId,
+      ));
+
+    if (input.leaseId) {
+      const lease = await this.prisma.lease.findUnique({
+        where: { id: input.leaseId },
+        select: {
+          propertyId: true,
+          status: true,
+          tenantId: true,
+          coTenants: { where: { userId: input.reporterId }, select: { userId: true } },
+        },
+      });
+      if (
+        !lease ||
+        lease.propertyId !== input.propertyId ||
+        !['ACTIVE', 'TERMINATING'].includes(lease.status) ||
+        (!managesProperty &&
+          lease.tenantId !== input.reporterId &&
+          lease.coTenants.length === 0)
+      ) {
+        throw new ForbiddenException({
+          code: 'LEASE_NOT_ACCESSIBLE',
+          message: 'The supplied lease is not accessible for this ticket',
+        });
+      }
+    }
+
+    if (input.bookingId) {
+      const booking = await this.prisma.booking.findUnique({
+        where: { id: input.bookingId },
+        select: { propertyId: true, userId: true, status: true },
+      });
+      if (
+        !booking ||
+        booking.propertyId !== input.propertyId ||
+        booking.status !== 'CHECKED_IN' ||
+        (!managesProperty && booking.userId !== input.reporterId)
+      ) {
+        throw new ForbiddenException({
+          code: 'BOOKING_NOT_ACCESSIBLE',
+          message: 'The supplied booking is not accessible for this ticket',
+        });
+      }
+    }
 
     // Spec 03: a per-mandate `repairApprovalThreshold` replaces the legacy
     // priority-only rule when present.
@@ -454,9 +519,20 @@ export class MaintenanceService {
   async getOne(
     userId: string,
     ticketId: string,
-  ): Promise<PublicMaintenanceTicket> {
+  ): Promise<PublicMaintenanceTicketDetail> {
     const ticket = await this.prisma.maintenanceTicket.findUnique({
       where: { id: ticketId },
+      include: {
+        history: {
+          orderBy: { createdAt: 'asc' },
+          select: { from: true, to: true, createdAt: true },
+        },
+        comments: {
+          where: { visibility: 'PUBLIC' },
+          orderBy: { createdAt: 'asc' },
+          select: { id: true, authorId: true, body: true, createdAt: true },
+        },
+      },
     });
     if (!ticket) {
       throw new NotFoundException({
@@ -465,7 +541,53 @@ export class MaintenanceService {
       });
     }
     await this.assertCanReadTicket(userId, ticket);
-    return this.toPublic(ticket);
+    return {
+      ...this.toPublic(ticket),
+      history: ticket.history.map((item) => ({
+        from: item.from,
+        to: item.to,
+        createdAt: item.createdAt.toISOString(),
+      })),
+      comments: ticket.comments.map((comment) => ({
+        id: comment.id,
+        authorId: comment.authorId,
+        body: comment.body,
+        createdAt: comment.createdAt.toISOString(),
+      })),
+    };
+  }
+
+  async addPublicComment(
+    userId: string,
+    ticketId: string,
+    body: string,
+  ): Promise<{ id: string; authorId: string | null; body: string; createdAt: string }> {
+    const ticket = await this.prisma.maintenanceTicket.findUnique({
+      where: { id: ticketId },
+      select: { id: true, propertyId: true, reporterId: true },
+    });
+    if (!ticket) {
+      throw new NotFoundException({
+        code: 'TICKET_NOT_FOUND',
+        message: 'Ticket does not exist',
+      });
+    }
+    if (ticket.reporterId !== userId) {
+      await this.agencyAccess.assertCanOperateOnProperty(
+        userId,
+        ticket.propertyId,
+      );
+    }
+    const comment = await this.prisma.maintenanceComment.create({
+      data: {
+        ticketId,
+        authorId: userId,
+        body: body.trim(),
+        visibility: 'PUBLIC',
+      },
+      select: { id: true, authorId: true, body: true, createdAt: true },
+    });
+    return { ...comment, createdAt: comment.createdAt.toISOString() };
   }
 
   async updateTicket(
@@ -553,12 +675,26 @@ export class MaintenanceService {
     return rows.map((r) => this.toPublic(r));
   }
 
-  async listMine(reporterId: string): Promise<PublicMaintenanceTicket[]> {
-    const rows = await this.prisma.maintenanceTicket.findMany({
-      where: { reporterId },
-      orderBy: { createdAt: 'desc' },
-    });
-    return rows.map((r) => this.toPublic(r));
+  async listMine(
+    reporterId: string,
+    filter: { limit?: number; offset?: number } = {},
+  ): Promise<PaginatedMaintenanceTickets> {
+    const limit = filter.limit ?? 20;
+    const offset = filter.offset ?? 0;
+    const where = { reporterId };
+    const [rows, total] = await Promise.all([
+      this.prisma.maintenanceTicket.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        take: limit,
+        skip: offset,
+      }),
+      this.prisma.maintenanceTicket.count({ where }),
+    ]);
+    return {
+      data: rows.map((r) => this.toPublic(r)),
+      meta: { total, limit, offset },
+    };
   }
 
   /**
@@ -629,6 +765,11 @@ export class MaintenanceService {
       requiresOwnerApproval: t.requiresOwnerApproval,
       createdAt: t.createdAt.toISOString(),
       updatedAt: t.updatedAt.toISOString(),
+      category: t.category,
+      availability: t.availability,
+      entryPermission: t.entryPermission,
+      scheduledAt: t.scheduledAt?.toISOString() ?? null,
+      resolvedAt: t.resolvedAt?.toISOString() ?? null,
     };
   }
 }

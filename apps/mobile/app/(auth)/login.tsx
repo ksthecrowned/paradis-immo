@@ -13,7 +13,7 @@ import { useFeedback } from '@/context/FeedbackContext';
 import { requestOtp } from '@/lib/auth';
 import { getErrorMessage } from '@/lib/feedback';
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import {
   ActivityIndicator,
@@ -30,6 +30,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 export default function LoginScreen(): React.JSX.Element {
   const insets = useSafeAreaInsets();
   const { showFeedback } = useFeedback();
+  const params = useLocalSearchParams<{ returnTo?: string | string[] }>();
+  const returnTo = Array.isArray(params.returnTo)
+    ? params.returnTo[0]
+    : params.returnTo;
   const [phone, setPhone] = useState('');
   const [country, setCountry] =
     useState<PhoneCountrySelection>(DEFAULT_PHONE_COUNTRY);
@@ -48,7 +52,11 @@ export default function LoginScreen(): React.JSX.Element {
       await requestOtp(e164, 'LOGIN');
       router.push({
         pathname: '/(auth)/otp-verify',
-        params: { phone: e164, flow: 'login' },
+        params: {
+          phone: e164,
+          flow: 'login',
+          ...(returnTo ? { returnTo } : {}),
+        },
       });
     } catch (err) {
       const message = getErrorMessage(err, 'Impossible d’envoyer le code');

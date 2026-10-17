@@ -4,8 +4,9 @@ import { useFeedback } from '@/context/FeedbackContext';
 import { requestOtp, verifyOtp } from '@/lib/auth';
 import { getErrorMessage } from '@/lib/feedback';
 import { Ionicons } from '@expo/vector-icons';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams, type Href } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
+import { sanitizeReturnTo } from '@/lib/auth-guard';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -25,9 +26,17 @@ const RESEND_SECONDS = 60;
 export default function OTPVerifyScreen(): React.JSX.Element {
   const insets = useSafeAreaInsets();
   const { showFeedback } = useFeedback();
-  const params = useLocalSearchParams<{ phone?: string; flow?: string }>();
+  const params = useLocalSearchParams<{
+    phone?: string;
+    flow?: string;
+    returnTo?: string | string[];
+  }>();
   const phone = String(params.phone ?? '');
   const flow = params.flow === 'login' ? 'login' : 'register';
+  const returnToParam = Array.isArray(params.returnTo)
+    ? params.returnTo[0]
+    : params.returnTo;
+  const returnTo = sanitizeReturnTo(returnToParam);
   const purpose = flow === 'login' ? 'LOGIN' : 'REGISTER';
 
   const inputRef = useRef<TextInput>(null);
@@ -62,7 +71,7 @@ export default function OTPVerifyScreen(): React.JSX.Element {
       } else if (needsProfile) {
         router.replace('/(auth)/personnal-infos');
       } else {
-        router.replace('/(tabs)');
+        router.replace(returnTo as Href);
       }
     } catch (err) {
       showFeedback({

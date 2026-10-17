@@ -173,6 +173,7 @@ export const ADMIN_NAV: NavItem[] = [
   { href: ROUTES.admin.moderation, label: 'Modération' },
   { href: ROUTES.admin.reports, label: 'Signalements' },
   { href: ROUTES.admin.mandateReviews, label: 'Mandats papier' },
+  { href: ROUTES.admin.notifications, label: 'Notifications' },
   { href: ROUTES.admin.config, label: 'Configuration' },
 ];
 
@@ -268,6 +269,7 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
       { href: ROUTES.admin.moderation, label: 'Modération' },
       { href: ROUTES.admin.reports, label: 'Signalements' },
       { href: ROUTES.admin.mandateReviews, label: 'Mandats papier' },
+      { href: ROUTES.admin.notifications, label: 'Notifications' },
     ],
   },
   {

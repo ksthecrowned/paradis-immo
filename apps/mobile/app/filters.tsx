@@ -33,10 +33,15 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const MODES: Array<{ key: SearchFilters['mode']; label: string }> = [
+  { key: 'ALL', label: 'Tous' },
   { key: 'RENT_LONG', label: 'Location' },
   { key: 'SALE', label: 'Vente' },
   { key: 'RENT_SHORT', label: 'Location journalière' },
 ];
+
+function priceBoundsForFilterMode(mode: SearchFilters['mode']) {
+  return priceBoundsForMode(mode === 'ALL' ? 'SALE' : mode);
+}
 
 const AGE_OPTIONS: Array<{
   key: string;
@@ -61,7 +66,7 @@ function clampPrice(
   minPrice: number | null,
   maxPrice: number | null,
 ): { min: number; max: number } {
-  const bounds = priceBoundsForMode(mode);
+  const bounds = priceBoundsForFilterMode(mode);
   const min = minPrice ?? bounds.min;
   const max = maxPrice ?? bounds.max;
   return {
@@ -116,7 +121,7 @@ export default function FiltersScreen(): React.JSX.Element {
   const [quartiersExpanded, setQuartiersExpanded] = useState(false);
   const prevModeRef = useRef(mode);
 
-  const bounds = priceBoundsForMode(mode);
+  const bounds = priceBoundsForFilterMode(mode);
 
   const visibleQuartiers = useMemo(() => {
     if (quartiersExpanded || quartiers.length <= QUARTIER_PREVIEW_COUNT) {
@@ -170,7 +175,7 @@ export default function FiltersScreen(): React.JSX.Element {
   useEffect(() => {
     if (prevModeRef.current === mode) return;
     prevModeRef.current = mode;
-    const b = priceBoundsForMode(mode);
+    const b = priceBoundsForFilterMode(mode);
     setMinPrice(b.min);
     setMaxPrice(b.max);
     setPriceTouched(false);
@@ -243,7 +248,7 @@ export default function FiltersScreen(): React.JSX.Element {
     setCityName(null);
     setQuartierId(null);
     setQuartierName(null);
-    const b = priceBoundsForMode(DEFAULT_SEARCH_FILTERS.mode);
+    const b = priceBoundsForFilterMode(DEFAULT_SEARCH_FILTERS.mode);
     setMinPrice(b.min);
     setMaxPrice(b.max);
     setPriceTouched(false);

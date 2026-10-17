@@ -2,8 +2,8 @@ import { createHash, randomBytes } from 'node:crypto';
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
+import { ACCOUNT_DELETION_GRACE_PERIOD_DAYS } from './account-deletion.constants';
 
-const DELETION_GRACE_PERIOD_DAYS = 30;
 const BATCH_SIZE = 100;
 
 function anonymizePhone(phone: string): string {
@@ -31,7 +31,7 @@ export class AccountDeletionProcessor {
 
   async anonymizeExpiredAccounts(now = new Date()): Promise<number> {
     const cutoff = new Date(
-      now.getTime() - DELETION_GRACE_PERIOD_DAYS * 24 * 60 * 60 * 1000,
+      now.getTime() - ACCOUNT_DELETION_GRACE_PERIOD_DAYS * 24 * 60 * 60 * 1000,
     );
     let cursorId: string | undefined;
     let anonymizedCount = 0;

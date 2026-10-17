@@ -163,6 +163,20 @@ export default function RootLayout(): React.JSX.Element {
                 }}
               />
               <Stack.Screen
+                name="applications/index"
+                options={{
+                  headerShown: false,
+                  animation: 'slide_from_right',
+                }}
+              />
+              <Stack.Screen
+                name="property/[id]/apply"
+                options={{
+                  headerShown: false,
+                  animation: 'slide_from_right',
+                }}
+              />
+              <Stack.Screen
                 name="purchases/[id]"
                 options={{
                   headerShown: false,
@@ -185,6 +199,20 @@ export default function RootLayout(): React.JSX.Element {
               />
               <Stack.Screen
                 name="leases/[id]/maintenance/new"
+                options={{
+                  headerShown: false,
+                  animation: 'slide_from_right',
+                }}
+              />
+              <Stack.Screen
+                name="maintenance/index"
+                options={{
+                  headerShown: false,
+                  animation: 'slide_from_right',
+                }}
+              />
+              <Stack.Screen
+                name="maintenance/[id]"
                 options={{
                   headerShown: false,
                   animation: 'slide_from_right',

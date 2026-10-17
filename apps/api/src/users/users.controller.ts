@@ -27,6 +27,7 @@ import {
   MaxLength,
 } from 'class-validator';
 import { AppAuthGuard } from '../common/guards/auth.guard';
+import { AllowAccountRecovery } from '../common/decorators/account-recovery.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { UpdateMeDto } from './dto/update-me.dto';
@@ -209,7 +210,11 @@ export class UsersController {
 
   @Delete('me/deletion')
   @HttpCode(200)
-  @ApiOperation({ summary: 'Cancel a pending account deletion (spec 01)' })
+  @AllowAccountRecovery()
+  @ApiOperation({
+    summary:
+      'Cancel a pending deletion during the 30-day recovery window (spec 01)',
+  })
   async cancelDeletion(@CurrentUser() current: AuthenticatedUser) {
     await this.users.cancelAccountDeletion(current.userId);
     return { message: 'Suppression annulée.' };

@@ -32,6 +32,9 @@ export const ADMIN_PERMISSIONS: PermissionDef[] = [
   { key: 'settings.manage', roles: ['SUPER_ADMIN'] },
   { key: 'admins.manage', roles: ['SUPER_ADMIN'] },
   { key: 'stats.read', roles: ['SUPER_ADMIN', 'OPS', 'FINANCE'] },
+  // Spec 11/12 — monitoring et relance des envois échoués.
+  { key: 'notifications.read', roles: ['SUPER_ADMIN', 'OPS'] },
+  { key: 'notifications.retry', roles: ['SUPER_ADMIN', 'OPS'] },
 ];
 
 export interface PermissionDef {

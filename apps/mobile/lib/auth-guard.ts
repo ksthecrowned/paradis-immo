@@ -1,16 +1,8 @@
-import type { Router } from 'expo-router';
+import { router as appRouter } from 'expo-router';
 import { isAuthenticated } from '@/lib/auth';
+import { sanitizeReturnTo } from '@/lib/auth-return-to';
 
-const ALLOWED_PREFIXES = ['/(tabs)', '/property/', '/payment/'] as const;
-
-/** Whitelist internal paths used for post-login redirects. */
-export function sanitizeReturnTo(path: string | undefined): string {
-  if (!path || !path.startsWith('/') || path.includes('..')) {
-    return '/(tabs)';
-  }
-  const allowed = ALLOWED_PREFIXES.some((prefix) => path.startsWith(prefix));
-  return allowed ? path : '/(tabs)';
-}
+export { sanitizeReturnTo } from '@/lib/auth-return-to';
 
 export function loginHref(returnTo?: string): {
   pathname: '/(auth)/login';
@@ -26,7 +18,7 @@ export function loginHref(returnTo?: string): {
  * Redirects unauthenticated users to login. Returns true when the caller may proceed.
  */
 export async function ensureAuthenticated(
-  router: Router,
+  router: typeof appRouter,
   returnTo: string,
 ): Promise<boolean> {
   if (await isAuthenticated()) return true;

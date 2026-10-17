@@ -2,7 +2,7 @@ import PropertyCard, { PropertyCardSkeleton } from '@/components/property/card';
 import { CircleIconButton } from '@/components/ui/CircleIconButton';
 import { colors, radii, spacing } from '@/constants/theme';
 import { getStoredUser } from '@/lib/auth';
-import { fetchCatalogProperties } from '@/lib/catalog';
+import { fetchCatalogPropertiesPage } from '@/lib/catalog';
 import { PROPERTY_CATEGORIES } from '@/lib/categories';
 import { getErrorMessage } from '@/lib/feedback';
 import {
@@ -12,9 +12,9 @@ import {
 import {
   countActiveFilters,
   DEFAULT_SEARCH_FILTERS,
-  filterProperties,
   filtersToParams,
   paramsToFilters,
+  searchFiltersToApiFilters,
 } from '@/lib/search-filters';
 import {
   paramsAreBareSearch,
@@ -44,16 +44,21 @@ const SUGGESTIONS = [
   'Appartement',
   'Terrain',
 ];
+const PAGE_SIZE = 20;
 
 export default function SearchScreen(): React.JSX.Element {
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<Record<string, string | string[]>>();
   const inputRef = useRef<TextInput>(null);
+  const loadRequestId = useRef(0);
 
   const initial = useMemo(() => paramsToFilters(params), [params]);
   const [query, setQuery] = useState(initial.q);
   const [catalog, setCatalog] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [total, setTotal] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const seededFromPrefs = useRef(false);
 
@@ -143,29 +148,6 @@ export default function SearchScreen(): React.JSX.Element {
     };
   }, [params]);
 
-  useFocusEffect(
-    useCallback(() => {
-      let active = true;
-      void (async () => {
-        setLoading(true);
-        setError(null);
-        try {
-          const rows = await fetchCatalogProperties({ limit: 50 });
-          if (active) setCatalog(rows);
-        } catch (err) {
-          if (active) {
-            setError(getErrorMessage(err, 'Impossible de charger les biens'));
-          }
-        } finally {
-          if (active) setLoading(false);
-        }
-      })();
-      return () => {
-        active = false;
-      };
-    }, []),
-  );
-
   useEffect(() => {
     setQuery(initial.q);
   }, [initial.q]);
@@ -179,10 +161,60 @@ export default function SearchScreen(): React.JSX.Element {
     () => ({ ...initial, q: query }),
     [initial, query],
   );
-  const results = useMemo(
-    () => filterProperties(catalog, filters),
-    [catalog, filters],
+  const requestKey = JSON.stringify(
+    searchFiltersToApiFilters(filters, { limit: PAGE_SIZE, offset: 0 }),
   );
+  const loadPage = useCallback(
+    async (offset: number, append: boolean): Promise<void> => {
+      const requestId = ++loadRequestId.current;
+      if (append) setLoadingMore(true);
+      else {
+        setLoading(true);
+      }
+      setError(null);
+      try {
+        const page = await fetchCatalogPropertiesPage(
+          searchFiltersToApiFilters(filters, { limit: PAGE_SIZE, offset }),
+        );
+        if (requestId !== loadRequestId.current) return;
+        setCatalog((current) => (append ? [...current, ...page.data] : page.data));
+        setTotal(page.total);
+        setHasMore(offset + page.data.length < page.total);
+      } catch (err) {
+        if (requestId === loadRequestId.current) {
+          setError(getErrorMessage(err, 'Impossible de charger les biens'));
+        }
+      } finally {
+        if (requestId === loadRequestId.current) {
+          setLoading(false);
+          setLoadingMore(false);
+        }
+      }
+    },
+    [filters],
+  );
+
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      const timer = setTimeout(() => {
+        if (!active) return;
+        setCatalog([]);
+        setTotal(0);
+        setHasMore(false);
+        void loadPage(0, false);
+      }, 250);
+      return () => {
+        active = false;
+        clearTimeout(timer);
+      };
+    }, [loadPage, requestKey]),
+  );
+
+  const loadNextPage = (): void => {
+    if (!hasMore || loading || loadingMore) return;
+    void loadPage(catalog.length, true);
+  };
   const activeFilterCount = countActiveFilters(filters);
   const showSuggestions = query.trim().length === 0 && activeFilterCount === 0;
 
@@ -202,7 +234,9 @@ export default function SearchScreen(): React.JSX.Element {
       ? 'Vente'
       : filters.mode === 'RENT_SHORT'
         ? 'Journalier'
-        : null;
+        : filters.mode === 'RENT_LONG'
+          ? 'Location'
+          : null;
 
   const openFilters = (): void => {
     router.push({
@@ -349,20 +383,22 @@ export default function SearchScreen(): React.JSX.Element {
       ) : null}
 
       <FlatList
-        data={results}
+        data={catalog}
         keyExtractor={(item) => item.id}
         style={styles.list}
         contentContainerStyle={[
           styles.listContent,
           { paddingBottom: insets.bottom + spacing.lg },
-          results.length === 0 && styles.listEmptyContent,
+          catalog.length === 0 && styles.listEmptyContent,
         ]}
         showsVerticalScrollIndicator={false}
+        onEndReached={loadNextPage}
+        onEndReachedThreshold={0.5}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
         ListHeaderComponent={
           !showSuggestions ? (
             <Text style={styles.resultCount}>
-              {results.length} résultat{results.length > 1 ? 's' : ''}
+              {total} résultat{total > 1 ? 's' : ''}
             </Text>
           ) : (
             <Text style={styles.sectionLabel}>Biens à proximité</Text>
@@ -394,8 +430,39 @@ export default function SearchScreen(): React.JSX.Element {
                   <Text style={styles.emptyActionText}>Modifier les filtres</Text>
                 </Pressable>
               ) : null}
+              {error ? (
+                <Pressable
+                  style={styles.emptyAction}
+                  onPress={() => void loadPage(0, false)}
+                  accessibilityRole="button"
+                >
+                  <Text style={styles.emptyActionText}>Réessayer</Text>
+                </Pressable>
+              ) : null}
             </View>
           )
+        }
+        ListFooterComponent={
+          loadingMore || (hasMore && catalog.length > 0) ? (
+            <Pressable
+              style={styles.loadMore}
+              onPress={loadNextPage}
+              disabled={loadingMore}
+              accessibilityRole="button"
+            >
+              <Text style={styles.loadMoreText}>
+                {loadingMore ? 'Chargement…' : 'Charger plus de biens'}
+              </Text>
+            </Pressable>
+          ) : error && catalog.length > 0 ? (
+            <Pressable
+              style={styles.loadMore}
+              onPress={() => void loadPage(catalog.length, true)}
+              accessibilityRole="button"
+            >
+              <Text style={styles.loadMoreText}>Réessayer</Text>
+            </Pressable>
+          ) : null
         }
         renderItem={({ item }) => (
           <PropertyCard
@@ -597,6 +664,19 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primaryMuted,
   },
   emptyActionText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.primary,
+  },
+  loadMore: {
+    minHeight: 48,
+    marginVertical: spacing.md,
+    borderRadius: radii.full,
+    backgroundColor: colors.primaryMuted,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadMoreText: {
     fontSize: 14,
     fontWeight: '700',
     color: colors.primary,

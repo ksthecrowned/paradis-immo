@@ -14,6 +14,7 @@ import { RentReminderProcessor } from './processors/rent-reminder.processor';
 import { SolvencyCheckProcessor } from './processors/solvency-check.processor';
 import { BuyerPaymentProofProcessor } from './processors/buyer-payment-proof.processor';
 import { MandateActionProcessor } from './processors/mandate-action.processor';
+import { MandateLifecycleNotificationsProcessor } from './processors/mandate-lifecycle.processor';
 import { MandateRenewalProcessor } from './processors/mandate-renewal.processor';
 import { LeaseCreatedProcessor } from './processors/lease-created.processor';
 import { LeaseSignedProcessor } from './processors/lease-signed.processor';
@@ -41,6 +42,7 @@ import { PropertyModeratedProcessor } from './processors/property-moderated.proc
     SolvencyCheckProcessor,
     BuyerPaymentProofProcessor,
     MandateActionProcessor,
+    MandateLifecycleNotificationsProcessor,
     MandateRenewalProcessor,
     LeaseCreatedProcessor,
     LeaseSignedProcessor,

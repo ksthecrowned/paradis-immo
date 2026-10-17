@@ -66,8 +66,10 @@ Rôles : tous les destinataires. `PLATFORM_ADMIN` gère les templates et la supe
 | VISIT_BOOKING_CONFIRMED | VISIT_CONFIRMED | chercheur, agent |
 | Rappels visite J-1 / H-2 | VISIT_REMINDER | chercheur, agent |
 | Visite annulée ou reprogrammée | VISIT_CHANGED | autre partie |
-| BOOKING_CONFIRMED / REQUESTED / CANCELLED | STAY_* | voyageur / hôte |
-| Arrivée J-1 | STAY_ARRIVAL | voyageur (instructions) |
+| BOOKING_* / STAY_* (séjours) | STAY_* | voyageur / hôte — **voir couverture ci-dessous** |
+| Arrivée J-1 | STAY_ARRIVAL | voyageur (instructions) — **pas d'événement / handler dédié** |
+| AMENDMENT_CREATED / SIGNED / APPLIED | AMENDMENT_* | parties du bail — **pas de handler** |
+| LEASE_RENEWED | LEASE_RENEWED | locataire, propriétaire — **pas de handler** |
 | SALE_INQUIRY_CREATED | SALE_INQUIRY | agent attribué, ADMIN |
 | SALE_OFFER_* | SALE_OFFER_* | contrepartie |
 | SALE_INSTALLMENT_DUE | SALE_INSTALLMENT_DUE | acheteur |
@@ -75,11 +77,37 @@ Rôles : tous les destinataires. `PLATFORM_ADMIN` gère les templates et la supe
 | MAINTENANCE_STATUS_CHANGED | MAINTENANCE_UPDATE | déclarant |
 | MAINTENANCE_SLA_BREACHED | MAINTENANCE_SLA | gérant |
 | MESSAGE_CREATED | NEW_MESSAGE | autres participants |
+| MESSAGE_REPORTED | MESSAGE_REPORTED | modération / admin — **pas de handler** |
 | SOLVENCY / BUYER_PROOF | (existant) | — |
 | Invitation org | ORG_INVITATION | invité (SMS ou e-mail) |
 | Annonce modérée | LISTING_MODERATED | propriétaire ou agence (avec motif) |
 | Alerte de recherche | SEARCH_ALERT | chercheur (13) |
 | Sécurité (nouvel appareil, changement de téléphone) | SECURITY_ALERT | user |
+
+### Couverture handlers STAY / BOOKING / avenants / renouvellement / signalement (audit code)
+
+Vérifié contre les `@OnEvent` sous `apps/api/src` (2026-10-17). Les écarts sont listés dans `apps/api/src/notifications/domain-events-unhandled.registry.ts` et gardés par `domain-events-coverage.spec.ts`.
+
+| Événement `DOMAIN_EVENTS` | Handler `@OnEvent` | Notes |
+|---|---|---|
+| `BOOKING_HELD` | **oui** | `StayLifecycleProcessor` → type `STAY_HOLD` |
+| `BOOKING_HOLD_EXPIRED` | non | écart allowlisté |
+| `BOOKING_REQUESTED` | non | écart allowlisté |
+| `BOOKING_ACCEPTED` | non | écart allowlisté |
+| `BOOKING_DECLINED` | non | écart allowlisté |
+| `BOOKING_EXPIRED` | non | écart allowlisté |
+| `BOOKING_CONFIRMED` | non | écart allowlisté (pas de `STAY_*` dédié) |
+| `BOOKING_CANCELLED` | non | écart allowlisté |
+| `BOOKING_CHECKED_IN` | non | écart allowlisté |
+| `BOOKING_CHECKED_OUT` | non | écart allowlisté |
+| `BOOKING_COMPLETED` | non | écart allowlisté |
+| `BOOKING_DAMAGE_REPORTED` | non | écart allowlisté |
+| `BOOKING_PICKED` | non | iCal ; écart allowlisté |
+| `AMENDMENT_CREATED` | non | écart allowlisté |
+| `AMENDMENT_SIGNED` | non | écart allowlisté |
+| `AMENDMENT_APPLIED` | non | écart allowlisté |
+| `LEASE_RENEWED` | non | écart allowlisté |
+| `MESSAGE_REPORTED` | non | écart allowlisté |
 
 ## Modèle de données
 ```prisma
@@ -179,9 +207,10 @@ enum NotificationChannel { PUSH WHATSAPP SMS EMAIL IN_APP }
   - `/settings/notifications` pour les préférences des comptes du portail.
 - Les notifications et préférences des chercheurs, locataires, voyageurs et acheteurs sont consultées dans l'app mobile ; aucun portail web client n'est prévu.
 - **Admin** : `/admin/notifications` (templates, statistiques, échecs).
+- **Inventaire UI `QUEUED`/`FAILED`** : [fait](../qa/notifications-queued-failed-ui-inventory.md) — les centres web/mobile n’affichent encore que lu/non-lu ; l’affichage des statuts d’envoi et le panneau admin Échecs restent à faire (pas de UI livrée par cet inventaire).
 
 ## Critères d'acceptation
-- Chaque entrée de `DOMAIN_EVENTS` a un handler, ou figure explicitement dans la liste d'exclusion (test qui parcourt l'enum).
+- Chaque entrée de `DOMAIN_EVENTS` a un handler `@OnEvent`, ou figure explicitement dans la liste d'exclusion (`domain-events-unhandled.registry.ts` ; test `domain-events-coverage.spec.ts`).
 - `markFailed` met `status = FAILED` et `lastError`. Une 3ᵉ tentative échouée laisse `FAILED`.
 - Un utilisateur connecté sur 2 téléphones reçoit le push sur les deux. Après logout sur l'un, seul l'autre le reçoit.
 - Aucun push n'a pour titre « Paradis Immo · RENT_DUE_SOON » : tous les types ont un template FR (test de couverture).
@@ -191,14 +220,14 @@ enum NotificationChannel { PUSH WHATSAPP SMS EMAIL IN_APP }
 - `GET notifications?limit=20&offset=100` fonctionne au-delà de 100 éléments.
 
 ## Priorité
-- **P0** : [ ] vérifier/corriger le statut FAILED et les handlers/templates critiques ; [ ] fiabiliser l'envoi sans dépendance indue à une organisation.
-- **P1** : [x] appareils et opérations de lecture ; [ ] préférences par catégorie, pagination complète, deep links et couverture de la matrice ; [ ] retry/relance des échecs.
+- **P0** : [x] vérifier/corriger le statut FAILED et les handlers/templates critiques ; [x] fiabiliser l'envoi sans dépendance indue à une organisation.
+- **P1** : [x] appareils et opérations de lecture ; [ ] préférences par catégorie, pagination complète, deep links et couverture de la matrice ; [x] retry/relance des échecs (auto + admin failed/retry + écran `/admin/notifications`).
 - **P2** : [ ] heures calmes, digest, push actionnables, templates éditables et statistiques.
 
 ## Delta d'implémentation
 | ID | Priorité | Delta | État |
 |---|---|---|---|
-| 11.1 | P0 | Contrôler les états d'échec et la couverture des handlers/templates obligatoires. | À vérifier / compléter |
+| 11.1 | P0 | Contrôler les états d'échec et la couverture des handlers/templates obligatoires. | **Partiel.** Le cycle d'échec est fiable : échec fournisseur → `QUEUED` + `retryAfter` (backoff 1 min puis 5 min), 3ᵉ tentative échouée → `FAILED` définitif avec `attempts`/`lastError` (cron de relance à la minute ; migrations `20261017150000_notification_retry` et `20261017153000_notification_queued_status` appliquées sur la base locale comme la tienne, à déployer par procédure sur les autres environnements). Handlers critiques ajoutés : `DISPUTE_OPENED` (gérance de l'org du bien), `REFUND_DONE` (payeur), `APPROVAL_DECIDED` (demandeur), `MANDATE_ACCEPTED/DECLINED/TERMINATED` (gérance + propriétaire), avec templates FR et titres push. Matrice STAY/BOOKING/AMENDMENT/LEASE_RENEWED/MESSAGE_REPORTED documentée (seul `BOOKING_HELD` a un `@OnEvent` parmi les séjours) ; garde-fou `domain-events-coverage.spec.ts` + allowlist `domain-events-unhandled.registry.ts`. Reste à implémenter les processors manquants et les statistiques admin (relance admin : voir 11.3). |
 | 11.2 | P1 | Ajouter préférences par catégorie/canal, pagination et deep links dans les centres mobile/web. | À faire |
-| 11.3 | P1 | Ajouter file/retry et outils de relance des notifications échouées. | À faire |
+| 11.3 | P1 | Ajouter file/retry et outils de relance des notifications échouées. | **Partiel.** Relance automatique active côté API (3 essais max, conformément au critère « la 3ᵉ tentative échouée laisse FAILED » ; les échecs structurels `NO_PHONE` / `NO_DEVICE_TOKEN` échouent d'emblée sans relance). Endpoints admin `GET admin/notifications/failed` et `POST admin/notifications/:id/retry` ajoutés (permissions `notifications.read` / `notifications.retry`, audit sur relance) avec écran web `/admin/notifications` (file d'échecs). Restent à faire : templates éditables et statistiques d'envoi. **Inventaire UI** : [fait](../qa/notifications-queued-failed-ui-inventory.md). |
 | 11.4 | P2 | Ajouter heures calmes, digest, push actionnables, édition des templates et statistiques admin. | À faire |

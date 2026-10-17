@@ -6,6 +6,7 @@ import {
   filterProperties,
   filtersToParams,
   paramsToFilters,
+  searchFiltersToApiFilters,
 } from './search-filters';
 
 const sample: Property[] = [
@@ -92,6 +93,74 @@ describe('availableOnly filter', () => {
     });
     expect(params.available).toBe('1');
     expect(paramsToFilters(params).availableOnly).toBe(true);
+  });
+});
+
+describe('mode filter', () => {
+  test('keeps every mode when Tous is selected', () => {
+    expect(
+      filterProperties(sample, {
+        ...DEFAULT_SEARCH_FILTERS,
+        mode: 'ALL',
+      }).map((property) => property.id),
+    ).toEqual(['a', 'b', 'c', 'd']);
+  });
+
+  describe('server search filters', () => {
+    test('sends filters and pagination to the catalogue API', () => {
+      expect(
+        searchFiltersToApiFilters(
+          {
+            ...DEFAULT_SEARCH_FILTERS,
+            q: 'Loandjili',
+            mode: 'RENT_LONG',
+            cityId: 'city-1',
+            quartierId: 'quartier-1',
+            minPrice: 100_000,
+            minBedrooms: 2,
+            categories: ['apartment', 'house'],
+            features: ['parking', 'wifi'],
+            availableOnly: true,
+            maxAgeYears: 10,
+          },
+          { limit: 20, offset: 40 },
+        ),
+      ).toMatchObject({
+        q: 'Loandjili',
+        mode: 'RENT_LONG',
+        cityId: 'city-1',
+        quartierId: 'quartier-1',
+        minPrice: 100_000,
+        minBedrooms: 2,
+        types: ['APARTMENT', 'HOUSE'],
+        features: 'parking,wifi',
+        availableOnly: true,
+        limit: 20,
+        offset: 40,
+      });
+    });
+  });
+
+  test('filters long-term rentals when selected explicitly', () => {
+    const rows: Property[] = [
+      { ...sample[0]!, mode: 'RENT_LONG' },
+      { ...sample[1]!, mode: 'RENT_SHORT' },
+      { ...sample[2]!, mode: 'SALE' },
+    ];
+    expect(
+      filterProperties(rows, {
+        ...DEFAULT_SEARCH_FILTERS,
+        mode: 'RENT_LONG',
+      }).map((property) => property.id),
+    ).toEqual(['a']);
+  });
+
+  test('serializes and restores an explicit long-term rental filter', () => {
+    expect(
+      paramsToFilters(
+        filtersToParams({ ...DEFAULT_SEARCH_FILTERS, mode: 'RENT_LONG' }),
+      ).mode,
+    ).toBe('RENT_LONG');
   });
 });
 

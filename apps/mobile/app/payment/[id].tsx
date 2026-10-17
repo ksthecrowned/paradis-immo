@@ -1,7 +1,6 @@
 import { PropertySummaryCard } from '@/components/property/PropertySummaryCard';
 import { CircleIconButton } from '@/components/ui/CircleIconButton';
 import { StatusBadge } from '@/components/ui/StatusBadge';
-import { SuccessScreen } from '@/components/ui/SuccessScreen';
 import { colors, radii, spacing } from '@/constants/theme';
 import { useFeedback } from '@/context/FeedbackContext';
 import { useCatalogProperty } from '@/hooks/use-catalog-property';
@@ -16,6 +15,8 @@ import {
   type MobileProvider,
   type PublicPayment,
 } from '@/lib/payments';
+import { getReceiptForPayment } from '@/lib/receipts';
+import { ApiError } from '@/lib/api';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import {
@@ -26,6 +27,7 @@ import {
 } from 'react';
 import {
   ActivityIndicator,
+  Linking,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -94,10 +96,68 @@ export default function PaymentScreen(): React.JSX.Element {
 
   const [ready, setReady] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [provider, setProvider] = useState<MobileProvider>('AIRTEL');
+  const [phone, setPhone] = useState('');
+  const [existing, setExisting] = useState<PublicPayment | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [loadingPayment, setLoadingPayment] = useState(!isCheckout);
+  const [refreshingPayment, setRefreshingPayment] = useState(false);
+  const [receiptUrl, setReceiptUrl] = useState<string | null>(null);
+  const [receiptError, setReceiptError] = useState<string | null>(null);
+  const [loadingReceipt, setLoadingReceipt] = useState(false);
   /** Spec 07 — compte à rebours du hold de séjour (15 min ou 2 h). */
   const [holdRemainingSec, setHoldRemainingSec] = useState<number | null>(
     holdExpiresAtIso ? Math.max(0, Math.floor((new Date(holdExpiresAtIso).getTime() - Date.now()) / 1000)) : null,
   );
+
+  const refreshPayment = useCallback(async (): Promise<void> => {
+    if (isCheckout) return;
+    setRefreshingPayment(true);
+    try {
+      const payment = await getPayment(paymentId);
+      setExisting(payment);
+      setLoadError(null);
+    } catch (err) {
+      setLoadError(getErrorMessage(err, 'Impossible d’actualiser le paiement'));
+    } finally {
+      setRefreshingPayment(false);
+    }
+  }, [isCheckout, paymentId]);
+
+  useEffect(() => {
+    if (
+      isCheckout ||
+      !existing ||
+      !['INITIATED', 'PENDING', 'PENDING_VALIDATION'].includes(existing.status)
+    ) {
+      return;
+    }
+    const timer = setInterval(() => void refreshPayment(), 8000);
+    return () => clearInterval(timer);
+  }, [existing?.status, isCheckout, refreshPayment]);
+
+  const loadReceipt = useCallback(async (): Promise<void> => {
+    if (!existing || existing.status !== 'VALIDATED') return;
+    setLoadingReceipt(true);
+    setReceiptError(null);
+    try {
+      const receipt = await getReceiptForPayment(existing.id);
+      setReceiptUrl(receipt.url);
+    } catch (err) {
+      setReceiptUrl(null);
+      setReceiptError(
+        err instanceof ApiError && err.status === 404
+          ? 'Reçu en attente d’émission.'
+          : getErrorMessage(err, 'Impossible de charger le reçu'),
+      );
+    } finally {
+      setLoadingReceipt(false);
+    }
+  }, [existing?.id, existing?.status]);
+
+  useEffect(() => {
+    if (existing?.status === 'VALIDATED') void loadReceipt();
+  }, [existing?.status, loadReceipt]);
 
   useEffect(() => {
     if (!holdExpiresAtIso) return;
@@ -110,12 +170,6 @@ export default function PaymentScreen(): React.JSX.Element {
     const timer = setInterval(tick, 1000);
     return () => clearInterval(timer);
   }, [holdExpiresAtIso]);
-  const [done, setDone] = useState(false);
-  const [provider, setProvider] = useState<MobileProvider>('AIRTEL');
-  const [phone, setPhone] = useState('');
-  const [existing, setExisting] = useState<PublicPayment | null>(null);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const [loadingPayment, setLoadingPayment] = useState(!isCheckout);
 
   const returnHref = useMemo(() => {
     const qs = new URLSearchParams();
@@ -191,7 +245,7 @@ export default function PaymentScreen(): React.JSX.Element {
 
   const handleConfirm = async (): Promise<void> => {
     if (!isCheckout) {
-      setDone(true);
+      router.back();
       return;
     }
 
@@ -236,7 +290,21 @@ export default function PaymentScreen(): React.JSX.Element {
         ...(bookingId ? { bookingId } : {}),
       });
       setExisting(payment);
-      setDone(true);
+      router.replace({
+        pathname: '/payment/[id]',
+        params: {
+          id: payment.id,
+          propertyId,
+          amount: payment.amount,
+          currency: payment.currency,
+          ...(visitBookingId ? { visitBookingId } : {}),
+          ...(bookingId ? { bookingId } : {}),
+          ...(holdExpiresAtIso ? { holdExpiresAt: holdExpiresAtIso } : {}),
+          ...(rentScheduleId ? { rentScheduleId } : {}),
+          ...(saleInstallmentId ? { saleInstallmentId } : {}),
+          ...(titleParam ? { title: titleParam } : {}),
+        },
+      });
     } catch (err) {
       showFeedback({
         type: 'error',
@@ -260,7 +328,7 @@ export default function PaymentScreen(): React.JSX.Element {
     );
   }
 
-  if (loadError || (!isCheckout && !existing)) {
+  if (!isCheckout && !existing) {
     return (
       <View style={[styles.screen, styles.centered, { padding: spacing.lg }]}>
         <Text style={styles.missing}>Paiement introuvable</Text>
@@ -289,21 +357,6 @@ export default function PaymentScreen(): React.JSX.Element {
           <Text style={styles.backLinkText}>Retour</Text>
         </Pressable>
       </View>
-    );
-  }
-
-  if (done) {
-    return (
-      <SuccessScreen
-        title="Paiement initié"
-        message="Confirmez sur votre téléphone. Le statut sera mis à jour dès réception de la confirmation."
-        primaryLabel="Retour à mes biens"
-        onPrimary={() => router.replace('/(tabs)/locations')}
-        secondaryLabel={property ? 'Retour au bien' : undefined}
-        onSecondary={
-          property ? () => router.replace(`/property/${property.id}`) : undefined
-        }
-      />
     );
   }
 
@@ -428,6 +481,61 @@ export default function PaymentScreen(): React.JSX.Element {
             <Text style={styles.mmHint}>
               Mode : {paymentMethodLabel(existing.method)}
             </Text>
+            {existing.status === 'INITIATED' ||
+            existing.status === 'PENDING' ||
+            existing.status === 'PENDING_VALIDATION' ? (
+              <Text style={styles.mmHint}>
+                Ce paiement est en attente de confirmation ; il n’est pas encore
+                validé.
+              </Text>
+            ) : null}
+            <Pressable
+              style={styles.statusAction}
+              onPress={() => void refreshPayment()}
+              disabled={refreshingPayment}
+              accessibilityRole="button"
+              accessibilityLabel="Actualiser le statut du paiement"
+            >
+              <Text style={styles.statusActionText}>
+                {refreshingPayment ? 'Actualisation…' : 'Actualiser le statut'}
+              </Text>
+            </Pressable>
+            {existing.status === 'VALIDATED' ? (
+              receiptUrl ? (
+                <Pressable
+                  style={styles.statusAction}
+                  onPress={() => void Linking.openURL(receiptUrl)}
+                  accessibilityRole="button"
+                  accessibilityLabel="Ouvrir le reçu de paiement"
+                >
+                  <Text style={styles.statusActionText}>Ouvrir le reçu</Text>
+                </Pressable>
+              ) : (
+                <>
+                  <Text style={styles.mmHint}>
+                    {loadingReceipt
+                      ? 'Chargement du reçu…'
+                      : receiptError ?? 'Reçu en attente d’émission.'}
+                  </Text>
+                  <Pressable
+                    style={styles.statusAction}
+                    onPress={() => void loadReceipt()}
+                    disabled={loadingReceipt}
+                    accessibilityRole="button"
+                    accessibilityLabel="Actualiser le reçu"
+                  >
+                    <Text style={styles.statusActionText}>
+                      {loadingReceipt ? 'Chargement…' : 'Actualiser le reçu'}
+                    </Text>
+                  </Pressable>
+                </>
+              )
+            ) : null}
+            {loadError ? (
+              <Text style={styles.errorText} accessibilityRole="alert">
+                {loadError}
+              </Text>
+            ) : null}
           </View>
         ) : null}
       </ScrollView>
@@ -474,6 +582,12 @@ const styles = StyleSheet.create({
     color: colors.muted,
     textAlign: 'center',
     maxWidth: 280,
+  },
+  errorText: {
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '600',
+    color: colors.danger,
   },
   backLink: {
     paddingHorizontal: 18,
@@ -585,6 +699,18 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   cashNoteText: { fontSize: 14, lineHeight: 20, color: colors.muted },
+  statusAction: {
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: radii.full,
+    backgroundColor: colors.primaryMuted,
+  },
+  statusActionText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.primary,
+  },
   footer: {
     position: 'absolute',
     left: 0,

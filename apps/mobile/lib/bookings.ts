@@ -16,8 +16,16 @@ export interface PublicBooking {
     total: string;
     nights: number;
   } | null;
+  refundAmount?: string | null;
+  refundPercent?: number;
   createdAt: string;
 }
+
+export type BookingCancellationPreview = {
+  refundPercent: number;
+  refundAmount: string;
+  currency: string;
+};
 
 export interface AvailabilityWindow {
   startDate: string;
@@ -61,14 +69,36 @@ export async function listMyBookings(): Promise<PublicBooking[]> {
 }
 
 export async function cancelBooking(id: string): Promise<PublicBooking> {
-  return apiFetch<PublicBooking>(`/bookings/${id}/cancel`, { method: 'PATCH' });
+  return apiFetch<PublicBooking>(`/bookings/${id}/cancel`, { method: 'POST' });
+}
+
+export async function getBookingCancellationPreview(
+  id: string,
+): Promise<BookingCancellationPreview> {
+  return apiFetch<BookingCancellationPreview>(
+    `/bookings/${id}/cancellation-preview`,
+  );
+}
+
+export function canCancelBooking(status: string): boolean {
+  return ['PENDING_PAYMENT', 'REQUESTED', 'ACCEPTED', 'CONFIRMED'].includes(
+    status,
+  );
 }
 
 export function bookingStatusLabel(status: string): string {
   const map: Record<string, string> = {
+    REQUESTED: 'Demande envoyée',
+    ACCEPTED: 'Acceptée · paiement requis',
+    PENDING_PAYMENT: 'Paiement en attente',
     CONFIRMED: 'Confirmée',
-    PENDING: 'En attente',
-    CANCELLED: 'Annulée',
+    CHECKED_IN: 'En cours',
+    CHECKED_OUT: 'Départ effectué',
+    COMPLETED: 'Terminée',
+    CANCELLED_BY_GUEST: 'Annulée par vous',
+    CANCELLED_BY_HOST: 'Annulée par l’hôte',
+    DECLINED: 'Refusée',
+    EXPIRED: 'Expirée',
   };
   return map[status] ?? status;
 }
@@ -76,8 +106,8 @@ export function bookingStatusLabel(status: string): string {
 export function bookingStatusTone(
   status: string,
 ): 'success' | 'warning' | 'danger' | 'neutral' {
-  if (status === 'CONFIRMED') return 'success';
-  if (status === 'PENDING') return 'warning';
-  if (status === 'CANCELLED') return 'danger';
+  if (['CONFIRMED', 'CHECKED_IN', 'COMPLETED'].includes(status)) return 'success';
+  if (['REQUESTED', 'ACCEPTED', 'PENDING_PAYMENT'].includes(status)) return 'warning';
+  if (status.startsWith('CANCELLED') || status === 'DECLINED' || status === 'EXPIRED') return 'danger';
   return 'neutral';
 }

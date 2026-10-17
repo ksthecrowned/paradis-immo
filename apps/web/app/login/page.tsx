@@ -4,7 +4,6 @@ import { DashIcon } from '@/components/dash-icon';
 import { useTheme } from '@/components/theme-provider';
 import { loginWithPassword } from '@/lib/auth';
 import { DASH_ICONS } from '@/lib/dash-icons';
-import { resolveDashboardPath } from '@/lib/web-account';
 import { signIn, signOut, useSession } from 'next-auth/react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -41,7 +40,7 @@ function LoginForm(): React.JSX.Element {
       void signOut({ redirect: false });
       return;
     }
-    router.replace(resolveDashboardPath(session.user));
+    router.replace('/auth/continue');
   }, [status, session, router]);
 
   useEffect(() => {
@@ -75,9 +74,7 @@ function LoginForm(): React.JSX.Element {
       const { getSession } = await import('next-auth/react');
       const next = await getSession();
       router.refresh();
-      router.replace(
-        next?.user ? resolveDashboardPath(next.user) : '/auth/continue',
-      );
+      router.replace('/auth/continue');
     } catch {
       setError('Connexion impossible');
     } finally {

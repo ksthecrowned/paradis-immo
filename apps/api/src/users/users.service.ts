@@ -23,6 +23,7 @@ import { InfobipOtpService } from '../auth/infobip-otp.service';
 import { MagicLinkStore } from '../auth/magic-link.store';
 import { OtpStore } from '../auth/otp.store';
 import { AgencyAccessService } from '../mandates/agency-access.service';
+import { ACCOUNT_DELETION_GRACE_PERIOD_DAYS } from './account-deletion.constants';
 
 export interface PublicUser {
   id: string;
@@ -554,12 +555,61 @@ export class UsersService {
     return { deletedAt: user.deletedAt as Date };
   }
 
-  /** Cancel a pending deletion (allowed for 30 days). */
+  /** Cancel a pending deletion during the 30-day recovery window (spec 01). */
   async cancelAccountDeletion(userId: string): Promise<void> {
-    await this.prisma.user.update({
+    const user = await this.prisma.user.findUnique({
       where: { id: userId },
+      select: {
+        status: true,
+        deletedAt: true,
+        anonymizedAt: true,
+      },
+    });
+    // Idempotent: nothing pending (never deleted, already cancelled, or on
+    // another lifecycle status like SUSPENDED) is simply a no-op.
+    if (!user || user.status !== 'DELETED' || !user.deletedAt) return;
+
+    const cutoff = new Date(
+      Date.now() - ACCOUNT_DELETION_GRACE_PERIOD_DAYS * 24 * 60 * 60 * 1000,
+    );
+    if (user.anonymizedAt) {
+      throw new ForbiddenException({
+        code: 'ACCOUNT_ANONYMIZED',
+        message:
+          'Les données de ce compte ont été anonymisées : l’annulation n’est plus possible.',
+      });
+    }
+    if (user.deletedAt <= cutoff) {
+      throw new ForbiddenException({
+        code: 'ACCOUNT_DELETION_WINDOW_CLOSED',
+        message:
+          'Le délai de récupération de 30 jours est dépassé : la suppression ne peut plus être annulée.',
+      });
+    }
+
+    // Guarded update so a concurrent anonymization (daily cron) cannot be
+    // rolled back mid-flight.
+    const cancelled = await this.prisma.user.updateMany({
+      where: {
+        id: userId,
+        status: 'DELETED',
+        anonymizedAt: null,
+        deletedAt: { gt: cutoff },
+      },
       data: { deletedAt: null, status: 'ACTIVE' },
     });
+    if (cancelled.count === 0) {
+      const refreshed = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { status: true },
+      });
+      if (refreshed?.status === 'ACTIVE') return; // another request already cancelled
+      throw new ForbiddenException({
+        code: 'ACCOUNT_ANONYMIZED',
+        message:
+          'Le délai de récupération est écoulé : les données ont été anonymisées.',
+      });
+    }
   }
 
   /** Fixed-window throttle for `users/lookup` — 20 calls per hour and user. */

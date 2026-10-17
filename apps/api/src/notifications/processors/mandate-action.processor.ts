@@ -47,6 +47,37 @@ export class MandateActionProcessor {
     });
   }
 
+  /** Spec 11 matrice — APPROVAL_DECIDED → demandeur (pas le décideur). */
+  @OnEvent(DOMAIN_EVENTS.MANDATE_ACTION_DECIDED)
+  async handleDecided(
+    event: DomainEvent<{
+      approvalId: string;
+      mandateId: string;
+      actionType: string;
+      decision: 'APPROVED' | 'REJECTED';
+      decidedBy: string;
+    }>,
+  ): Promise<void> {
+    const { approvalId, decision } = event.payload;
+    if (!approvalId || !decision) {
+      this.logger.warn('MANDATE_ACTION_DECIDED event missing ids');
+      return;
+    }
+    const approval = await this.prisma.mandateApproval.findUnique({
+      where: { id: approvalId },
+      select: { requestedById: true },
+    });
+    if (!approval) {
+      this.logger.warn(`Mandate approval ${approvalId} not found`);
+      return;
+    }
+    await this.notifications.send({
+      userId: approval.requestedById,
+      type: 'APPROVAL_DECIDED',
+      payload: { ...event.payload },
+    });
+  }
+
   /** Public for direct invocation from tests. */
   async handlePending(
     approvalId: string,

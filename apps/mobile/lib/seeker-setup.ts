@@ -60,9 +60,12 @@ export function budgetBandsForIntent(
   return BUDGET_BANDS_RENT;
 }
 
-export function intentToMode(intent: SeekerIntent | null): PropertyMode {
+export function intentToMode(
+  intent: SeekerIntent | null,
+): PropertyMode | 'ALL' {
   if (intent === 'BUY') return 'SALE';
-  // RENT, VISIT, ALL_OPTIONS → long-term rent catalog default
+  if (intent === 'ALL_OPTIONS') return 'ALL';
+  // RENT and VISIT default to the long-term rental catalog.
   return 'RENT_LONG';
 }
 

@@ -4,6 +4,13 @@ import { useFeedback } from '@/context/FeedbackContext';
 import { ensureAuthenticated } from '@/lib/auth-guard';
 import { applyThemePreference } from '@/lib/theme-preference';
 import {
+  obtainDevicePushToken,
+  registerPushTokenWithApi,
+  unregisterPushDeviceFromApi,
+} from '@/lib/notifications';
+import { getErrorMessage } from '@/lib/feedback';
+import { fetchMe, updateMe } from '@/lib/users';
+import {
   getUserPreferences,
   setUserPreferences,
   type ThemePreference,
@@ -14,6 +21,7 @@ import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
+  Linking,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -34,7 +42,9 @@ export default function ProfileSettingsScreen(): React.JSX.Element {
   const { showFeedback } = useFeedback();
   const [ready, setReady] = useState(false);
   const [prefs, setPrefs] = useState<UserPreferences | null>(null);
+  const [pushEnabled, setPushEnabled] = useState(false);
   const [applyingTheme, setApplyingTheme] = useState(false);
+  const [updatingPush, setUpdatingPush] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -45,12 +55,25 @@ export default function ProfileSettingsScreen(): React.JSX.Element {
         setReady(ok);
         if (ok) {
           setPrefs(await getUserPreferences());
+          try {
+            const user = await fetchMe();
+            if (active) setPushEnabled(user.notificationChannel === 'PUSH');
+          } catch (err) {
+            showFeedback({
+              type: 'error',
+              title: 'Notifications',
+              message: getErrorMessage(
+                err,
+                'Impossible de charger la préférence push depuis le serveur.',
+              ),
+            });
+          }
         }
       })();
       return () => {
         active = false;
       };
-    }, []),
+    }, [showFeedback]),
   );
 
   const update = async (patch: Partial<UserPreferences>): Promise<void> => {
@@ -72,11 +95,65 @@ export default function ProfileSettingsScreen(): React.JSX.Element {
 
     const next = await setUserPreferences(patch);
     setPrefs(next);
-    showFeedback({
-      type: 'info',
-      title: 'Préférence enregistrée',
-      message: 'Vos réglages ont été mis à jour sur cet appareil.',
-    });
+  };
+
+  const updatePush = async (enabled: boolean): Promise<void> => {
+    if (updatingPush) return;
+    setUpdatingPush(true);
+    try {
+      if (enabled) {
+        const token = await obtainDevicePushToken();
+        if (!token) {
+          showFeedback({
+            type: 'warning',
+            title: 'Autorisation requise',
+            message:
+              'Les notifications push ne sont pas autorisées sur cet appareil. Autorisez-les dans les réglages puis réessayez.',
+            buttons: [
+              { text: 'Plus tard', style: 'cancel' },
+              {
+                text: 'Ouvrir les réglages',
+                onPress: () => void Linking.openSettings(),
+              },
+            ],
+          });
+          return;
+        }
+        await updateMe({ notificationChannel: 'PUSH' });
+        try {
+          await registerPushTokenWithApi();
+        } catch (err) {
+          await updateMe({ notificationChannel: 'WHATSAPP' });
+          throw err;
+        }
+        setPushEnabled(true);
+      } else {
+        await updateMe({ notificationChannel: 'WHATSAPP' });
+        setPushEnabled(false);
+        try {
+          await unregisterPushDeviceFromApi({ strict: true });
+        } catch {
+          showFeedback({
+            type: 'warning',
+            title: 'Push désactivées',
+            message:
+              'La préférence serveur est désactivée, mais cet appareil n’a pas pu être retiré. Réessayez quand le réseau sera disponible.',
+          });
+          return;
+        }
+      }
+    } catch (err) {
+      showFeedback({
+        type: 'error',
+        title: 'Préférence non enregistrée',
+        message: getErrorMessage(
+          err,
+          'Impossible de modifier les notifications push.',
+        ),
+      });
+    } finally {
+      setUpdatingPush(false);
+    }
   };
 
   if (!ready || !prefs) {
@@ -143,12 +220,18 @@ export default function ProfileSettingsScreen(): React.JSX.Element {
           <View style={styles.row}>
             <Text style={styles.rowLabel}>Notifications push</Text>
             <Switch
-              value={prefs.pushEnabled}
-              onValueChange={(value) => void update({ pushEnabled: value })}
+              value={pushEnabled}
+              onValueChange={(value) => void updatePush(value)}
+              disabled={updatingPush}
               trackColor={{ false: colors.border, true: colors.primary }}
               thumbColor={colors.onPrimary}
             />
           </View>
+          <Text style={styles.pushHint}>
+            {updatingPush
+              ? 'Mise à jour…'
+              : 'Les notifications dans l’application restent disponibles.'}
+          </Text>
         </View>
       </ScrollView>
     </View>
@@ -198,6 +281,12 @@ const styles = StyleSheet.create({
     marginTop: 2,
     fontSize: 12,
     fontWeight: '500',
+    color: colors.muted,
+  },
+  pushHint: {
+    paddingHorizontal: 14,
+    paddingBottom: 12,
+    fontSize: 12,
     color: colors.muted,
   },
   radio: {

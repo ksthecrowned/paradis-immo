@@ -1,11 +1,16 @@
 import { colors, radii, spacing } from '@/constants/theme';
+import { useFeedback } from '@/context/FeedbackContext';
 import {
   isFavorite,
   toggleFavorite as persistToggleFavorite,
 } from '@/lib/favorites';
+import { isAuthenticated } from '@/lib/auth';
+import { ensureAuthenticated } from '@/lib/auth-guard';
+import { getErrorMessage } from '@/lib/feedback';
 import { propertyPriceLabel, type Property } from '@/types/property';
 import { Ionicons } from '@expo/vector-icons';
-import { useEffect, useState } from 'react';
+import { router } from 'expo-router';
+import { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { PropertyCardBadges } from './PropertyCardBadges';
 import { PropertyCardBody } from './PropertyCardBody';
@@ -32,7 +37,9 @@ export default function PropertyCard({
   onPress,
   onFavoriteChange,
 }: PropertyCardProps): React.JSX.Element {
+  const { showFeedback } = useFeedback();
   const [favorited, setFavorited] = useState(initialFavorited ?? false);
+  const favoriteToggleInFlight = useRef(false);
   const compact = variant === 'compact';
 
   useEffect(() => {
@@ -41,13 +48,25 @@ export default function PropertyCard({
       return;
     }
     let cancelled = false;
-    void isFavorite(property.id).then((value) => {
-      if (!cancelled) setFavorited(value);
-    });
+    void (async () => {
+      try {
+        if (!(await isAuthenticated())) return;
+        const value = await isFavorite(property.id);
+        if (!cancelled) setFavorited(value);
+      } catch (err) {
+        if (!cancelled) {
+          showFeedback({
+            type: 'error',
+            title: 'Favoris',
+            message: getErrorMessage(err, 'Impossible de charger ce favori'),
+          });
+        }
+      }
+    })();
     return () => {
       cancelled = true;
     };
-  }, [property.id, initialFavorited]);
+  }, [property.id, initialFavorited, showFeedback]);
 
   const priceLabel = propertyPriceLabel(property);
 
@@ -69,14 +88,31 @@ export default function PropertyCard({
     });
   }
 
-  const toggleFavorite = (): void => {
-    const next = !favorited;
-    setFavorited(next);
-    onFavoriteChange?.(next);
-    void persistToggleFavorite(property.id).catch(() => {
-      setFavorited(!next);
-      onFavoriteChange?.(!next);
-    });
+  const toggleFavorite = async (): Promise<void> => {
+    if (favoriteToggleInFlight.current) return;
+    favoriteToggleInFlight.current = true;
+    const previous = favorited;
+    try {
+      const authenticated = await ensureAuthenticated(
+        router,
+        `/property/${property.id}`,
+      );
+      if (!authenticated) return;
+      setFavorited(!previous);
+      const saved = await persistToggleFavorite(property.id);
+      setFavorited(saved);
+      onFavoriteChange?.(saved);
+    } catch (err) {
+      setFavorited(previous);
+      onFavoriteChange?.(previous);
+      showFeedback({
+        type: 'error',
+        title: 'Favoris',
+        message: getErrorMessage(err, 'Impossible de mettre à jour ce favori'),
+      });
+    } finally {
+      favoriteToggleInFlight.current = false;
+    }
   };
 
   const imageSource = property.coverImage

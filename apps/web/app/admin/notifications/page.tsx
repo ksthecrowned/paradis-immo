@@ -1,5 +1,5 @@
-import { NotificationsCenter } from '@/components/notifications/notifications-center';
+import { AdminNotificationsPage } from './admin-notifications';
 
 export default function Page(): React.JSX.Element {
-  return <NotificationsCenter role="admin" />;
+  return <AdminNotificationsPage />;
 }

@@ -30,14 +30,10 @@ export async function listFavorites(): Promise<PublicFavorite[]> {
 }
 
 export async function listFavoriteIds(): Promise<string[]> {
-  try {
-    const rows = await listFavorites();
-    const ids = rows.map((r) => r.propertyId);
-    await writeLocalIds(ids);
-    return ids;
-  } catch {
-    return readLocalIds();
-  }
+  const rows = await listFavorites();
+  const ids = rows.map((r) => r.propertyId);
+  await writeLocalIds(ids);
+  return ids;
 }
 
 export async function isFavorite(propertyId: string): Promise<boolean> {
@@ -65,11 +61,7 @@ export async function addFavorite(propertyId: string): Promise<void> {
 }
 
 export async function removeFavorite(propertyId: string): Promise<void> {
-  try {
-    await apiFetch<void>(`/favorites/${propertyId}`, { method: 'DELETE' });
-  } catch {
-    // keep local removal even if server row is already gone
-  }
+  await apiFetch<void>(`/favorites/${propertyId}`, { method: 'DELETE' });
   const ids = await readLocalIds();
   await writeLocalIds(ids.filter((id) => id !== propertyId));
 }

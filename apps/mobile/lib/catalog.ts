@@ -3,6 +3,7 @@ import { sortMarketableFirst } from '@/lib/listing-status';
 import {
   getProperty,
   listProperties,
+  listPropertiesPage,
   type PropertyFilters,
 } from '@/lib/properties';
 import type { Property } from '@/types/property';
@@ -12,6 +13,16 @@ export async function fetchCatalogProperties(
 ): Promise<Property[]> {
   const rows = await listProperties(filters);
   return sortMarketableFirst(rows.map(mapPublicProperty));
+}
+
+export async function fetchCatalogPropertiesPage(
+  filters: PropertyFilters = {},
+): Promise<{ data: Property[]; total: number }> {
+  const page = await listPropertiesPage(filters);
+  return {
+    data: sortMarketableFirst(page.data.map(mapPublicProperty)),
+    total: page.meta.total,
+  };
 }
 
 export async function fetchCatalogProperty(id: string): Promise<Property> {

@@ -1,6 +1,20 @@
 import { apiFetch } from '@/lib/api';
 import type { ActiveRole } from '@/lib/active-role';
 
+export {
+  ACCOUNT_CANCEL_DELETION_PATH,
+  ACCOUNT_DELETED_CODE,
+  cancelAccountDeletion,
+  isAccountDeletedBody,
+  isAccountDeletedError,
+  mapAccountDeletionCancelError,
+  mapAccountDeletionRequestError,
+  requestAccountDeletion,
+  type AccountDeletionCancelErrorCode,
+  type AccountDeletionErrorCode,
+  type AccountDeletionRequestErrorCode,
+} from '@/lib/account-deletion';
+
 export type NotificationChannelPreference = 'PUSH' | 'SMS' | 'WHATSAPP';
 
 export interface PublicUser {
@@ -23,16 +37,6 @@ export interface UpdateMeInput {
   avatarUrl?: string;
   fcmToken?: string;
   notificationChannel?: NotificationChannelPreference;
-}
-
-export async function requestAccountDeletion(): Promise<{
-  message: string;
-  deletedAt: string;
-}> {
-  return apiFetch<{ message: string; deletedAt: string }>(
-    '/users/me/deletion',
-    { method: 'POST' },
-  );
 }
 
 export interface PublicOrganization {

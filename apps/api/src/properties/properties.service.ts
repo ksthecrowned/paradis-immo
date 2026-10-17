@@ -16,6 +16,7 @@ import {
   Property,
   PropertyMode,
   PropertyStatus,
+  PropertyType,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { EventPublisher } from '../events/event.publisher';
@@ -320,8 +321,32 @@ export class PropertiesService {
   async list(filter: FilterPropertiesDto): Promise<PaginatedProperties> {
     const limit = filter.limit ?? 20;
     const offset = filter.offset ?? 0;
+    const query = filter.q?.trim();
+    const types = filter.types
+      ?.split(',')
+      .map((value) => value.trim())
+      .filter((value): value is PropertyType =>
+        Object.values(PropertyType).includes(value as PropertyType),
+      );
 
     const where: Prisma.PropertyWhereInput = {
+      ...(query
+        ? {
+            OR: [
+              { title: { contains: query, mode: 'insensitive' } },
+              { description: { contains: query, mode: 'insensitive' } },
+              { address: { contains: query, mode: 'insensitive' } },
+              { quartier: { name: { contains: query, mode: 'insensitive' } } },
+              {
+                quartier: {
+                  arrondissement: {
+                    city: { name: { contains: query, mode: 'insensitive' } },
+                  },
+                },
+              },
+            ],
+          }
+        : {}),
       ...(filter.mode ? { mode: filter.mode } : {}),
       ...(filter.status ? { status: filter.status } : {}),
       // Spec 04: a property under an active long-term lease leaves the
@@ -333,12 +358,34 @@ export class PropertiesService {
       ...(filter.mode === PropertyMode.RENT_LONG || !filter.mode
         ? {
             listingStatus: {
-              notIn: [ListingStatus.OCCUPIED, ListingStatus.SOLD],
+              notIn: filter.availableOnly === 'true'
+                ? [
+                    ListingStatus.OCCUPIED,
+                    ListingStatus.SOLD,
+                    ListingStatus.UNDER_OFFER,
+                  ]
+                : [ListingStatus.OCCUPIED, ListingStatus.SOLD],
             },
           }
         : filter.mode === PropertyMode.SALE
-          ? { listingStatus: { notIn: [ListingStatus.SOLD] } }
-          : {}),
+          ? {
+              listingStatus: {
+                notIn: filter.availableOnly === 'true'
+                  ? [ListingStatus.SOLD, ListingStatus.UNDER_OFFER]
+                  : [ListingStatus.SOLD],
+              },
+            }
+          : filter.availableOnly === 'true'
+            ? {
+                listingStatus: {
+                  notIn: [
+                    ListingStatus.SOLD,
+                    ListingStatus.UNDER_OFFER,
+                    ListingStatus.OCCUPIED,
+                  ],
+                },
+              }
+            : {}),
       ...(filter.quartierId ? { quartierId: filter.quartierId } : {}),
       ...(filter.arrondissementId
         ? { quartier: { arrondissementId: filter.arrondissementId } }
@@ -365,7 +412,11 @@ export class PropertiesService {
           }
         : {}),
       // Spec 15 B4 — filtres complets (spec 13 P1).
-      ...(filter.type ? { type: filter.type } : {}),
+      ...(filter.type
+        ? { type: filter.type }
+        : types?.length
+          ? { type: { in: types } }
+          : {}),
       ...(filter.minBedrooms !== undefined
         ? { bedrooms: { gte: filter.minBedrooms } }
         : {}),
@@ -374,6 +425,18 @@ export class PropertiesService {
         : {}),
       ...(filter.minSurface !== undefined
         ? { surface: { gte: filter.minSurface } }
+        : {}),
+      ...(filter.minYearBuilt !== undefined || filter.maxYearBuilt !== undefined
+        ? {
+            yearBuilt: {
+              ...(filter.minYearBuilt !== undefined
+                ? { gte: filter.minYearBuilt }
+                : {}),
+              ...(filter.maxYearBuilt !== undefined
+                ? { lte: filter.maxYearBuilt }
+                : {}),
+            },
+          }
         : {}),
       ...(filter.furnished !== undefined && filter.furnished !== ''
         ? {
@@ -408,7 +471,7 @@ export class PropertiesService {
       this.prisma.property.findMany({
         where,
         include: this.publicInclude(),
-        orderBy,
+        orderBy: [...orderBy, { id: 'asc' }],
         take: limit,
         skip: offset,
       }),

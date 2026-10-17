@@ -65,6 +65,7 @@ export interface PublicProperty {
 }
 
 export interface PropertyFilters {
+  q?: string;
   cityId?: string;
   arrondissementId?: string;
   quartierId?: string;
@@ -73,15 +74,30 @@ export interface PropertyFilters {
   maxPrice?: number;
   status?: string;
   limit?: number;
+  offset?: number;
   organizationId?: string;
+  types?: string[];
+  availableOnly?: boolean;
+  minYearBuilt?: number;
+  maxYearBuilt?: number;
+  minBedrooms?: number;
+  minBathrooms?: number;
+  features?: string;
 }
 
-export async function listProperties(
+export interface PropertyPage {
+  data: PublicProperty[];
+  meta: { total: number; limit: number; offset: number };
+}
+
+export async function listPropertiesPage(
   filters: PropertyFilters = {},
-): Promise<PublicProperty[]> {
+): Promise<PropertyPage> {
   const params = new URLSearchParams();
   params.set('status', filters.status ?? 'ACTIVE');
   params.set('limit', String(filters.limit ?? 50));
+  if (filters.offset != null) params.set('offset', String(filters.offset));
+  if (filters.q?.trim()) params.set('q', filters.q.trim());
   if (filters.cityId) params.set('cityId', filters.cityId);
   if (filters.arrondissementId) params.set('arrondissementId', filters.arrondissementId);
   if (filters.quartierId) params.set('quartierId', filters.quartierId);
@@ -89,13 +105,42 @@ export async function listProperties(
   if (filters.minPrice != null) params.set('minPrice', String(filters.minPrice));
   if (filters.maxPrice != null) params.set('maxPrice', String(filters.maxPrice));
   if (filters.organizationId) params.set('organizationId', filters.organizationId);
+  if (filters.types?.length) params.set('types', filters.types.join(','));
+  if (filters.availableOnly) params.set('availableOnly', 'true');
+  if (filters.minYearBuilt != null) params.set('minYearBuilt', String(filters.minYearBuilt));
+  if (filters.maxYearBuilt != null) params.set('maxYearBuilt', String(filters.maxYearBuilt));
 
-  const result = await apiFetch<{ data: PublicProperty[]; meta?: unknown }>(
+  const result = await apiFetch<{
+    data: PublicProperty[];
+    meta?: { total: number; limit: number; offset: number };
+  }>(
     `/properties?${params}`,
     { anonymous: true },
   );
-  if (Array.isArray(result)) return result;
-  return result.data ?? [];
+  if (Array.isArray(result)) {
+    return {
+      data: result,
+      meta: {
+        total: result.length,
+        limit: filters.limit ?? 50,
+        offset: filters.offset ?? 0,
+      },
+    };
+  }
+  return {
+    data: result.data ?? [],
+    meta: result.meta ?? {
+      total: (result.data ?? []).length,
+      limit: filters.limit ?? 50,
+      offset: filters.offset ?? 0,
+    },
+  };
+}
+
+export async function listProperties(
+  filters: PropertyFilters = {},
+): Promise<PublicProperty[]> {
+  return (await listPropertiesPage(filters)).data;
 }
 
 export async function getProperty(id: string): Promise<PublicProperty> {

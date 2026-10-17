@@ -91,7 +91,7 @@ export default function BookScreen(): React.JSX.Element {
         propertyId: property.id,
         bookingId: booking.id,
         holdExpiresAt: booking.holdExpiresAt ?? '',
-        amount: String(booking.quote?.total ?? quote.totalAmount),
+        amount: booking.totalPrice,
         currency: booking.currency ?? 'XAF',
         title: `Séjour · ${property.title}`,
       });

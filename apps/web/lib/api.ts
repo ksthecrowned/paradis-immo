@@ -10,6 +10,25 @@ import { API_URL } from '@/lib/config';
 
 export { API_URL };
 
+/** Keep in sync with `ACCOUNT_CANCEL_DELETION_PATH` in `api-error-code.ts`. */
+const ACCOUNT_CANCEL_DELETION_PATH = '/account/cancel-deletion';
+
+/** Client-only: send DELETED accounts to the recovery screen. */
+function redirectIfAccountDeleted(parsed: unknown): void {
+  if (typeof window === 'undefined') return;
+  if (
+    !parsed ||
+    typeof parsed !== 'object' ||
+    (parsed as { code?: unknown }).code !== 'ACCOUNT_DELETED'
+  ) {
+    return;
+  }
+  if (window.location.pathname.startsWith(ACCOUNT_CANCEL_DELETION_PATH)) {
+    return;
+  }
+  window.location.assign(ACCOUNT_CANCEL_DELETION_PATH);
+}
+
 export class ApiError extends Error {
   readonly status: number;
   readonly body: unknown;
@@ -187,6 +206,7 @@ export async function apiFetch<T>(
   const parsed = await parseBody(res);
 
   if (!res.ok) {
+    if (res.status === 403) redirectIfAccountDeleted(parsed);
     throw new ApiError(errorMessage(parsed, res.statusText, res.status), res.status, parsed);
   }
 
@@ -247,6 +267,7 @@ export async function apiFetchPaginated<T>(
   const parsed = await parseBody(res);
 
   if (!res.ok) {
+    if (res.status === 403) redirectIfAccountDeleted(parsed);
     throw new ApiError(errorMessage(parsed, res.statusText, res.status), res.status, parsed);
   }
 

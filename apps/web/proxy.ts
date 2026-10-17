@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
+import { ACCOUNT_CANCEL_DELETION_PATH } from '@/lib/api-error-code';
 import { isWebAccountActive, resolveDashboardPath } from '@/lib/web-account';
 
 const PROTECTED_PREFIXES = [
@@ -17,9 +18,17 @@ const AUTH_OPEN_PREFIXES = [
   '/auth/continue',
   '/onboarding/role',
 ];
+/** Logged-in recovery screen for DELETED accounts (spec 01). */
+const ACCOUNT_RECOVERY_PREFIXES = [ACCOUNT_CANCEL_DELETION_PATH];
 
 function isAuthOpen(pathname: string): boolean {
   return AUTH_OPEN_PREFIXES.some(
+    (p) => pathname === p || pathname.startsWith(`${p}/`),
+  );
+}
+
+function isAccountRecovery(pathname: string): boolean {
+  return ACCOUNT_RECOVERY_PREFIXES.some(
     (p) => pathname === p || pathname.startsWith(`${p}/`),
   );
 }
@@ -91,6 +100,16 @@ export const proxy = auth((req) => {
     return NextResponse.next();
   }
 
+  // DELETED accounts may only reach cancel-deletion; require a session.
+  if (isAccountRecovery(pathname)) {
+    if (!loggedIn) {
+      const login = new URL('/login', req.nextUrl.origin);
+      login.searchParams.set('callbackUrl', pathname);
+      return NextResponse.redirect(login);
+    }
+    return NextResponse.next();
+  }
+
   const isProtected = PROTECTED_PREFIXES.some(
     (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
   );
@@ -151,5 +170,6 @@ export const config = {
     '/login',
     '/register',
     '/auth/magic',
+    '/account/cancel-deletion',
   ],
 };

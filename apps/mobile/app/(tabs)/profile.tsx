@@ -146,6 +146,18 @@ export default function ProfileScreen(): React.JSX.Element {
         onPress: () => router.push('/(tabs)/locations'),
       },
       {
+        id: 'applications',
+        label: 'Mes candidatures',
+        icon: 'document-text-outline',
+        onPress: () => router.push('/applications'),
+      },
+      {
+        id: 'maintenance',
+        label: 'Mes demandes de maintenance',
+        icon: 'construct-outline',
+        onPress: () => router.push('/maintenance'),
+      },
+      {
         id: 'favorites',
         label: 'Mes favoris',
         icon: 'heart-outline',

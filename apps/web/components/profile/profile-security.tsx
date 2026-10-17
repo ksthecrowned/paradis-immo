@@ -4,10 +4,12 @@ import { DashIcon } from '@/components/dash-icon';
 import { appDialog } from '@/components/dialogs/app-dialog';
 import { ApiErrorBanner } from '@/components/forms';
 import { Button } from '@/components/primitives/Button';
-import { ApiError } from '@/lib/api';
 import { logout } from '@/lib/auth';
 import { DASH_ICONS } from '@/lib/dash-icons';
-import { requestAccountDeletion } from '@/lib/me';
+import {
+  mapAccountDeletionRequestError,
+  requestAccountDeletion,
+} from '@/lib/me';
 import { useState } from 'react';
 
 const SECURITY_ROWS = [
@@ -27,6 +29,8 @@ const SECURITY_ROWS = [
     action: 'logout' as const,
   },
 ];
+
+const NOTICE_BEFORE_LOGOUT_MS = 2500;
 
 export function ProfileSecurity(): React.JSX.Element {
   const [error, setError] = useState<string | null>(null);
@@ -58,17 +62,20 @@ export function ProfileSecurity(): React.JSX.Element {
 
     setBusy(true);
     setNotice(null);
+    setError(null);
     try {
       const result = await requestAccountDeletion();
-      setNotice(result.message);
-      setError(null);
+      setNotice(
+        result.message ||
+          'Suppression programmée. Reconnectez-vous sous 30 jours pour annuler.',
+      );
+      // Let the success notice paint before clearing the session.
+      await new Promise<void>((resolve) => {
+        window.setTimeout(resolve, NOTICE_BEFORE_LOGOUT_MS);
+      });
       await logout('/login');
     } catch (err) {
-      setError(
-        err instanceof ApiError
-          ? err.message
-          : 'Impossible de demander la suppression du compte.',
-      );
+      setError(mapAccountDeletionRequestError(err));
     } finally {
       setBusy(false);
     }

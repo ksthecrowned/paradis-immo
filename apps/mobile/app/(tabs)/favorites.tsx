@@ -4,6 +4,7 @@ import { fetchCatalogProperty } from '@/lib/catalog';
 import {
   listFavoriteIds,
 } from '@/lib/favorites';
+import { getErrorMessage } from '@/lib/feedback';
 import type { Property } from '@/types/property';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
@@ -24,21 +25,19 @@ export default function FavoritesScreen(): React.JSX.Element {
   const [properties, setProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const loadFavorites = useCallback(async (opts?: { soft?: boolean }) => {
     if (!opts?.soft) setLoading(true);
+    setError(null);
     try {
       const ids = await listFavoriteIds();
       const rows = await Promise.all(
-        ids.map(async (id) => {
-          try {
-            return await fetchCatalogProperty(id);
-          } catch {
-            return null;
-          }
-        }),
+        ids.map((id) => fetchCatalogProperty(id)),
       );
       setProperties(rows.filter((item): item is Property => item != null));
+    } catch (err) {
+      setError(getErrorMessage(err, 'Impossible de charger vos favoris'));
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -79,6 +78,18 @@ export default function FavoritesScreen(): React.JSX.Element {
           <ActivityIndicator size="large" color={colors.primary} />
         </View>
       ) : (
+        <>
+        {error && properties.length > 0 ? (
+          <Pressable
+            style={styles.errorBanner}
+            onPress={() => void loadFavorites({ soft: true })}
+            accessibilityRole="button"
+            accessibilityLabel="Réessayer de charger les favoris"
+          >
+            <Text style={styles.errorText}>{error}</Text>
+            <Text style={styles.retryText}>Réessayer</Text>
+          </Pressable>
+        ) : null}
         <FlatList
           data={properties}
           keyExtractor={(item) => item.id}
@@ -103,22 +114,35 @@ export default function FavoritesScreen(): React.JSX.Element {
           ListEmptyComponent={
             <View style={styles.empty}>
               <View style={styles.emptyIcon}>
-                <Ionicons name="heart-outline" size={32} color={colors.primary} />
+                <Ionicons
+                  name={error ? 'cloud-offline-outline' : 'heart-outline'}
+                  size={32}
+                  color={colors.primary}
+                />
               </View>
-              <Text style={styles.emptyTitle}>Pas encore de favoris</Text>
+              <Text style={styles.emptyTitle}>
+                {error ? 'Chargement impossible' : 'Pas encore de favoris'}
+              </Text>
               <Text style={styles.emptySubtitle}>
-                Touchez le cœur sur un bien pour le retrouver ici facilement.
+                {error ??
+                  'Touchez le cœur sur un bien pour le retrouver ici facilement.'}
               </Text>
               <Pressable
                 style={({ pressed }) => [
                   styles.emptyCta,
                   pressed && styles.emptyCtaPressed,
                 ]}
-                onPress={() => router.push('/search')}
+                onPress={() =>
+                  error
+                    ? void loadFavorites()
+                    : router.push('/search')
+                }
                 accessibilityRole="button"
-                accessibilityLabel="Explorer les biens"
+                accessibilityLabel={error ? 'Réessayer' : 'Explorer les biens'}
               >
-                <Text style={styles.emptyCtaText}>Explorer les biens</Text>
+                <Text style={styles.emptyCtaText}>
+                  {error ? 'Réessayer' : 'Explorer les biens'}
+                </Text>
               </Pressable>
             </View>
           }
@@ -134,6 +158,7 @@ export default function FavoritesScreen(): React.JSX.Element {
             />
           )}
         />
+        </>
       )}
     </View>
   );
@@ -183,6 +208,29 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: spacing.lg,
     gap: 8,
+  },
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+    marginHorizontal: spacing.md,
+    marginBottom: spacing.sm,
+    padding: spacing.sm,
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: colors.danger,
+    backgroundColor: colors.surface,
+  },
+  errorText: {
+    flex: 1,
+    fontSize: 12,
+    color: colors.ink,
+  },
+  retryText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: colors.primary,
   },
   emptyIcon: {
     width: 72,

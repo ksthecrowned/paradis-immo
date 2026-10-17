@@ -3,6 +3,7 @@ import { ConflictException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AgencyAccessService } from '../mandates/agency-access.service';
 import { UsersService } from './users.service';
+import { ACCOUNT_DELETION_GRACE_PERIOD_DAYS } from './account-deletion.constants';
 
 describe('UsersService account deletion (spec 01)', () => {
   let users: UsersService;
@@ -190,6 +191,56 @@ describe('UsersService account deletion (spec 01)', () => {
     expect(user.status).toBe('ACTIVE');
     expect(user.deletedAt).toBeNull();
   });
+
+  // Regression (spec 01): the recovery-window cancellation must be possible
+  // AFTER the account is marked DELETED — not only within it.
+  it('lets a DELETED account cancel during the recovery window', async () => {
+    await users.requestAccountDeletion(tenantId);
+    await users.cancelAccountDeletion(tenantId);
+    const user = await prisma.user.findUniqueOrThrow({
+      where: { id: tenantId },
+    });
+    expect(user.status).toBe('ACTIVE');
+    expect(user.deletedAt).toBeNull();
+    expect(user.anonymizedAt).toBeNull();
+  });
+
+  it('refuses to cancel once the recovery window is over (spec 01)', async () => {
+    await prisma.user.update({
+      where: { id: tenantId },
+      data: {
+        status: 'DELETED',
+        deletedAt: new Date(
+          Date.now() -
+            (ACCOUNT_DELETION_GRACE_PERIOD_DAYS + 1) * 24 * 60 * 60 * 1000,
+        ),
+      },
+    });
+    await expect(users.cancelAccountDeletion(tenantId)).rejects.toMatchObject({
+      response: { code: 'ACCOUNT_DELETION_WINDOW_CLOSED' },
+    });
+    const user = await prisma.user.findUniqueOrThrow({
+      where: { id: tenantId },
+    });
+    expect(user.status).toBe('DELETED');
+    expect(user.deletedAt).not.toBeNull();
+  });
+
+  it('refuses to cancel an already anonymized account (spec 01)', async () => {
+    await prisma.user.update({
+      where: { id: tenantId },
+      data: { anonymizedAt: new Date() },
+    });
+    await expect(users.cancelAccountDeletion(tenantId)).rejects.toMatchObject({
+      response: { code: 'ACCOUNT_ANONYMIZED' },
+    });
+    // Restore the tenant so the remaining tests run on an ACTIVE account.
+    await prisma.user.update({
+      where: { id: tenantId },
+      data: { status: 'ACTIVE', deletedAt: null, anonymizedAt: null },
+    });
+  });
+
 
   it('refuses deletion while an ACTIVE lease exists', async () => {
     const lease = await prisma.lease.create({

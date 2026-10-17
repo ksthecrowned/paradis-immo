@@ -39,6 +39,7 @@ import {
 } from './admin-permission.guard';
 import { PrismaService } from '../prisma/prisma.service';
 import { MandateDocumentReviewService } from '../mandates/mandate-document-review.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { generateTotpSecret, verifyTotp } from './totp';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 
@@ -107,7 +108,63 @@ export class AdminController {
     private readonly auditLog: AuditLogService,
     private readonly prisma: PrismaService,
     private readonly mandateDocReview: MandateDocumentReviewService,
+    private readonly notifications: NotificationsService,
   ) {}
+
+  @Get('notifications/failed')
+  @AdminPermission('notifications.read')
+  @ApiOperation({
+    summary:
+      'List failed and queued notifications for admin retry (spec 11/12)',
+  })
+  async listFailedNotifications(
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
+    @Query('pageSize', new DefaultValuePipe(20), ParseIntPipe)
+    pageSize: number,
+    @Query('status') status?: string,
+  ) {
+    const safeStatus =
+      status === 'FAILED' || status === 'QUEUED' || status === 'ALL'
+        ? status
+        : 'ALL';
+    const result = await this.notifications.listFailedForAdmin({
+      page,
+      pageSize,
+      status: safeStatus,
+    });
+    return { statusCode: 200, ...result };
+  }
+
+  @Post('notifications/:id/retry')
+  @HttpCode(200)
+  @AdminPermission('notifications.retry')
+  @ApiOperation({
+    summary: 'Manually retry a FAILED or QUEUED notification (spec 11/12)',
+  })
+  async retryNotification(
+    @CurrentUser() current: AuthenticatedUser,
+    @Param('id') id: string,
+  ) {
+    const before = await this.prisma.notification.findUnique({
+      where: { id },
+      select: { id: true, status: true, attempts: true, lastError: true },
+    });
+    const data = await this.notifications.adminRetry(id);
+    await this.auditLog.record({
+      actorId: current.userId,
+      action: 'notification.retry',
+      targetType: 'NOTIFICATION',
+      targetId: id,
+      before: before ?? undefined,
+      after: {
+        id: data.id,
+        status: data.status,
+        attempts: data.attempts,
+        lastError: data.lastError ?? null,
+      },
+    });
+    return { statusCode: 200, data };
+  }
 
   @Get('mandate-reviews')
   @AdminPermission('kyc.review')

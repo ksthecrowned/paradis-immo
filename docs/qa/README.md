@@ -9,6 +9,14 @@ Cette page définit comment convertir les exigences produit en preuves de foncti
 3. Ajouter les scénarios manuels uniquement là où l'émulateur, le fournisseur, les stores ou l'opération ne peuvent pas être prouvés localement.
 4. Garder une référence de preuve expurgée : commit/build, environnement, date, résultat et responsable.
 
+## Inventaires UI liés
+
+- [Notifications — surfaces vs `QUEUED`/`FAILED`](notifications-queued-failed-ui-inventory.md) (spec 11) : écarts centres web/mobile et admin ; inventaire seulement, pas une preuve d’affichage livré.
+
+Audits ciblés :
+
+- [03 — Concurrence et idempotence (mandats, approbations, ledger)](03-concurrency-idempotence-audit.md)
+
 ## Niveaux de validation
 
 | Niveau | But | Preuve typique |

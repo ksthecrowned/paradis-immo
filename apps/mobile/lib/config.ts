@@ -2,8 +2,8 @@ import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 
 /**
- * API base URL.
- * Priority: EXPO_PUBLIC_API_URL → (dev) emulator/localhost → app.json extra.apiUrl
+ * API base URL. Non-development builds must receive an explicit environment URL;
+ * silently falling back to production could make preview tests mutate live data.
  */
 export function getApiUrl(): string {
   const envUrl = process.env.EXPO_PUBLIC_API_URL?.trim();
@@ -20,10 +20,14 @@ export function getApiUrl(): string {
     return 'http://localhost:3001/api/v1';
   }
 
-  const extra = (Constants.expoConfig?.extra ?? {}) as { apiUrl?: string };
-  if (extra.apiUrl?.trim()) {
+  const extra = Constants.expoConfig?.extra as
+    | { apiUrl?: string }
+    | undefined;
+  if (extra?.apiUrl?.trim()) {
     return extra.apiUrl.trim().replace(/\/$/, '');
   }
 
-  return 'https://paradis-immo.onrender.com/api/v1';
+  throw new Error(
+    'EXPO_PUBLIC_API_URL must be configured for non-development builds.',
+  );
 }

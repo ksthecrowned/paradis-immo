@@ -1,8 +1,13 @@
 import { Type } from 'class-transformer';
-import { IsEnum, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+import { IsBooleanString, IsEnum, IsInt, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
 import { PropertyMode, PropertyStatus, PropertyType } from '@prisma/client';
 
 export class FilterPropertiesDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  q?: string;
+
   @IsOptional()
   @IsEnum(PropertyMode)
   mode?: PropertyMode;
@@ -15,6 +20,26 @@ export class FilterPropertiesDto {
   @IsOptional()
   @IsEnum(PropertyType)
   type?: PropertyType;
+
+  @IsOptional()
+  @IsString()
+  types?: string;
+
+  @IsOptional()
+  @IsBooleanString()
+  availableOnly?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1800)
+  minYearBuilt?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1800)
+  maxYearBuilt?: number;
 
   @IsOptional()
   @Type(() => Number)

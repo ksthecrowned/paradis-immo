@@ -187,6 +187,29 @@ export default function LeaseDetailScreen(): React.JSX.Element {
         </View>
 
         <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Maintenance</Text>
+          <View style={styles.card}>
+            <Text style={styles.muted}>
+              Signalez un problème dans le logement et suivez les mises à jour.
+            </Text>
+            <Pressable
+              style={styles.payBtn}
+              onPress={() => router.push(`/leases/${lease.id}/maintenance/new`)}
+              accessibilityRole="button"
+            >
+              <Text style={styles.payBtnText}>Signaler un problème</Text>
+            </Pressable>
+            <Pressable
+              style={styles.maintenanceLink}
+              onPress={() => router.push('/maintenance')}
+              accessibilityRole="button"
+            >
+              <Text style={styles.maintenanceLinkText}>Voir mes demandes</Text>
+            </Pressable>
+          </View>
+        </View>
+
+        <View style={styles.section}>
           <Text style={styles.sectionTitle}>Échéancier</Text>
           <View style={styles.card}>
             {schedule.length === 0 ? (
@@ -322,6 +345,15 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: colors.surface,
+  },
+  maintenanceLink: {
+    alignSelf: 'flex-start',
+    paddingVertical: 8,
+  },
+  maintenanceLinkText: {
+    color: colors.primary,
+    fontSize: 13,
+    fontWeight: '700',
   },
   contactBtn: {
     minHeight: 48,

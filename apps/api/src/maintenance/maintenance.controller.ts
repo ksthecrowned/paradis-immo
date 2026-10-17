@@ -5,8 +5,10 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
+import { Type } from 'class-transformer';
 import {
   IsBoolean,
   IsDateString,
@@ -15,6 +17,10 @@ import {
   IsOptional,
   IsString,
   IsUUID,
+  IsInt,
+  Min,
+  Max,
+  MinLength,
   MaxLength,
 } from 'class-validator';
 import {
@@ -27,6 +33,28 @@ import { AppAuthGuard } from '../common/guards/auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { MaintenanceService } from './maintenance.service';
+
+class ListMyTicketsDto {
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  limit = 20;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  offset = 0;
+}
+
+class AddTicketCommentDto {
+  @IsString()
+  @MinLength(1)
+  @MaxLength(2000)
+  body!: string;
+}
 
 class CreateTicketDto {
   @IsUUID() propertyId!: string;
@@ -115,8 +143,11 @@ export class MaintenanceController {
   @Get('maintenance/tickets/my')
   @UseGuards(AppAuthGuard)
   @ApiOperation({ summary: 'List tickets reported by the user' })
-  mine(@CurrentUser() current: AuthenticatedUser) {
-    return this.maintenance.listMine(current.userId);
+  mine(
+    @CurrentUser() current: AuthenticatedUser,
+    @Query() filter: ListMyTicketsDto,
+  ) {
+    return this.maintenance.listMine(current.userId, filter);
   }
 
   @Get('maintenance/tickets/managed')
@@ -138,6 +169,17 @@ export class MaintenanceController {
   @ApiOperation({ summary: 'Get a maintenance ticket by id' })
   getOne(@CurrentUser() current: AuthenticatedUser, @Param('id') id: string) {
     return this.maintenance.getOne(current.userId, id);
+  }
+
+  @Post('maintenance/tickets/:id/comments')
+  @UseGuards(AppAuthGuard)
+  @ApiOperation({ summary: 'Add a public comment to a maintenance ticket' })
+  addComment(
+    @CurrentUser() current: AuthenticatedUser,
+    @Param('id') id: string,
+    @Body() dto: AddTicketCommentDto,
+  ) {
+    return this.maintenance.addPublicComment(current.userId, id, dto.body);
   }
 
   @Patch('maintenance/tickets/:id')

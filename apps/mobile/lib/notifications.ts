@@ -4,6 +4,7 @@ import * as Notifications from 'expo-notifications';
 import { apiFetch } from '@/lib/api';
 import { getInstallId } from '@/lib/device-id';
 import { isAuthenticated } from '@/lib/auth';
+import { fetchMe } from '@/lib/users';
 import {
   resolveNotificationRoute,
   type NotificationDeepLink,
@@ -63,6 +64,8 @@ export async function obtainDevicePushToken(): Promise<string | null> {
 /** Permission + FCM token → PATCH /users/me + POST /notifications/devices. */
 export async function registerPushTokenWithApi(): Promise<string | null> {
   if (!(await isAuthenticated())) return null;
+  const user = await fetchMe();
+  if (user.notificationChannel !== 'PUSH') return null;
 
   const token = await obtainDevicePushToken();
   if (!token) return null;
@@ -74,32 +77,30 @@ export async function registerPushTokenWithApi(): Promise<string | null> {
   });
 
   // Spec 11/14 documented device registry (deduped, claimed by one account).
-  try {
-    const deviceId = await getInstallId();
-    await apiFetch('/notifications/devices', {
-      method: 'POST',
-      body: {
-        deviceId,
-        fcmToken: token,
-        platform: Platform.OS === 'ios' ? 'IOS' : 'ANDROID',
-      },
-    });
-  } catch {
-    // Registry is best-effort: the legacy token above keeps push working.
-  }
+  const deviceId = await getInstallId();
+  await apiFetch('/notifications/devices', {
+    method: 'POST',
+    body: {
+      deviceId,
+      fcmToken: token,
+      platform: Platform.OS === 'ios' ? 'IOS' : 'ANDROID',
+    },
+  });
 
   return token;
 }
 
 /** Remove this install's device registration (spec 14 logout path). */
-export async function unregisterPushDeviceFromApi(): Promise<void> {
+export async function unregisterPushDeviceFromApi(
+  options: { strict?: boolean } = {},
+): Promise<void> {
   if (!(await isAuthenticated())) return;
   try {
     await apiFetch(`/notifications/devices/${await getInstallId()}`, {
       method: 'DELETE',
     });
-  } catch {
-    // Non-fatal: the session is being cleared anyway.
+  } catch (err) {
+    if (options.strict) throw err;
   }
 }
 

@@ -92,6 +92,26 @@ export function PropertyDetailActionsSheet({
             </Pressable>
           ) : null}
 
+          {available && property.mode === 'RENT_LONG' ? (
+            <Pressable
+              style={styles.actionRow}
+              onPress={() => {
+                onClose();
+                router.push(`/property/${property.id}/apply`);
+              }}
+              accessibilityRole="button"
+            >
+              <View style={styles.actionIcon}>
+                <Ionicons
+                  name="document-text-outline"
+                  size={20}
+                  color={colors.primary}
+                />
+              </View>
+              <Text style={styles.actionLabel}>Postuler à cette location</Text>
+            </Pressable>
+          ) : null}
+
           {available && property.mode === 'RENT_SHORT' ? (
             <Pressable
               style={styles.actionRow}

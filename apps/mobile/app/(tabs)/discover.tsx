@@ -8,6 +8,7 @@ import {
 } from '@/context/LocationContext';
 import { fetchCatalogProperties } from '@/lib/catalog';
 import { getCityByName, propertyMatchesCity } from '@/lib/cities';
+import { getErrorMessage } from '@/lib/feedback';
 import { POINTE_NOIRE_REGION } from '@/lib/map-regions';
 import {
   passesAvailableOnlyFilter,
@@ -40,25 +41,36 @@ export default function DiscoverScreen(): React.JSX.Element {
   const [sheetHeight, setSheetHeight] = useState(180);
   const [properties, setProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  const loadProperties = useCallback(
+    async (isActive: () => boolean = () => true): Promise<void> => {
+      if (isActive()) {
+        setLoading(true);
+        setLoadError(null);
+      }
+      try {
+        const rows = await fetchCatalogProperties({ limit: 50 });
+        if (isActive()) setProperties(rows);
+      } catch (err) {
+        if (isActive()) {
+          setLoadError(getErrorMessage(err, 'Impossible de charger la carte'));
+        }
+      } finally {
+        if (isActive()) setLoading(false);
+      }
+    },
+    [],
+  );
 
   useFocusEffect(
     useCallback(() => {
       let active = true;
-      void (async () => {
-        setLoading(true);
-        try {
-          const rows = await fetchCatalogProperties({ limit: 50 });
-          if (active) setProperties(rows);
-        } catch {
-          if (active) setProperties([]);
-        } finally {
-          if (active) setLoading(false);
-        }
-      })();
+      void loadProperties(() => active);
       return () => {
         active = false;
       };
-    }, []),
+    }, [loadProperties]),
   );
 
   const visibleProperties = useMemo(() => {
@@ -207,6 +219,21 @@ export default function DiscoverScreen(): React.JSX.Element {
             </Pressable>
           ) : null}
         </View>
+        {loadError ? (
+          <View style={styles.errorBanner}>
+            <Text style={styles.errorText}>{loadError}</Text>
+            <Pressable
+              onPress={() => void loadProperties()}
+              disabled={loading}
+              accessibilityRole="button"
+              accessibilityLabel="Réessayer de charger la carte"
+            >
+              <Text style={styles.retryText}>
+                {loading ? 'Chargement…' : 'Réessayer'}
+              </Text>
+            </Pressable>
+          </View>
+        ) : null}
       </View>
 
       <View
@@ -246,7 +273,10 @@ export default function DiscoverScreen(): React.JSX.Element {
         </BottomSheet>
       )}
 
-      {!loading && cityFilter && visibleProperties.length === 0 ? (
+      {!loading &&
+      !loadError &&
+      cityFilter &&
+      visibleProperties.length === 0 ? (
         <View
           style={[
             styles.emptyBanner,
@@ -281,6 +311,30 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     flexWrap: 'wrap',
+  },
+  errorBanner: {
+    marginTop: spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radii.md,
+    backgroundColor: colors.navy,
+    borderWidth: 1,
+    borderColor: colors.danger,
+  },
+  errorText: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.ink,
+  },
+  retryText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: colors.primary,
   },
   topChip: {
     alignSelf: 'flex-start',

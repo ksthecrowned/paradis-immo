@@ -42,7 +42,7 @@ describe('seekerPrefsToSearchFilters', () => {
     expect(f.mode).toBe('RENT_LONG');
   });
 
-  test('ALL_OPTIONS defaults to RENT_LONG', () => {
+  test('ALL_OPTIONS leaves the catalog unfiltered', () => {
     const f = seekerPrefsToSearchFilters({
       seekerIntent: 'ALL_OPTIONS',
       seekerExperience: null,
@@ -50,7 +50,7 @@ describe('seekerPrefsToSearchFilters', () => {
       budgetMaxXaf: null,
       preferredQuartierIds: [],
     });
-    expect(f.mode).toBe('RENT_LONG');
+    expect(f.mode).toBe('ALL');
   });
 
   test('seeds first preferred quartier when resolver provided', () => {

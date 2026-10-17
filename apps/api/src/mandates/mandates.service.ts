@@ -253,13 +253,28 @@ export class MandatesService {
 
     await this.assertNoConflict(mandate.propertyId, mandate.scopes, mandate.id);
 
-    const updated = await this.prisma.mandate.update({
-      where: { id: mandateId },
+    // Spec 03 — activation idempotente : l'update est conditionné au statut
+    // PROPOSED/COUNTERED pour qu'une course entre deux acceptations
+    // simultanées ne produise qu'une seule transition (et un seul événement).
+    const accepted = await this.prisma.mandate.updateMany({
+      where: {
+        id: mandateId,
+        status: { in: [MandateStatus.PROPOSED, MandateStatus.COUNTERED] },
+      },
       data: {
         status: MandateStatus.ACTIVE,
         acceptedById: userId,
         acceptedAt: new Date(),
       },
+    });
+    if (accepted.count === 0) {
+      throw new BadRequestException({
+        code: 'MANDATE_NOT_PENDING',
+        message: 'Only a proposed or countered mandate can be accepted',
+      });
+    }
+    const updated = await this.prisma.mandate.findUniqueOrThrow({
+      where: { id: mandateId },
     });
     await this.events.emit(DOMAIN_EVENTS.MANDATE_ACCEPTED, {
       mandateId: updated.id,
@@ -311,13 +326,28 @@ export class MandatesService {
     }
 
     const updated = await this.prisma.$transaction(async (tx) => {
-      const row = await tx.mandate.update({
-        where: { id: mandateId },
+      // Spec 03 — refus idempotent : conditionné au statut PROPOSED/COUNTERED
+      // pour qu'une course entre deux refus n'ait qu'un seul effet (mise en
+      // pause du bien pour un mandat proposé par l'agence).
+      const declined = await tx.mandate.updateMany({
+        where: {
+          id: mandateId,
+          status: { in: [MandateStatus.PROPOSED, MandateStatus.COUNTERED] },
+        },
         data: {
           status: MandateStatus.DECLINED,
           terminationReason: reason,
           terminatedById: userId,
         },
+      });
+      if (declined.count === 0) {
+        throw new BadRequestException({
+          code: 'MANDATE_NOT_PENDING',
+          message: 'Only a proposed or countered mandate can be declined',
+        });
+      }
+      const row = await tx.mandate.findUniqueOrThrow({
+        where: { id: mandateId },
       });
       if (isAgencyInitiated) {
         await tx.property.update({
@@ -384,8 +414,15 @@ export class MandatesService {
     await this.assertNoConflict(mandate.propertyId, scopes, mandate.id);
 
     const updated = await this.prisma.$transaction(async (tx) => {
-      const row = await tx.mandate.update({
-        where: { id: mandateId },
+      // Spec 03 — contre-proposition idempotente : conditionnée au statut
+      // PROPOSED/COUNTERED pour qu'une course entre deux contre-propositions
+      // simultanées (ou contre un mandat déjà actif) n'applique qu'une
+      // seule révision des conditions.
+      const countered = await tx.mandate.updateMany({
+        where: {
+          id: mandateId,
+          status: { in: [MandateStatus.PROPOSED, MandateStatus.COUNTERED] },
+        },
         data: {
           status: MandateStatus.COUNTERED,
           scopes,
@@ -415,6 +452,15 @@ export class MandatesService {
             : {}),
           ...(input.endDate ? { endDate: input.endDate } : {}),
         },
+      });
+      if (countered.count === 0) {
+        throw new BadRequestException({
+          code: 'MANDATE_NOT_PENDING',
+          message: 'Only a proposed or countered mandate can be countered',
+        });
+      }
+      const row = await tx.mandate.findUniqueOrThrow({
+        where: { id: mandateId },
       });
       await tx.mandateVersion.create({
         data: {
@@ -635,8 +681,11 @@ export class MandatesService {
       ? now
       : new Date(now.getTime() + mandate.noticeDays * 86_400_000);
 
-    const updated = await this.prisma.mandate.update({
-      where: { id: mandateId },
+    // Spec 03 — résiliation idempotente : conditionnée au statut ACTIVE pour
+    // qu'une course entre deux terminaisons simultanées ne demande le
+    // processus qu'une seule fois.
+    const terminated = await this.prisma.mandate.updateMany({
+      where: { id: mandateId, status: MandateStatus.ACTIVE },
       data: {
         status: immediate
           ? MandateStatus.TERMINATED
@@ -646,6 +695,15 @@ export class MandatesService {
         terminationReason: reason,
         terminatedById: userId,
       },
+    });
+    if (terminated.count === 0) {
+      throw new BadRequestException({
+        code: 'MANDATE_NOT_ACTIVE',
+        message: 'Only an active mandate can be terminated',
+      });
+    }
+    const updated = await this.prisma.mandate.findUniqueOrThrow({
+      where: { id: mandateId },
     });
 
     await this.events.emit(DOMAIN_EVENTS.MANDATE_TERMINATED, {

@@ -44,7 +44,13 @@ describe('JwtStrategy account status (spec 01)', () => {
   it('lets an ACTIVE account through', async () => {
     await expect(
       strategy.validate({ sub: activeId, roles: ['TENANT'] }),
-    ).resolves.toEqual({ userId: activeId, roles: ['TENANT'] });
+    ).resolves.toEqual({
+      userId: activeId,
+      roles: ['TENANT'],
+      status: 'ACTIVE',
+      deletedAt: null,
+      anonymizedAt: null,
+    });
   });
 
   it('rejects a SUSPENDED account with 403 ACCOUNT_SUSPENDED', async () => {
@@ -58,11 +64,15 @@ describe('JwtStrategy account status (spec 01)', () => {
     ).rejects.toBeInstanceOf(ForbiddenException);
   });
 
-  it('rejects a DELETED account', async () => {
+  it('passes a DELETED account through with its account state (spec 01)', async () => {
+    // The recovery-window cancellation must stay reachable after the account
+    // is marked DELETED; AppAuthGuard routes it to recovery-only endpoints.
     await expect(
       strategy.validate({ sub: deletedId, roles: ['TENANT'] }),
-    ).rejects.toMatchObject({
-      response: { code: 'ACCOUNT_DELETED' },
+    ).resolves.toMatchObject({
+      userId: deletedId,
+      roles: ['TENANT'],
+      status: 'DELETED',
     });
   });
 
@@ -72,6 +82,6 @@ describe('JwtStrategy account status (spec 01)', () => {
         sub: '00000000-0000-0000-0000-000000000000',
         roles: ['TENANT'],
       }),
-    ).resolves.toMatchObject({ roles: ['TENANT'] });
+    ).resolves.toMatchObject({ roles: ['TENANT'], status: null });
   });
 });

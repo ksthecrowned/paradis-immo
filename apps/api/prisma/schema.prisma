@@ -509,6 +509,8 @@ enum SeekerExperience {
 
 enum NotificationStatus {
   PENDING
+  // Spec 11 P0 — essais intermédiaires en attente de relance (backoff).
+  QUEUED
   SENT
   FAILED
 }
@@ -2223,6 +2225,14 @@ model Notification {
   sentAt    DateTime?
   readAt    DateTime?
   createdAt DateTime            @default(now())
+
+  // Spec 11 P0 — fiabilisation de l'envoi : 3 tentatives avec backoff.
+  // middle failures → QUEUED + retryAfter ; 3ᵉ échec → FAILED définitif.
+  attempts  Int                 @default(0)
+  lastError String?
+  retryAfter DateTime?
+
+  @@index([status, retryAfter])
 }
 
 // =====================================================================
