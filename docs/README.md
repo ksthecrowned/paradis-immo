@@ -20,7 +20,7 @@ Point d'entrée de la documentation du dépôt. La documentation distingue les f
 
 | Dossier | Usage | Statut |
 |---|---|---|
-| [specs/](specs/README.md) | Exigences produit et deltas d'implémentation des domaines 01–16 | Source canonique des exigences ; statuts locaux à revalider |
+| [specs/](specs/README.md) | Exigences produit et deltas d'implémentation des domaines 01–17 | Source canonique des exigences ; statuts locaux à revalider |
 | [checklists/](checklists/) | Vérifications ciblées, dont visites et stockage privé | À exécuter dans l'environnement indiqué par chaque checklist |
 | [superpowers/specs/](superpowers/specs/) | Conceptions de features datées | Historique de conception ; vérifier la spec canonique et le code avant usage |
 | [superpowers/plans/](superpowers/plans/) | Plans d'implémentation datés | Plans de travail, pas une description garantie de l'état courant |

@@ -145,7 +145,7 @@ export class LeaseRenewalProcessor {
       };
       const recipients = new Set<string>();
       if (lease.tenantId) recipients.add(lease.tenantId);
-      recipients.add(lease.property.ownerId);
+      if (lease.property.ownerId) recipients.add(lease.property.ownerId);
       for (const userId of recipients) {
         await this.notifications.send({
           userId,
@@ -189,7 +189,7 @@ export class LeaseRenewalProcessor {
 
       const recipients = new Set<string>();
       if (lease.tenantId) recipients.add(lease.tenantId);
-      recipients.add(lease.property.ownerId);
+      if (lease.property.ownerId) recipients.add(lease.property.ownerId);
       const gerants = await this.prisma.organizationMember.findMany({
         where: {
           organizationId: lease.property.organizationId,

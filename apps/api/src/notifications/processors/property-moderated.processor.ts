@@ -23,7 +23,7 @@ export class PropertyModeratedProcessor {
   async handle(
     event: DomainEvent<{
       propertyId: string;
-      ownerId: string;
+      ownerId: string | null;
       status: string;
       reason: string | null;
       title: string;

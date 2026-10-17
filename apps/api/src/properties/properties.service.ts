@@ -148,7 +148,7 @@ export interface PublicProperty {
   organization: { id: string; name: string; type: string };
   ownerOrg: { id: string; name: string; type: string };
   agent: { id: string; name: string; phone: string | null } | null;
-  ownerId: string;
+  ownerId: string | null;
   favoriteCount: number;
   viewCount: number;
   createdAt: string;

@@ -1026,7 +1026,7 @@ export class PaymentsService {
     );
     let property: {
       id: string;
-      ownerId: string;
+      ownerId: string | null;
       organizationId: string;
     } | null = null;
     if (firstRentAlloc?.rentScheduleId) {

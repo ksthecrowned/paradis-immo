@@ -267,7 +267,7 @@ export class MandateApprovalService {
   private async applyApprovedEffect(
     tx: Prisma.TransactionClient,
     approval: MandateApproval & {
-      mandate: Mandate & { property: { ownerId: string; title: string } };
+      mandate: Mandate & { property: { ownerId: string | null; title: string } };
     },
     avenant: { key: string; name: string } | undefined,
     decidedBy: string,
@@ -488,7 +488,7 @@ export class MandateApprovalService {
   /** Renders + uploads the rent-reduction amendment PDF (spec 03 US 10). */
   private async buildAvenant(
     approval: MandateApproval & {
-      mandate: Mandate & { property: { ownerId: string; title: string } };
+      mandate: Mandate & { property: { ownerId: string | null; title: string } };
     },
   ): Promise<{ key: string; name: string } | undefined> {
     const payload = (approval.payload ?? {}) as Record<string, unknown>;

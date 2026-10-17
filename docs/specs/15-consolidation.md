@@ -1,6 +1,6 @@
 # 15 — Consolidation : backlog canonique des specs
 
-> Cette page donne l'ordre de travail et un état synthétique des specs 01–14. Les exigences détaillées restent canoniques dans chaque spec source ; les preuves de préparation au lancement restent dans la spec 16.
+> Cette page donne l'ordre de travail et un état synthétique des specs 01–14 et 17. Les exigences détaillées restent canoniques dans chaque spec source ; les preuves de préparation au lancement restent dans la spec 16.
 > État documentaire consolidé le 2026-10-11 à partir des fichiers locaux. « Présent localement » ou « implémenté » ne signifie ni déployé ni vérifié manuellement.
 
 ## Ordre de traitement
@@ -14,7 +14,8 @@ Les dépendances ci-dessous sont des prérequis de sécurité et de données ; l
 | 2 | Exactitude et autorisation des paiements | 05.1–05.2 ; allocation/ledger 03.2–03.3 ; critères 16.3 | Montant et payeur décidés côté serveur, états et callbacks idempotents ; adaptateurs fournisseur validés selon la checklist manuelle 05. |
 | 3 | Cycle financier métier | 03.2–03.3, 04.2–04.3, 05.3–05.4, 07.1, 08.3–08.4, 09.3 | Allocations, remboursements, caution, frais et reversements réconciliés au ledger, avec autorisations testées. |
 | 4 | Compléter les parcours métier et leurs événements | 02.1–02.4, 03.1–03.5, 04.1–04.4, 06.3–06.5, 07.1–07.4, 08.1–08.4, 09.2–09.5, 10.1–10.5, 11.1–11.4, 12.1–12.4, 13.2–13.5 | API et états métier sont cohérents ; chaque événement attendu a son destinataire/handler documenté et ses tests ciblés. |
-| 5 | Interfaces et préparation au lancement | 08.5, 14.1–14.11 ; critères 16.2, 16.4–16.6 | Parcours mobiles clients et portail de gestion disponibles ; portes applicables de la spec 16 possèdent leurs preuves et responsables. |
+| 5 | Diffusion multicanale et interfaces partenaires | 17.1–17.5 | Accès partenaire isolé/révocable, projection publique versionnée, retraits synchronisés et leads attribuables avant activation ; décisions commerciales avant vente de l'offre. |
+| 6 | Interfaces et préparation au lancement | 08.5, 14.1–14.11 ; critères 16.2, 16.4–16.6 | Parcours mobiles clients et portail de gestion disponibles ; portes applicables de la spec 16 possèdent leurs preuves et responsables. |
 
 Les tâches de code actuellement suivies comme **isolation sécurité**, **flux financiers**, **workflows métier** et **parcours mobile** correspondent à cet ordre : sécurité précède les flux financiers ; ceux-ci précèdent les parcours métier qui en dépendent ; les interfaces réutilisent les contrats métier stabilisés. Aucun contrôle manuel de production, de banque, de bucket ou de store n'est remplacé par une ligne de ce backlog.
 
@@ -36,6 +37,7 @@ Les tâches de code actuellement suivies comme **isolation sécurité**, **flux 
 | [12 — Admin](12-admin-back-office.md) | 12.1–12.5 | Liste/détail de base et actions de suspension utilisateur, détail onboarding, confirmation de motif d'archivage, recherche des pages et centre personnel de notifications sont présents localement. Fiche 360°, organisations (contrat API/détail/actions), recherche d'entités, centre admin de notifications, finance, audit et RBAC complet restent incomplets ou à vérifier. **12.5** file de revue des mandats papier : API + écran `/admin/mandate-reviews` locaux. |
 | [13 — Recherche et annonces](13-recherche-annonces.md) | 13.1–13.5 | Filtres, visibilité publique, vues et signalements sont présents localement ; contrôle d'accès aux documents et signatures des URL couverts par les tests locaux, bucket et téléchargements à valider en préproduction. Carte, alertes, médias et fonctions avancées restent à faire. |
 | [14 — Mobile client](14-mobile-transverse.md) | 14.1–14.11 | SecureStore, consommation de `app/config` avec verrouillage sous `minVersion`, devices et plusieurs parcours clients sont présents localement ; politiques de boutique et validation sur appareils restent manuelles. Candidature locative, suivi achat classique, recherche paginée, cycle paiement/séjour, notifications cohérentes, maintenance/support et validation de bout en bout restent à faire. Les espaces Owner/Agent ne font pas partie du périmètre mobile client. |
+| [17 — Diffusion et partenaires](17-diffusion-multicanale-et-services-partenaires.md) | 17.1–17.5 | **À faire/décider.** Spécifie les canaux de diffusion par agence et par bien, une API partenaires isolée, les retraits/synchronisations, l'attribution des leads et une offre distincte de réalisation de sites/apps. |
 
 ## Décisions encore ouvertes
 
@@ -55,6 +57,6 @@ Ne pas inventer les choix commerciaux, juridiques ou financiers : garder ces poi
 
 - Chaque exigence détaillée a une seule définition dans le delta de sa spec source ; cette page ne réécrit pas ses critères fonctionnels.
 - Pour 01–05, les statuts sont une inspection du code local, pas une preuve de déploiement, de conformité métier complète ni de validation manuelle ; les écarts explicitement listés dans chaque delta restent ouverts.
-- Pour 01–14, réviser la ligne de synthèse dès qu'une livraison locale modifie un delta ; distinguer toujours « code présent », « tests automatisés » et « preuve manuelle/déploiement ».
+- Pour 01–14 et 17, réviser la ligne de synthèse dès qu'une livraison locale modifie un delta ; distinguer toujours « code présent », « tests automatisés » et « preuve manuelle/déploiement ».
 - Les vérifications manuelles restent documentées dans les checklists/portes de lancement ; ne pas exécuter de contrôle sur les systèmes de production depuis le travail local.
 - Chaque changement de code doit passer ses tests ciblés et validations applicables. Les migrations restent à appliquer par le responsable du déploiement, après sauvegarde et selon la spec 16.

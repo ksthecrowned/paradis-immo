@@ -459,10 +459,10 @@ export class LeasesService {
 
   private async assertCanManage(
     userId: string,
-    ownerId: string,
+    ownerId: string | null,
     propertyId: string,
   ): Promise<void> {
-    if (ownerId === userId) return;
+    if (ownerId && ownerId === userId) return;
     await this.agencyAccess.assertCanOperateOnProperty(userId, propertyId);
   }
 
@@ -703,7 +703,7 @@ export class LeasesService {
   private async resolveSigningParty(
     userId: string,
     lease: Pick<Lease, 'id' | 'tenantId' | 'propertyId'> & {
-      property: { ownerId: string; organizationId: string };
+      property: { ownerId: string | null; organizationId: string };
     },
   ): Promise<LeaseSignatureParty> {
     if (lease.tenantId === userId) return 'TENANT';
@@ -1323,7 +1323,7 @@ export class LeasesService {
         payload,
       });
     }
-    if (property && property.ownerId !== userId) {
+    if (property?.ownerId && property.ownerId !== userId) {
       await this.notifications.send({
         userId: property.ownerId,
         type: 'LEASE_RENEWED',

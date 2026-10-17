@@ -387,11 +387,13 @@ export class EnforcementService {
         payload,
       });
     }
-    await this.notifications.send({
-      userId: lease.property.ownerId,
-      type: 'FORMAL_NOTICE_SENT',
-      payload,
-    });
+    if (lease.property.ownerId) {
+      await this.notifications.send({
+        userId: lease.property.ownerId,
+        type: 'FORMAL_NOTICE_SENT',
+        payload,
+      });
+    }
 
     await this.events.emit(DOMAIN_EVENTS.FORMAL_NOTICE_SENT, {
       leaseId,

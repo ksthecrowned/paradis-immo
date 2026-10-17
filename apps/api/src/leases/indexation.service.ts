@@ -129,19 +129,21 @@ export class IndexationService {
         approvalId = approval.id;
       }
 
-      await this.notifications.send({
-        userId: lease.property.ownerId,
-        type: 'RENT_INDEXATION_PROPOSED',
-        payload: {
-          leaseId: lease.id,
-          propertyId: lease.propertyId,
-          previousMonthlyRent: lease.monthlyRent.toString(),
-          newMonthlyRent: newRent.toString(),
-          currency: lease.currency,
-          effectiveFrom: anniversary.toISOString(),
-          approvalId,
-        },
-      });
+      if (lease.property.ownerId) {
+        await this.notifications.send({
+          userId: lease.property.ownerId,
+          type: 'RENT_INDEXATION_PROPOSED',
+          payload: {
+            leaseId: lease.id,
+            propertyId: lease.propertyId,
+            previousMonthlyRent: lease.monthlyRent.toString(),
+            newMonthlyRent: newRent.toString(),
+            currency: lease.currency,
+            effectiveFrom: anniversary.toISOString(),
+            approvalId,
+          },
+        });
+      }
 
       await this.events.emit(DOMAIN_EVENTS.RENT_INDEXATION_PROPOSED, {
         leaseId: lease.id,

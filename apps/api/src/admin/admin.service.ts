@@ -95,12 +95,12 @@ export interface AdminModerationPropertyRow {
   title: string;
   mode: string;
   status: PropertyStatus;
-  ownerId: string;
+  ownerId: string | null;
   owner: {
     id: string;
     name: string | null;
     avatarUrl: string | null;
-  };
+  } | null;
 }
 
 export interface AdminReportRow {
@@ -128,7 +128,7 @@ export interface AdminReportDetail extends AdminReportRow {
       id: string;
       name: string | null;
       phone: string | null;
-    };
+    } | null;
   };
 }
 
@@ -499,10 +499,15 @@ export class AdminService {
       }),
       this.prisma.property.count(),
     ]);
+    const ownerIds = [
+      ...new Set(
+        properties
+          .map(({ ownerId }) => ownerId)
+          .filter((id): id is string => id != null),
+      ),
+    ];
     const owners = await this.prisma.user.findMany({
-      where: {
-        id: { in: [...new Set(properties.map(({ ownerId }) => ownerId))] },
-      },
+      where: { id: { in: ownerIds } },
       select: { id: true, name: true, avatarUrl: true },
     });
     const ownersById = new Map(owners.map((owner) => [owner.id, owner]));
@@ -510,11 +515,13 @@ export class AdminService {
     return {
       data: properties.map((property) => ({
         ...property,
-        owner: ownersById.get(property.ownerId) ?? {
-          id: property.ownerId,
-          name: null,
-          avatarUrl: null,
-        },
+        owner: property.ownerId
+          ? (ownersById.get(property.ownerId) ?? {
+              id: property.ownerId,
+              name: null,
+              avatarUrl: null,
+            })
+          : null,
       })),
       total,
     };
@@ -642,10 +649,12 @@ export class AdminService {
         message: `Report ${id} not found`,
       });
     }
-    const owner = await this.prisma.user.findUnique({
-      where: { id: row.property.ownerId },
-      select: { id: true, name: true, phone: true },
-    });
+    const owner = row.property.ownerId
+      ? await this.prisma.user.findUnique({
+          where: { id: row.property.ownerId },
+          select: { id: true, name: true, phone: true },
+        })
+      : null;
     return {
       ...this.toReportRow(row),
       property: {
@@ -655,11 +664,15 @@ export class AdminService {
         mode: row.property.mode,
         address: row.property.address,
         quartierName: row.property.quartier?.name ?? null,
-        owner: owner ?? {
-          id: row.property.ownerId,
-          name: null,
-          phone: null,
-        },
+        owner: owner
+          ? owner
+          : row.property.ownerId
+            ? {
+                id: row.property.ownerId,
+                name: null,
+                phone: null,
+              }
+            : null,
       },
     };
   }

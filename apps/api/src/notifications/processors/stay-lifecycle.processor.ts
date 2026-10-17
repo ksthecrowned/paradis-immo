@@ -143,7 +143,7 @@ export class StayLifecycleNotificationsProcessor {
         type: 'VISIT_COMPLETED',
         payload: { bookingId, slotId, propertyTitle: property?.title ?? null },
       }),
-      ...(property && property.ownerId !== userId
+      ...(property?.ownerId && property.ownerId !== userId
         ? [
             this.notifications.send({
               userId: property.ownerId,
@@ -170,7 +170,7 @@ export class StayLifecycleNotificationsProcessor {
       where: { id: propertyId },
       select: { ownerId: true, title: true },
     });
-    if (!property) return;
+    if (!property?.ownerId) return;
     await this.notifications.send({
       userId: property.ownerId,
       type: 'VISIT_NO_SHOW',
@@ -204,11 +204,15 @@ export class StayLifecycleNotificationsProcessor {
       propertyTitle: booking.property.title,
     };
     await Promise.all([
-      this.notifications.send({
-        userId: booking.property.ownerId,
-        type: 'VISIT_UNCONFIRMED',
-        payload,
-      }),
+      ...(booking.property.ownerId
+        ? [
+            this.notifications.send({
+              userId: booking.property.ownerId,
+              type: 'VISIT_UNCONFIRMED',
+              payload,
+            }),
+          ]
+        : []),
       ...(booking.agentId && booking.agentId !== booking.property.ownerId
         ? [
             this.notifications.send({
@@ -335,7 +339,7 @@ export class StayLifecycleNotificationsProcessor {
       where: { id: propertyId },
       select: { ownerId: true, title: true },
     });
-    if (!property) return;
+    if (!property?.ownerId) return;
     await this.notifications.send({
       userId: property.ownerId,
       type: 'MAINTENANCE_OPENED',

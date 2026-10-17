@@ -43,7 +43,7 @@ export class SaleInquiryNotificationProcessor {
         },
       }),
     ]);
-    if (!property) return;
+    if (!property?.ownerId) return;
 
     await this.notifications.send({
       userId: property.ownerId,

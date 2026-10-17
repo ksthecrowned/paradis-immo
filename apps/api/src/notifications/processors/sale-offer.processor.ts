@@ -47,6 +47,7 @@ export class SaleOfferNotificationProcessor {
     }
 
     if (offer.authorSide === 'BUYER') {
+      if (!offer.property.ownerId) return;
       await this.notifications.send({
         userId: offer.property.ownerId,
         type: 'SALE_OFFER_RECEIVED',
@@ -93,7 +94,7 @@ export class SaleOfferNotificationProcessor {
     });
     // Une acceptation notifie aussi le côté vente (les autres offres du
     // bien ont été rejetées automatiquement côté service).
-    if (decision === 'ACCEPTED') {
+    if (decision === 'ACCEPTED' && property.ownerId) {
       await this.notifications.send({
         userId: property.ownerId,
         type: 'SALE_OFFER_DECIDED',
@@ -117,7 +118,7 @@ export class SaleOfferNotificationProcessor {
       where: { id: propertyId ?? '' },
       select: { ownerId: true, title: true },
     });
-    if (!property) return;
+    if (!property?.ownerId) return;
     await this.notifications.send({
       userId: property.ownerId,
       type: 'SALE_OFFER_FORWARDED',

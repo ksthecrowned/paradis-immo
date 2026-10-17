@@ -125,7 +125,7 @@ function VisitsDayButton({
         'hover:bg-card-hover focus:outline-none focus:ring-2 focus:ring-accent/40',
         isOutside ? 'text-muted/40' : 'text-active',
         isToday ? 'ring-1 ring-accent/40' : '',
-        isSelected ? '!bg-accent-muted !text-accent font-semibold' : '',
+        isSelected ? 'bg-accent-muted! text-accent! font-semibold' : '',
         'disabled:pointer-events-none disabled:opacity-50',
       ].join(' ')}
     >
@@ -267,7 +267,7 @@ export function VisitsCalendar({
           >
             <Icon icon="solar:alt-arrow-left-linear" className="size-4" />
           </button>
-          <span className="min-w-[170px] text-center text-base font-semibold capitalize text-active">
+          <span className="min-w-42.5 text-center text-base font-semibold capitalize text-active">
             {MONTH_LABEL.format(month)}
           </span>
           <button

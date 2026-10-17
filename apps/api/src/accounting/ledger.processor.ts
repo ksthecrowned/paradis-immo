@@ -65,13 +65,15 @@ export class LedgerProcessor {
         },
       });
       if (entries === 0) continue;
+      const ownerId = mandate.property.ownerId;
+      if (!ownerId) continue;
       try {
         const statement = await this.accounting.generateStatement(
-          mandate.property.ownerId,
+          ownerId,
           { mandateId: mandate.id, periodStart, periodEnd },
         );
         await this.notifications.send({
-          userId: mandate.property.ownerId,
+          userId: ownerId,
           type: 'STATEMENT_READY',
           payload: {
             statementId: statement.id,

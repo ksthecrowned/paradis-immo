@@ -87,10 +87,12 @@ export class RentReceiptService {
       }
     }
 
-    const landlord = await this.prisma.user.findUnique({
-      where: { id: schedule.lease.property.ownerId },
-      select: { name: true, phone: true },
-    });
+    const landlord = schedule.lease.property.ownerId
+      ? await this.prisma.user.findUnique({
+          where: { id: schedule.lease.property.ownerId },
+          select: { name: true, phone: true },
+        })
+      : null;
 
     if (!receipt) {
       // Reserve the number and persist the row in one transaction so concurrent

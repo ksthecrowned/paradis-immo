@@ -47,6 +47,10 @@ Permettre à une agence de s'inscrire, d'être affiliée, de gérer son équipe 
   - Statuts de liaison (ou demande dédiée) : `UNLINKED` | `CLAIM_PENDING` | `LINKED` | `CLAIM_DECLINED` — ne jamais déduire `LINKED` du seul numéro saisi par l'agence.
   - Ajout d'un compte existant au CRM : résultat de recherche minimal (identité suffisante pour confirmation) ; **notification d'information** au compte ; aucun accès aux biens du compte ; ne vaut pas acceptation de mandat.
   - Rattachement contact → compte : correspondance exacte du numéro vérifié, OTP, confirmation explicite ; en cas de conflit/doublon/numéro inaccessible → parcours admin plateforme, pas de fusion automatique.
+  - **Procédure de rattachement** : après vérification OTP du numéro déjà enregistré sur la fiche externe, le propriétaire connecté voit le nom de l'agence et confirme explicitement le rattachement. Aucun bien, mandat ou document n'est exposé avant confirmation. Le refus laisse la fiche CRM et ses liens inchangés ; l'agence reçoit uniquement un état générique.
+  - Si le numéro de la fiche est différent, changé, inaccessible ou partagé, ne pas rapprocher par nom ou similarité. Ouvrir une demande de vérification assistée à la plateforme ; l'admin plateforme compare manuellement l'identité du compte avec les informations de la fiche et examine un justificatif d'identité obtenu par un canal privé contrôlé. Si les noms sont ambigus ou incohérents, demander une preuve complémentaire de continuité (par exemple contrôle de l'ancien numéro s'il redevient accessible ou justificatif de relation détenu par le propriétaire) ; une déclaration de l'agence seule ne suffit pas. Si la preuve est insuffisante ou contradictoire, refuser le rattachement et conserver les identités séparées. Limiter l'accès au justificatif aux réviseurs autorisés, tracer la consultation et ne conserver une copie que si une durée/finalité de conservation a été validée ; sinon conserver uniquement la décision et ses métadonnées.
+  - Après contrôle, rattacher atomiquement le même `AgencyClient` au compte confirmé, conserver l'historique CRM autorisé et les liens vers les biens/mandats ; ne pas écraser les informations vérifiées du compte avec les données de l'agence. Enregistrer demandeur, décideur, horodatages et base de la décision dans l'audit.
+  - Le rattachement rend au propriétaire visibles les biens/dossiers associés selon leurs autorisations, mais ne vaut ni preuve définitive de propriété, ni acceptation d'un mandat, ni activation de celui-ci. Une relation client peut exister avec plusieurs agences ; une fiche ou un compte ne peut pas être fusionné ou déplacé entre agences sans procédure auditée.
 - **Avis**
   - Note de 1 à 5 et commentaire de 20 à 1 000 caractères.
   - Un avis par interaction éligible (`sourceType` + `sourceId` uniques).
@@ -161,6 +165,7 @@ model OrganizationReview {
 - Un AGENT reçoit 403 sur création/édition/archivage CRM ; un membre d'une autre agence ne lit ni ne mute les clients CRM.
 - Créer un contact externe ne crée aucun `User` ; lier un compte existant envoie une notification d'information et n'accorde aucun droit sur les biens du compte.
 - Le rattachement contact→compte exige confirmation explicite après OTP ; un refus laisse la fiche CRM inchangée côté fusion.
+- Un numéro différent ou inaccessible ne déclenche aucune fusion automatique ; le rattachement assisté est décidé par la plateforme, audité et refusé si les éléments ne suffisent pas.
 
 ## Priorité
 - **P0** : création d'agence et invitations (en remplacement de l'affiliation automatique).

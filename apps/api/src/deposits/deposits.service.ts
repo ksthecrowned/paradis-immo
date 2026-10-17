@@ -600,7 +600,7 @@ export class DepositsService {
 
   private async requireLease(leaseId: string): Promise<
     Lease & {
-      property: { organizationId: string; ownerId: string; title: string };
+      property: { organizationId: string; ownerId: string | null; title: string };
     }
   > {
     const lease = await this.prisma.lease.findUnique({

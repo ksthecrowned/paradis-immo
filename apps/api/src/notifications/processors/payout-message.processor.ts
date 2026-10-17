@@ -155,7 +155,7 @@ export class PayoutMessagingNotificationsProcessor {
       where: { id: propertyId },
       select: { ownerId: true },
     });
-    if (!property) return;
+    if (!property?.ownerId) return;
     await this.notifications.send({
       userId: property.ownerId,
       type: 'MANDATE_PROPOSED',

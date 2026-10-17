@@ -96,7 +96,7 @@ export class MandateRenewalProcessor {
         select: { userId: true },
       });
       const recipients = [
-        mandate.property.ownerId,
+        ...(mandate.property.ownerId ? [mandate.property.ownerId] : []),
         ...gerants.map((g) => g.userId),
       ];
       for (const userId of recipients) {

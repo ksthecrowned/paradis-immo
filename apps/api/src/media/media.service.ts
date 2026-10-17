@@ -212,7 +212,7 @@ export class MediaService {
   private async assertCanWrite(
     userId: string,
     propertyId: string,
-  ): Promise<{ id: string; ownerId: string; organizationId: string }> {
+  ): Promise<{ id: string; ownerId: string | null; organizationId: string }> {
     const property = await this.prisma.property.findUnique({
       where: { id: propertyId },
       select: { id: true, ownerId: true, organizationId: true },

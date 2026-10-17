@@ -25,6 +25,7 @@ Pour la carte des applications et des modules, voir [l'architecture générale](
 | 14 | [14-mobile-transverse.md](14-mobile-transverse.md) | Parcours mobiles clients, stockage sécurisé, deep links, offline et suivi des dossiers |
 | 15 | [15-consolidation.md](15-consolidation.md) | Index des chantiers transverses restants, référencés dans les deltas canoniques |
 | 16 | [16-preparation-lancement-et-exigences-transverses.md](16-preparation-lancement-et-exigences-transverses.md) | Isolation multi-agences, parcours mobiles, validations financières, exploitation et porte de lancement |
+| 17 | [17-diffusion-multicanale-et-services-partenaires.md](17-diffusion-multicanale-et-services-partenaires.md) | Diffusion par canaux, API partenaires, attribution des leads et services de sites/apps personnalisés |
 
 ## Conventions
 

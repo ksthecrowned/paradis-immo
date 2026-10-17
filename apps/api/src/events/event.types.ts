@@ -169,12 +169,12 @@ export type EventPayloadOf<E extends DomainEventName> = E extends
                 amount: string;
                 currency: string;
               }
-            : E extends typeof DOMAIN_EVENTS.FORMAL_NOTICE_SENT
+              : E extends typeof DOMAIN_EVENTS.FORMAL_NOTICE_SENT
               ? {
                   leaseId: string;
                   tenantId: string | null;
                   propertyId: string;
-                  ownerId: string;
+                  ownerId: string | null;
                   documentId: string;
                   totalDue: string;
                   currency: string;
@@ -223,7 +223,7 @@ export type EventPayloadOf<E extends DomainEventName> = E extends
                         ? {
                             leaseId: string;
                             propertyId: string;
-                            ownerId: string;
+                            ownerId: string | null;
                             anniversary: string;
                             previousMonthlyRent: string;
                             newMonthlyRent: string;
@@ -442,7 +442,7 @@ export type EventPayloadOf<E extends DomainEventName> = E extends
                                                                                 | string
                                                                                 | null;
                                                                               refundDeadline: string;
-                                                                              ownerId: string;
+                                                                              ownerId: string | null;
                                                                             }
                                                                           : E extends
                                                                                 | typeof DOMAIN_EVENTS.PAYMENT_FAILED

@@ -63,13 +63,17 @@ export class MandateActionProcessor {
       this.logger.warn(`Mandate ${mandateId} not found for notification`);
       return { sent: false, reason: 'MANDATE_NOT_FOUND' };
     }
+    const ownerId = mandate.property.ownerId;
+    if (!ownerId) {
+      return { sent: false, reason: 'OWNER_WITHOUT_ACCOUNT' };
+    }
     const result = await this.notifications.send({
-      userId: mandate.property.ownerId,
+      userId: ownerId,
       type: 'MANDATE_ACTION_PENDING',
       payload: { approvalId, mandateId, actionType },
     });
     this.logger.log(
-      `Notified owner ${mandate.property.ownerId} of pending approval ${approvalId} (${actionType})`,
+      `Notified owner ${ownerId} of pending approval ${approvalId} (${actionType})`,
     );
     return { sent: result.status === 'SENT' };
   }
