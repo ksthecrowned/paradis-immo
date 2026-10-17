@@ -206,7 +206,9 @@ export default function NewMaintenanceScreen(): React.JSX.Element {
                 accessibilityRole="button"
                 accessibilityState={{ selected: active }}
               >
-                <Text style={[styles.chipText, active && styles.chipTextActive]}>
+                <Text
+                  style={[styles.chipText, active && styles.chipTextActive]}
+                >
                   {item.label}
                 </Text>
               </Pressable>

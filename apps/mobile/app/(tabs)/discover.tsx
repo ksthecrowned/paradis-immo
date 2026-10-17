@@ -2,34 +2,28 @@ import PropertyCard from '@/components/property/card';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { APP_MAP_USER_INTERFACE_STYLE } from '@/constants/maps';
 import { colors, radii, spacing } from '@/constants/theme';
-import {
-  getFallbackCoords,
-  useUserLocation,
-} from '@/context/LocationContext';
-import { fetchCatalogProperties } from '@/lib/catalog';
-import { getCityByName, propertyMatchesCity } from '@/lib/cities';
+import { getFallbackCoords, useUserLocation } from '@/context/LocationContext';
+import { fetchCatalogPropertiesPage } from '@/lib/catalog';
+import { getCityByName } from '@/lib/cities';
 import { getErrorMessage } from '@/lib/feedback';
+import { viewportToPropertyFilters } from '@/lib/map-viewport';
 import { POINTE_NOIRE_REGION } from '@/lib/map-regions';
-import {
-  passesAvailableOnlyFilter,
-  type Property,
-} from '@/types/property';
+import type { Property } from '@/types/property';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import MapView, { Marker, type Region } from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+const PAGE_SIZE = 20;
 
 export default function DiscoverScreen(): React.JSX.Element {
   const insets = useSafeAreaInsets();
   const { coords } = useUserLocation();
-  const { city: cityParam } = useLocalSearchParams<{ city?: string | string[] }>();
+  const { city: cityParam } = useLocalSearchParams<{
+    city?: string | string[];
+  }>();
   const cityFilter =
     typeof cityParam === 'string'
       ? cityParam
@@ -40,50 +34,11 @@ export default function DiscoverScreen(): React.JSX.Element {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [sheetHeight, setSheetHeight] = useState(180);
   const [properties, setProperties] = useState<Property[]>([]);
+  const [total, setTotal] = useState(0);
+  const [unmapped, setUnmapped] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
-
-  const loadProperties = useCallback(
-    async (isActive: () => boolean = () => true): Promise<void> => {
-      if (isActive()) {
-        setLoading(true);
-        setLoadError(null);
-      }
-      try {
-        const rows = await fetchCatalogProperties({ limit: 50 });
-        if (isActive()) setProperties(rows);
-      } catch (err) {
-        if (isActive()) {
-          setLoadError(getErrorMessage(err, 'Impossible de charger la carte'));
-        }
-      } finally {
-        if (isActive()) setLoading(false);
-      }
-    },
-    [],
-  );
-
-  useFocusEffect(
-    useCallback(() => {
-      let active = true;
-      void loadProperties(() => active);
-      return () => {
-        active = false;
-      };
-    }, [loadProperties]),
-  );
-
-  const visibleProperties = useMemo(() => {
-    const available = properties.filter(passesAvailableOnlyFilter);
-    if (!cityFilter) return available;
-    return available.filter((p) => propertyMatchesCity(p.location, cityFilter));
-  }, [properties, cityFilter]);
-
-  const selected = useMemo(
-    () => visibleProperties.find((p) => p.id === selectedId) ?? null,
-    [visibleProperties, selectedId],
-  );
-
   const userRegion = useMemo((): Region => {
     const point = coords ?? getFallbackCoords();
     return {
@@ -99,29 +54,120 @@ export default function DiscoverScreen(): React.JSX.Element {
     return getCityByName(cityFilter)?.region ?? null;
   }, [cityFilter]);
 
-  useEffect(() => {
-    if (loading) return;
-    if (cityRegion) {
-      mapRef.current?.animateToRegion(cityRegion, 400);
-      return;
-    }
-    if (visibleProperties.length > 0) {
-      const first = visibleProperties[0]!;
-      mapRef.current?.animateToRegion(
-        {
-          latitude: first.lat,
-          longitude: first.lng,
-          latitudeDelta: 0.08,
-          longitudeDelta: 0.08,
-        },
-        350,
-      );
-    }
-  }, [loading, cityRegion, cityFilter, visibleProperties]);
+  const initialRegion =
+    cityRegion ?? (coords ? userRegion : POINTE_NOIRE_REGION);
+  const currentRegionRef = useRef<Region>(initialRegion);
+  const requestIdRef = useRef(0);
+  const regionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const failedRequestRef = useRef<{
+    region: Region;
+    offset: number;
+    append: boolean;
+  } | null>(null);
+
+  const loadProperties = useCallback(
+    async (
+      region: Region,
+      offset = 0,
+      append = false,
+      isActive: () => boolean = () => true,
+    ): Promise<void> => {
+      const requestId = ++requestIdRef.current;
+      if (append) setLoadingMore(true);
+      else setLoading(true);
+      setLoadError(null);
+      failedRequestRef.current = null;
+      try {
+        const page = await fetchCatalogPropertiesPage({
+          ...viewportToPropertyFilters(region, cityFilter),
+          availableOnly: true,
+          limit: PAGE_SIZE,
+          offset,
+        });
+        if (!isActive() || requestId !== requestIdRef.current) return;
+        setProperties((current) => {
+          if (!append) return page.data;
+          const existing = new Set(current.map((property) => property.id));
+          return [
+            ...current,
+            ...page.data.filter((property) => !existing.has(property.id)),
+          ];
+        });
+        setTotal(page.total);
+        setUnmapped(page.unmapped ?? 0);
+      } catch (err) {
+        if (isActive() && requestId === requestIdRef.current) {
+          failedRequestRef.current = { region, offset, append };
+          setLoadError(getErrorMessage(err, 'Impossible de charger la carte'));
+        }
+      } finally {
+        if (isActive() && requestId === requestIdRef.current) {
+          setLoading(false);
+          setLoadingMore(false);
+        }
+      }
+    },
+    [cityFilter],
+  );
+
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      void loadProperties(currentRegionRef.current, 0, false, () => active);
+      return () => {
+        active = false;
+        requestIdRef.current += 1;
+        if (regionTimerRef.current) clearTimeout(regionTimerRef.current);
+      };
+    }, [loadProperties]),
+  );
 
   useEffect(() => {
     setSelectedId(null);
   }, [cityFilter]);
+
+  useEffect(() => {
+    if (cityRegion) mapRef.current?.animateToRegion(cityRegion, 400);
+  }, [cityRegion]);
+
+  const visibleProperties = properties;
+  const selected = useMemo(
+    () => visibleProperties.find((p) => p.id === selectedId) ?? null,
+    [visibleProperties, selectedId],
+  );
+
+  const onRegionChangeComplete = useCallback(
+    (region: Region): void => {
+      currentRegionRef.current = region;
+      if (regionTimerRef.current) clearTimeout(regionTimerRef.current);
+      requestIdRef.current += 1;
+      setProperties([]);
+      setTotal(0);
+      setUnmapped(0);
+      setSelectedId(null);
+      setLoading(true);
+      setLoadingMore(false);
+      setLoadError(null);
+      regionTimerRef.current = setTimeout(() => {
+        void loadProperties(region);
+      }, 350);
+    },
+    [loadProperties],
+  );
+
+  const loadMore = useCallback((): void => {
+    if (loading || loadingMore || properties.length >= total) return;
+    void loadProperties(currentRegionRef.current, properties.length, true);
+  }, [loadProperties, loading, loadingMore, properties.length, total]);
+
+  const retry = useCallback((): void => {
+    const failed = failedRequestRef.current;
+    void loadProperties(
+      failed?.region ?? currentRegionRef.current,
+      failed?.offset ?? 0,
+      failed?.append ?? false,
+    );
+  }, [loadProperties]);
 
   const focusProperty = useCallback((property: Property) => {
     setSelectedId(property.id);
@@ -152,18 +198,18 @@ export default function DiscoverScreen(): React.JSX.Element {
     mapRef.current?.animateToRegion(userRegion, 350);
   }, [cityRegion, userRegion]);
 
-  const chipLabel = loading
-    ? 'Chargement…'
-    : cityFilter
-      ? `${visibleProperties.length} bien${visibleProperties.length > 1 ? 's' : ''} · ${cityFilter}`
-      : `${visibleProperties.length} biens disponibles`;
+  const chipLabel =
+    loading && properties.length === 0
+      ? 'Recherche dans la zone…'
+      : `${visibleProperties.length} affiché${visibleProperties.length === 1 ? '' : 's'} / ${total} · ${cityFilter ?? 'cette zone'}`;
 
   return (
     <View style={styles.root}>
       <MapView
         ref={mapRef}
         style={StyleSheet.absoluteFill}
-        initialRegion={cityRegion ?? (coords ? userRegion : POINTE_NOIRE_REGION)}
+        initialRegion={initialRegion}
+        onRegionChangeComplete={onRegionChangeComplete}
         userInterfaceStyle={APP_MAP_USER_INTERFACE_STYLE}
         showsUserLocation
         showsMyLocationButton={false}
@@ -218,12 +264,27 @@ export default function DiscoverScreen(): React.JSX.Element {
               <Text style={styles.clearChipText}>Tout</Text>
             </Pressable>
           ) : null}
+          {total > properties.length || loadingMore ? (
+            <Pressable
+              style={styles.clearChip}
+              onPress={loadMore}
+              disabled={loadingMore || loading}
+              accessibilityRole="button"
+              accessibilityLabel="Charger plus de biens sur la carte"
+            >
+              <Text style={styles.clearChipText}>
+                {loadingMore
+                  ? 'Chargement…'
+                  : `Afficher plus (${total - properties.length})`}
+              </Text>
+            </Pressable>
+          ) : null}
         </View>
         {loadError ? (
           <View style={styles.errorBanner}>
             <Text style={styles.errorText}>{loadError}</Text>
             <Pressable
-              onPress={() => void loadProperties()}
+              onPress={retry}
               disabled={loading}
               accessibilityRole="button"
               accessibilityLabel="Réessayer de charger la carte"
@@ -232,6 +293,14 @@ export default function DiscoverScreen(): React.JSX.Element {
                 {loading ? 'Chargement…' : 'Réessayer'}
               </Text>
             </Pressable>
+          </View>
+        ) : null}
+        {unmapped > 0 ? (
+          <View style={styles.unmappedBanner}>
+            <Text style={styles.unmappedText}>
+              {unmapped} annonce{unmapped === 1 ? '' : 's'} sans coordonnées
+              n’apparaît{unmapped === 1 ? '' : 'ssent'} pas sur la carte.
+            </Text>
           </View>
         ) : null}
       </View>
@@ -273,19 +342,15 @@ export default function DiscoverScreen(): React.JSX.Element {
         </BottomSheet>
       )}
 
-      {!loading &&
-      !loadError &&
-      cityFilter &&
-      visibleProperties.length === 0 ? (
+      {!loading && !loadError && visibleProperties.length === 0 ? (
         <View
-          style={[
-            styles.emptyBanner,
-            { bottom: insets.bottom + spacing.lg },
-          ]}
+          style={[styles.emptyBanner, { bottom: insets.bottom + spacing.lg }]}
         >
-          <Text style={styles.emptyTitle}>Aucun bien disponible</Text>
+          <Text style={styles.emptyTitle}>Aucun bien géolocalisé</Text>
           <Text style={styles.emptySubtitle}>
-            Pas d’annonce disponible pour {cityFilter} pour le moment.
+            {unmapped > 0
+              ? `${unmapped} annonce${unmapped === 1 ? '' : 's'} ne possède${unmapped === 1 ? '' : 'nt'} pas de coordonnées. Déplacez ou élargissez la carte pour chercher ailleurs.`
+              : `Aucune annonce disponible dans ${cityFilter ?? 'cette zone'} pour le moment. Déplacez ou élargissez la carte.`}
           </Text>
         </View>
       ) : null}
@@ -335,6 +400,15 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '800',
     color: colors.primary,
+  },
+  unmappedBanner: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+  },
+  unmappedText: {
+    color: colors.muted,
+    fontSize: 11,
+    fontWeight: '600',
   },
   topChip: {
     alignSelf: 'flex-start',

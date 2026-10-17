@@ -188,8 +188,8 @@ enum NotificationChannel { PUSH WHATSAPP SMS EMAIL IN_APP }
 | GET | `notifications/unread-count` | auth | |
 | POST | `notifications/:id/read` | auth | Existant ou à confirmer |
 | POST | `notifications/read-all` | auth | |
-| GET | `users/me/notification-preferences` | auth | |
-| PUT | `users/me/notification-preferences` | auth | `[{ category, push, whatsapp, sms, email }]`, plus heures calmes et digest |
+| GET | `users/me/notification-preferences` | auth | Retourne les préférences push pour chaque catégorie |
+| PUT | `users/me/notification-preferences` | auth | Corps actuel : `{ preferences: [{ category, push }] }`. Les autres canaux, heures calmes et digest restent à implémenter |
 | GET | `admin/notification-templates` | admin | |
 | PUT | `admin/notification-templates/:id` | admin | Avec aperçu `POST …/preview` |
 | GET | `admin/notifications/stats` | admin | Envoyées, échouées et lues, par type et par canal, sur 7 et 30 jours |
@@ -228,6 +228,6 @@ enum NotificationChannel { PUSH WHATSAPP SMS EMAIL IN_APP }
 | ID | Priorité | Delta | État |
 |---|---|---|---|
 | 11.1 | P0 | Contrôler les états d'échec et la couverture des handlers/templates obligatoires. | **Partiel.** Le cycle d'échec est fiable : échec fournisseur → `QUEUED` + `retryAfter` (backoff 1 min puis 5 min), 3ᵉ tentative échouée → `FAILED` définitif avec `attempts`/`lastError` (cron de relance à la minute ; migrations `20261017150000_notification_retry` et `20261017153000_notification_queued_status` appliquées sur la base locale comme la tienne, à déployer par procédure sur les autres environnements). Handlers critiques ajoutés : `DISPUTE_OPENED` (gérance de l'org du bien), `REFUND_DONE` (payeur), `APPROVAL_DECIDED` (demandeur), `MANDATE_ACCEPTED/DECLINED/TERMINATED` (gérance + propriétaire), avec templates FR et titres push. Matrice STAY/BOOKING/AMENDMENT/LEASE_RENEWED/MESSAGE_REPORTED documentée (seul `BOOKING_HELD` a un `@OnEvent` parmi les séjours) ; garde-fou `domain-events-coverage.spec.ts` + allowlist `domain-events-unhandled.registry.ts`. Reste à implémenter les processors manquants et les statistiques admin (relance admin : voir 11.3). |
-| 11.2 | P1 | Ajouter préférences par catégorie/canal, pagination et deep links dans les centres mobile/web. | À faire |
+| 11.2 | P1 | Ajouter préférences par catégorie/canal, pagination et deep links dans les centres mobile/web. | Partiel : préférences push par catégorie persistées et appliquées aux envois push non critiques ; les canaux WhatsApp/SMS/e-mail, pagination et deep links des centres restent à faire |
 | 11.3 | P1 | Ajouter file/retry et outils de relance des notifications échouées. | **Partiel.** Relance automatique active côté API (3 essais max, conformément au critère « la 3ᵉ tentative échouée laisse FAILED » ; les échecs structurels `NO_PHONE` / `NO_DEVICE_TOKEN` échouent d'emblée sans relance). Endpoints admin `GET admin/notifications/failed` et `POST admin/notifications/:id/retry` ajoutés (permissions `notifications.read` / `notifications.retry`, audit sur relance) avec écran web `/admin/notifications` (file d'échecs). Restent à faire : templates éditables et statistiques d'envoi. **Inventaire UI** : [fait](../qa/notifications-queued-failed-ui-inventory.md). |
 | 11.4 | P2 | Ajouter heures calmes, digest, push actionnables, édition des templates et statistiques admin. | À faire |

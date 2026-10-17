@@ -7,17 +7,24 @@ import {
   Param,
   Patch,
   Post,
+  Put,
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
+  ArrayMinSize,
+  IsArray,
+  IsBoolean,
   IsEnum,
   IsOptional,
   IsString,
   Length,
   MaxLength,
+  ValidateNested,
 } from 'class-validator';
+import { NotificationCategory } from '@prisma/client';
 import { AppAuthGuard } from '../common/guards/auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../common/decorators/current-user.decorator';
@@ -45,6 +52,23 @@ class RegisterDeviceDto {
   @IsString()
   @MaxLength(16)
   locale?: string;
+}
+
+class PushNotificationPreferenceDto {
+  @IsEnum(NotificationCategory)
+  category!: NotificationCategory;
+
+  @IsBoolean()
+  push!: boolean;
+}
+
+class UpdatePushNotificationPreferencesDto {
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(10)
+  @ValidateNested({ each: true })
+  @Type(() => PushNotificationPreferenceDto)
+  preferences!: PushNotificationPreferenceDto[];
 }
 
 @ApiTags('Notifications')
@@ -114,6 +138,28 @@ export class NotificationsController {
 @UseGuards(AppAuthGuard)
 export class UserDevicesController {
   constructor(private readonly notifications: NotificationsService) {}
+
+  @Get('notification-preferences')
+  @ApiOperation({
+    summary: 'Get push preferences by notification category',
+  })
+  getNotificationPreferences(@CurrentUser() current: AuthenticatedUser) {
+    return this.notifications.getPushPreferences(current.userId);
+  }
+
+  @Put('notification-preferences')
+  @ApiOperation({
+    summary: 'Update push preferences by notification category',
+  })
+  updateNotificationPreferences(
+    @CurrentUser() current: AuthenticatedUser,
+    @Body() dto: UpdatePushNotificationPreferencesDto,
+  ) {
+    return this.notifications.updatePushPreferences(
+      current.userId,
+      dto.preferences,
+    );
+  }
 
   @Post('devices')
   @HttpCode(201)

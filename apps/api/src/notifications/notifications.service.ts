@@ -7,6 +7,7 @@ import {
 import { Cron, CronExpression } from '@nestjs/schedule';
 import {
   Notification,
+  NotificationCategory,
   NotificationChannel,
   NotificationStatus,
   Prisma,
@@ -14,6 +15,10 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { InfobipService } from './infobip.service';
 import { FcmService } from './fcm.service';
+import {
+  isPushPreferenceAllowed,
+  notificationCategoryForType,
+} from './notification-preferences';
 
 /** Spec 11 P0 — 3 tentatives d'envoi avec backoff avant un FAILED définitif. */
 const MAX_SEND_ATTEMPTS = 3;
@@ -28,6 +33,11 @@ function maskPhone(phone: string | null | undefined): string | null {
   if (!phone) return null;
   if (phone.length <= 6) return '****';
   return `${phone.slice(0, 4)}***${phone.slice(-3)}`;
+}
+
+export interface PublicPushNotificationPreference {
+  category: NotificationCategory;
+  push: boolean;
 }
 
 export interface PublicNotification {
@@ -121,6 +131,43 @@ export class NotificationsService {
     private readonly fcm: FcmService,
   ) {}
 
+  async getPushPreferences(
+    userId: string,
+  ): Promise<PublicPushNotificationPreference[]> {
+    const rows = await this.prisma.notificationPreference.findMany({
+      where: { userId },
+      select: { category: true, push: true },
+    });
+    const values = new Map(rows.map((row) => [row.category, row.push]));
+    return Object.values(NotificationCategory).map((category) => ({
+      category,
+      push: values.get(category) ?? true,
+    }));
+  }
+
+  async updatePushPreferences(
+    userId: string,
+    preferences: PublicPushNotificationPreference[],
+  ): Promise<PublicPushNotificationPreference[]> {
+    const categories = preferences.map(({ category }) => category);
+    if (new Set(categories).size !== categories.length) {
+      throw new BadRequestException({
+        code: 'DUPLICATE_NOTIFICATION_CATEGORY',
+        message: 'Each notification category can be provided only once',
+      });
+    }
+    await this.prisma.$transaction(
+      preferences.map(({ category, push }) =>
+        this.prisma.notificationPreference.upsert({
+          where: { userId_category: { userId, category } },
+          create: { userId, category, push },
+          update: { push },
+        }),
+      ),
+    );
+    return this.getPushPreferences(userId);
+  }
+
   async send(input: SendInput): Promise<PublicNotification> {
     const user = await this.prisma.user.findUnique({
       where: { id: input.userId },
@@ -153,11 +200,21 @@ export class NotificationsService {
       (user.notificationChannel === NotificationChannel.PUSH && tokens.size > 0
         ? NotificationChannel.PUSH
         : NotificationChannel.WHATSAPP);
-    const requested =
+    let requested =
       requestedChannel === NotificationChannel.PUSH &&
       user.notificationChannel !== NotificationChannel.PUSH
         ? NotificationChannel.WHATSAPP
         : requestedChannel;
+    if (
+      requested === NotificationChannel.PUSH &&
+      !(await this.isPushEnabledForType(
+        input.userId,
+        input.type,
+        input.payload,
+      ))
+    ) {
+      requested = NotificationChannel.WHATSAPP;
+    }
     // WhatsApp is the default channel — an SMS preference is delivered
     // as a WhatsApp message too (no SMS anywhere, spec: WhatsApp only).
     const channel =
@@ -193,6 +250,20 @@ export class NotificationsService {
       if (device.fcmToken) tokens.add(device.fcmToken);
     }
     return tokens;
+  }
+
+  private async isPushEnabledForType(
+    userId: string,
+    type: string,
+    payload: Record<string, unknown>,
+  ): Promise<boolean> {
+    const category = notificationCategoryForType(type);
+    if (!category) return true;
+    const preference = await this.prisma.notificationPreference.findUnique({
+      where: { userId_category: { userId, category } },
+      select: { push: true },
+    });
+    return isPushPreferenceAllowed(type, payload, preference?.push ?? true);
   }
 
   /** One delivery attempt against the resolved channel (shared send/retry). */
@@ -335,10 +406,20 @@ export class NotificationsService {
       return;
     }
     const tokens = await this.resolvePushTokens(row.userId, user.fcmToken);
-    const requested =
+    let requested =
       user.notificationChannel === NotificationChannel.PUSH && tokens.size > 0
         ? NotificationChannel.PUSH
         : NotificationChannel.WHATSAPP;
+    if (
+      requested === NotificationChannel.PUSH &&
+      !(await this.isPushEnabledForType(
+        row.userId,
+        row.type,
+        (row.payload as Record<string, unknown>) ?? {},
+      ))
+    ) {
+      requested = NotificationChannel.WHATSAPP;
+    }
     await this.deliverAndRecord(
       row,
       {

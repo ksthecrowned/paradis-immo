@@ -29,6 +29,7 @@ import { FilterPropertiesDto } from './dto/filter-properties.dto';
 import { OrganizationsService } from '../organizations/organizations.service';
 import { AgencyAccessService } from '../mandates/agency-access.service';
 import { UsersService } from '../users/users.service';
+import { mapBoundsWhere } from './map-bounds';
 import {
   assertListingStatusForMode,
   coerceListingStatusForWrite,
@@ -158,7 +159,7 @@ export interface PublicProperty {
 
 export interface PaginatedProperties {
   data: PublicProperty[];
-  meta: { total: number; limit: number; offset: number };
+  meta: { total: number; limit: number; offset: number; unmapped?: number };
 }
 
 @Injectable()
@@ -206,9 +207,7 @@ export class PropertiesService {
     const shortStayFields = assertShortStayFields(dto);
 
     const onBehalf = await this.resolveOnBehalfOwner(userId, dto);
-    const effectiveOwnerId = onBehalf
-      ? onBehalf.ownerId
-      : userId;
+    const effectiveOwnerId = onBehalf ? onBehalf.ownerId : userId;
 
     // Self-create / linked owner → personal OWNER org.
     // External CRM contact (no User) → listing lives on the agency org.
@@ -328,8 +327,30 @@ export class PropertiesService {
       .filter((value): value is PropertyType =>
         Object.values(PropertyType).includes(value as PropertyType),
       );
+    const quartierLocationWhere: Prisma.QuartierWhereInput = {
+      ...(filter.arrondissementId
+        ? { arrondissementId: filter.arrondissementId }
+        : {}),
+      ...(filter.cityId || filter.cityName
+        ? {
+            arrondissement: {
+              city: {
+                ...(filter.cityId ? { id: filter.cityId } : {}),
+                ...(filter.cityName
+                  ? {
+                      name: {
+                        equals: filter.cityName,
+                        mode: 'insensitive' as const,
+                      },
+                    }
+                  : {}),
+              },
+            },
+          }
+        : {}),
+    };
 
-    const where: Prisma.PropertyWhereInput = {
+    const baseWhere: Prisma.PropertyWhereInput = {
       ...(query
         ? {
             OR: [
@@ -358,21 +379,23 @@ export class PropertiesService {
       ...(filter.mode === PropertyMode.RENT_LONG || !filter.mode
         ? {
             listingStatus: {
-              notIn: filter.availableOnly === 'true'
-                ? [
-                    ListingStatus.OCCUPIED,
-                    ListingStatus.SOLD,
-                    ListingStatus.UNDER_OFFER,
-                  ]
-                : [ListingStatus.OCCUPIED, ListingStatus.SOLD],
+              notIn:
+                filter.availableOnly === 'true'
+                  ? [
+                      ListingStatus.OCCUPIED,
+                      ListingStatus.SOLD,
+                      ListingStatus.UNDER_OFFER,
+                    ]
+                  : [ListingStatus.OCCUPIED, ListingStatus.SOLD],
             },
           }
         : filter.mode === PropertyMode.SALE
           ? {
               listingStatus: {
-                notIn: filter.availableOnly === 'true'
-                  ? [ListingStatus.SOLD, ListingStatus.UNDER_OFFER]
-                  : [ListingStatus.SOLD],
+                notIn:
+                  filter.availableOnly === 'true'
+                    ? [ListingStatus.SOLD, ListingStatus.UNDER_OFFER]
+                    : [ListingStatus.SOLD],
               },
             }
           : filter.availableOnly === 'true'
@@ -387,11 +410,8 @@ export class PropertiesService {
               }
             : {}),
       ...(filter.quartierId ? { quartierId: filter.quartierId } : {}),
-      ...(filter.arrondissementId
-        ? { quartier: { arrondissementId: filter.arrondissementId } }
-        : {}),
-      ...(filter.cityId
-        ? { quartier: { arrondissement: { cityId: filter.cityId } } }
+      ...(Object.keys(quartierLocationWhere).length > 0
+        ? { quartier: quartierLocationWhere }
         : {}),
       ...(filter.countryCode
         ? { country: { code: filter.countryCode.toUpperCase() } }
@@ -455,6 +475,13 @@ export class PropertiesService {
           }
         : {}),
     };
+    const boundsWhere = mapBoundsWhere(filter);
+    const where: Prisma.PropertyWhereInput = { ...baseWhere, ...boundsWhere };
+    const hasMapBounds =
+      filter.minLat !== undefined ||
+      filter.maxLat !== undefined ||
+      filter.minLng !== undefined ||
+      filter.maxLng !== undefined;
 
     // Tri (13 P1) : défaut createdAt desc.
     const sort = filter.sort;
@@ -467,7 +494,7 @@ export class PropertiesService {
             ? [{ surface: 'desc' }]
             : [{ createdAt: 'desc' }];
 
-    const [rows, total] = await Promise.all([
+    const [rows, total, unmapped] = await Promise.all([
       this.prisma.property.findMany({
         where,
         include: this.publicInclude(),
@@ -476,11 +503,23 @@ export class PropertiesService {
         skip: offset,
       }),
       this.prisma.property.count({ where }),
+      hasMapBounds
+        ? this.prisma.property.count({
+            where: {
+              AND: [baseWhere, { OR: [{ lat: null }, { lng: null }] }],
+            },
+          })
+        : Promise.resolve(null),
     ]);
 
     return {
       data: rows.map((p) => this.toPublic(p)),
-      meta: { total, limit, offset },
+      meta: {
+        total,
+        limit,
+        offset,
+        ...(unmapped !== null ? { unmapped } : {}),
+      },
     };
   }
 

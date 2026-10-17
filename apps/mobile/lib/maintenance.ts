@@ -30,6 +30,7 @@ export type PublicMaintenanceTicket = {
 };
 
 export type PublicMaintenanceTicketDetail = PublicMaintenanceTicket & {
+  property: { title: string };
   history: Array<{ from: string; to: string; createdAt: string }>;
   comments: Array<{
     id: string;

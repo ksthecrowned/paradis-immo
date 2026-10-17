@@ -324,6 +324,102 @@ describe('Spec 03 — comptabilité : grand livre, dépenses, relevés', () => {
     expect(rentIn?.mandateId).toBe(mandateId);
   });
 
+  // Chantier 03 (G-P0-1) — concurrent deliveries of the same event.
+  it('two concurrent runs for the same payment write exactly one RENT_IN and one FEE', async () => {
+    const payment = await prisma.payment.create({
+      data: {
+        userId: tenantUserId,
+        amount: 100000,
+        currency: 'XAF',
+        method: 'CASH',
+        status: 'VALIDATED',
+        reference: `acct-race-${Date.now()}`,
+        idempotencyKey: `acct-race-${Date.now()}`,
+      },
+    });
+    createdPaymentIds.push(payment.id);
+    await prisma.paymentAllocation.create({
+      data: {
+        paymentId: payment.id,
+        type: 'RENT_SCHEDULE',
+        refId: scheduleId,
+        rentScheduleId: scheduleId,
+        amount: 100000,
+      },
+    });
+
+    const results = await Promise.allSettled([
+      ledger.recordPayment(payment.id),
+      ledger.recordPayment(payment.id),
+    ]);
+    expect(results.every((r) => r.status === 'fulfilled')).toBe(true);
+    const written = results.reduce(
+      (sum, r) => sum + (r.status === 'fulfilled' ? r.value.entries : 0),
+      0,
+    );
+    expect(written).toBe(2);
+
+    const rows = await prisma.ledgerEntry.findMany({
+      where: { sourceType: 'PAYMENT', sourceId: payment.id },
+    });
+    expect(rows).toHaveLength(2);
+    expect(rows.filter((r) => r.type === 'RENT_IN')).toHaveLength(1);
+    expect(rows.filter((r) => r.type === 'FEE')).toHaveLength(1);
+  });
+
+  it('two allocations of the same payment on one property are summed, not lost', async () => {
+    const secondSchedule = await prisma.rentSchedule.create({
+      data: {
+        leaseId,
+        dueDate: new Date('2026-11-01'),
+        amount: 40000,
+        currency: 'XAF',
+        status: 'PENDING',
+      },
+    });
+    const payment = await prisma.payment.create({
+      data: {
+        userId: tenantUserId,
+        amount: 100000,
+        currency: 'XAF',
+        method: 'CASH',
+        status: 'VALIDATED',
+        reference: `acct-split-${Date.now()}`,
+        idempotencyKey: `acct-split-${Date.now()}`,
+      },
+    });
+    createdPaymentIds.push(payment.id);
+    await prisma.paymentAllocation.createMany({
+      data: [
+        {
+          paymentId: payment.id,
+          type: 'RENT_SCHEDULE',
+          refId: scheduleId,
+          rentScheduleId: scheduleId,
+          amount: 60000,
+        },
+        {
+          paymentId: payment.id,
+          type: 'RENT_SCHEDULE',
+          refId: secondSchedule.id,
+          rentScheduleId: secondSchedule.id,
+          amount: 40000,
+        },
+      ],
+    });
+
+    // One ledger line per property: the fee is computed on the summed rent.
+    expect((await ledger.recordPayment(payment.id)).entries).toBe(2);
+    const rows = await prisma.ledgerEntry.findMany({
+      where: { sourceType: 'PAYMENT', sourceId: payment.id },
+    });
+    expect(rows).toHaveLength(2);
+    const rentIn = rows.find((r) => r.type === 'RENT_IN');
+    const fee = rows.find((r) => r.type === 'FEE');
+    expect(rentIn?.amount.toString()).toBe('100000');
+    expect(fee?.amount.toString()).toBe('-8000');
+  });
+
   it('a validated deposit payment writes DEPOSIT_IN and no management fee', async () => {
     const depositSchedule = await prisma.rentSchedule.create({
       data: {
@@ -392,6 +488,33 @@ describe('Spec 03 — comptabilité : grand livre, dépenses, relevés', () => {
     expect(entry?.type).toBe('EXPENSE');
     // Idempotent.
     expect((await ledger.recordExpense(expense.id)).entries).toBe(0);
+  });
+
+  it('two concurrent runs for the same expense write exactly one EXPENSE', async () => {
+    const expense = await expenses.createExpense(gerantUserId, {
+      propertyId,
+      category: 'REPAIR',
+      label: 'Course concurrence',
+      amount: 60000,
+    });
+    createdExpenseIds.push(expense.id);
+
+    const results = await Promise.allSettled([
+      ledger.recordExpense(expense.id),
+      ledger.recordExpense(expense.id),
+    ]);
+    expect(results.every((r) => r.status === 'fulfilled')).toBe(true);
+    const written = results.reduce(
+      (sum, r) => sum + (r.status === 'fulfilled' ? r.value.entries : 0),
+      0,
+    );
+    expect(written).toBe(1);
+
+    const rows = await prisma.ledgerEntry.findMany({
+      where: { sourceType: 'EXPENSE', sourceId: expense.id },
+    });
+    expect(rows).toHaveLength(1);
+    expect(rows[0].amount.toString()).toBe('-60000');
   });
 
   it('an expense above the threshold waits for an EXPENSE approval', async () => {

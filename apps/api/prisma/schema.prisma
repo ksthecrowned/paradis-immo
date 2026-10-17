@@ -469,6 +469,19 @@ enum NotificationChannel {
   SMS
 }
 
+enum NotificationCategory {
+  PAYMENTS
+  VISITS
+  STAYS
+  SALES
+  MAINTENANCE
+  MESSAGES
+  MANDATES
+  LEASES
+  ACCOUNT
+  MARKETING
+}
+
 enum MagicLinkPurpose {
   VERIFY_EMAIL
   RESET_PASSWORD
@@ -594,130 +607,131 @@ model Country {
 }
 
 model User {
-  id                     String               @id @default(uuid())
-  phone                  String?
-  email                  String?              @unique
-  emailVerifiedAt        DateTime?
+  id                      String                   @id @default(uuid())
+  phone                   String?
+  email                   String?                  @unique
+  emailVerifiedAt         DateTime?
   /// scrypt hash `salt:hex` — web email/password login
-  passwordHash           String?
+  passwordHash            String?
   /// Google subject (`sub`) when linked for Google sign-in
-  googleId               String?              @unique
-  name                   String?
-  avatarUrl              String?
-  fcmToken               String?
+  googleId                String?                  @unique
+  name                    String?
+  avatarUrl               String?
+  fcmToken                String?
   /// Spec WhatsApp: WhatsApp is the default delivery channel (PUSH = explicit opt-in).
-  notificationChannel    NotificationChannel  @default(WHATSAPP)
-  seekerIntent           SeekerIntent?
-  seekerExperience       SeekerExperience?
-  budgetMinXaf           Int?
-  budgetMaxXaf           Int?
-  preferredQuartierIds   String[]             @default([])
-  seekerSetupCompletedAt DateTime?
+  notificationChannel     NotificationChannel      @default(WHATSAPP)
+  seekerIntent            SeekerIntent?
+  seekerExperience        SeekerExperience?
+  budgetMinXaf            Int?
+  budgetMaxXaf            Int?
+  preferredQuartierIds    String[]                 @default([])
+  seekerSetupCompletedAt  DateTime?
   /// Account lifecycle — SUSPENDED blocks every authenticated route.
-  status                   UserStatus            @default(ACTIVE)
-  suspendedAt              DateTime?
-  suspendedReason          String?
+  status                  UserStatus               @default(ACTIVE)
+  suspendedAt             DateTime?
+  suspendedReason         String?
   /// Soft delete (spec 01): anonymised J+30 by a cron.
-  deletedAt                DateTime?
-  anonymizedAt             DateTime?
+  deletedAt               DateTime?
+  anonymizedAt            DateTime?
   /// KYC (spec 01 — P1): identity verification badge.
-  kycStatus                KycStatus             @default(NONE)
+  kycStatus               KycStatus                @default(NONE)
   /// Consentements versionnés (spec 01 — P2)
-  termsVersion             String?
-  termsAcceptedAt          DateTime?
-  marketingOptIn           Boolean               @default(false)
-  countryId                String
-  country                Country              @relation(fields: [countryId], references: [id])
-  createdAt              DateTime             @default(now())
-  updatedAt              DateTime             @updatedAt
-  orgMembers             OrganizationMember[]
-  roles                  UserRole[]
-  refreshTokens          RefreshToken[]
-  favorites              Favorite[]
-  visitBookings          VisitBooking[]
-  assignedVisitBookings  VisitBooking[]       @relation("VisitBookingAssignee")
-  authoredVisitReports   VisitReport[]        @relation("VisitReportAuthor")
-  bookings               Booking[]
-  leases                 Lease[]              @relation("LeaseTenant")
-  coTenantLeases         LeaseTenant[]         @relation("LeaseCoTenant")
-  rentalApplications     RentalApplication[]   @relation("RentalApplicationApplicant")
-  saleInquiries          SaleInquiry[]
-  saleAgreementsBought   SaleAgreement[]      @relation("SaleAgreementBuyer")
-  saleOffersMade         SaleOffer[]          @relation("SaleOfferBuyer")
-  payments               Payment[]
-  tickets                MaintenanceTicket[]  @relation("TicketReporter")
-  assignedTickets        MaintenanceTicket[]  @relation("TicketAssignee")
-  notifications          Notification[]
-  assignedMandates       Mandate[]            @relation("MandateAssignedAgent")
-  tenantDocuments        TenantDocument[]
-  solvencyChecks         SolvencyCheck[]      @relation("SolvencyCheckTenant")
-  buyerPaymentProofs     BuyerPaymentProof[]  @relation("BuyerPaymentProofBuyer")
-  phoneHistory           UserPhoneHistory[]
-  kycSubmissions         KycSubmission[]
-  dataExports            DataExportRequest[]
-  devices                UserDevice[]
-  clientConversations    Conversation[]      @relation("ClientConversations")
-  sentMessages           Message[]           @relation("SentMessages")
+  termsVersion            String?
+  termsAcceptedAt         DateTime?
+  marketingOptIn          Boolean                  @default(false)
+  countryId               String
+  country                 Country                  @relation(fields: [countryId], references: [id])
+  createdAt               DateTime                 @default(now())
+  updatedAt               DateTime                 @updatedAt
+  orgMembers              OrganizationMember[]
+  roles                   UserRole[]
+  refreshTokens           RefreshToken[]
+  favorites               Favorite[]
+  visitBookings           VisitBooking[]
+  assignedVisitBookings   VisitBooking[]           @relation("VisitBookingAssignee")
+  authoredVisitReports    VisitReport[]            @relation("VisitReportAuthor")
+  bookings                Booking[]
+  leases                  Lease[]                  @relation("LeaseTenant")
+  coTenantLeases          LeaseTenant[]            @relation("LeaseCoTenant")
+  rentalApplications      RentalApplication[]      @relation("RentalApplicationApplicant")
+  saleInquiries           SaleInquiry[]
+  saleAgreementsBought    SaleAgreement[]          @relation("SaleAgreementBuyer")
+  saleOffersMade          SaleOffer[]              @relation("SaleOfferBuyer")
+  payments                Payment[]
+  tickets                 MaintenanceTicket[]      @relation("TicketReporter")
+  assignedTickets         MaintenanceTicket[]      @relation("TicketAssignee")
+  notifications           Notification[]
+  notificationPreferences NotificationPreference[]
+  assignedMandates        Mandate[]                @relation("MandateAssignedAgent")
+  tenantDocuments         TenantDocument[]
+  solvencyChecks          SolvencyCheck[]          @relation("SolvencyCheckTenant")
+  buyerPaymentProofs      BuyerPaymentProof[]      @relation("BuyerPaymentProofBuyer")
+  phoneHistory            UserPhoneHistory[]
+  kycSubmissions          KycSubmission[]
+  dataExports             DataExportRequest[]
+  devices                 UserDevice[]
+  clientConversations     Conversation[]           @relation("ClientConversations")
+  sentMessages            Message[]                @relation("SentMessages")
   /// Spec 02.5 — fiches CRM d'agence liées à ce compte.
-  agencyClientLinks      AgencyClient[]      @relation("AgencyClientUser")
-  agencyClientClaims     AgencyClientClaim[] @relation("AgencyClientClaimUser")
-  createdAgencyClients   AgencyClient[]      @relation("AgencyClientCreator")
-  propertyOwnerChanges   PropertyOwnerChangeLog[] @relation("PropertyOwnerChangeActor")
+  agencyClientLinks       AgencyClient[]           @relation("AgencyClientUser")
+  agencyClientClaims      AgencyClientClaim[]      @relation("AgencyClientClaimUser")
+  createdAgencyClients    AgencyClient[]           @relation("AgencyClientCreator")
+  propertyOwnerChanges    PropertyOwnerChangeLog[] @relation("PropertyOwnerChangeActor")
 
   @@unique([phone, countryId])
 }
 
 model Organization {
-  id                 String               @id @default(uuid())
-  name               String
-  type               OrganizationType
-  affiliationStatus  AffiliationStatus?
-  shortName          String?
-  tagline            String?
-  address            String?
-  phone              String?
-  cityLabel          String?
-  logoColor          String?
-  isOfficial         Boolean              @default(false)
-  verified           Boolean              @default(false)
-  foundedYear        Int?
-  rating             Float?
-  reviewCount        Int                  @default(0)
-  dealSuccessPercent Int?
+  id                        String                    @id @default(uuid())
+  name                      String
+  type                      OrganizationType
+  affiliationStatus         AffiliationStatus?
+  shortName                 String?
+  tagline                   String?
+  address                   String?
+  phone                     String?
+  cityLabel                 String?
+  logoColor                 String?
+  isOfficial                Boolean                   @default(false)
+  verified                  Boolean                   @default(false)
+  foundedYear               Int?
+  rating                    Float?
+  reviewCount               Int                       @default(0)
+  dealSuccessPercent        Int?
   /// Spec 02 — legal / vitrine fields for an agency dossier.
-  legalName          String?
-  rccm               String?
-  niu                String?
-  email              String?
-  logoKey            String?
-  description        String?
-  openingHours       Json?
-  socialLinks        Json?
-  createdById        String?
-  approvedAt         DateTime?
-  approvedBy         String?
-  suspendedReason    String?
-  countryId          String
-  country            Country              @relation(fields: [countryId], references: [id])
-  members            OrganizationMember[]
-  invitations        OrganizationInvitation[]
-  serviceAreas       OrganizationServiceArea[]
-  properties         Property[]
-  mandates           Mandate[]
-  visitBookings      VisitBooking[]        @relation("VisitBookingAgency")
-  leaseTemplates     LeaseTemplate[]
-  solvencyChecks     SolvencyCheck[]
-  saleAgreements     SaleAgreement[]
-  buyerPaymentProofs BuyerPaymentProof[]
-  reviews            OrganizationReview[]
-  kycSubmissions     KycSubmission[]
-  createdAt          DateTime             @default(now())
+  legalName                 String?
+  rccm                      String?
+  niu                       String?
+  email                     String?
+  logoKey                   String?
+  description               String?
+  openingHours              Json?
+  socialLinks               Json?
+  createdById               String?
+  approvedAt                DateTime?
+  approvedBy                String?
+  suspendedReason           String?
+  countryId                 String
+  country                   Country                   @relation(fields: [countryId], references: [id])
+  members                   OrganizationMember[]
+  invitations               OrganizationInvitation[]
+  serviceAreas              OrganizationServiceArea[]
+  properties                Property[]
+  mandates                  Mandate[]
+  visitBookings             VisitBooking[]            @relation("VisitBookingAgency")
+  leaseTemplates            LeaseTemplate[]
+  solvencyChecks            SolvencyCheck[]
+  saleAgreements            SaleAgreement[]
+  buyerPaymentProofs        BuyerPaymentProof[]
+  reviews                   OrganizationReview[]
+  kycSubmissions            KycSubmission[]
+  createdAt                 DateTime                  @default(now())
   /// Spec 05 — paramètres finance de l'org (bénéficiaire = propriétaire).
-  requireDualCashValidation Boolean           @default(false)
-  payoutFrequency           String            @default("MONTHLY") // MONTHLY | ON_DEMAND
-  minPayoutAmount           Decimal           @default(10000) @db.Decimal(12, 2)
+  requireDualCashValidation Boolean                   @default(false)
+  payoutFrequency           String                    @default("MONTHLY") // MONTHLY | ON_DEMAND
+  minPayoutAmount           Decimal                   @default(10000) @db.Decimal(12, 2)
   /// Au-delà de ce montant, un ADMIN plateforme doit approuver un remboursement.
-  refundApprovalThreshold   Decimal           @default(100000) @db.Decimal(12, 2)
+  refundApprovalThreshold   Decimal                   @default(100000) @db.Decimal(12, 2)
   payoutAccounts            PayoutAccount[]
   payouts                   Payout[]
   conversations             Conversation[]
@@ -749,16 +763,16 @@ model OrganizationReview {
 }
 
 model OrganizationMember {
-  id             String       @id @default(uuid())
+  id             String        @id @default(uuid())
   userId         String
   organizationId String
   role           OrgMemberRole
   /// Spec 02 — a DISABLED member keeps the seat but loses every permission.
-  status         MemberStatus @default(ACTIVE)
+  status         MemberStatus  @default(ACTIVE)
   invitedBy      String?
-  joinedAt       DateTime     @default(now())
-  user           User         @relation(fields: [userId], references: [id])
-  organization   Organization @relation(fields: [organizationId], references: [id])
+  joinedAt       DateTime      @default(now())
+  user           User          @relation(fields: [userId], references: [id])
+  organization   Organization  @relation(fields: [organizationId], references: [id])
 
   @@unique([userId, organizationId])
   @@index([organizationId, role])
@@ -820,12 +834,12 @@ model OrganizationRequest {
 }
 
 model UserRole {
-  id          String  @id @default(uuid())
+  id          String     @id @default(uuid())
   userId      String
   role        GlobalRole
   contextType String?
   contextId   String?
-  user        User    @relation(fields: [userId], references: [id])
+  user        User       @relation(fields: [userId], references: [id])
 }
 
 model RefreshToken {
@@ -886,11 +900,11 @@ model City {
 }
 
 model Arrondissement {
-  id        String    @id @default(uuid())
+  id        String     @id @default(uuid())
   name      String
   number    Int?
   cityId    String
-  city      City      @relation(fields: [cityId], references: [id])
+  city      City       @relation(fields: [cityId], references: [id])
   quartiers Quartier[]
 
   @@unique([name, cityId])
@@ -912,25 +926,25 @@ model Quartier {
 
 /// Fiche client d'une agence — contact externe ou compte lié. Pas un membre d'équipe.
 model AgencyClient {
-  id             String                 @id @default(uuid())
-  organizationId String
-  organization   Organization           @relation(fields: [organizationId], references: [id])
+  id               String                   @id @default(uuid())
+  organizationId   String
+  organization     Organization             @relation(fields: [organizationId], references: [id])
   /// Compte Paradis Immo lié — null pour contact externe.
-  userId         String?
-  user           User?                  @relation("AgencyClientUser", fields: [userId], references: [id])
-  displayName    String
+  userId           String?
+  user             User?                    @relation("AgencyClientUser", fields: [userId], references: [id])
+  displayName      String
   /// Téléphone E.164 normalisé (lookup / unicité active par agence).
-  phoneE164      String?
-  email          String?
-  internalNote   String?
-  linkStatus     AgencyClientLinkStatus @default(UNLINKED)
-  archivedAt     DateTime?
-  createdById    String?
-  createdBy      User?                  @relation("AgencyClientCreator", fields: [createdById], references: [id])
-  createdAt      DateTime               @default(now())
-  updatedAt      DateTime               @updatedAt
-  properties     Property[]
-  claims         AgencyClientClaim[]
+  phoneE164        String?
+  email            String?
+  internalNote     String?
+  linkStatus       AgencyClientLinkStatus   @default(UNLINKED)
+  archivedAt       DateTime?
+  createdById      String?
+  createdBy        User?                    @relation("AgencyClientCreator", fields: [createdById], references: [id])
+  createdAt        DateTime                 @default(now())
+  updatedAt        DateTime                 @updatedAt
+  properties       Property[]
+  claims           AgencyClientClaim[]
   ownerChangesFrom PropertyOwnerChangeLog[] @relation("OwnerChangeFromClient")
   ownerChangesTo   PropertyOwnerChangeLog[] @relation("OwnerChangeToClient")
 
@@ -942,16 +956,16 @@ model AgencyClient {
 
 /// Demande de rattachement contact externe → compte (OTP + confirmation explicite).
 model AgencyClientClaim {
-  id             String                   @id @default(uuid())
-  agencyClientId String
-  agencyClient   AgencyClient             @relation(fields: [agencyClientId], references: [id], onDelete: Cascade)
-  userId         String
-  user           User                     @relation("AgencyClientClaimUser", fields: [userId], references: [id])
-  status         AgencyClientClaimStatus  @default(PENDING)
+  id              String                  @id @default(uuid())
+  agencyClientId  String
+  agencyClient    AgencyClient            @relation(fields: [agencyClientId], references: [id], onDelete: Cascade)
+  userId          String
+  user            User                    @relation("AgencyClientClaimUser", fields: [userId], references: [id])
+  status          AgencyClientClaimStatus @default(PENDING)
   phoneVerifiedAt DateTime?
-  decidedAt      DateTime?
-  expiresAt      DateTime
-  createdAt      DateTime                 @default(now())
+  decidedAt       DateTime?
+  expiresAt       DateTime
+  createdAt       DateTime                @default(now())
 
   @@index([agencyClientId, status])
   @@index([userId, status])
@@ -981,86 +995,86 @@ model PropertyOwnerChangeLog {
 // =====================================================================
 
 model Property {
-  id             String              @id @default(uuid())
+  id              String                   @id @default(uuid())
   /// Compte propriétaire — nullable pour contact CRM externe sans User (ADR-0001).
   /// Pas de FK Prisma historique (compat données) ; cohérence applicative + agencyClientId.
-  ownerId        String?
+  ownerId         String?
   /// Client CRM de l'agence gestionnaire (lié ou externe).
-  agencyClientId String?
-  agencyClient   AgencyClient?       @relation(fields: [agencyClientId], references: [id])
-  organizationId String
-  organization   Organization        @relation(fields: [organizationId], references: [id])
-  title          String
-  description    String
-  type           PropertyType
-  mode           PropertyMode
-  status         PropertyStatus      @default(DRAFT)
-  price          Decimal             @db.Decimal(12, 2)
-  currency       String
-  priceUnit      PriceUnit
-  quartierId     String
-  quartier       Quartier            @relation(fields: [quartierId], references: [id])
-  address        String
-  lat            Float?
-  lng            Float?
-  countryId      String
-  country        Country             @relation(fields: [countryId], references: [id])
-  visitEnabled   Boolean             @default(false)
-  visitType      VisitType?
-  visitPrice     Decimal?            @db.Decimal(12, 2)
-  visitDuration  Int?
+  agencyClientId  String?
+  agencyClient    AgencyClient?            @relation(fields: [agencyClientId], references: [id])
+  organizationId  String
+  organization    Organization             @relation(fields: [organizationId], references: [id])
+  title           String
+  description     String
+  type            PropertyType
+  mode            PropertyMode
+  status          PropertyStatus           @default(DRAFT)
+  price           Decimal                  @db.Decimal(12, 2)
+  currency        String
+  priceUnit       PriceUnit
+  quartierId      String
+  quartier        Quartier                 @relation(fields: [quartierId], references: [id])
+  address         String
+  lat             Float?
+  lng             Float?
+  countryId       String
+  country         Country                  @relation(fields: [countryId], references: [id])
+  visitEnabled    Boolean                  @default(false)
+  visitType       VisitType?
+  visitPrice      Decimal?                 @db.Decimal(12, 2)
+  visitDuration   Int?
   /**
    * Rent deposit expressed in months of rent (when applicable).
    */
-  depositMonths  Int?
+  depositMonths   Int?
   /**
    * One-time agency fee amount in listing currency (when applicable).
    */
-  agencyFeeAmount Decimal?           @db.Decimal(12, 2)
-  bedrooms       Int?
-  minNights      Int?
-  maxNights      Int?
-  checkInTime    String? // "HH:mm"
-  checkOutTime   String?
-  bathrooms      Int?
-  surface        Float?
-  features            Json?
-  listingStatus       ListingStatus @default(AVAILABLE)
-  availableFrom       DateTime?
-  isFeatured          Boolean       @default(false)
-  floor               String?
-  yearBuilt           Int?
-  condition           String?
-  lotSize             Float?
-  parkingSpaces       Int?
-  orientation         String?
-  landTitle           String?
-  mapViews            Json?
-  media          PropertyMedia[]
-  documents      PropertyDocument[]
-  favorites      Favorite[]
-  views          PropertyView[]
-  reports        PropertyReport[]
-  visitTemplates VisitSlotTemplate[]
-  visitSlots     VisitSlot[]
-  visitBlackouts VisitBlackout[]
-  visitBookings  VisitBooking[]
-  availability   AvailabilityBlock[]
-  bookings       Booking[]
-  staySettings   StayListingSettings?
-  seasonalRates  SeasonalRate[]
-  leases         Lease[]
-  applications   RentalApplication[]
-  saleInquiries  SaleInquiry[]
-  saleAgreements SaleAgreement[]
+  agencyFeeAmount Decimal?                 @db.Decimal(12, 2)
+  bedrooms        Int?
+  minNights       Int?
+  maxNights       Int?
+  checkInTime     String? // "HH:mm"
+  checkOutTime    String?
+  bathrooms       Int?
+  surface         Float?
+  features        Json?
+  listingStatus   ListingStatus            @default(AVAILABLE)
+  availableFrom   DateTime?
+  isFeatured      Boolean                  @default(false)
+  floor           String?
+  yearBuilt       Int?
+  condition       String?
+  lotSize         Float?
+  parkingSpaces   Int?
+  orientation     String?
+  landTitle       String?
+  mapViews        Json?
+  media           PropertyMedia[]
+  documents       PropertyDocument[]
+  favorites       Favorite[]
+  views           PropertyView[]
+  reports         PropertyReport[]
+  visitTemplates  VisitSlotTemplate[]
+  visitSlots      VisitSlot[]
+  visitBlackouts  VisitBlackout[]
+  visitBookings   VisitBooking[]
+  availability    AvailabilityBlock[]
+  bookings        Booking[]
+  staySettings    StayListingSettings?
+  seasonalRates   SeasonalRate[]
+  leases          Lease[]
+  applications    RentalApplication[]
+  saleInquiries   SaleInquiry[]
+  saleAgreements  SaleAgreement[]
   /// Spec 08 — offres d'achat posées sur le bien.
-  saleOffers     SaleOffer[]
-  mandates       Mandate[]
-  maintenance    MaintenanceTicket[]
-  expenses       Expense[]
+  saleOffers      SaleOffer[]
+  mandates        Mandate[]
+  maintenance     MaintenanceTicket[]
+  expenses        Expense[]
   ownerChangeLogs PropertyOwnerChangeLog[]
-  createdAt      DateTime            @default(now())
-  updatedAt      DateTime            @updatedAt
+  createdAt       DateTime                 @default(now())
+  updatedAt       DateTime                 @updatedAt
 
   @@index([agencyClientId])
   @@index([ownerId])
@@ -1137,73 +1151,73 @@ model PropertyReport {
 /// et les visites futures déjà réservées qui le chevauchent sont annulées
 /// (CANCELLED_BY_AGENCY) par le gestionnaire qui crée la plage.
 model VisitBlackout {
-  id             String   @id @default(uuid())
-  propertyId     String
-  property       Property @relation(fields: [propertyId], references: [id])
-  startsAt       DateTime
-  endsAt         DateTime
-  reason         String?
-  createdById    String
-  createdAt      DateTime @default(now())
+  id          String   @id @default(uuid())
+  propertyId  String
+  property    Property @relation(fields: [propertyId], references: [id])
+  startsAt    DateTime
+  endsAt      DateTime
+  reason      String?
+  createdById String
+  createdAt   DateTime @default(now())
 
   @@index([propertyId, startsAt])
 }
 
 model VisitSlotTemplate {
-  id            String   @id @default(uuid())
-  propertyId    String
-  property      Property @relation(fields: [propertyId], references: [id])
-  dayOfWeek     Int // 0=Sunday .. 6=Saturday
-  startTime     String // HH:mm
-  endTime       String // HH:mm
-  slotMinutes   Int
-  active        Boolean  @default(true)
-  createdAt     DateTime @default(now())
+  id          String   @id @default(uuid())
+  propertyId  String
+  property    Property @relation(fields: [propertyId], references: [id])
+  dayOfWeek   Int // 0=Sunday .. 6=Saturday
+  startTime   String // HH:mm
+  endTime     String // HH:mm
+  slotMinutes Int
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
 }
 
 model VisitSlot {
-  id        String           @id @default(uuid())
+  id         String          @id @default(uuid())
   propertyId String
-  property  Property         @relation(fields: [propertyId], references: [id])
-  startAt   DateTime
-  endAt     DateTime
-  status    VisitSlotStatus  @default(AVAILABLE)
-  source    VisitSlotSource  @default(TEMPLATE)
-  booking   VisitBooking?
-  createdAt DateTime         @default(now())
+  property   Property        @relation(fields: [propertyId], references: [id])
+  startAt    DateTime
+  endAt      DateTime
+  status     VisitSlotStatus @default(AVAILABLE)
+  source     VisitSlotSource @default(TEMPLATE)
+  booking    VisitBooking?
+  createdAt  DateTime        @default(now())
 
   @@unique([propertyId, startAt])
 }
 
 model VisitBooking {
-  id          String            @id @default(uuid())
-  slotId      String            @unique
-  slot        VisitSlot         @relation(fields: [slotId], references: [id])
-  propertyId  String
-  property    Property          @relation(fields: [propertyId], references: [id])
-  userId      String
-  user        User              @relation(fields: [userId], references: [id])
-  agentId     String?
-  agent       User?             @relation("VisitBookingAssignee", fields: [agentId], references: [id], onDelete: SetNull)
+  id                  String             @id @default(uuid())
+  slotId              String             @unique
+  slot                VisitSlot          @relation(fields: [slotId], references: [id])
+  propertyId          String
+  property            Property           @relation(fields: [propertyId], references: [id])
+  userId              String
+  user                User               @relation(fields: [userId], references: [id])
+  agentId             String?
+  agent               User?              @relation("VisitBookingAssignee", fields: [agentId], references: [id], onDelete: SetNull)
   agentOrganizationId String?
-  agentOrganization Organization? @relation("VisitBookingAgency", fields: [agentOrganizationId], references: [id], onDelete: SetNull)
-  status      VisitBookingStatus @default(PENDING)
+  agentOrganization   Organization?      @relation("VisitBookingAgency", fields: [agentOrganizationId], references: [id], onDelete: SetNull)
+  status              VisitBookingStatus @default(PENDING)
   /// Spec 06 — hold de 15 min sur les visites payantes (ZPT créneau HELD).
-  holdExpiresAt DateTime?
-  paymentId   String?
+  holdExpiresAt       DateTime?
+  paymentId           String?
   /// Prix de visite facturé (quote figée au hold).
-  priceAmount Decimal?
-  currency    String?
-  rescheduleCount Int           @default(0)
-  cancelledById String?
-  cancelReason  String?
-  cancelledAt   DateTime?
-  completedAt   DateTime?
-  reminderJ1SentAt DateTime?
-  reminderH2SentAt DateTime?
-  createdAt        DateTime           @default(now())
-  updatedAt        DateTime           @updatedAt
-  report           VisitReport?
+  priceAmount         Decimal?
+  currency            String?
+  rescheduleCount     Int                @default(0)
+  cancelledById       String?
+  cancelReason        String?
+  cancelledAt         DateTime?
+  completedAt         DateTime?
+  reminderJ1SentAt    DateTime?
+  reminderH2SentAt    DateTime?
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+  report              VisitReport?
 
   @@index([agentOrganizationId, agentId, status])
 }
@@ -1218,8 +1232,8 @@ model VisitReport {
   notes          String?
   nextStep       String?
   followUpAt     DateTime?
-  createdAt   DateTime          @default(now())
-  updatedAt   DateTime          @updatedAt
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
 
   @@index([authorId])
 }
@@ -1229,20 +1243,20 @@ model VisitReport {
 // =====================================================================
 
 model Booking {
-  id         String        @id @default(uuid())
-  propertyId String
-  property   Property      @relation(fields: [propertyId], references: [id])
-  userId     String
-  user       User          @relation(fields: [userId], references: [id])
-  startDate  DateTime
-  endDate    DateTime
-  totalPrice Decimal       @db.Decimal(12, 2)
-  currency   String
-  status     BookingStatus @default(PENDING)
+  id                 String        @id @default(uuid())
+  propertyId         String
+  property           Property      @relation(fields: [propertyId], references: [id])
+  userId             String
+  user               User          @relation(fields: [userId], references: [id])
+  startDate          DateTime
+  endDate            DateTime
+  totalPrice         Decimal       @db.Decimal(12, 2)
+  currency           String
+  status             BookingStatus @default(PENDING)
   /// Spec 07 — nombre de voyageurs et devis server-side figé au hold.
-  guests     Int           @default(1)
-  priceBreakdown Json?
-  depositAmount Decimal    @default(0) @db.Decimal(12, 2)
+  guests             Int           @default(1)
+  priceBreakdown     Json?
+  depositAmount      Decimal       @default(0) @db.Decimal(12, 2)
   /// Hold 15 min (PENDING_PAYMENT) ou fenêtre de 2 h après acceptation d'une
   /// demande (REQUESTED → ACCEPTED).
   holdExpiresAt      DateTime?
@@ -1252,20 +1266,20 @@ model Booking {
   cancelledById      String?
   cancelReason       String?
   cancelledAt        DateTime?
-  refundAmount       Decimal?   @db.Decimal(12, 2)
+  refundAmount       Decimal?      @db.Decimal(12, 2)
   checkedInAt        DateTime?
   checkedOutAt       DateTime?
-  createdAt  DateTime      @default(now())
-  updatedAt  DateTime      @updatedAt
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
 
   @@index([propertyId, status])
 }
 
 /// Spec 07 — paramètres séjour par bien (tarifs, contraintes, politique).
 model StayListingSettings {
-  propertyId          String  @id
+  propertyId          String   @id
   property            Property @relation(fields: [propertyId], references: [id])
-  baseNightlyRate     Decimal @db.Decimal(12, 2)
+  baseNightlyRate     Decimal  @db.Decimal(12, 2)
   weekendNightlyRate  Decimal? @db.Decimal(12, 2)
   /// Fractions en décimal : 0.10 = −10 %.
   weeklyDiscount      Decimal? @db.Decimal(4, 2)
@@ -1311,14 +1325,14 @@ model SeasonalRate {
 }
 
 model AvailabilityBlock {
-  id         String            @id @default(uuid())
+  id         String             @id @default(uuid())
   propertyId String
-  property   Property          @relation(fields: [propertyId], references: [id])
+  property   Property           @relation(fields: [propertyId], references: [id])
   startDate  DateTime
   endDate    DateTime
   reason     AvailabilityReason
   refId      String?
-  createdAt  DateTime          @default(now())
+  createdAt  DateTime           @default(now())
 }
 
 // =====================================================================
@@ -1326,55 +1340,55 @@ model AvailabilityBlock {
 // =====================================================================
 
 model Lease {
-  id             String         @id @default(uuid())
-  propertyId     String
-  property       Property       @relation(fields: [propertyId], references: [id])
+  id                     String                @id @default(uuid())
+  propertyId             String
+  property               Property              @relation(fields: [propertyId], references: [id])
   /// Set until the invited tenant accepts (spec 04 — no silent User creation).
-  tenantId       String?
-  tenant         User?          @relation("LeaseTenant", fields: [tenantId], references: [id])
-  invitedPhone   String?
-  startDate      DateTime
-  endDate        DateTime
-  monthlyRent    Decimal        @db.Decimal(12, 2)
-  currency       String
-  deposit        Decimal        @db.Decimal(12, 2)
-  status         LeaseStatus    @default(DRAFT)
-  mandateId      String?
-  mandate        Mandate?       @relation(fields: [mandateId], references: [id])
+  tenantId               String?
+  tenant                 User?                 @relation("LeaseTenant", fields: [tenantId], references: [id])
+  invitedPhone           String?
+  startDate              DateTime
+  endDate                DateTime
+  monthlyRent            Decimal               @db.Decimal(12, 2)
+  currency               String
+  deposit                Decimal               @db.Decimal(12, 2)
+  status                 LeaseStatus           @default(DRAFT)
+  mandateId              String?
+  mandate                Mandate?              @relation(fields: [mandateId], references: [id])
   /// Spec 04 — contractual terms.
-  dueDay               Int      @default(5)
-  chargesAmount        Decimal  @default(0) @db.Decimal(12, 2)
-  chargesMode          String   @default("FLAT") // FLAT | PROVISION
-  noticeMonthsTenant   Int      @default(3)
-  noticeMonthsLandlord Int      @default(6)
-  indexationRate       Decimal? @db.Decimal(6, 4)
-  lateFeeAfterDays     Int?
-  lateFeeAmount        Decimal? @db.Decimal(12, 2)
-  lateFeeRate          Decimal? @db.Decimal(6, 4)
-  autoRenew            Boolean  @default(true)
+  dueDay                 Int                   @default(5)
+  chargesAmount          Decimal               @default(0) @db.Decimal(12, 2)
+  chargesMode            String                @default("FLAT") // FLAT | PROVISION
+  noticeMonthsTenant     Int                   @default(3)
+  noticeMonthsLandlord   Int                   @default(6)
+  indexationRate         Decimal?              @db.Decimal(6, 4)
+  lateFeeAfterDays       Int?
+  lateFeeAmount          Decimal?              @db.Decimal(12, 2)
+  lateFeeRate            Decimal?              @db.Decimal(6, 4)
+  autoRenew              Boolean               @default(true)
   /// Spec 05 — un payeur peut régler partiellement si activé (≥ minPartialAmount).
-  allowPartialPayments Boolean  @default(false)
-  minPartialAmount     Decimal? @db.Decimal(12, 2)
-  templateId           String?
-  tenantSignedAt       DateTime?
-  landlordSignedAt     DateTime?
-  landlordSignedById   String?
-  activatedAt          DateTime?
-  terminationInitiator TerminationInitiator?
-  terminationNoticeAt  DateTime?
+  allowPartialPayments   Boolean               @default(false)
+  minPartialAmount       Decimal?              @db.Decimal(12, 2)
+  templateId             String?
+  tenantSignedAt         DateTime?
+  landlordSignedAt       DateTime?
+  landlordSignedById     String?
+  activatedAt            DateTime?
+  terminationInitiator   TerminationInitiator?
+  terminationNoticeAt    DateTime?
   terminationEffectiveAt DateTime?
-  terminationReason    String?
-  terminatedAt         DateTime?
-  schedule       RentSchedule[]
-  documents      LeaseDocument[]
-  coTenants      LeaseTenant[]
-  amendments     LeaseAmendment[]
-  inspections    Inspection[]
-  application    RentalApplication?
-  depositDeductions DepositDeduction[]
-  depositSettlement DepositSettlement?
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
+  terminationReason      String?
+  terminatedAt           DateTime?
+  schedule               RentSchedule[]
+  documents              LeaseDocument[]
+  coTenants              LeaseTenant[]
+  amendments             LeaseAmendment[]
+  inspections            Inspection[]
+  application            RentalApplication?
+  depositDeductions      DepositDeduction[]
+  depositSettlement      DepositSettlement?
+  createdAt              DateTime              @default(now())
+  updatedAt              DateTime              @updatedAt
 }
 
 model TenantDocument {
@@ -1454,36 +1468,36 @@ model BuyerPaymentProof {
 // =====================================================================
 
 model RentSchedule {
-  id        String            @id @default(uuid())
-  leaseId   String
-  lease     Lease             @relation(fields: [leaseId], references: [id])
-  dueDate   DateTime
-  amount    Decimal           @db.Decimal(12, 2)
-  currency  String
-  kind      RentScheduleKind  @default(RENT)
-  rentPart  Decimal           @default(0) @db.Decimal(12, 2)
-  chargesPart Decimal         @default(0) @db.Decimal(12, 2)
-  lateFee   Decimal           @default(0) @db.Decimal(12, 2)
-  amountPaid Decimal          @default(0) @db.Decimal(12, 2)
+  id          String              @id @default(uuid())
+  leaseId     String
+  lease       Lease               @relation(fields: [leaseId], references: [id])
+  dueDate     DateTime
+  amount      Decimal             @db.Decimal(12, 2)
+  currency    String
+  kind        RentScheduleKind    @default(RENT)
+  rentPart    Decimal             @default(0) @db.Decimal(12, 2)
+  chargesPart Decimal             @default(0) @db.Decimal(12, 2)
+  lateFee     Decimal             @default(0) @db.Decimal(12, 2)
+  amountPaid  Decimal             @default(0) @db.Decimal(12, 2)
   periodStart DateTime?
   periodEnd   DateTime?
-  status    RentScheduleStatus @default(PENDING)
-  payments  PaymentAllocation[]
-  receipt   RentReceipt?
-  createdAt DateTime          @default(now())
+  status      RentScheduleStatus  @default(PENDING)
+  payments    PaymentAllocation[]
+  receipt     RentReceipt?
+  createdAt   DateTime            @default(now())
 
   @@unique([leaseId, dueDate, kind])
 }
 
 /// Spec 04 — monthly rent receipt (quittance), sequential per org/year.
 model RentReceipt {
-  id             String      @id @default(uuid())
-  number         String      @unique
-  rentScheduleId String      @unique
+  id             String       @id @default(uuid())
+  number         String       @unique
+  rentScheduleId String       @unique
   rentSchedule   RentSchedule @relation(fields: [rentScheduleId], references: [id])
   issuerOrgId    String
   fileKey        String
-  issuedAt       DateTime    @default(now())
+  issuedAt       DateTime     @default(now())
 }
 
 /// Spec 04 — locked sequence for receipt/quittance numbers:
@@ -1524,28 +1538,28 @@ model RentalApplication {
 /// Spec 04 — co-tenants on a lease (colocation).
 model LeaseTenant {
   leaseId   String
-  lease     Lease    @relation(fields: [leaseId], references: [id])
+  lease     Lease   @relation(fields: [leaseId], references: [id])
   userId    String
-  user      User     @relation("LeaseCoTenant", fields: [userId], references: [id])
-  isPrimary Boolean  @default(false)
+  user      User    @relation("LeaseCoTenant", fields: [userId], references: [id])
+  isPrimary Boolean @default(false)
 
   @@id([leaseId, userId])
 }
 
 /// Spec 04 — versioned lease amendment (avenant).
 model LeaseAmendment {
-  id              String    @id @default(cuid())
-  leaseId         String
-  lease           Lease     @relation(fields: [leaseId], references: [id])
-  version         Int
-  changes         Json      // { monthlyRent?, chargesAmount?, endDate?, coTenants? }
-  effectiveFrom   DateTime
-  reason          String?
-  documentKey     String?
+  id               String    @id @default(cuid())
+  leaseId          String
+  lease            Lease     @relation(fields: [leaseId], references: [id])
+  version          Int
+  changes          Json // { monthlyRent?, chargesAmount?, endDate?, coTenants? }
+  effectiveFrom    DateTime
+  reason           String?
+  documentKey      String?
   tenantSignedAt   DateTime?
   landlordSignedAt DateTime?
-  createdById     String
-  createdAt       DateTime  @default(now())
+  createdById      String
+  createdAt        DateTime  @default(now())
 
   @@unique([leaseId, version])
 }
@@ -1563,36 +1577,36 @@ model LeaseTemplate {
 
 /// Spec 04 — état des lieux (entrée/sortie).
 model Inspection {
-  id            String         @id @default(cuid())
-  leaseId       String
-  lease         Lease          @relation(fields: [leaseId], references: [id])
-  type          InspectionType
-  performedById String
-  performedAt   DateTime
-  meters        Json?          // { water, electricity }
-  keys          Json?          // [{ label, count }]
-  generalComment String?
-  tenantSignedAt   DateTime?
-  managerSignedAt  DateTime?
-  reservesUntil DateTime?
-  documentKey   String?
-  rooms         InspectionRoom[]
-  reserves      InspectionReserve[]
+  id              String              @id @default(cuid())
+  leaseId         String
+  lease           Lease               @relation(fields: [leaseId], references: [id])
+  type            InspectionType
+  performedById   String
+  performedAt     DateTime
+  meters          Json? // { water, electricity }
+  keys            Json? // [{ label, count }]
+  generalComment  String?
+  tenantSignedAt  DateTime?
+  managerSignedAt DateTime?
+  reservesUntil   DateTime?
+  documentKey     String?
+  rooms           InspectionRoom[]
+  reserves        InspectionReserve[]
 
   @@unique([leaseId, type])
 }
 
 model InspectionRoom {
-  id           String         @id @default(cuid())
+  id           String           @id @default(cuid())
   inspectionId String
-  inspection   Inspection     @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  inspection   Inspection       @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
   name         String
   position     Int
   items        InspectionItem[]
 }
 
 model InspectionItem {
-  id        String        @id @default(cuid())
+  id        String         @id @default(cuid())
   roomId    String
   room      InspectionRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
   label     String
@@ -1602,13 +1616,13 @@ model InspectionItem {
 }
 
 model InspectionReserve {
-  id           String      @id @default(cuid())
+  id           String     @id @default(cuid())
   inspectionId String
-  inspection   Inspection  @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  inspection   Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
   authorId     String
   text         String
   photoKeys    String[]
-  createdAt    DateTime    @default(now())
+  createdAt    DateTime   @default(now())
 }
 
 /// Spec 04 — deposit deduction proposals (retenues de caution).
@@ -1662,36 +1676,36 @@ model SaleInquiry {
 
 /// Spec 08 P1 — offre d'achat et négociation (contre-offres liées).
 model SaleOffer {
-  id            String          @id @default(uuid())
-  propertyId    String
-  property      Property        @relation(fields: [propertyId], references: [id])
+  id                String          @id @default(uuid())
+  propertyId        String
+  property          Property        @relation(fields: [propertyId], references: [id])
   /// Demande d'origine à laquelle l'offre se rattache (optionnelle).
-  inquiryId     String?
-  inquiry       SaleInquiry?    @relation(fields: [inquiryId], references: [id])
-  buyerId       String
-  buyer         User            @relation("SaleOfferBuyer", fields: [buyerId], references: [id])
+  inquiryId         String?
+  inquiry           SaleInquiry?    @relation(fields: [inquiryId], references: [id])
+  buyerId           String
+  buyer             User            @relation("SaleOfferBuyer", fields: [buyerId], references: [id])
   /// Contre-offre : chaîne de négociation (parent = offre contredite).
-  parentOfferId String?
-  parentOffer   SaleOffer?      @relation("SaleOfferThread", fields: [parentOfferId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  childOffers   SaleOffer[]     @relation("SaleOfferThread")
+  parentOfferId     String?
+  parentOffer       SaleOffer?      @relation("SaleOfferThread", fields: [parentOfferId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  childOffers       SaleOffer[]     @relation("SaleOfferThread")
   /// BUYER = offre posée par l'acheteur ; SELLER = contre-proposition du vendeur.
-  authorSide    String
-  price         Decimal         @db.Decimal(12, 2)
-  currency      String
-  financing     FinancingType
-  depositAmount Decimal?        @db.Decimal(12, 2)
+  authorSide        String
+  price             Decimal         @db.Decimal(12, 2)
+  currency          String
+  financing         FinancingType
+  depositAmount     Decimal?        @db.Decimal(12, 2)
   installmentsCount Int?
-  conditions    String?
+  conditions        String?
   /// Validité par défaut : 7 jours (règle métier spec 08).
-  validUntil    DateTime
-  status        SaleOfferStatus @default(SUBMITTED)
+  validUntil        DateTime
+  status            SaleOfferStatus @default(SUBMITTED)
   /// Approbation mandat (SALE_OFFER_ACCEPT) si l'agent ne peut pas décider seul.
-  approvalId    String?
-  decidedById   String?
-  decidedAt     DateTime?
-  decisionNote  String?
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt
+  approvalId        String?
+  decidedById       String?
+  decidedAt         DateTime?
+  decisionNote      String?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
 
   @@index([propertyId, status])
   @@index([buyerId, status])
@@ -1725,16 +1739,16 @@ model SaleAgreement {
 }
 
 model SaleInstallment {
-  id          String                 @id @default(uuid())
+  id          String                @id @default(uuid())
   agreementId String
-  agreement   SaleAgreement          @relation(fields: [agreementId], references: [id])
+  agreement   SaleAgreement         @relation(fields: [agreementId], references: [id])
   label       String?
   dueDate     DateTime
-  amount      Decimal                @db.Decimal(12, 2)
+  amount      Decimal               @db.Decimal(12, 2)
   currency    String
-  status      SaleInstallmentStatus  @default(PENDING)
+  status      SaleInstallmentStatus @default(PENDING)
   position    Int
-  createdAt   DateTime               @default(now())
+  createdAt   DateTime              @default(now())
 
   @@index([agreementId, position])
 }
@@ -1744,39 +1758,39 @@ model SaleInstallment {
 // =====================================================================
 
 model Mandate {
-  id               String              @id @default(uuid())
-  propertyId       String
-  property         Property            @relation(fields: [propertyId], references: [id])
-  organizationId   String
-  organization     Organization        @relation(fields: [organizationId], references: [id])
+  id              String            @id @default(uuid())
+  propertyId      String
+  property        Property          @relation(fields: [propertyId], references: [id])
+  organizationId  String
+  organization    Organization      @relation(fields: [organizationId], references: [id])
   /// Field agent (or gérant) responsible inside the agency — null = gérant-only ops
-  assignedAgentId  String?
-  assignedAgent    User?               @relation("MandateAssignedAgent", fields: [assignedAgentId], references: [id])
-  status           MandateStatus       @default(ACTIVE)
-  startDate        DateTime            @default(now())
-  endDate          DateTime?
-  leases           Lease[]
-  approvals        MandateApproval[]
-  createdAt        DateTime            @default(now())
+  assignedAgentId String?
+  assignedAgent   User?             @relation("MandateAssignedAgent", fields: [assignedAgentId], references: [id])
+  status          MandateStatus     @default(ACTIVE)
+  startDate       DateTime          @default(now())
+  endDate         DateTime?
+  leases          Lease[]
+  approvals       MandateApproval[]
+  createdAt       DateTime          @default(now())
 
   // ---------------------------------------------------------------------------
   // Spec 03 — Gérance : mandats, approbations et comptabilité propriétaire
   // ---------------------------------------------------------------------------
   scopes                     MandateScope[]
-  exclusive                  Boolean            @default(false)
+  exclusive                  Boolean                         @default(false)
   /// Fraction des loyers encaissés (ex. 0.08 = 8 %).
-  managementFeeRate          Decimal?           @db.Decimal(8, 4)
-  lettingFee                 Decimal?           @db.Decimal(12, 2)
-  lettingFeeMonths           Decimal?           @db.Decimal(6, 2)
-  saleCommissionRate         Decimal?           @db.Decimal(8, 4)
-  stayCommissionRate         Decimal?           @db.Decimal(8, 4)
-  repairApprovalThreshold    Decimal?           @db.Decimal(12, 2)
-  rentChangeRequiresApproval Boolean            @default(true)
-  leaseSignRequiresApproval  Boolean            @default(true)
-  minSalePrice               Decimal?           @db.Decimal(12, 2)
-  approvalTtlDays            Int                @default(7)
-  noticeDays                 Int                @default(30)
-  tacitRenewal               Boolean            @default(true)
+  managementFeeRate          Decimal?                        @db.Decimal(8, 4)
+  lettingFee                 Decimal?                        @db.Decimal(12, 2)
+  lettingFeeMonths           Decimal?                        @db.Decimal(6, 2)
+  saleCommissionRate         Decimal?                        @db.Decimal(8, 4)
+  stayCommissionRate         Decimal?                        @db.Decimal(8, 4)
+  repairApprovalThreshold    Decimal?                        @db.Decimal(12, 2)
+  rentChangeRequiresApproval Boolean                         @default(true)
+  leaseSignRequiresApproval  Boolean                         @default(true)
+  minSalePrice               Decimal?                        @db.Decimal(12, 2)
+  approvalTtlDays            Int                             @default(7)
+  noticeDays                 Int                             @default(30)
+  tacitRenewal               Boolean                         @default(true)
   proposedById               String
   acceptedById               String?
   acceptedAt                 DateTime?
@@ -1789,13 +1803,13 @@ model Mandate {
   agencySignedAt             DateTime?
   versions                   MandateVersion[]
   /// ADR-0001 — initiateur de la proposition (OWNER→agence vs agence→client).
-  initiator                  MandateInitiator @default(OWNER)
+  initiator                  MandateInitiator                @default(OWNER)
   /// Revue documentaire hors plateforme (clients externes). Orthogonal au statut.
-  documentReviewStatus       MandateDocumentReviewStatus @default(NOT_APPLICABLE)
+  documentReviewStatus       MandateDocumentReviewStatus     @default(NOT_APPLICABLE)
   documentReviewReason       String?
   documentReviewedAt         DateTime?
   documentReviewedById       String?
-  documentVersion            Int                         @default(0)
+  documentVersion            Int                             @default(0)
   reviewDecisions            MandateDocumentReviewDecision[]
 
   @@index([documentReviewStatus, createdAt])
@@ -1803,15 +1817,15 @@ model Mandate {
 
 /// Historique immuable des décisions de revue documentaire (spec 12.5).
 model MandateDocumentReviewDecision {
-  id           String                       @id @default(cuid())
-  mandateId    String
-  mandate      Mandate                      @relation(fields: [mandateId], references: [id], onDelete: Cascade)
-  decision     MandateDocumentReviewStatus
-  reason       String
-  documentKey  String?
+  id              String                      @id @default(cuid())
+  mandateId       String
+  mandate         Mandate                     @relation(fields: [mandateId], references: [id], onDelete: Cascade)
+  decision        MandateDocumentReviewStatus
+  reason          String
+  documentKey     String?
   documentVersion Int
-  decidedById  String
-  createdAt    DateTime                     @default(now())
+  decidedById     String
+  createdAt       DateTime                    @default(now())
 
   @@index([mandateId, createdAt])
 }
@@ -1829,15 +1843,15 @@ model MandateVersion {
 }
 
 model MandateApproval {
-  id        String            @id @default(uuid())
-  mandateId String
-  mandate   Mandate           @relation(fields: [mandateId], references: [id])
+  id         String            @id @default(uuid())
+  mandateId  String
+  mandate    Mandate           @relation(fields: [mandateId], references: [id])
   actionType MandateActionType
   payload    Json
-  status    ApprovalStatus    @default(PENDING)
-  decidedAt DateTime?
-  decidedBy String?
-  createdAt DateTime          @default(now())
+  status     ApprovalStatus    @default(PENDING)
+  decidedAt  DateTime?
+  decidedBy  String?
+  createdAt  DateTime          @default(now())
 
   // Spec 03
   requestedById String
@@ -1877,22 +1891,23 @@ model Expense {
 /// Montant signé : + crédit propriétaire / − débit. Une correction se fait
 /// par écriture inverse (`reversesId`), jamais par modification.
 model LedgerEntry {
-  id             String          @id @default(cuid())
-  propertyId     String
-  mandateId      String?
-  ownerOrgId     String
-  agencyOrgId    String?
-  type           LedgerEntryType
-  amount         Decimal         @db.Decimal(12, 2)
-  currency       String
+  id          String          @id @default(cuid())
+  propertyId  String
+  mandateId   String?
+  ownerOrgId  String
+  agencyOrgId String?
+  type        LedgerEntryType
+  amount      Decimal         @db.Decimal(12, 2)
+  currency    String
   /// PAYMENT | EXPENSE | PAYOUT | REFUND | MANUAL
-  sourceType     String
-  sourceId       String
-  reversesId     String?
-  label          String
-  occurredAt     DateTime
-  createdAt      DateTime        @default(now())
+  sourceType  String
+  sourceId    String
+  reversesId  String?
+  label       String
+  occurredAt  DateTime
+  createdAt   DateTime        @default(now())
 
+  @@unique([sourceType, sourceId, type, propertyId])
   @@index([ownerOrgId, occurredAt])
   @@index([mandateId, occurredAt])
   @@index([propertyId, occurredAt])
@@ -1917,38 +1932,38 @@ model OwnerStatement {
 // =====================================================================
 
 model Payment {
-  id              String              @id @default(uuid())
-  userId          String
-  user            User                @relation(fields: [userId], references: [id])
-  amount          Decimal             @db.Decimal(12, 2)
-  currency        String
-  method          PaymentMethod
-  provider        PaymentProvider?
-  status          PaymentStatus       @default(INITIATED)
-  reference       String              @unique
-  idempotencyKey  String              @unique
-  validatedBy     String?
-  validatedAt     DateTime?
-  metadata        Json?
+  id             String              @id @default(uuid())
+  userId         String
+  user           User                @relation(fields: [userId], references: [id])
+  amount         Decimal             @db.Decimal(12, 2)
+  currency       String
+  method         PaymentMethod
+  provider       PaymentProvider?
+  status         PaymentStatus       @default(INITIATED)
+  reference      String              @unique
+  idempotencyKey String              @unique
+  validatedBy    String?
+  validatedAt    DateTime?
+  metadata       Json?
   /// Spec 05 — cible séjour (les cibles loyer/vente/visite restent en metadata).
-  bookingId       String?
+  bookingId      String?
   /// Numéro mobile money débité (affiché au payeur, relance du remboursement).
-  payerPhone      String?
+  payerPhone     String?
   /// Référence fournisseur — idempotence des webhooks (unique).
-  providerRef     String?
-  recordedById    String?
-  proofKey        String?
+  providerRef    String?
+  recordedById   String?
+  proofKey       String?
   /// INITIATED sans confirmation → EXPIRED après 15 minutes.
-  expiresAt       DateTime?
-  failureReason   String?
-  refundedAmount  Decimal             @default(0) @db.Decimal(12, 2)
-  allocations     PaymentAllocation[]
-  receipt         Receipt?
-  events          PaymentEvent[]
-  refunds         Refund[]
-  disputes        PaymentDispute[]
-  createdAt       DateTime            @default(now())
-  updatedAt       DateTime            @updatedAt
+  expiresAt      DateTime?
+  failureReason  String?
+  refundedAmount Decimal             @default(0) @db.Decimal(12, 2)
+  allocations    PaymentAllocation[]
+  receipt        Receipt?
+  events         PaymentEvent[]
+  refunds        Refund[]
+  disputes       PaymentDispute[]
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
 
   @@index([status, expiresAt])
   @@index([bookingId])
@@ -1967,27 +1982,27 @@ model PaymentAllocation {
 }
 
 model Receipt {
-  id        String   @id @default(uuid())
-  paymentId String   @unique
-  payment   Payment  @relation(fields: [paymentId], references: [id])
-  url       String
-  number    String   @unique
+  id          String   @id @default(uuid())
+  paymentId   String   @unique
+  payment     Payment  @relation(fields: [paymentId], references: [id])
+  url         String
+  number      String   @unique
   /// Spec 04 — org that issued the receipt (sequential numbering).
   issuerOrgId String?
-  createdAt DateTime @default(now())
+  createdAt   DateTime @default(now())
 }
 
 /// Spec 05 — journal des échanges avec un fournisseur (brut, auditable).
 model PaymentEvent {
-  id             String    @id @default(cuid())
+  id             String   @id @default(cuid())
   paymentId      String?
-  payment        Payment?  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  payment        Payment? @relation(fields: [paymentId], references: [id], onDelete: Cascade)
   provider       String
   /// INITIATE_REQUEST | INITIATE_RESPONSE | WEBHOOK | STATUS_POLL
   kind           String
   payload        Json
   signatureValid Boolean?
-  createdAt      DateTime  @default(now())
+  createdAt      DateTime @default(now())
 
   @@index([paymentId, createdAt])
 }
@@ -2041,7 +2056,7 @@ model PayoutAccount {
   provider       PaymentProvider?
   phone          String?
   bankName       String?
-  accountNumber   String?
+  accountNumber  String?
   holderName     String
   verifiedAt     DateTime?
   isDefault      Boolean           @default(false)
@@ -2053,22 +2068,22 @@ model PayoutAccount {
 
 /// Spec 05 — reversement au propriétaire (net du ledger, hors litiges).
 model Payout {
-  id              String       @id @default(cuid())
+  id              String        @id @default(cuid())
   organizationId  String
-  organization    Organization @relation(fields: [organizationId], references: [id])
+  organization    Organization  @relation(fields: [organizationId], references: [id])
   payoutAccountId String
   payoutAccount   PayoutAccount @relation(fields: [payoutAccountId], references: [id])
-  amount          Decimal      @db.Decimal(12, 2)
-  fee             Decimal      @default(0) @db.Decimal(12, 2)
+  amount          Decimal       @db.Decimal(12, 2)
+  fee             Decimal       @default(0) @db.Decimal(12, 2)
   currency        String
   periodStart     DateTime?
   periodEnd       DateTime?
   /// OWNER_NET | DEPOSIT_REFUND
   kind            String
-  status          PayoutStatus @default(PENDING)
+  status          PayoutStatus  @default(PENDING)
   providerRef     String?
   failureReason   String?
-  createdAt       DateTime     @default(now())
+  createdAt       DateTime      @default(now())
   paidAt          DateTime?
 
   @@index([organizationId, status])
@@ -2107,37 +2122,37 @@ model ReconciliationLine {
 // =====================================================================
 
 model MaintenanceTicket {
-  id                   String              @id @default(uuid())
-  propertyId           String
-  property             Property            @relation(fields: [propertyId], references: [id])
-  reporterId           String
-  reporter             User                @relation("TicketReporter", fields: [reporterId], references: [id])
-  assigneeId           String?
-  assignee             User?               @relation("TicketAssignee", fields: [assigneeId], references: [id])
-  title                String
-  description          String
-  priority             MaintenancePriority @default(MEDIUM)
-  status               MaintenanceStatus   @default(OPEN)
+  id                    String                    @id @default(uuid())
+  propertyId            String
+  property              Property                  @relation(fields: [propertyId], references: [id])
+  reporterId            String
+  reporter              User                      @relation("TicketReporter", fields: [reporterId], references: [id])
+  assigneeId            String?
+  assignee              User?                     @relation("TicketAssignee", fields: [assigneeId], references: [id])
+  title                 String
+  description           String
+  priority              MaintenancePriority       @default(MEDIUM)
+  status                MaintenanceStatus         @default(OPEN)
   /// Spec 15 A1 — machine à états et suivi.
-  leaseId              String?
-  bookingId            String?
-  category             MaintenanceCategory @default(OTHER)
-  availability         String?
-  entryPermission      Boolean             @default(false)
-  scheduledAt          DateTime?
-  startedAt            DateTime?
-  resolvedAt           DateTime?
-  closedAt             DateTime?
-  slaDueAt             DateTime?
-  actualCost           Decimal?            @db.Decimal(12, 2)
-  chargeTo             ChargeTo            @default(OWNER)
-  cancelReason         String?
-  estimatedCost        Decimal?            @db.Decimal(12, 2)
-  requiresOwnerApproval Boolean            @default(false)
-  history              MaintenanceStatusChange[]
-  comments             MaintenanceComment[]
-  createdAt            DateTime            @default(now())
-  updatedAt            DateTime            @updatedAt
+  leaseId               String?
+  bookingId             String?
+  category              MaintenanceCategory       @default(OTHER)
+  availability          String?
+  entryPermission       Boolean                   @default(false)
+  scheduledAt           DateTime?
+  startedAt             DateTime?
+  resolvedAt            DateTime?
+  closedAt              DateTime?
+  slaDueAt              DateTime?
+  actualCost            Decimal?                  @db.Decimal(12, 2)
+  chargeTo              ChargeTo                  @default(OWNER)
+  cancelReason          String?
+  estimatedCost         Decimal?                  @db.Decimal(12, 2)
+  requiresOwnerApproval Boolean                   @default(false)
+  history               MaintenanceStatusChange[]
+  comments              MaintenanceComment[]
+  createdAt             DateTime                  @default(now())
+  updatedAt             DateTime                  @updatedAt
 
   @@index([propertyId, status])
   @@index([reporterId, status])
@@ -2228,11 +2243,21 @@ model Notification {
 
   // Spec 11 P0 — fiabilisation de l'envoi : 3 tentatives avec backoff.
   // middle failures → QUEUED + retryAfter ; 3ᵉ échec → FAILED définitif.
-  attempts  Int                 @default(0)
-  lastError String?
+  attempts   Int       @default(0)
+  lastError  String?
   retryAfter DateTime?
 
   @@index([status, retryAfter])
+}
+
+model NotificationPreference {
+  userId   String
+  user     User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category NotificationCategory
+  push     Boolean              @default(true)
+
+  @@id([userId, category])
+  @@index([category])
 }
 
 // =====================================================================
@@ -2240,20 +2265,20 @@ model Notification {
 // =====================================================================
 
 model OtpChallenge {
-  phone              String   @id
+  phone              String    @id
   code               String
   /// LOGIN = existing user only; REGISTER = create if missing
-  purpose            String   @default("REGISTER")
-  attempts           Int      @default(0)
+  purpose            String    @default("REGISTER")
+  attempts           Int       @default(0)
   expiresAt          DateTime
-  requestCount       Int      @default(1)
+  requestCount       Int       @default(1)
   requestWindowEndAt DateTime
   /// 60s min gap between two sends for the same number.
   lastSentAt         DateTime?
   /// Set after 5 failed verifications; blocks the number for 30 minutes.
   lockedUntil        DateTime?
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 }
 
 // =====================================================================
@@ -2274,18 +2299,18 @@ model UserPhoneHistory {
 /// Identity / business verification dossier (spec 01 — P1).
 /// Attached either to a user (CNI, passport) or an organization (RCCM, NIU).
 model KycSubmission {
-  id              String       @id @default(uuid())
+  id              String        @id @default(uuid())
   userId          String?
-  user            User?        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user            User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
   organizationId  String?
   organization    Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   documentType    String
   fileKey         String
-  status          KycStatus    @default(PENDING)
+  status          KycStatus     @default(PENDING)
   reviewedBy      String?
   reviewedAt      DateTime?
   rejectionReason String?
-  createdAt       DateTime     @default(now())
+  createdAt       DateTime      @default(now())
 
   @@index([status, createdAt])
   @@index([userId])
@@ -2343,12 +2368,12 @@ model SystemAnnouncement {
 
 /// Spec 14 — force-update policy per platform (`GET app/config`).
 model AppVersionPolicy {
-  platform       DevicePlatform @id
-  minVersion     String
-  latestVersion  String
-  storeUrl       String?
-  message        String?
-  updatedAt      DateTime       @updatedAt
+  platform      DevicePlatform @id
+  minVersion    String
+  latestVersion String
+  storeUrl      String?
+  message       String?
+  updatedAt     DateTime       @updatedAt
 }
 
 // =====================================================================
@@ -2401,44 +2426,44 @@ model Conversation {
 /// Messages immutables : suppression par l'auteur sous 5 minutes (tombstone
 /// « Message supprimé »), jamais d'édition.
 model Message {
-  id             String       @id @default(uuid())
+  id             String          @id @default(uuid())
   conversationId String
-  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  conversation   Conversation    @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   /// Null = message système.
   senderId       String?
-  sender         User?        @relation("SentMessages", fields: [senderId], references: [id], onDelete: SetNull)
+  sender         User?           @relation("SentMessages", fields: [senderId], references: [id], onDelete: SetNull)
   body           String?
   /// TEXT | ATTACHMENT | SYSTEM
-  kind           String       @default("TEXT")
+  kind           String          @default("TEXT")
   /// [{ fileKey, mimeType, size, name }] — R2 privé, URL signée à la lecture.
   attachments    Json?
   /// Copie du corps masqué (PROPERTY avant visite confirmée).
   maskedBody     String?
   deletedAt      DateTime?
-  createdAt      DateTime     @default(now())
+  createdAt      DateTime        @default(now())
   reports        MessageReport[]
 
   @@index([conversationId, createdAt])
 }
 
 model ConversationRead {
-  conversation        Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  conversationId     String
-  userId             String
-  lastReadAt         DateTime @default(now())
-  lastReadMessageId  String?
+  conversation      Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  conversationId    String
+  userId            String
+  lastReadAt        DateTime     @default(now())
+  lastReadMessageId String?
 
   @@id([conversationId, userId])
 }
 
 model MessageReport {
-  id          String   @id @default(uuid())
-  messageId   String
-  message     Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
-  reporterId  String
-  reason      String
-  status      String   @default("OPEN")
-  createdAt   DateTime @default(now())
+  id         String   @id @default(uuid())
+  messageId  String
+  message    Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  reporterId String
+  reason     String
+  status     String   @default("OPEN")
+  createdAt  DateTime @default(now())
 
   @@index([status, createdAt])
 }

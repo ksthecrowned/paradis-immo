@@ -122,10 +122,19 @@ export interface PublicMaintenanceTicket {
   resolvedAt?: string | null;
 }
 
-export interface PublicMaintenanceTicketDetail
-  extends PublicMaintenanceTicket {
-  history: Array<{ from: MaintenanceStatus; to: MaintenanceStatus; createdAt: string }>;
-  comments: Array<{ id: string; authorId: string | null; body: string; createdAt: string }>;
+export interface PublicMaintenanceTicketDetail extends PublicMaintenanceTicket {
+  property: { title: string };
+  history: Array<{
+    from: MaintenanceStatus;
+    to: MaintenanceStatus;
+    createdAt: string;
+  }>;
+  comments: Array<{
+    id: string;
+    authorId: string | null;
+    body: string;
+    createdAt: string;
+  }>;
 }
 
 export interface PaginatedMaintenanceTickets {
@@ -382,7 +391,10 @@ export class MaintenanceService {
           propertyId: true,
           status: true,
           tenantId: true,
-          coTenants: { where: { userId: input.reporterId }, select: { userId: true } },
+          coTenants: {
+            where: { userId: input.reporterId },
+            select: { userId: true },
+          },
         },
       });
       if (
@@ -523,6 +535,7 @@ export class MaintenanceService {
     const ticket = await this.prisma.maintenanceTicket.findUnique({
       where: { id: ticketId },
       include: {
+        property: { select: { title: true } },
         history: {
           orderBy: { createdAt: 'asc' },
           select: { from: true, to: true, createdAt: true },
@@ -543,6 +556,7 @@ export class MaintenanceService {
     await this.assertCanReadTicket(userId, ticket);
     return {
       ...this.toPublic(ticket),
+      property: { title: ticket.property.title },
       history: ticket.history.map((item) => ({
         from: item.from,
         to: item.to,
@@ -561,7 +575,12 @@ export class MaintenanceService {
     userId: string,
     ticketId: string,
     body: string,
-  ): Promise<{ id: string; authorId: string | null; body: string; createdAt: string }> {
+  ): Promise<{
+    id: string;
+    authorId: string | null;
+    body: string;
+    createdAt: string;
+  }> {
     const ticket = await this.prisma.maintenanceTicket.findUnique({
       where: { id: ticketId },
       select: { id: true, propertyId: true, reporterId: true },
@@ -685,7 +704,7 @@ export class MaintenanceService {
     const [rows, total] = await Promise.all([
       this.prisma.maintenanceTicket.findMany({
         where,
-        orderBy: { createdAt: 'desc' },
+        orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
         take: limit,
         skip: offset,
       }),

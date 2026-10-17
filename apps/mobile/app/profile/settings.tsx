@@ -175,11 +175,17 @@ export default function ProfileSettingsScreen(): React.JSX.Element {
         <View style={styles.card}>
           <View style={styles.row}>
             <Text style={styles.rowLabel}>Français</Text>
-            <Ionicons name="checkmark-circle" size={22} color={colors.primary} />
+            <Ionicons
+              name="checkmark-circle"
+              size={22}
+              color={colors.primary}
+            />
           </View>
           <View style={[styles.row, styles.rowDisabled]}>
             <View>
-              <Text style={[styles.rowLabel, styles.disabledText]}>English</Text>
+              <Text style={[styles.rowLabel, styles.disabledText]}>
+                English
+              </Text>
               <Text style={styles.soon}>Bientôt</Text>
             </View>
           </View>
@@ -232,6 +238,32 @@ export default function ProfileSettingsScreen(): React.JSX.Element {
               ? 'Mise à jour…'
               : 'Les notifications dans l’application restent disponibles.'}
           </Text>
+          <Pressable
+            style={styles.preferenceLink}
+            onPress={() => router.push('/profile/notifications')}
+            accessibilityRole="button"
+          >
+            <Text style={styles.preferenceLinkText}>Régler les catégories</Text>
+            <Ionicons name="chevron-forward" size={18} color={colors.primary} />
+          </Pressable>
+        </View>
+
+        <Text style={styles.sectionTitle}>Compte</Text>
+        <View style={styles.card}>
+          <Pressable
+            style={[styles.row, styles.lastRow]}
+            onPress={() => router.push('/profile/delete-account')}
+            accessibilityRole="button"
+            accessibilityLabel="Supprimer mon compte"
+          >
+            <View style={styles.accountLinkText}>
+              <Text style={styles.dangerLabel}>Supprimer mon compte</Text>
+              <Text style={styles.soon}>
+                Désactivation immédiate, anonymisation après 30 jours.
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={colors.danger} />
+          </Pressable>
         </View>
       </ScrollView>
     </View>
@@ -269,6 +301,18 @@ const styles = StyleSheet.create({
   rowDisabled: {
     opacity: 0.55,
   },
+  lastRow: {
+    borderBottomWidth: 0,
+  },
+  accountLinkText: {
+    flex: 1,
+    paddingRight: spacing.sm,
+  },
+  dangerLabel: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.danger,
+  },
   rowLabel: {
     fontSize: 15,
     fontWeight: '600',
@@ -288,6 +332,20 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
     fontSize: 12,
     color: colors.muted,
+  },
+  preferenceLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  preferenceLinkText: {
+    color: colors.primary,
+    fontSize: 13,
+    fontWeight: '700',
   },
   radio: {
     width: 20,

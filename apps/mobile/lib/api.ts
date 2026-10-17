@@ -1,14 +1,9 @@
+import { emitAccountDeleted } from './account-deleted-signal';
+import { ApiError, isAccountDeletedBody } from './api-error';
 import { getAccessToken, refreshSession } from './auth';
 import { getApiUrl } from './config';
 
-export class ApiError extends Error {
-  readonly status: number;
-  constructor(message: string, status: number) {
-    super(message);
-    this.name = 'ApiError';
-    this.status = status;
-  }
-}
+export { ApiError };
 
 type ApiFetchOptions = Omit<RequestInit, 'body'> & {
   body?: unknown;
@@ -90,7 +85,13 @@ export async function apiFetch<T>(
   }
 
   if (!res.ok) {
-    throw new ApiError(errorMessage(parsed, res.status), res.status);
+    // Spec 01 — a DELETED account may sign in but the guard limits it to the
+    // recovery route. Let the app open the cancellation screen rather than
+    // surfacing a raw 403 on whichever screen made the call.
+    if (res.status === 403 && isAccountDeletedBody(parsed)) {
+      emitAccountDeleted();
+    }
+    throw new ApiError(errorMessage(parsed, res.status), res.status, parsed);
   }
 
   return unwrapData<T>(parsed);

@@ -2,6 +2,7 @@ import 'react-native-gesture-handler';
 import { colors, getBootColorScheme } from '@/constants/theme';
 import { FeedbackProvider } from '@/context/FeedbackContext';
 import { LocationProvider } from '@/context/LocationContext';
+import { AccountDeletedGate } from '@/components/AccountDeletedGate';
 import { NotificationBootstrap } from '@/components/NotificationBootstrap';
 import { SessionExpiredGate } from '@/components/SessionExpiredGate';
 import { AppVersionGate } from '@/components/AppVersionGate';
@@ -28,6 +29,7 @@ export default function RootLayout(): React.JSX.Element {
             <AppVersionGate>
               <NotificationBootstrap />
               <SessionExpiredGate />
+              <AccountDeletedGate />
               <StatusBar style={statusBarStyle} />
               <Stack
                 screenOptions={{
@@ -233,12 +235,32 @@ export default function RootLayout(): React.JSX.Element {
                 }}
               />
               <Stack.Screen
-                name="profile/documents"
+                name="profile/notifications"
                 options={{
                   headerShown: false,
                   animation: 'slide_from_right',
                 }}
               />
+              <Stack.Screen
+                name="profile/documents"
+                options={{
+                  headerShown: false,
+                  animation: 'slide_from_right',
+                }}
+              />                <Stack.Screen
+                  name="profile/delete-account"
+                  options={{
+                    headerShown: false,
+                    animation: 'slide_from_right',
+                  }}
+                />
+                <Stack.Screen
+                  name="account/recovery"
+                  options={{
+                    headerShown: false,
+                    animation: 'fade',
+                  }}
+                />
               <Stack.Screen
                 name="agency/[id]"
                 options={{

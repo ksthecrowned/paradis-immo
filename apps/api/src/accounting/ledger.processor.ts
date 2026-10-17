@@ -68,10 +68,11 @@ export class LedgerProcessor {
       const ownerId = mandate.property.ownerId;
       if (!ownerId) continue;
       try {
-        const statement = await this.accounting.generateStatement(
-          ownerId,
-          { mandateId: mandate.id, periodStart, periodEnd },
-        );
+        const statement = await this.accounting.generateStatement(ownerId, {
+          mandateId: mandate.id,
+          periodStart,
+          periodEnd,
+        });
         await this.notifications.send({
           userId: ownerId,
           type: 'STATEMENT_READY',
@@ -89,24 +90,62 @@ export class LedgerProcessor {
     }
   }
 
-  /** Public for direct invocation from tests. */
-  async recordPayment(paymentId: string): Promise<{ entries: number }> {
-    const payment = await this.prisma.payment.findUnique({
-      where: { id: paymentId },
+  /**
+   * Living mandate covering a property (ACTIVE, or TERMINATING during its
+   * notice period) — only those produce agency fees.
+   */
+  private async liveMandateForProperty(
+    tx: Prisma.TransactionClient,
+    propertyId: string,
+  ) {
+    return tx.mandate.findFirst({
+      where: {
+        propertyId,
+        OR: [
+          { status: 'ACTIVE' },
+          { status: 'TERMINATING', terminationEffectiveAt: { gt: new Date() } },
+        ],
+      },
       select: {
         id: true,
-        currency: true,
-        allocations: {
-          where: { type: 'RENT_SCHEDULE' },
-          select: {
-            amount: true,
-            rentSchedule: {
-              select: {
-                kind: true,
-                lease: {
-                  select: {
-                    property: {
-                      select: { id: true, organizationId: true, title: true },
+        organizationId: true,
+        managementFeeRate: true,
+      },
+    });
+  }
+
+  /**
+   * Public for direct invocation from tests.
+   *
+   * Spec 03 — one immutable line per property and per source event: the
+   * allocations of a single payment that target the same property (e.g. two
+   * rents paid at once) are summed into a single `RENT_IN`/`DEPOSIT_IN` and a
+   * single `FEE`, which keeps `(sourceType, sourceId, type, propertyId)`
+   * unique. The payment row is locked for the whole transaction, so a
+   * concurrent delivery of the same event (double webhook, replay) cannot
+   * interleave its `findFirst` with our `create`.
+   */
+  async recordPayment(paymentId: string): Promise<{ entries: number }> {
+    return this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM "Payment" WHERE id = ${paymentId} FOR UPDATE`;
+
+      const payment = await tx.payment.findUnique({
+        where: { id: paymentId },
+        select: {
+          id: true,
+          currency: true,
+          allocations: {
+            where: { type: 'RENT_SCHEDULE' },
+            select: {
+              amount: true,
+              rentSchedule: {
+                select: {
+                  kind: true,
+                  lease: {
+                    select: {
+                      property: {
+                        select: { id: true, organizationId: true, title: true },
+                      },
                     },
                   },
                 },
@@ -114,140 +153,170 @@ export class LedgerProcessor {
             },
           },
         },
-      },
-    });
-    if (!payment) return { entries: 0 };
-
-    let written = 0;
-    for (const allocation of payment.allocations) {
-      const property = allocation.rentSchedule?.lease?.property;
-      if (!property) continue;
-
-      // Only properties under a living mandate produce agency fees.
-      const mandate = await this.prisma.mandate.findFirst({
-        where: {
-          propertyId: property.id,
-          OR: [
-            { status: 'ACTIVE' },
-            {
-              status: 'TERMINATING',
-              terminationEffectiveAt: { gt: new Date() },
-            },
-          ],
-        },
       });
+      if (!payment) return { entries: 0 };
 
-      const amount = new Prisma.Decimal(allocation.amount);
-      // Spec 04 — the deposit (caution) is its own ledger line; only rents
-      // bear the management fee.
-      const isDeposit = allocation.rentSchedule?.kind === 'DEPOSIT';
-      const incomeType = isDeposit ? 'DEPOSIT_IN' : 'RENT_IN';
-      const incomeKey = { sourceType: 'PAYMENT', sourceId: paymentId };
-      const existingRent = await this.prisma.ledgerEntry.findFirst({
-        where: { ...incomeKey, type: incomeType, propertyId: property.id },
-        select: { id: true },
-      });
-      if (!existingRent) {
-        await this.prisma.ledgerEntry.create({
-          data: {
+      // A deposit (caution) is its own ledger line; only rents bear the fee.
+      const groups = new Map<
+        string,
+        {
+          incomeType: 'RENT_IN' | 'DEPOSIT_IN';
+          propertyId: string;
+          organizationId: string;
+          title: string;
+          amount: Prisma.Decimal;
+        }
+      >();
+      for (const allocation of payment.allocations) {
+        const property = allocation.rentSchedule?.lease?.property;
+        if (!property) continue;
+        const incomeType =
+          allocation.rentSchedule?.kind === 'DEPOSIT'
+            ? 'DEPOSIT_IN'
+            : 'RENT_IN';
+        const key = `${property.id}:${incomeType}`;
+        const group = groups.get(key);
+        if (group) {
+          group.amount = group.amount.add(allocation.amount);
+        } else {
+          groups.set(key, {
+            incomeType,
             propertyId: property.id,
-            mandateId: mandate?.id ?? null,
-            ownerOrgId: property.organizationId,
-            agencyOrgId: mandate?.organizationId ?? null,
-            type: incomeType,
-            amount,
-            currency: payment.currency,
-            sourceType: 'PAYMENT',
-            sourceId: paymentId,
-            label: isDeposit
-              ? `Caution encaissée — ${property.title}`
-              : `Loyer encaissé — ${property.title}`,
-            occurredAt: new Date(),
-          },
-        });
-        written += 1;
+            organizationId: property.organizationId,
+            title: property.title,
+            amount: new Prisma.Decimal(allocation.amount),
+          });
+        }
       }
 
-      if (mandate?.managementFeeRate && !isDeposit) {
-        const rate = new Prisma.Decimal(mandate.managementFeeRate);
-        const fee = amount.mul(rate).toDecimalPlaces(2);
-        if (fee.gt(0)) {
-          const existingFee = await this.prisma.ledgerEntry.findFirst({
-            where: { ...incomeKey, type: 'FEE', propertyId: property.id },
-            select: { id: true },
+      const source = { sourceType: 'PAYMENT', sourceId: paymentId };
+      const occurredAt = new Date();
+      let written = 0;
+      for (const group of groups.values()) {
+        const mandate = await this.liveMandateForProperty(tx, group.propertyId);
+        const existingIncome = await tx.ledgerEntry.findFirst({
+          where: {
+            ...source,
+            type: group.incomeType,
+            propertyId: group.propertyId,
+          },
+          select: { id: true },
+        });
+        if (!existingIncome) {
+          await tx.ledgerEntry.create({
+            data: {
+              propertyId: group.propertyId,
+              mandateId: mandate?.id ?? null,
+              ownerOrgId: group.organizationId,
+              agencyOrgId: mandate?.organizationId ?? null,
+              type: group.incomeType,
+              amount: group.amount,
+              currency: payment.currency,
+              sourceType: 'PAYMENT',
+              sourceId: paymentId,
+              label:
+                group.incomeType === 'DEPOSIT_IN'
+                  ? `Caution encaissée — ${group.title}`
+                  : `Loyer encaissé — ${group.title}`,
+              occurredAt,
+            },
           });
-          if (!existingFee) {
-            await this.prisma.ledgerEntry.create({
-              data: {
-                propertyId: property.id,
-                mandateId: mandate.id,
-                ownerOrgId: property.organizationId,
-                agencyOrgId: mandate.organizationId,
-                type: 'FEE',
-                amount: fee.neg(),
-                currency: payment.currency,
-                sourceType: 'PAYMENT',
-                sourceId: paymentId,
-                label: `Honoraires de gestion (${rate.mul(100).toNumber()} %)`,
-                occurredAt: new Date(),
-              },
+          written += 1;
+        }
+
+        if (group.incomeType === 'RENT_IN' && mandate?.managementFeeRate) {
+          const rate = new Prisma.Decimal(mandate.managementFeeRate);
+          const fee = group.amount.mul(rate).toDecimalPlaces(2);
+          if (fee.gt(0)) {
+            const existingFee = await tx.ledgerEntry.findFirst({
+              where: { ...source, type: 'FEE', propertyId: group.propertyId },
+              select: { id: true },
             });
-            written += 1;
+            if (!existingFee) {
+              await tx.ledgerEntry.create({
+                data: {
+                  propertyId: group.propertyId,
+                  mandateId: mandate.id,
+                  ownerOrgId: group.organizationId,
+                  agencyOrgId: mandate.organizationId,
+                  type: 'FEE',
+                  amount: fee.neg(),
+                  currency: payment.currency,
+                  sourceType: 'PAYMENT',
+                  sourceId: paymentId,
+                  label: `Honoraires de gestion (${rate.mul(100).toNumber()} %)`,
+                  occurredAt,
+                },
+              });
+              written += 1;
+            }
           }
         }
       }
-    }
-    this.logger.log(
-      `Ledger: ${written} entrée(s) pour le paiement ${paymentId}`,
-    );
-    return { entries: written };
+      this.logger.log(
+        `Ledger: ${written} entrée(s) pour le paiement ${paymentId}`,
+      );
+      return { entries: written };
+    });
   }
 
-  /** Public for direct invocation from tests. */
+  /**
+   * Public for direct invocation from tests. Same locking strategy as
+   * `recordPayment`: the expense row serialises concurrent deliveries of
+   * `EXPENSE_APPROVED`.
+   */
   async recordExpense(expenseId: string): Promise<{ entries: number }> {
-    const expense = await this.prisma.expense.findUnique({
-      where: { id: expenseId },
-      select: {
-        id: true,
-        propertyId: true,
-        mandateId: true,
-        amount: true,
-        currency: true,
-        label: true,
-        incurredAt: true,
-        property: { select: { organizationId: true, title: true } },
-      },
-    });
-    if (!expense) return { entries: 0 };
+    return this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM "Expense" WHERE id = ${expenseId} FOR UPDATE`;
 
-    const existing = await this.prisma.ledgerEntry.findFirst({
-      where: { sourceType: 'EXPENSE', sourceId: expenseId, type: 'EXPENSE' },
-      select: { id: true },
-    });
-    if (existing) return { entries: 0 };
+      const expense = await tx.expense.findUnique({
+        where: { id: expenseId },
+        select: {
+          id: true,
+          propertyId: true,
+          mandateId: true,
+          amount: true,
+          currency: true,
+          label: true,
+          incurredAt: true,
+          property: { select: { organizationId: true, title: true } },
+        },
+      });
+      if (!expense) return { entries: 0 };
 
-    const mandate = expense.mandateId
-      ? await this.prisma.mandate.findUnique({
-          where: { id: expense.mandateId },
-          select: { organizationId: true },
-        })
-      : null;
+      const existing = await tx.ledgerEntry.findFirst({
+        where: {
+          sourceType: 'EXPENSE',
+          sourceId: expenseId,
+          type: 'EXPENSE',
+        },
+        select: { id: true },
+      });
+      if (existing) return { entries: 0 };
 
-    await this.prisma.ledgerEntry.create({
-      data: {
-        propertyId: expense.propertyId,
-        mandateId: expense.mandateId,
-        ownerOrgId: expense.property.organizationId,
-        agencyOrgId: mandate?.organizationId ?? null,
-        type: 'EXPENSE',
-        amount: new Prisma.Decimal(expense.amount).neg(),
-        currency: expense.currency,
-        sourceType: 'EXPENSE',
-        sourceId: expenseId,
-        label: `Dépense validée — ${expense.label}`,
-        occurredAt: expense.incurredAt,
-      },
+      const mandate = expense.mandateId
+        ? await tx.mandate.findUnique({
+            where: { id: expense.mandateId },
+            select: { organizationId: true },
+          })
+        : null;
+
+      await tx.ledgerEntry.create({
+        data: {
+          propertyId: expense.propertyId,
+          mandateId: expense.mandateId,
+          ownerOrgId: expense.property.organizationId,
+          agencyOrgId: mandate?.organizationId ?? null,
+          type: 'EXPENSE',
+          amount: new Prisma.Decimal(expense.amount).neg(),
+          currency: expense.currency,
+          sourceType: 'EXPENSE',
+          sourceId: expenseId,
+          label: `Dépense validée — ${expense.label}`,
+          occurredAt: expense.incurredAt,
+        },
+      });
+      return { entries: 1 };
     });
-    return { entries: 1 };
   }
 }

@@ -120,7 +120,10 @@ export default function LeasesListScreen(): React.JSX.Element {
       {error ? (
         <View style={styles.errorBanner}>
           <Text style={styles.errorText}>{error}</Text>
-          <Pressable onPress={() => void onRefresh()} accessibilityRole="button">
+          <Pressable
+            onPress={() => void onRefresh()}
+            accessibilityRole="button"
+          >
             <Text style={styles.errorRetry}>Réessayer</Text>
           </Pressable>
         </View>
@@ -185,9 +188,7 @@ function LeaseCard({ row }: { row: LeaseListRow }): React.JSX.Element {
           label={leaseStatusLabel(lease.status)}
           tone={leaseStatusTone(lease.status)}
         />
-        <Text style={styles.rent}>
-          {formatFcfa(lease.monthlyRent)} / mois
-        </Text>
+        <Text style={styles.rent}>{formatFcfa(lease.monthlyRent)} / mois</Text>
       </View>
       <Text style={styles.cardTitle} numberOfLines={1}>
         {title}

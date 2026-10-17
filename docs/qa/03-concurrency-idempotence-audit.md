@@ -3,7 +3,7 @@
 **Date** : 2026-10-17  
 **Périmètre** : mandats, approbations propriétaire, ledger / dépenses  
 **Sources** : `docs/specs/03-gerance-mandats-comptabilite.md` (critères + deltas 03.1–03.3), code sous `apps/api/src/mandates/**`, `mandate-approval*`, `accounting/**`, specs `mandates*.spec.ts`, `mandate-lifecycle.spec.ts`, `accounting.spec.ts`  
-**Statut** : audit uniquement — les gaps listés restent ouverts tant que les tests/contraintes recommandés ne sont pas livrés.
+**Statut** : audit + premier lot de corrections. **G-P0-1 (ledger)** est fermé en code et prouvé par tests ; la migration d'unicité est livrée mais **pas encore appliquée** à la base. Les autres gaps restent ouverts.
 
 Légende couverture : **yes** = course ou rejeu couvert avec assertion d'effet unique ; **partial** = cas séquentiel / heureux / une seule variante concurrente ; **no** = aucune preuve automatisée.
 
@@ -28,8 +28,8 @@ Légende couverture : **yes** = course ou rejeu couvert avec assertion d'effet u
 | `cancelApproval` vs `decideApproval` | Cancel∥Approve → état/effet ambigu | **no** | Cancel conditionnel : `mandate-approval.service.ts:639-641`. Aucun test parallèle cancel×decide. |
 | Expiration TTL (`EXPIRED`) puis decide | Décision après expire | **partial** | Expire-on-read + refus decide : `mandate-lifecycle.spec.ts:433-465`. Pas de course expire-job × decide. |
 | Revue documentaire (deposit / REJECTED / NEEDS_CORRECTION) | Courses admin×agence, double rejet | **no** (concurrence) | Happy path dépôt/rejet : `mandate-document-review.spec.ts:154-205`. Updates non conditionnés par statut atomique concurrent (`mandate-document-review.service.ts:163-173`). |
-| `ledger.recordPayment` (RENT_IN + FEE) | TOCTOU findFirst→create → écritures doublées | **partial** | Idempotence **séquentielle** : `accounting.spec.ts:309-317` (2e appel → 0 entrées). Impl. check-then-create : `ledger.processor.ts:146-198`. **Pas** de `@@unique([sourceType, sourceId, type, …])` sur `LedgerEntry` (`schema.prisma:1879-1899`). **Pas** de `Promise.all` concurrent. |
-| `ledger.recordExpense` | Même TOCTOU | **partial** | Rejeu séquentiel : `accounting.spec.ts:386-394`. Impl. : `ledger.processor.ts:223-250`. |
+| `ledger.recordPayment` (RENT_IN + FEE) | TOCTOU findFirst→create → écritures doublées | **yes** | Verrou `SELECT … FOR UPDATE` sur `Payment` + écriture agrégée par bien : `ledger.processor.ts:127-262`. Course : `accounting.spec.ts:328-368` (`Promise.allSettled` → 2 entrées seulement). Agrégation multi-échéances : `accounting.spec.ts:370-420`. Idempotence séquentielle conservée. |
+| `ledger.recordExpense` | Même TOCTOU | **yes** | Verrou `SELECT … FOR UPDATE` sur `Expense` : `ledger.processor.ts:265-325`. Course : `accounting.spec.ts:493-520` (1 seule ligne EXPENSE). |
 | Handler event `PAYMENT_VALIDATED` / `EXPENSE_APPROVED` rejoué | Double écriture si event bus rejoue | **partial** | Même chemin que `record*` (ci-dessus). Pas de test d'événement rejoué concurrent. |
 | Commission 8 % (FEE) sous mandat | Montant faux ou FEE dupliquée | **partial** | Montants corrects séquentiels : `accounting.spec.ts:286-325`. Pas de course multi-allocation / multi-handler. |
 | Génération relevé mensuel (cron) | Double PDF / double notif le 5 | **no** | Cron : `ledger.processor.ts:50-90`. Aucun test d'idempotence périodique. |
@@ -43,11 +43,11 @@ Légende couverture : **yes** = course ou rejeu couvert avec assertion d'effet u
 
 - Transitions mandat **accept** / **terminate** et décision d'approbation utilisent `updateMany` / CAS sur le statut attendu ; les tests de course dans `mandate-lifecycle.spec.ts` (bloc « Courses et idempotence », ~L675+) valident l'invariant « une seule transition + un seul event ».
 - Effets d'approbation sensibles (dont `RENT_REDUCTION`) sont appliqués **dans** la même transaction que le CAS de statut.
-- Le ledger est **idempotent en rejeu séquentiel** (second `recordPayment` / `recordExpense` → 0 nouvelle ligne).
+- Le ledger est **idempotent en rejeu séquentiel** (second `recordPayment` / `recordExpense` → 0 nouvelle ligne) et désormais **sous concurrence** (verrou de la ligne source + écriture agrégée par bien, cf. G-P0-1).
 
 ### Faiblesses structurelles
 
-1. **Ledger** : idempotence applicative seule (`findFirst` puis `create`), **sans** contrainte d'unicité Prisma/Postgres sur `(sourceType, sourceId, type[, propertyId])`. Sous concurrence réelle (double webhook, double handler), des doublons RENT_IN/FEE/EXPENSE restent possibles — écart explicite des deltas 03.2 / 03.3.
+1. **Ledger — fermé en code, migration en attente** : `@@unique([sourceType, sourceId, type, propertyId])` est déclaré (`schema.prisma`, modèle `LedgerEntry`) et livré avec la migration `20261017170000_ledger_entry_unique_source` (dédoublonnage conservant la ligne la plus ancienne, puis index unique). Les handlers `recordPayment` / `recordExpense` sérialisent désormais sur la ligne source (`FOR UPDATE`) et agrègent les allocations du même bien en une seule écriture, ce qui rend la clé unique compatible avec un paiement multi-échéances (auparavant la 2e allocation était silencieusement ignorée). **Reste à faire** : appliquer la migration à la base (opération à autoriser — la base de dev a déjà deux migrations non appliquées), puis vérifier l'index en base.
 2. **Unicité mandat living** : `assertNoConflict` est un check applicatif ; deux `createMandate` parallèles peuvent passer avant insert.
 3. **Couverture des effets d'approbation** : une seule course multi-décision existe (`RENT_REDUCTION` APPROVE vs REJECT). EXPENSE / LEASE_SIGN / MAJOR_REPAIR n'ont pas d'équivalent concurrent.
 4. **Revue documentaire (03.6)** : hors du bloc de courses actuel ; transitions non CAS.
@@ -60,7 +60,7 @@ Légende couverture : **yes** = course ou rejeu couvert avec assertion d'effet u
 
 | ID | Gap | Pourquoi | Action recommandée |
 |---|---|---|---|
-| G-P0-1 | Pas de contrainte unique ledger + pas de test concurrent `recordPayment` / `recordExpense` | Doublons monétaires silencieux | Ajouter `@@unique([sourceType, sourceId, type, propertyId])` (ou équivalent documenté), migration, puis test `Promise.allSettled([recordPayment, recordPayment])` → exactement 1× RENT_IN + 1× FEE. |
+| G-P0-1 | Pas de contrainte unique ledger + pas de test concurrent `recordPayment` / `recordExpense` | Doublons monétaires silencieux | **Fermé en code** : `@@unique([sourceType, sourceId, type, propertyId])` + migration `20261017170000_ledger_entry_unique_source` + verrous `FOR UPDATE` + agrégation par bien. Tests : `accounting.spec.ts:328` (course paiement), `:370` (multi-échéances), `:493` (course dépense) — 11/11 verts le 2026-10-17. **Reste** : appliquer la migration (autorisation requise). |
 | G-P0-2 | Course `decideApproval` non couverte pour `EXPENSE` | Double APPROVED + double event ledger | Même pattern que `mandate-lifecycle.spec.ts:763-813` avec actionType EXPENSE ; assert 1 statut dépense + ≤1 écriture ledger après handlers. |
 | G-P0-3 | Course create mandat property+scope | Violation critère « deux mandats ACTIVE exclusifs impossibles » | Test concurrent `createMandate`×2 → 1 succès + 1× `MANDATE_CONFLICT` ; idéalement contrainte/ partial unique index living. |
 
@@ -109,6 +109,14 @@ Ne pas tous implémenter d'un coup ; ordre suggéré = P0 puis P1.
 6. **Cancel vs approve race** — PENDING ; résultat CANCELLED sans effet **ou** APPROVED avec effet, jamais les deux.
 
 7. **LEASE_SIGN race** — double APPROVE ; un seul bail ACTIVE + schedule non dupliqué (respect index `(leaseId, dueDate, kind)`).
+
+---
+
+### Findings annexes (hors ledger)
+
+| ID | Constat | Impact |
+|---|---|---|
+| G-P0-4 | `operableMandateFilter` (`agency-access.service.ts:28-48`) accorde l'accès agence aux mandats `PROPOSED`/`COUNTERED` tant que la revue documentaire est `NOT_APPLICABLE`, `PENDING` ou `NEEDS_CORRECTION`. L'ancien critère « pas d'accès avant acceptation » n'est donc plus tenu et `mandates.spec.ts:192` échoue (attendu `false`, reçu `true`) — échec **préexistant** au chantier 03, aucun lien avec les changements ledger. | Décision produit à trancher : soit l'accès provisoire pendant la revue est voulu (alors mettre à jour le critère et le test), soit le filtre est trop large. |
 
 ---
 

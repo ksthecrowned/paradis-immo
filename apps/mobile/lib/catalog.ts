@@ -17,11 +17,12 @@ export async function fetchCatalogProperties(
 
 export async function fetchCatalogPropertiesPage(
   filters: PropertyFilters = {},
-): Promise<{ data: Property[]; total: number }> {
+): Promise<{ data: Property[]; total: number; unmapped?: number }> {
   const page = await listPropertiesPage(filters);
   return {
     data: sortMarketableFirst(page.data.map(mapPublicProperty)),
     total: page.meta.total,
+    unmapped: page.meta.unmapped,
   };
 }
 

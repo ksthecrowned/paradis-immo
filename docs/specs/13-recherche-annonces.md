@@ -176,7 +176,7 @@ model PropertyDailyStat {
 | ID | Priorité | Delta | État |
 |---|---|---|---|
 | 13.1 | P0 | Vérifier l'autorisation et les URL signées des documents non publics. | **Code local couvert.** La route exige l'authentification, `AgencyAccessService` autorise le bien avant lecture/écriture et le stockage privé signe les `fileKey` pour 5 minutes; les URLs legacy sans clé et les échecs de signature ne retombent pas sur une URL publique. Les tests unitaires couvrent ces cas. Bucket privé, migration et téléchargement réel restent à valider en préproduction via la checklist. |
-| 13.2 | P1 | Ajouter carte/bbox, suggestions, tri avancé, compléments de filtres et pagination mobile. | À faire |
+| 13.2 | P1 | Ajouter carte/bbox, suggestions, tri avancé, compléments de filtres et pagination mobile. | Partiel : l'API accepte les limites lat/lng et renvoie les résultats géolocalisés paginés plus le nombre correspondant de biens sans coordonnées ; la carte mobile recharge par viewport et propose la page suivante. Suggestions, clusters, géolocalisation publique décalée et autres écarts 13.2 restent à faire |
 | 13.3 | P1 | Ajouter ordre/couverture des médias et statistiques d'annonce. | À faire |
 | 13.4 | P2 | Ajouter recherches sauvegardées/alertes, biens similaires, historique de prix et score qualité. | À faire |
 | 13.5 | P2 | Ajouter visite virtuelle, traitement des médias, SEO et partage documentaire sécurisé. | À faire |

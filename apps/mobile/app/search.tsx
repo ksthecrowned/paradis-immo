@@ -5,10 +5,7 @@ import { getStoredUser } from '@/lib/auth';
 import { fetchCatalogPropertiesPage } from '@/lib/catalog';
 import { PROPERTY_CATEGORIES } from '@/lib/categories';
 import { getErrorMessage } from '@/lib/feedback';
-import {
-  listCities,
-  listQuartiersForCity,
-} from '@/lib/locations';
+import { listCities, listQuartiersForCity } from '@/lib/locations';
 import {
   countActiveFilters,
   DEFAULT_SEARCH_FILTERS,
@@ -28,6 +25,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   FlatList,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -57,6 +55,7 @@ export default function SearchScreen(): React.JSX.Element {
   const [catalog, setCatalog] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [total, setTotal] = useState(0);
   const [hasMore, setHasMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -73,7 +72,7 @@ export default function SearchScreen(): React.JSX.Element {
         let me = await getStoredUser();
         const needsSync =
           !me?.seekerSetupCompletedAt &&
-          !(me?.preferredQuartierIds?.length) &&
+          !me?.preferredQuartierIds?.length &&
           me?.seekerIntent == null;
         if (needsSync) {
           me = (await syncStoredUserFromApi()) ?? me;
@@ -157,10 +156,7 @@ export default function SearchScreen(): React.JSX.Element {
     return () => clearTimeout(timer);
   }, []);
 
-  const filters = useMemo(
-    () => ({ ...initial, q: query }),
-    [initial, query],
-  );
+  const filters = useMemo(() => ({ ...initial, q: query }), [initial, query]);
   const requestKey = JSON.stringify(
     searchFiltersToApiFilters(filters, { limit: PAGE_SIZE, offset: 0 }),
   );
@@ -177,7 +173,9 @@ export default function SearchScreen(): React.JSX.Element {
           searchFiltersToApiFilters(filters, { limit: PAGE_SIZE, offset }),
         );
         if (requestId !== loadRequestId.current) return;
-        setCatalog((current) => (append ? [...current, ...page.data] : page.data));
+        setCatalog((current) =>
+          append ? [...current, ...page.data] : page.data,
+        );
         setTotal(page.total);
         setHasMore(offset + page.data.length < page.total);
       } catch (err) {
@@ -188,6 +186,7 @@ export default function SearchScreen(): React.JSX.Element {
         if (requestId === loadRequestId.current) {
           setLoading(false);
           setLoadingMore(false);
+          setRefreshing(false);
         }
       }
     },
@@ -207,6 +206,7 @@ export default function SearchScreen(): React.JSX.Element {
       return () => {
         active = false;
         clearTimeout(timer);
+        loadRequestId.current += 1;
       };
     }, [loadPage, requestKey]),
   );
@@ -214,6 +214,10 @@ export default function SearchScreen(): React.JSX.Element {
   const loadNextPage = (): void => {
     if (!hasMore || loading || loadingMore) return;
     void loadPage(catalog.length, true);
+  };
+  const refresh = (): void => {
+    setRefreshing(true);
+    void loadPage(0, false);
   };
   const activeFilterCount = countActiveFilters(filters);
   const showSuggestions = query.trim().length === 0 && activeFilterCount === 0;
@@ -326,7 +330,11 @@ export default function SearchScreen(): React.JSX.Element {
             onPress={openFilters}
             accessibilityRole="button"
           >
-            <Ionicons name="location-outline" size={14} color={colors.primary} />
+            <Ionicons
+              name="location-outline"
+              size={14}
+              color={colors.primary}
+            />
             <Text style={styles.activeChipText} numberOfLines={1}>
               {filters.quartierName
                 ? `${filters.quartierName}, ${filters.cityName}`
@@ -374,7 +382,11 @@ export default function SearchScreen(): React.JSX.Element {
                 accessibilityRole="button"
                 accessibilityLabel={`Rechercher ${item}`}
               >
-                <Ionicons name="search-outline" size={14} color={colors.muted} />
+                <Ionicons
+                  name="search-outline"
+                  size={14}
+                  color={colors.muted}
+                />
                 <Text style={styles.suggestionText}>{item}</Text>
               </Pressable>
             ))}
@@ -392,6 +404,9 @@ export default function SearchScreen(): React.JSX.Element {
           catalog.length === 0 && styles.listEmptyContent,
         ]}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={refresh} />
+        }
         onEndReached={loadNextPage}
         onEndReachedThreshold={0.5}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
@@ -427,7 +442,9 @@ export default function SearchScreen(): React.JSX.Element {
                   onPress={openFilters}
                   accessibilityRole="button"
                 >
-                  <Text style={styles.emptyActionText}>Modifier les filtres</Text>
+                  <Text style={styles.emptyActionText}>
+                    Modifier les filtres
+                  </Text>
                 </Pressable>
               ) : null}
               {error ? (

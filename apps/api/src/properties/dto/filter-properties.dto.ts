@@ -1,5 +1,15 @@
 import { Type } from 'class-transformer';
-import { IsBooleanString, IsEnum, IsInt, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
+import {
+  IsBooleanString,
+  IsEnum,
+  IsInt,
+  IsNumber,
+  IsOptional,
+  IsString,
+  Max,
+  MaxLength,
+  Min,
+} from 'class-validator';
 import { PropertyMode, PropertyStatus, PropertyType } from '@prisma/client';
 
 export class FilterPropertiesDto {
@@ -83,6 +93,11 @@ export class FilterPropertiesDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(100)
+  cityName?: string;
+
+  @IsOptional()
+  @IsString()
   arrondissementId?: string;
 
   @IsOptional()
@@ -92,6 +107,34 @@ export class FilterPropertiesDto {
   @IsOptional()
   @IsString()
   organizationId?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(-90)
+  @Max(90)
+  minLat?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(-90)
+  @Max(90)
+  maxLat?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(-180)
+  @Max(180)
+  minLng?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(-180)
+  @Max(180)
+  maxLng?: number;
 
   @IsOptional()
   @Type(() => Number)

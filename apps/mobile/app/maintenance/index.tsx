@@ -34,22 +34,28 @@ export default function MaintenanceListScreen(): React.JSX.Element {
   const [total, setTotal] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
-  const load = useCallback(async (offset = 0, append = false, silent = false) => {
-    if (append) setLoadingMore(true);
-    else if (!silent) setLoading(true);
-    setError(null);
-    try {
-      const page = await listMyMaintenanceTickets({ limit: PAGE_SIZE, offset });
-      setRows((current) => (append ? [...current, ...page.data] : page.data));
-      setTotal(page.meta.total);
-    } catch (err) {
-      setError(getErrorMessage(err, 'Impossible de charger vos demandes.'));
-    } finally {
-      setLoading(false);
-      setLoadingMore(false);
-      setRefreshing(false);
-    }
-  }, []);
+  const load = useCallback(
+    async (offset = 0, append = false, silent = false) => {
+      if (append) setLoadingMore(true);
+      else if (!silent) setLoading(true);
+      setError(null);
+      try {
+        const page = await listMyMaintenanceTickets({
+          limit: PAGE_SIZE,
+          offset,
+        });
+        setRows((current) => (append ? [...current, ...page.data] : page.data));
+        setTotal(page.meta.total);
+      } catch (err) {
+        setError(getErrorMessage(err, 'Impossible de charger vos demandes.'));
+      } finally {
+        setLoading(false);
+        setLoadingMore(false);
+        setRefreshing(false);
+      }
+    },
+    [],
+  );
 
   useFocusEffect(
     useCallback(() => {
@@ -87,13 +93,18 @@ export default function MaintenanceListScreen(): React.JSX.Element {
   return (
     <View style={styles.screen}>
       <View style={[styles.header, { paddingTop: insets.top + spacing.sm }]}>
-        <CircleIconButton onPress={() => router.back()} accessibilityLabel="Retour">
+        <CircleIconButton
+          onPress={() => router.back()}
+          accessibilityLabel="Retour"
+        >
           <Ionicons name="chevron-back" size={24} color={colors.ink} />
         </CircleIconButton>
         <View style={styles.headerText}>
           <Text style={styles.title}>Maintenance</Text>
           <Text style={styles.subtitle}>
-            {error ? 'Erreur de chargement' : `${total} demande${total === 1 ? '' : 's'}`}
+            {error
+              ? 'Erreur de chargement'
+              : `${total} demande${total === 1 ? '' : 's'}`}
           </Text>
         </View>
       </View>
@@ -122,9 +133,15 @@ export default function MaintenanceListScreen(): React.JSX.Element {
         ListEmptyComponent={
           error ? null : (
             <View style={styles.empty}>
-              <Ionicons name="construct-outline" size={40} color={colors.muted} />
+              <Ionicons
+                name="construct-outline"
+                size={40}
+                color={colors.muted}
+              />
               <Text style={styles.emptyTitle}>Aucune demande</Text>
-              <Text style={styles.subtitle}>Vos signalements apparaîtront ici.</Text>
+              <Text style={styles.subtitle}>
+                Vos signalements apparaîtront ici.
+              </Text>
             </View>
           )
         }
@@ -162,7 +179,11 @@ export default function MaintenanceListScreen(): React.JSX.Element {
           loadingMore ? (
             <ActivityIndicator color={colors.primary} />
           ) : rows.length > 0 && rows.length < total ? (
-            <Pressable style={styles.more} onPress={loadMore} accessibilityRole="button">
+            <Pressable
+              style={styles.more}
+              onPress={loadMore}
+              accessibilityRole="button"
+            >
               <Text style={styles.retry}>Charger plus</Text>
             </Pressable>
           ) : null
@@ -175,20 +196,43 @@ export default function MaintenanceListScreen(): React.JSX.Element {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
   centered: { alignItems: 'center', justifyContent: 'center' },
-  header: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: spacing.md, paddingBottom: spacing.md },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.md,
+  },
   headerText: { flex: 1 },
   title: { color: colors.ink, fontSize: 22, fontWeight: '800' },
   subtitle: { color: colors.muted, fontSize: 13 },
   list: { paddingHorizontal: spacing.md, gap: spacing.sm },
   emptyList: { flexGrow: 1, justifyContent: 'center' },
-  card: { gap: 8, padding: spacing.md, borderRadius: radii.lg, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
-  cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  card: {
+    gap: 8,
+    padding: spacing.md,
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  cardTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
   date: { color: colors.muted, fontSize: 12 },
   cardTitle: { color: colors.ink, fontSize: 16, fontWeight: '800' },
   priority: { color: colors.muted, fontSize: 12, fontWeight: '600' },
   empty: { alignItems: 'center', gap: 10, padding: spacing.lg },
   emptyTitle: { color: colors.ink, fontSize: 17, fontWeight: '800' },
-  errorBox: { marginHorizontal: spacing.md, padding: 12, borderRadius: radii.md, backgroundColor: colors.surface, gap: 6 },
+  errorBox: {
+    marginHorizontal: spacing.md,
+    padding: 12,
+    borderRadius: radii.md,
+    backgroundColor: colors.surface,
+    gap: 6,
+  },
   errorText: { color: colors.danger, fontSize: 13 },
   retry: { color: colors.primary, fontWeight: '700' },
   more: { alignItems: 'center', padding: spacing.md },

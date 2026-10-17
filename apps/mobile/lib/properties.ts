@@ -67,6 +67,7 @@ export interface PublicProperty {
 export interface PropertyFilters {
   q?: string;
   cityId?: string;
+  cityName?: string;
   arrondissementId?: string;
   quartierId?: string;
   mode?: PropertyMode;
@@ -76,6 +77,10 @@ export interface PropertyFilters {
   limit?: number;
   offset?: number;
   organizationId?: string;
+  minLat?: number;
+  maxLat?: number;
+  minLng?: number;
+  maxLng?: number;
   types?: string[];
   availableOnly?: boolean;
   minYearBuilt?: number;
@@ -87,7 +92,7 @@ export interface PropertyFilters {
 
 export interface PropertyPage {
   data: PublicProperty[];
-  meta: { total: number; limit: number; offset: number };
+  meta: { total: number; limit: number; offset: number; unmapped?: number };
 }
 
 export async function listPropertiesPage(
@@ -99,24 +104,32 @@ export async function listPropertiesPage(
   if (filters.offset != null) params.set('offset', String(filters.offset));
   if (filters.q?.trim()) params.set('q', filters.q.trim());
   if (filters.cityId) params.set('cityId', filters.cityId);
-  if (filters.arrondissementId) params.set('arrondissementId', filters.arrondissementId);
+  if (filters.cityName) params.set('cityName', filters.cityName);
+  if (filters.arrondissementId)
+    params.set('arrondissementId', filters.arrondissementId);
   if (filters.quartierId) params.set('quartierId', filters.quartierId);
   if (filters.mode) params.set('mode', filters.mode);
-  if (filters.minPrice != null) params.set('minPrice', String(filters.minPrice));
-  if (filters.maxPrice != null) params.set('maxPrice', String(filters.maxPrice));
-  if (filters.organizationId) params.set('organizationId', filters.organizationId);
+  if (filters.minPrice != null)
+    params.set('minPrice', String(filters.minPrice));
+  if (filters.maxPrice != null)
+    params.set('maxPrice', String(filters.maxPrice));
+  if (filters.organizationId)
+    params.set('organizationId', filters.organizationId);
+  if (filters.minLat != null) params.set('minLat', String(filters.minLat));
+  if (filters.maxLat != null) params.set('maxLat', String(filters.maxLat));
+  if (filters.minLng != null) params.set('minLng', String(filters.minLng));
+  if (filters.maxLng != null) params.set('maxLng', String(filters.maxLng));
   if (filters.types?.length) params.set('types', filters.types.join(','));
   if (filters.availableOnly) params.set('availableOnly', 'true');
-  if (filters.minYearBuilt != null) params.set('minYearBuilt', String(filters.minYearBuilt));
-  if (filters.maxYearBuilt != null) params.set('maxYearBuilt', String(filters.maxYearBuilt));
+  if (filters.minYearBuilt != null)
+    params.set('minYearBuilt', String(filters.minYearBuilt));
+  if (filters.maxYearBuilt != null)
+    params.set('maxYearBuilt', String(filters.maxYearBuilt));
 
   const result = await apiFetch<{
     data: PublicProperty[];
-    meta?: { total: number; limit: number; offset: number };
-  }>(
-    `/properties?${params}`,
-    { anonymous: true },
-  );
+    meta?: { total: number; limit: number; offset: number; unmapped?: number };
+  }>(`/properties?${params}`, { anonymous: true });
   if (Array.isArray(result)) {
     return {
       data: result,
