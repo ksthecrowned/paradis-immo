@@ -160,7 +160,6 @@ export const AGENT_NAV: NavItem[] = [
   { href: ROUTES.agent.disputes, label: 'Litiges' },
   { href: ROUTES.agent.expenses, label: 'Dépenses' },
   { href: ROUTES.agent.finances, label: 'Finances' },
-  { href: ROUTES.agent.storefront, label: 'Vitrine de l’agence' },
 ];
 
 export const ADMIN_NAV: NavItem[] = [
@@ -247,7 +246,7 @@ export const AGENT_NAV_GROUPS: NavGroup[] = [
     items: [
       { href: ROUTES.agent.visits, label: 'Visites' },
       { href: ROUTES.agent.payments, label: 'Paiements' },
-  { href: ROUTES.agent.disputes, label: 'Litiges' },
+      { href: ROUTES.agent.disputes, label: 'Litiges' },
       { href: ROUTES.agent.expenses, label: 'Dépenses' },
       { href: ROUTES.agent.finances, label: 'Finances' },
     ],

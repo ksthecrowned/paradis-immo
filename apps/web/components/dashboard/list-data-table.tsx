@@ -661,7 +661,7 @@ export function ListDataTable<T extends object>({
                     }
                     setPage(1);
                   }}
-                  className="block w-full rounded-lg border border-input-border bg-search py-2 ps-9 pe-3 text-sm text-foreground shadow-sm placeholder:text-placeholder focus:border-accent focus:ring-2 focus:ring-accent/30 focus:outline-none"
+                  className="block w-full rounded-lg border border-input-border bg-search py-2 ps-9 pe-3 text-sm text-active shadow-sm placeholder:text-placeholder focus:border-accent focus:ring-2 focus:ring-accent/30 focus:outline-none"
                   placeholder={searchPlaceholder}
                 />
                 <div className="pointer-events-none absolute inset-y-0 inset-s-0 flex items-center ps-3">
@@ -815,7 +815,7 @@ export function ListDataTable<T extends object>({
                                             ? col.label
                                             : 'Filtre de colonne'
                                         }
-                                        className="block w-full rounded-md border border-input-border bg-search px-2.5 py-1 text-[13px] text-foreground focus:border-accent focus:outline-none"
+                                        className="block w-full rounded-md border border-input-border bg-search px-2.5 py-1 text-[13px] text-active focus:border-accent focus:outline-none"
                                       >
                                         <option value="">Tous</option>
                                         {(col.filterOptions ?? []).map((option) => (
@@ -841,7 +841,7 @@ export function ListDataTable<T extends object>({
                                             ? col.label
                                             : 'Filtre de colonne'
                                         }
-                                        className="block w-full rounded-md border border-input-border bg-search px-2.5 py-1 text-[13px] text-foreground placeholder:text-placeholder focus:border-accent focus:outline-none"
+                                        className="block w-full rounded-md border border-input-border bg-search px-2.5 py-1 text-[13px] text-active placeholder:text-placeholder focus:border-accent focus:outline-none"
                                         placeholder={
                                           col.filterPlaceholder ??
                                           col.label.toLowerCase()

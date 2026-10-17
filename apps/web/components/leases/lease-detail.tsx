@@ -783,7 +783,7 @@ export function LeaseDetail({
                     onChange={(event) => setOtpCode(event.target.value)}
                     placeholder="000000"
                     aria-label="Code de signature du bail reçu par WhatsApp"
-                    className="w-32 rounded-lg border border-border bg-background px-3 py-2 font-mono text-sm text-foreground"
+                    className="w-32 rounded-lg border border-border bg-background px-3 py-2 font-mono text-sm text-active"
                   />
                   <button
                     type="button"
@@ -1143,7 +1143,7 @@ export function LeaseDetail({
                 type="date"
                 value={renewEndDate}
                 onChange={(event) => setRenewEndDate(event.target.value)}
-                className="block rounded-lg border border-border bg-background px-2 py-1.5 text-sm text-foreground"
+                className="block rounded-lg border border-border bg-background px-2 py-1.5 text-sm text-active"
               />
             </label>
             <label className="space-y-1 text-xs text-muted">
@@ -1154,7 +1154,7 @@ export function LeaseDetail({
                 value={renewRent}
                 onChange={(event) => setRenewRent(event.target.value)}
                 placeholder={lease.monthlyRent}
-                className="block w-40 rounded-lg border border-border bg-background px-2 py-1.5 text-sm text-foreground"
+                className="block w-40 rounded-lg border border-border bg-background px-2 py-1.5 text-sm text-active"
               />
             </label>
           </div>
@@ -1205,7 +1205,7 @@ export function LeaseDetail({
               onChange={(event) => setCoTenantPhone(event.target.value)}
               placeholder="+242061234567"
               aria-label="Téléphone du nouveau colocataire"
-              className="w-48 rounded-lg border border-border bg-background px-2 py-1.5 text-sm text-foreground"
+              className="w-48 rounded-lg border border-border bg-background px-2 py-1.5 text-sm text-active"
             />
             <button
               type="button"
@@ -1282,7 +1282,7 @@ export function LeaseDetail({
                                 setAmendmentCode(event.target.value)
                               }
                               placeholder="000000"
-                              className="w-24 rounded-lg border border-border bg-background px-2 py-1 font-mono text-xs text-foreground"
+                              className="w-24 rounded-lg border border-border bg-background px-2 py-1 font-mono text-xs text-active"
                             />
                             <button
                               type="button"

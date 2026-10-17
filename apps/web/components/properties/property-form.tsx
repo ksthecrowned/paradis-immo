@@ -3,6 +3,7 @@
 import { appDialog } from '@/components/dialogs/app-dialog';
 import { Icon } from '@iconify/react';
 import { DashboardPageHeader } from '@/components/dashboard';
+import { Button } from '@/components/primitives';
 import {
   ApiErrorBanner,
   DateField,
@@ -10,10 +11,9 @@ import {
   FeatureChips,
   FormCard,
   FormField,
-  FormFooter,
   FormLayout,
   FormSidebar,
-  FormTabs,
+  FormStepper,
   Input,
   MetaList,
   NumberInput,
@@ -28,6 +28,7 @@ import {
   getPhoneE164,
   isPhoneComplete,
   type FormTab,
+  type FormStepperStep,
 } from '@/components/forms';
 import { useRequireSession } from '@/hooks/use-require-session';
 import { useResourceForm } from '@/hooks/use-resource-form';
@@ -60,8 +61,6 @@ import {
   createProperty,
   defaultPriceUnit,
   getProperty,
-  listingStatusLabel,
-  listingStatusTone,
   MAP_VIEWS,
   pauseProperty,
   PROPERTY_FEATURES,
@@ -148,7 +147,17 @@ const PROPERTY_TYPES: PropertyType[] = [
   'LAND',
   'COMMERCIAL',
 ];
-const PRICE_UNITS: PriceUnit[] = ['NIGHT', 'WEEK', 'MONTH', 'TOTAL'];
+const PRICE_UNIT_LABELS: Record<PriceUnit, string> = {
+  NIGHT: 'par nuit',
+  WEEK: 'par semaine',
+  MONTH: 'par mois',
+  TOTAL: 'prix total',
+};
+
+type PropertyFormStep = FormStepperStep & {
+  content: React.ReactNode;
+  fields: string[];
+};
 
 const defaultValues = (): FormValues => ({
   title: '',
@@ -229,22 +238,33 @@ const validate = (
     if (v.lat === '') e.lat = msg;
     if (v.lng === '') e.lng = msg;
   }
-  e.bedrooms = validateNumeric(v.bedrooms, { min: 0 }) ?? '';
-  e.bathrooms = validateNumeric(v.bathrooms, { min: 0 }) ?? '';
-  e.surface = validateNumeric(v.surface, { min: 0 }) ?? '';
+  const hasRooms = v.type === 'APARTMENT' || v.type === 'HOUSE';
+  const hasLandSize = v.type === 'HOUSE' || v.type === 'LAND';
+  e.bedrooms = hasRooms ? (validateNumeric(v.bedrooms, { min: 0 }) ?? '') : '';
+  e.bathrooms = hasRooms
+    ? (validateNumeric(v.bathrooms, { min: 0 }) ?? '')
+    : '';
+  e.surface =
+    v.type === 'LAND' ? '' : (validateNumeric(v.surface, { min: 0 }) ?? '');
   e.quartierId = validateRequired(v.quartierId, 'Le quartier') ?? '';
   e.yearBuilt =
-    v.yearBuilt === ''
+    v.type === 'LAND' || v.yearBuilt === ''
       ? ''
       : (validateNumeric(v.yearBuilt, { min: 1800, max: 2100 }) ?? '');
-  e.lotSize = v.lotSize === '' ? '' : (validateNumeric(v.lotSize, { min: 0 }) ?? '');
+  e.lotSize =
+    !hasLandSize || v.lotSize === ''
+      ? ''
+      : (validateNumeric(v.lotSize, { min: 0 }) ?? '');
   e.parkingSpaces =
-    v.parkingSpaces === ''
+    v.type === 'LAND' || v.parkingSpaces === ''
       ? ''
       : (validateNumeric(v.parkingSpaces, { min: 0 }) ?? '');
-  e.visitDuration = validateNumeric(v.visitDuration, { min: 5, max: 240 }) ?? '';
+  e.visitDuration = v.visitEnabled
+    ? (validateNumeric(v.visitDuration, { min: 5, max: 240 }) ?? '')
+    : '';
+  const isRental = v.mode !== 'SALE';
   e.depositMonths =
-    v.depositMonths === ''
+    !isRental || v.depositMonths === ''
       ? ''
       : (validateNumeric(v.depositMonths, { min: 0, max: 24 }) ?? '');
   e.agencyFeeAmount =
@@ -317,6 +337,10 @@ const toCreateInput = (
   const agencyFeeAmount =
     v.agencyFeeAmount.trim() === '' ? null : parseCurrency(v.agencyFeeAmount);
   const shortStay = v.mode === 'RENT_SHORT';
+  const isRental = v.mode !== 'SALE';
+  const hasRooms = v.type === 'APARTMENT' || v.type === 'HOUSE';
+  const hasLandSize = v.type === 'HOUSE' || v.type === 'LAND';
+  const isLand = v.type === 'LAND';
   return {
     title: v.title.trim(),
     description: v.description.trim(),
@@ -338,24 +362,26 @@ const toCreateInput = (
     countryId: v.countryId,
     ...(lat !== null ? { lat } : {}),
     ...(lng !== null ? { lng } : {}),
-    ...(bedrooms !== null ? { bedrooms } : {}),
-    ...(bathrooms !== null ? { bathrooms } : {}),
-    ...(surface !== null ? { surface } : {}),
-    ...(v.floor.trim() ? { floor: v.floor.trim() } : {}),
-    ...(yearBuilt !== null ? { yearBuilt } : {}),
-    ...(v.condition.trim() ? { condition: v.condition.trim() } : {}),
-    ...(lotSize !== null ? { lotSize } : {}),
-    ...(parkingSpaces !== null ? { parkingSpaces } : {}),
-    ...(depositMonths !== null ? { depositMonths } : {}),
+    ...(hasRooms && bedrooms !== null ? { bedrooms } : {}),
+    ...(hasRooms && bathrooms !== null ? { bathrooms } : {}),
+    ...(!isLand && surface !== null ? { surface } : {}),
+    ...(!isLand && v.floor.trim() ? { floor: v.floor.trim() } : {}),
+    ...(!isLand && yearBuilt !== null ? { yearBuilt } : {}),
+    ...(!isLand && v.condition.trim() ? { condition: v.condition.trim() } : {}),
+    ...(hasLandSize && lotSize !== null ? { lotSize } : {}),
+    ...(!isLand && parkingSpaces !== null ? { parkingSpaces } : {}),
+    ...(isRental && depositMonths !== null ? { depositMonths } : {}),
     ...(agencyFeeAmount !== null && agencyFeeAmount > 0
       ? { agencyFeeAmount }
       : {}),
     ...(v.orientation.trim() ? { orientation: v.orientation.trim() } : {}),
-    ...(v.landTitle.trim() ? { landTitle: v.landTitle.trim() } : {}),
+    ...(isLand && v.landTitle.trim() ? { landTitle: v.landTitle.trim() } : {}),
     ...(v.features.length > 0 ? { features: v.features } : {}),
     ...(v.mapViews.length > 0 ? { mapViews: v.mapViews } : {}),
     listingStatus: v.listingStatus,
-    ...(v.availableFrom ? { availableFrom: v.availableFrom } : {}),
+    ...(v.listingStatus === 'AVAILABLE_SOON' && v.availableFrom
+      ? { availableFrom: v.availableFrom }
+      : {}),
     visitEnabled: v.visitEnabled,
     ...(v.visitEnabled
       ? {
@@ -388,6 +414,10 @@ const toUpdateInput = (v: FormValues): UpdatePropertyInput => {
   const agencyFeeAmount =
     v.agencyFeeAmount.trim() === '' ? null : parseCurrency(v.agencyFeeAmount);
   const shortStay = v.mode === 'RENT_SHORT';
+  const isRental = v.mode !== 'SALE';
+  const hasRooms = v.type === 'APARTMENT' || v.type === 'HOUSE';
+  const hasLandSize = v.type === 'HOUSE' || v.type === 'LAND';
+  const isLand = v.type === 'LAND';
   return {
     title: v.title.trim(),
     description: v.description.trim(),
@@ -404,23 +434,26 @@ const toUpdateInput = (v: FormValues): UpdatePropertyInput => {
     address: v.address.trim(),
     lat,
     lng,
-    bedrooms,
-    bathrooms,
-    surface,
-    depositMonths,
+    bedrooms: hasRooms ? bedrooms : null,
+    bathrooms: hasRooms ? bathrooms : null,
+    surface: isLand ? null : surface,
+    depositMonths: isRental ? depositMonths : null,
     agencyFeeAmount:
       agencyFeeAmount !== null && agencyFeeAmount > 0 ? agencyFeeAmount : null,
-    ...(v.floor.trim() ? { floor: v.floor.trim() } : { floor: null }),
-    ...(yearBuilt !== null ? { yearBuilt } : { yearBuilt: null }),
-    ...(v.condition.trim() ? { condition: v.condition.trim() } : { condition: null }),
-    ...(lotSize !== null ? { lotSize } : { lotSize: null }),
-    ...(parkingSpaces !== null ? { parkingSpaces } : { parkingSpaces: null }),
+    ...(!isLand && v.floor.trim() ? { floor: v.floor.trim() } : { floor: null }),
+    ...(!isLand && yearBuilt !== null ? { yearBuilt } : { yearBuilt: null }),
+    ...(!isLand && v.condition.trim() ? { condition: v.condition.trim() } : { condition: null }),
+    ...(hasLandSize && lotSize !== null ? { lotSize } : { lotSize: null }),
+    ...(!isLand && parkingSpaces !== null ? { parkingSpaces } : { parkingSpaces: null }),
     ...(v.orientation.trim() ? { orientation: v.orientation.trim() } : { orientation: null }),
-    ...(v.landTitle.trim() ? { landTitle: v.landTitle.trim() } : { landTitle: null }),
+    ...(isLand && v.landTitle.trim() ? { landTitle: v.landTitle.trim() } : { landTitle: null }),
     features: v.features,
     mapViews: v.mapViews,
     listingStatus: v.listingStatus,
-    availableFrom: v.availableFrom ? v.availableFrom : null,
+    availableFrom:
+      v.listingStatus === 'AVAILABLE_SOON' && v.availableFrom
+        ? v.availableFrom
+        : null,
     visitEnabled: v.visitEnabled,
     ...(v.visitEnabled
       ? {
@@ -477,12 +510,12 @@ export function PropertyForm({
   const [docType, setDocType] = useState<DocumentType>('TITLE_DEED');
   const [mediaError, setMediaError] = useState<string | null>(null);
   const [status, setStatus] = useState<PropertyStatus>(initialStatus ?? 'DRAFT');
+  const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [updatedAt, setUpdatedAt] = useState<string | undefined>(initialUpdatedAt);
   const [createdAt] = useState<string | undefined>(initialCreatedAt);
   const [sideActionBusy, setSideActionBusy] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const videoInputRef = useRef<HTMLInputElement | null>(null);
-  const titleInputRef = useRef<HTMLInputElement | null>(null);
 
   // On edit, fetch the existing media + documents.
   useEffect(() => {
@@ -631,6 +664,15 @@ export function PropertyForm({
       }
     },
   });
+  const isLandProperty = form.values.type === 'LAND';
+  const hasRooms =
+    form.values.type === 'APARTMENT' || form.values.type === 'HOUSE';
+  const priceUnitOptions: PriceUnit[] =
+    form.values.mode === 'RENT_SHORT'
+      ? ['NIGHT']
+      : form.values.mode === 'RENT_LONG'
+        ? ['MONTH']
+        : ['TOTAL'];
 
   useEffect(() => {
     if (!ready) return;
@@ -714,174 +756,42 @@ export function PropertyForm({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.values.mode]);
 
-  const marketplaceSection = (
-    <div className="space-y-4">
-      <FormField
-        name="listingStatus"
-        label="Statut de publication"
-        hint="Affiché sur la fiche du bien et dans les filtres marketplace."
-      >
-        <Select
-          value={form.values.listingStatus}
-          onChange={(e) =>
-            form.setField('listingStatus', e.target.value as ListingStatus)
-          }
-        >
-          <option value="AVAILABLE">Disponible</option>
-          <option value="AVAILABLE_SOON">Bientôt disponible</option>
-          <option value="UNDER_OFFER">Sous offre</option>
-          <option value="OCCUPIED">Occupé</option>
-          <option value="SOLD">Vendu</option>
-        </Select>
-      </FormField>
-
-      <FormField
-        name="availableFrom"
-        label="Disponible à partir du"
-        hint="Affiché uniquement pour le statut « Bientôt disponible »."
-      >
-        <DateField
-          id="availableFrom"
-          value={form.values.availableFrom}
-          onChange={(e) => form.setField('availableFrom', e.target.value)}
-        />
-      </FormField>
-
-      <div className="grid gap-4 sm:grid-cols-2">
-        <FormField
-          name="depositMonths"
-          label="Caution (mois)"
-          hint="Location uniquement, si applicable."
-          error={form.errors.depositMonths}
-        >
-          <NumberInput
-            name="depositMonths"
-            min={0}
-            max={24}
-            allowDecimals={false}
-            value={form.values.depositMonths}
-            onChange={(v) => form.setField('depositMonths', v)}
-            invalid={!!form.errors.depositMonths}
-            placeholder="ex. 2"
-          />
-        </FormField>
-        <FormField
-          name="agencyFeeAmount"
-          label="Frais d’agence"
-          hint="Montant en devise du bien, si applicable."
-          error={form.errors.agencyFeeAmount}
-        >
-          <NumberInput
-            name="agencyFeeAmount"
-            min={0}
-            allowDecimals={false}
-            value={form.values.agencyFeeAmount}
-            onChange={(v) => form.setField('agencyFeeAmount', v)}
-            invalid={!!form.errors.agencyFeeAmount}
-            placeholder="ex. 50000"
-          />
-        </FormField>
-        </div>
-
-      <div className="rounded-lg border border-border bg-card-hover p-4">
-        <div className="flex items-start gap-3">
-          <Icon
-            icon="mdi:information-outline"
-            className="mt-0.5 h-5 w-5 shrink-0 text-muted"
-          />
-          <div className="text-sm text-muted">
-            Le statut marketplace est calculé automatiquement pour les
-            locations courtes et les locations longues. Les valeurs que
-            vous saisissez ici sont indicatives et peuvent être ajustées par
-            le système.
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-
-  const visitSection = (
-    <div className="space-y-4">
-      <FormField name="visitEnabled" label="Activer les visites">
-        <Switcher
-          checked={form.values.visitEnabled}
-          onChange={(v) => form.setField('visitEnabled', v)}
-          label={
-            form.values.visitEnabled ? 'Visites activées' : 'Visites désactivées'
-          }
-        />
-      </FormField>
-      {form.values.visitEnabled ? (
-        <>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <FormField name="visitType" label="Type de visite" required>
-              <Select
-                value={form.values.visitType}
-                onChange={(e) =>
-                  form.setField('visitType', e.target.value as VisitType)
-                }
-              >
-                <option value="FREE">Gratuite</option>
-                <option value="PAID">Payante</option>
-              </Select>
-            </FormField>
-            <FormField
-              name="visitDuration"
-              label="Durée (min)"
-            required
-              error={form.errors.visitDuration}
-            >
-              <NumberInput
-                name="visitDuration"
-                min={5}
-                max={240}
-                value={form.values.visitDuration}
-                onChange={(v) => form.setField('visitDuration', v)}
-                invalid={!!form.errors.visitDuration}
-              />
-            </FormField>
-        </div>
-          {form.values.visitType === 'PAID' ? (
-            <FormField
-              name="visitPrice"
-              label="Tarif (XAF)"
-              required
-              error={form.errors.visitPrice}
-            >
-              <NumberInput
-                name="visitPrice"
-                min={0}
-                value={form.values.visitPrice}
-                onChange={(v) => form.setField('visitPrice', v)}
-                invalid={!!form.errors.visitPrice}
-              />
-            </FormField>
-          ) : null}
-        </>
-      ) : null}
-    </div>
-  );
-
-  const sidebarFooter = (
-    <div className="rounded-lg border border-border bg-card p-5">
-      <FormFooter
-        onSubmit={() => form.handleSubmit()}
-        onCancel={onCancel ?? (() => router.back())}
-        submitLabel={submitLabel}
-        saving={form.saving}
+  const titleField = (
+    <FormField
+      name="title"
+      label="Titre de l’annonce"
+      required
+      error={form.errors.title}
+      className="w-full"
+    >
+      <input
+        id="property-title"
+        name="title"
+        type="text"
+        value={form.values.title}
+        onChange={(e) => form.setField('title', e.target.value)}
+        placeholder="Ex. Appartement lumineux au centre-ville"
+        aria-invalid={!!form.errors.title}
+        className={[
+          'w-full rounded-xl border bg-card px-5 py-4 text-2xl font-semibold tracking-tight text-active shadow-sm',
+          'placeholder:font-normal placeholder:text-placeholder focus:outline-none focus:ring-2',
+          form.errors.title
+            ? 'border-danger focus:border-danger focus:ring-danger/30'
+            : 'border-input-border focus:border-accent focus:ring-accent/30',
+        ].join(' ')}
       />
-    </div>
+    </FormField>
   );
 
-  const tabs: FormTab[] = [
+  const formSections = [
     {
       id: 'general',
       label: 'Général',
       icon: 'mdi:home-city',
       content: (
-        <div className="space-y-4">
+        <div className="space-y-6">
           {isAgentVariant && !propertyId ? (
-            <div className="space-y-4 rounded-lg border border-border bg-muted/30 p-4">
+            <section className="space-y-4 rounded-xl border border-border bg-muted/30 p-4 sm:p-5">
               <p className="text-sm font-medium text-heading">
                 Propriétaire du bien
               </p>
@@ -890,38 +800,44 @@ export function PropertyForm({
                 reçoit automatiquement un mandat ; vous êtes assigné si vous êtes
                 agent de terrain, sinon le gérant laisse l’affectation ouverte.
               </p>
-              <FormField
-                name="ownerPhoneNational"
-                label="Téléphone du propriétaire"
-                required
-                error={form.errors.ownerPhoneNational}
-              >
-                <PhoneInput
+              <div className="grid gap-4 sm:grid-cols-2">
+                <FormField
+                  name="ownerName"
+                  label="Nom du propriétaire"
+                  required
+                  error={form.errors.ownerName}
+                >
+                  <Input
+                    id="ownerName"
+                    value={form.values.ownerName}
+                    onChange={(e) => form.setField('ownerName', e.target.value)}
+                    placeholder="Nom complet"
+                    invalid={!!form.errors.ownerName}
+                  />
+                </FormField>
+                <FormField
                   name="ownerPhoneNational"
-                  label=""
-                  value={form.values.ownerPhoneNational}
-                  country={phoneCountry}
-                  onCountryChange={setPhoneCountry}
-                  onChange={(v) => form.setField('ownerPhoneNational', v)}
-                  invalid={!!form.errors.ownerPhoneNational}
-                />
-              </FormField>
-              <FormField
-                name="ownerName"
-                label="Nom du propriétaire"
-                required
-                error={form.errors.ownerName}
-              >
-                <Input
-                  id="ownerName"
-                  value={form.values.ownerName}
-                  onChange={(e) => form.setField('ownerName', e.target.value)}
-                  placeholder="Nom complet"
-                  invalid={!!form.errors.ownerName}
-                />
-              </FormField>
-            </div>
+                  label="Téléphone du propriétaire"
+                  required
+                  error={form.errors.ownerPhoneNational}
+                >
+                  <PhoneInput
+                    name="ownerPhoneNational"
+                    label=""
+                    value={form.values.ownerPhoneNational}
+                    country={phoneCountry}
+                    onCountryChange={setPhoneCountry}
+                    onChange={(v) => form.setField('ownerPhoneNational', v)}
+                    invalid={!!form.errors.ownerPhoneNational}
+                  />
+                </FormField>
+              </div>
+            </section>
           ) : null}
+          <section className="space-y-4 rounded-xl border border-border p-4 sm:p-5">
+            <h3 className="text-sm font-semibold text-heading">
+              Informations de l’annonce
+            </h3>
           <FormField
             name="description"
             label="Description"
@@ -943,7 +859,11 @@ export function PropertyForm({
               id="mode"
                 value={form.values.mode}
                 disabled={initialStatus === 'ACTIVE'}
-                onChange={(e) => form.setField('mode', e.target.value as PropertyMode)}
+                onChange={(e) => {
+                  const mode = e.target.value as PropertyMode;
+                  form.setField('mode', mode);
+                  form.setField('priceUnit', defaultPriceUnit(mode));
+                }}
             >
               {PROPERTY_MODES.map((m) => (
                 <option key={m} value={m}>
@@ -971,13 +891,13 @@ export function PropertyForm({
               </Select>
             </FormField>
           </div>
-        <div className="grid gap-4 sm:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2">
             <FormField
               name="price"
               label="Prix"
               required
+              hint={`${form.values.currency} · ${PRICE_UNIT_LABELS[priceUnitOptions[0]]}`}
               error={form.errors.price}
-              className="sm:col-span-2"
             >
               <NumberInput
                 name="price"
@@ -987,34 +907,15 @@ export function PropertyForm({
                 invalid={!!form.errors.price}
               />
             </FormField>
-            <FormField name="currency" label="Devise">
-              <Input
-              id="currency"
-                value={form.values.currency}
-                onChange={(e) => form.setField('currency', e.target.value)}
-                placeholder="XAF"
-              maxLength={3}
-            />
-            </FormField>
           </div>
-          <FormField name="priceUnit" label="Unité de prix">
-            <Select
-              value={form.values.priceUnit}
-              onChange={(e) => form.setField('priceUnit', e.target.value as PriceUnit)}
-            >
-              {PRICE_UNITS.map((u) => (
-                <option key={u} value={u}>
-                  {u}
-                </option>
-              ))}
-            </Select>
-          </FormField>
+          </section>
           {form.values.mode === 'RENT_SHORT' ? (
-            <div className="space-y-4 rounded-lg border border-border bg-card-hover p-4">
+            <section className="space-y-4 rounded-xl border border-border p-4 sm:p-5">
+            <h3 className="text-sm font-semibold text-heading">
+              Conditions de séjour
+            </h3>
+            <div className="space-y-4">
               <div>
-                <h3 className="text-sm font-semibold text-foreground">
-                  Conditions de séjour
-                </h3>
                 <p className="mt-1 text-xs text-muted">
                   Ces informations seront affichées sur la fiche publique.
                 </p>
@@ -1081,9 +982,10 @@ export function PropertyForm({
                     invalid={!!form.errors.checkOutTime}
                   />
                 </FormField>
+                </div>
               </div>
-            </div>
-          ) : null}
+              </section>
+            ) : null}
           </div>
       ),
     },
@@ -1184,30 +1086,46 @@ export function PropertyForm({
       icon: 'mdi:format-list-bulleted',
       content: (
         <div className="space-y-6">
-            <div className="grid gap-4 sm:grid-cols-3">
-            <FormField name="bedrooms" label="Chambres" error={form.errors.bedrooms}>
-              <NumberInput
+          {hasRooms ? (
+            <div className="grid gap-4 sm:grid-cols-2">
+              <FormField
                 name="bedrooms"
-                min={0}
-                value={form.values.bedrooms}
-                onChange={(v) => form.setField('bedrooms', v)}
-                invalid={!!form.errors.bedrooms}
-              />
-            </FormField>
-            <FormField
-              name="bathrooms"
-              label="Salles de bain"
-              error={form.errors.bathrooms}
-            >
-              <NumberInput
+                label="Chambres"
+                error={form.errors.bedrooms}
+              >
+                <NumberInput
+                  name="bedrooms"
+                  min={0}
+                  value={form.values.bedrooms}
+                  onChange={(v) => form.setField('bedrooms', v)}
+                  invalid={!!form.errors.bedrooms}
+                />
+              </FormField>
+              <FormField
                 name="bathrooms"
-                min={0}
-                value={form.values.bathrooms}
-                onChange={(v) => form.setField('bathrooms', v)}
-                invalid={!!form.errors.bathrooms}
-              />
-            </FormField>
-            <FormField name="surface" label="Surface habitable (m²)" error={form.errors.surface}>
+                label="Salles de bain"
+                error={form.errors.bathrooms}
+              >
+                <NumberInput
+                  name="bathrooms"
+                  min={0}
+                  value={form.values.bathrooms}
+                  onChange={(v) => form.setField('bathrooms', v)}
+                  invalid={!!form.errors.bathrooms}
+                />
+              </FormField>
+            </div>
+          ) : null}
+          {!isLandProperty ? (
+            <FormField
+              name="surface"
+              label={
+                form.values.type === 'COMMERCIAL'
+                  ? 'Surface commerciale (m²)'
+                  : 'Surface habitable (m²)'
+              }
+              error={form.errors.surface}
+            >
               <NumberInput
                 name="surface"
                 min={0}
@@ -1216,7 +1134,7 @@ export function PropertyForm({
                 invalid={!!form.errors.surface}
               />
             </FormField>
-              </div>
+          ) : null}
 
           <div className="border-t border-border pt-4">
             <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-foreground">
@@ -1224,65 +1142,70 @@ export function PropertyForm({
               Détails du bien
             </h3>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              <FormField name="floor" label="Étage" hint="Ex. RDC, 1er, 2ème">
-                <Input
-                  id="floor"
-                  value={form.values.floor}
-                  onChange={(e) => form.setField('floor', e.target.value)}
-                  placeholder="RDC"
-                  maxLength={50}
-                />
-              </FormField>
-              <FormField
-                name="yearBuilt"
-                label="Année de construction"
-                error={form.errors.yearBuilt}
-              >
-                <NumberInput
-                  name="yearBuilt"
-                  min={1800}
-                  max={2100}
-                  value={form.values.yearBuilt}
-                  onChange={(v) => form.setField('yearBuilt', v)}
-                  invalid={!!form.errors.yearBuilt}
-                />
-              </FormField>
-              <FormField name="condition" label="État" hint="Ex. Neuf, Bon, À rénover">
-                <Input
-                  id="condition"
-                  value={form.values.condition}
-                  onChange={(e) => form.setField('condition', e.target.value)}
-                  placeholder="Bon état"
-                  maxLength={80}
-                />
-              </FormField>
-              <FormField
-                name="lotSize"
-                label="Surface terrain (m²)"
-                error={form.errors.lotSize}
-                hint="Uniquement pour maisons / terrains"
-              >
-                <NumberInput
+              {!isLandProperty ? (
+                <>
+                  <FormField name="floor" label="Étage" hint="Ex. RDC, 1er, 2ème">
+                    <Input
+                      id="floor"
+                      value={form.values.floor}
+                      onChange={(e) => form.setField('floor', e.target.value)}
+                      placeholder="RDC"
+                      maxLength={50}
+                    />
+                  </FormField>
+                  <FormField
+                    name="yearBuilt"
+                    label="Année de construction"
+                    error={form.errors.yearBuilt}
+                  >
+                    <NumberInput
+                      name="yearBuilt"
+                      min={1800}
+                      max={2100}
+                      value={form.values.yearBuilt}
+                      onChange={(v) => form.setField('yearBuilt', v)}
+                      invalid={!!form.errors.yearBuilt}
+                    />
+                  </FormField>
+                  <FormField name="condition" label="État" hint="Ex. Neuf, Bon, À rénover">
+                    <Input
+                      id="condition"
+                      value={form.values.condition}
+                      onChange={(e) => form.setField('condition', e.target.value)}
+                      placeholder="Bon état"
+                      maxLength={80}
+                    />
+                  </FormField>
+                  <FormField
+                    name="parkingSpaces"
+                    label="Places de parking"
+                    error={form.errors.parkingSpaces}
+                  >
+                    <NumberInput
+                      name="parkingSpaces"
+                      min={0}
+                      value={form.values.parkingSpaces}
+                      onChange={(v) => form.setField('parkingSpaces', v)}
+                      invalid={!!form.errors.parkingSpaces}
+                    />
+                  </FormField>
+                </>
+              ) : null}
+              {form.values.type === 'HOUSE' || isLandProperty ? (
+                <FormField
                   name="lotSize"
-                  min={0}
-                  value={form.values.lotSize}
-                  onChange={(v) => form.setField('lotSize', v)}
-                  invalid={!!form.errors.lotSize}
-                />
-              </FormField>
-              <FormField
-                name="parkingSpaces"
-                label="Places de parking"
-                error={form.errors.parkingSpaces}
-              >
-                <NumberInput
-                  name="parkingSpaces"
-                  min={0}
-                  value={form.values.parkingSpaces}
-                  onChange={(v) => form.setField('parkingSpaces', v)}
-                  invalid={!!form.errors.parkingSpaces}
-                />
-              </FormField>
+                  label="Surface du terrain (m²)"
+                  error={form.errors.lotSize}
+                >
+                  <NumberInput
+                    name="lotSize"
+                    min={0}
+                    value={form.values.lotSize}
+                    onChange={(v) => form.setField('lotSize', v)}
+                    invalid={!!form.errors.lotSize}
+                  />
+                </FormField>
+              ) : null}
               <FormField name="orientation" label="Orientation" hint="Ex. Sud, Nord-Est">
                 <Input
                   id="orientation"
@@ -1292,21 +1215,23 @@ export function PropertyForm({
                   maxLength={50}
                 />
               </FormField>
-              <FormField
-                name="landTitle"
-                label="Titre foncier"
-                className="sm:col-span-2 lg:col-span-3"
-                hint="Numéro ou type de titre (ACD, CPF, etc.)"
-              >
-                <Input
-                  id="landTitle"
-                  value={form.values.landTitle}
-                  onChange={(e) => form.setField('landTitle', e.target.value)}
-                  placeholder="ACD n°1234"
-                  maxLength={80}
-                />
-              </FormField>
-              </div>
+              {isLandProperty ? (
+                <FormField
+                  name="landTitle"
+                  label="Titre foncier"
+                  className="sm:col-span-2 lg:col-span-3"
+                  hint="Numéro ou type de titre (ACD, CPF, etc.)"
+                >
+                  <Input
+                    id="landTitle"
+                    value={form.values.landTitle}
+                    onChange={(e) => form.setField('landTitle', e.target.value)}
+                    placeholder="ACD n°1234"
+                    maxLength={80}
+                  />
+                </FormField>
+              ) : null}
+            </div>
           </div>
         </div>
       ),
@@ -1359,60 +1284,71 @@ export function PropertyForm({
       icon: 'mdi:storefront-outline',
       content: (
         <div className="space-y-4">
-          <FormField
-            name="listingStatus"
-            label="Statut de publication"
-            hint="Affiché sur la fiche du bien et dans les filtres marketplace."
-          >
-            <Select
-              value={form.values.listingStatus}
-              onChange={(e) =>
-                form.setField('listingStatus', e.target.value as ListingStatus)
-              }
+          <div className="grid gap-4 sm:grid-cols-2">
+            <FormField
+              name="listingStatus"
+              label="Statut de publication"
+              hint="Affiché sur la fiche du bien et dans les filtres marketplace."
             >
-              <option value="AVAILABLE">Disponible</option>
-              <option value="AVAILABLE_SOON">Bientôt disponible</option>
-              <option value="UNDER_OFFER">Sous offre</option>
-              <option value="OCCUPIED">Occupé</option>
-              <option value="SOLD">Vendu</option>
-            </Select>
-          </FormField>
+              <Select
+                value={form.values.listingStatus}
+                onChange={(e) => {
+                  const listingStatus = e.target.value as ListingStatus;
+                  form.setField('listingStatus', listingStatus);
+                  if (listingStatus !== 'AVAILABLE_SOON') {
+                    form.setField('availableFrom', '');
+                  }
+                }}
+              >
+                <option value="AVAILABLE">Disponible</option>
+                <option value="AVAILABLE_SOON">Bientôt disponible</option>
+                <option value="UNDER_OFFER">Sous offre</option>
+                <option value="OCCUPIED">Occupé</option>
+                <option value="SOLD">Vendu</option>
+              </Select>
+            </FormField>
 
-          <FormField
-            name="availableFrom"
-            label="Disponible à partir du"
-            hint="Affiché uniquement pour le statut « Bientôt disponible »."
-          >
-            <DateField
-              id="availableFrom"
-              value={form.values.availableFrom}
-              onChange={(e) => form.setField('availableFrom', e.target.value)}
-            />
-          </FormField>
+            {form.values.listingStatus === 'AVAILABLE_SOON' ? (
+              <FormField
+                name="availableFrom"
+                label="Disponible à partir du"
+                hint="Date prévue de disponibilité."
+              >
+                <DateField
+                  id="availableFrom"
+                  value={form.values.availableFrom}
+                  onChange={(e) => form.setField('availableFrom', e.target.value)}
+                />
+              </FormField>
+            ) : null}
+          </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
+            {form.values.mode !== 'SALE' ? (
             <FormField
               name="depositMonths"
               label="Caution (mois)"
-              hint="Location uniquement, si applicable."
+              hint="Si applicable."
               error={form.errors.depositMonths}
             >
               <NumberInput
                 name="depositMonths"
-              min={0}
-              max={24}
-              allowDecimals={false}
-              value={form.values.depositMonths}
-              onChange={(v) => form.setField('depositMonths', v)}
-              invalid={!!form.errors.depositMonths}
-              placeholder="ex. 2"
-            />
+                min={0}
+                max={24}
+                allowDecimals={false}
+                value={form.values.depositMonths}
+                onChange={(v) => form.setField('depositMonths', v)}
+                invalid={!!form.errors.depositMonths}
+                placeholder="ex. 2"
+              />
             </FormField>
+            ) : null}
             <FormField
-              name="agencyFeeAmount"
-              label="Frais d’agence"
-              hint="Montant en devise du bien, si applicable."
-              error={form.errors.agencyFeeAmount}
+            name="agencyFeeAmount"
+            label="Frais d’agence"
+            hint="Montant en devise du bien, si applicable."
+            error={form.errors.agencyFeeAmount}
+            className={form.values.mode === 'SALE' ? 'sm:col-span-2' : ''}
             >
               <NumberInput
                 name="agencyFeeAmount"
@@ -1434,9 +1370,8 @@ export function PropertyForm({
               />
               <div className="text-sm text-muted">
                 Le statut marketplace est calculé automatiquement pour les
-                locations courtes et les locations longues. Les valeurs que
-                vous saisissez ici sont indicatives et peuvent être
-                ajustées par le système.
+                locations courtes et longues selon la disponibilité réelle du
+                bien.
           </div>
         </div>
           </div>
@@ -1489,7 +1424,7 @@ export function PropertyForm({
               {form.values.visitType === 'PAID' ? (
                 <FormField
                   name="visitPrice"
-                  label="Tarif (XAF)"
+                  label={`Tarif (${form.values.currency})`}
                   required
                   error={form.errors.visitPrice}
                 >
@@ -1735,12 +1670,173 @@ export function PropertyForm({
           },
         ] as FormTab[])
       : []),
-  ].filter(
-    (tab) => tab.id !== 'marketplace' && tab.id !== 'visit',
-  ) as FormTab[];
+  ];
+
+  const stepGroups: Array<{
+    id: string;
+    label: string;
+    icon: string;
+    sectionIds: string[];
+    fields: string[];
+  }> = [
+    {
+      id: 'general',
+      label: 'Bien',
+      icon: 'mdi:home-city',
+      sectionIds: ['general'],
+      fields: [
+        'title',
+        'ownerPhoneNational',
+        'ownerName',
+        'description',
+        'price',
+        'minNights',
+        'maxNights',
+        'checkInTime',
+        'checkOutTime',
+      ],
+    },
+    {
+      id: 'location',
+      label: 'Localisation',
+      icon: 'mdi:map-marker',
+      sectionIds: ['location'],
+      fields: ['address', 'lat', 'lng', 'quartierId'],
+    },
+    {
+      id: 'characteristics',
+      label: 'Caractéristiques',
+      icon: 'mdi:format-list-bulleted',
+      sectionIds: ['characteristics', 'features'],
+      fields: [
+        'bedrooms',
+        'bathrooms',
+        'surface',
+        'yearBuilt',
+        'lotSize',
+        'parkingSpaces',
+      ],
+    },
+    {
+      id: 'conditions',
+      label: 'Disponibilité',
+      icon: 'mdi:calendar-check-outline',
+      sectionIds: ['marketplace', 'visit'],
+      fields: ['depositMonths', 'agencyFeeAmount', 'visitDuration', 'visitPrice'],
+    },
+    {
+      id: 'media',
+      label: 'Photos et documents',
+      icon: 'mdi:image-multiple',
+      sectionIds: ['media', ...(propertyId ? ['documents'] : [])],
+      fields: [],
+    },
+  ];
+  const steps: PropertyFormStep[] = stepGroups.map((group) => {
+    const sections = group.sectionIds.flatMap((id) => {
+      const section = formSections.find((item) => item.id === id);
+      return section ? [section] : [];
+    });
+    const content =
+      sections.length === 1 ? (
+        sections[0].content
+      ) : (
+        <div className="space-y-5">
+          {sections.map((section) => (
+            <section
+              key={section.id}
+              className="space-y-4 rounded-xl border border-border p-4 sm:p-5"
+            >
+              <h3 className="text-sm font-semibold text-heading">
+                {section.label}
+              </h3>
+              {section.content}
+            </section>
+          ))}
+        </div>
+      );
+    return {
+      id: group.id,
+      label: group.label,
+      icon: group.icon,
+      fields: group.fields,
+      content,
+      errorCount: group.fields.filter((field) => !!form.errors[field]).length,
+    };
+  });
+
+  const validateStep = (step: PropertyFormStep): boolean => {
+    const validationErrors = validate(form.values, {
+      variant,
+      phoneCountry,
+      requireOwnerContact: isAgentVariant && !propertyId,
+    });
+    let isValid = true;
+    for (const field of step.fields) {
+      const message = validationErrors[field] ?? '';
+      form.setError(field, message);
+      if (message) isValid = false;
+    }
+    return isValid;
+  };
+
+  const handleStepNavigation = (stepId: string): void => {
+    const targetIndex = steps.findIndex((step) => step.id === stepId);
+    if (targetIndex === -1 || targetIndex === currentStepIndex) return;
+    if (targetIndex < currentStepIndex) {
+      setCurrentStepIndex(targetIndex);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+
+    for (let index = 0; index < targetIndex; index++) {
+      if (!validateStep(steps[index])) {
+        setCurrentStepIndex(index);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        return;
+      }
+    }
+    setCurrentStepIndex(targetIndex);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   const handleSubmit = (e: FormEvent) => {
-    void form.handleSubmit(e);
+    e.preventDefault();
+    const currentStep = steps[currentStepIndex];
+    if (!currentStep || !validateStep(currentStep)) return;
+
+    if (currentStepIndex < steps.length - 1) {
+      setCurrentStepIndex((index) => index + 1);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+
+    const validationErrors = validate(form.values, {
+      variant,
+      phoneCountry,
+      requireOwnerContact: isAgentVariant && !propertyId,
+    });
+    for (const [field, message] of Object.entries(validationErrors)) {
+      form.setError(field, message);
+    }
+    const firstInvalidStepIndex = steps.findIndex((step) =>
+      step.fields.some((field) => !!validationErrors[field]),
+    );
+    if (firstInvalidStepIndex !== -1) {
+      setCurrentStepIndex(firstInvalidStepIndex);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+    void form.handleSubmit();
+  };
+
+  const handlePreviousStep = (): void => {
+    if (currentStepIndex === 0) {
+      (onCancel ?? (() => router.back()))();
+      return;
+    }
+    setCurrentStepIndex((index) => Math.max(0, index - 1));
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   // Autofocus once when the field starts empty (create flow / empty draft).
@@ -1748,7 +1844,7 @@ export function PropertyForm({
   useEffect(() => {
     if (!ready) return;
     if (form.values.title.trim()) return;
-    titleInputRef.current?.focus();
+    document.getElementById('property-title')?.focus();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready]);
 
@@ -1828,16 +1924,6 @@ export function PropertyForm({
                 </p>
               </div>
             ),
-          },
-          {
-            title: 'Marché',
-            icon: 'mdi:storefront-outline',
-            children: marketplaceSection,
-          },
-          {
-            title: 'Visite',
-            icon: 'mdi:calendar-clock',
-            children: visitSection,
           },
           {
             title: 'Métadonnées',
@@ -1920,22 +2006,11 @@ export function PropertyForm({
           },
         ]}
       />
-      {sidebarFooter}
     </div>
   ) : (
     <div className="space-y-4">
       <FormSidebar
         sections={[
-          {
-            title: 'Marché',
-            icon: 'mdi:storefront-outline',
-            children: marketplaceSection,
-          },
-          {
-            title: 'Visite',
-            icon: 'mdi:calendar-clock',
-            children: visitSection,
-          },
           {
             title: 'À propos',
             icon: 'mdi:information-outline',
@@ -1974,7 +2049,6 @@ export function PropertyForm({
           },
         ]}
       />
-      {sidebarFooter}
     </div>
   );
 
@@ -1989,52 +2063,58 @@ export function PropertyForm({
               : 'Ajouter un bien'
         }
       />
-      <ApiErrorBanner message={form.submitError ?? mediaError} />
-      <div className="space-y-1">
-        <label htmlFor="property-title" className="sr-only">
-          Titre du bien
-        </label>
-        <input
-          ref={titleInputRef}
-          id="property-title"
-          name="title"
-          type="text"
-          value={form.values.title}
-          onChange={(e) => form.setField('title', e.target.value)}
-          placeholder="Ajouter un titre"
-          aria-invalid={!!form.errors.title}
-          aria-describedby={form.errors.title ? 'property-title-error' : undefined}
-          className={[
-            'w-full border-0 border-b bg-transparent px-0 py-2 text-3xl font-semibold tracking-tight text-foreground',
-            'placeholder:font-normal placeholder:text-placeholder',
-            'outline-none focus:ring-0',
-            form.errors.title
-              ? 'border-danger focus:border-danger'
-              : 'border-border focus:border-accent',
-          ].join(' ')}
-        />
-        {form.errors.title ? (
-          <p id="property-title-error" role="alert" className="text-sm text-danger">
-            {form.errors.title}
-          </p>
-        ) : null}
-      </div>
-      <FormLayout sidebar={sidebar}>
+      <ApiErrorBanner
+        message={form.submitError ?? mediaError ?? form.errors.locations}
+      />
+      {titleField}
+      <FormLayout sidebar={propertyId ? sidebar : undefined}>
         <FormCard
           title="Informations du bien"
           hint="Les champs marqués d'un astérisque sont obligatoires."
-          footer={
-            <FormFooter
-              onSubmit={() => form.handleSubmit()}
-              onCancel={onCancel ?? (() => router.back())}
-              submitLabel={submitLabel}
-              saving={form.saving}
-            />
-          }
         >
-          <form onSubmit={handleSubmit} className="space-y-2">
-            <FormTabs tabs={tabs} />
-      </form>
+          <form onSubmit={handleSubmit}>
+            <FormStepper
+              steps={steps.map(({ id, label, icon, errorCount }) => ({
+                id,
+                label,
+                icon,
+                errorCount,
+              }))}
+              currentStep={steps[currentStepIndex]?.id ?? steps[0].id}
+              onStepClick={handleStepNavigation}
+            />
+            <div className="min-h-72 w-full py-5">
+              {steps[currentStepIndex]?.content}
+            </div>
+            <div className="flex flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
+              <Button
+                type="button"
+                variant="secondary"
+                icon={currentStepIndex === 0 ? 'mdi:close' : 'mdi:arrow-left'}
+                onClick={handlePreviousStep}
+                disabled={form.saving}
+              >
+                {currentStepIndex === 0 ? 'Annuler' : 'Précédent'}
+              </Button>
+              <span className="text-center text-sm text-muted">
+                Étape {currentStepIndex + 1} sur {steps.length}
+              </span>
+              <Button
+                type="submit"
+                icon={
+                  currentStepIndex === steps.length - 1
+                    ? 'mdi:content-save'
+                    : 'mdi:arrow-right'
+                }
+                loading={form.saving}
+                disabled={form.saving}
+              >
+                {currentStepIndex === steps.length - 1
+                  ? submitLabel
+                  : 'Continuer'}
+              </Button>
+            </div>
+          </form>
         </FormCard>
       </FormLayout>
     </div>

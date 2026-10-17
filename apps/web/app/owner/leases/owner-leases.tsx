@@ -193,7 +193,7 @@ export function OwnerLeasesPage(): React.JSX.Element {
             onChange={(e) =>
               setStatusFilter(e.target.value === '' ? undefined : e.target.value)
             }
-            className="rounded-lg border border-border bg-card px-3 py-1.5 text-sm text-foreground"
+            className="rounded-lg border border-border bg-card px-3 py-1.5 text-sm text-active"
           >
             <option value="">Tous</option>
             <option value="DRAFT">Brouillon</option>

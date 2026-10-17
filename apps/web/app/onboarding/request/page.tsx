@@ -7,7 +7,7 @@ import { Suspense, useState } from 'react';
 type RequestType = 'OWNER' | 'AGENCY';
 
 const fieldClass =
-  'w-full rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground outline-none focus:border-accent';
+  'w-full rounded-md border border-border bg-card px-3 py-2 text-sm text-active outline-none focus:border-accent';
 const labelClass = 'mb-1 block text-sm font-medium text-muted';
 
 /**

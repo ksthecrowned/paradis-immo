@@ -11,7 +11,10 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 
+type SidebarRole = 'owner' | 'agent' | 'admin';
+
 export interface SidebarUserMenuProps {
+  role: SidebarRole;
   collapsed: boolean;
   onNavigate?: () => void;
 }
@@ -62,6 +65,7 @@ function buildDisplayName(
 }
 
 export function SidebarUserMenu({
+  role,
   collapsed,
   onNavigate,
 }: SidebarUserMenuProps): React.JSX.Element {
@@ -188,6 +192,7 @@ export function SidebarUserMenu({
           className="absolute bottom-0 inset-s-full ms-2 mb-2 z-50 min-w-60 rounded-xl border border-border bg-sidebar p-2 shadow-xl"
         >
           <UserMenuItems
+            role={role}
             name={name}
             email={email}
             onClose={() => setMenuOpen(false)}
@@ -201,6 +206,7 @@ export function SidebarUserMenu({
 }
 
 interface UserMenuItemsProps {
+  role: SidebarRole;
   name: string;
   email: string | null;
   onClose: () => void;
@@ -209,12 +215,18 @@ interface UserMenuItemsProps {
 }
 
 function UserMenuItems({
+  role,
   name,
   email,
   onClose,
   onAction,
   onLogout,
 }: UserMenuItemsProps): React.JSX.Element {
+  function closeAndNavigate(): void {
+    onClose();
+    onAction?.();
+  }
+
   return (
     <>
       <div className="px-3 py-2">
@@ -229,29 +241,28 @@ function UserMenuItems({
           href={ROUTES.profile.account}
           icon={DASH_ICONS.user}
           label="Mon profil"
-          onNavigate={() => {
-            onClose();
-            onAction?.();
-          }}
+          onNavigate={closeAndNavigate}
         />
         <MenuLink
           href={ROUTES.profile.security}
           icon={DASH_ICONS.shield}
           label="Sécurité"
-          onNavigate={() => {
-            onClose();
-            onAction?.();
-          }}
+          onNavigate={closeAndNavigate}
         />
         <MenuLink
           href={ROUTES.profile.notifications}
           icon={DASH_ICONS.bell}
           label="Notifications"
-          onNavigate={() => {
-            onClose();
-            onAction?.();
-          }}
+          onNavigate={closeAndNavigate}
         />
+        {role === 'agent' ? (
+          <MenuLink
+            href={ROUTES.agent.storefront}
+            icon="mdi:storefront-outline"
+            label="Vitrine de l’agence"
+            onNavigate={closeAndNavigate}
+          />
+        ) : null}
         <button
           type="button"
           role="menuitem"

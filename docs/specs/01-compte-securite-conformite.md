@@ -67,6 +67,7 @@ model User {
   suspendedAt     DateTime?
   suspendedReason String?
   deletedAt       DateTime?
+  anonymizedAt    DateTime?
   kycStatus       KycStatus  @default(NONE)
   termsVersion    String?
   termsAcceptedAt DateTime?
@@ -149,7 +150,7 @@ model DataExportRequest {
 - Une 4ᵉ demande d'OTP en moins de 15 minutes renvoie 429 `OTP_RATE_LIMITED` avec `retryAfter`.
 - Un TENANT sans org qui appelle `users/lookup` reçoit 403.
 - Aucun appel ne crée plus d'`OrganizationMember` implicitement (test de non-régression).
-- La suppression est refusée tant qu'un bail est ACTIVE. Après 30 jours, le téléphone est remplacé par un hash et les paiements restent consultables par le gestionnaire.
+- La suppression est refusée tant qu'un bail est ACTIVE. Avant J+30, les données restent récupérables dans la fenêtre d'annulation ; à partir de J+30, `anonymizedAt` est renseigné, les identifiants directs et tokens sont supprimés, le téléphone et l'historique téléphonique sont hachés, et les opérations conservant leur `userId` restent rattachables au même identifiant interne.
 - Un compte suspendu reçoit 403 `ACCOUNT_SUSPENDED` sur toute route authentifiée.
 
 ## Priorité
@@ -161,7 +162,7 @@ model DataExportRequest {
 | ID | Priorité | Delta | État |
 |---|---|---|---|
 | 01.1 | P0 | Supprimer l'attribution implicite du rôle AGENT, limiter le lookup et protéger les routes privées contre l'énumération. | **Partiel.** La création de profil par téléphone attribue TENANT ; le lookup HTTP exige un bien accessible via `AgencyAccessService`, recherche dans le pays de ce bien, masque le nom et limite à 20 appels/heure. Les validations locales couvrent l'accès autorisé/refusé et le rate limit ; l'audit complet des routes privées reste ouvert. |
-| 01.2 | P0 | Ajouter logout, révocation des sessions, rate limits OTP, suspension et suppression de compte conformes aux stores. | **Partiel.** Déconnexion/révocation, limitation OTP, vérification de suspension et demande/annulation de suppression sont présentes. Vérifier la purge/anonymisation différée et l'exhaustivité des blocages avant clôture. |
+| 01.2 | P0 | Ajouter logout, révocation des sessions, rate limits OTP, suspension et suppression de compte conformes aux stores. | **Partiel.** Déconnexion/révocation, limitation OTP, vérification de suspension, demande de suppression et job quotidien d'anonymisation à J+30 sont présents localement. L'anonymisation cible aussi les identifiants d'authentification, historiques de téléphone, OTP, appareils push, refresh tokens et notifications; la migration doit être appliquée par déploiement contrôlé. **L'annulation n'est pas accessible actuellement** : `JwtStrategy` rejette `ACCOUNT_DELETED` avant que le compte puisse appeler `DELETE /users/me/deletion`. L'exhaustivité des blocages et la politique de conservation/suppression des fichiers et exports restent également à définir/valider. |
 | 01.3 | P1 | Compléter gestion des sessions, changement de téléphone/e-mail et KYC privé. | **Partiel.** Sessions, révocation, changements vérifiés téléphone/e-mail et URLs KYC signées existent. L'accès KYC organisation est maintenant limité aux membres ACTIVE OWNER/ADMIN, y compris après retrait d'accès ; vérifier encore le périmètre des listes administratives et des tests d'accès négatifs. |
 | 01.4 | P2 | Ajouter export de données et consentements versionnés. | **Partiel.** Export JSON téléchargeable depuis un stockage privé et consentements versionnés sont présents. Vérifier l'exhaustivité légale des données exportées, leur durée de disponibilité et l'expérience de re-consentement. |
 

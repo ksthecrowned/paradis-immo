@@ -85,7 +85,7 @@ export function PhoneInput({
             onCountryChange?.(next);
             onChange(reformatForCountry(value, nextCode));
           }}
-          className="shrink-0 border-0 border-e border-input-border bg-transparent py-2.5 ps-3 pe-2 text-sm font-medium text-foreground focus:ring-0 disabled:opacity-60"
+          className="shrink-0 border-0 border-e border-input-border bg-transparent py-2.5 ps-3 pe-2 text-sm font-medium text-active focus:ring-0 disabled:opacity-60"
         >
           {PHONE_COUNTRY_OPTIONS.map((o) => (
             <option key={o.countryCode} value={o.countryCode}>
@@ -105,7 +105,7 @@ export function PhoneInput({
           onChange={(e) =>
             onChange(formatNationalInput(e.target.value, countryCode))
           }
-          className="min-w-0 flex-1 border-0 bg-transparent px-3 py-2.5 text-sm text-foreground placeholder:text-placeholder focus:ring-0 disabled:opacity-60"
+          className="min-w-0 flex-1 border-0 bg-transparent px-3 py-2.5 text-sm text-active placeholder:text-placeholder focus:ring-0 disabled:opacity-60"
         />
       </div>
       {error ? (

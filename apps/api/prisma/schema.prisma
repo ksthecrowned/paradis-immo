@@ -587,6 +587,7 @@ model User {
   suspendedReason          String?
   /// Soft delete (spec 01): anonymised J+30 by a cron.
   deletedAt                DateTime?
+  anonymizedAt             DateTime?
   /// KYC (spec 01 — P1): identity verification badge.
   kycStatus                KycStatus             @default(NONE)
   /// Consentements versionnés (spec 01 — P2)

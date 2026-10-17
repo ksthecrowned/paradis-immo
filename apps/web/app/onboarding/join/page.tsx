@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
 const fieldClass =
-  'w-full rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground outline-none focus:border-accent';
+  'w-full rounded-md border border-border bg-card px-3 py-2 text-sm text-active outline-none focus:border-accent';
 
 /** Paste an agency invitation code and land on its validation page. */
 export default function JoinAgencyPage(): React.JSX.Element {

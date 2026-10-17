@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type ChangeEvent, type KeyboardEvent } from 'react';
+import { type ChangeEvent, type KeyboardEvent } from 'react';
 import { Icon } from '@iconify/react';
 
 export type NumberInputProps = {
@@ -20,15 +20,15 @@ export type NumberInputProps = {
 };
 
 const BASE =
-  'block w-full rounded-lg border bg-search px-3 py-2.5 text-center text-base text-foreground placeholder:text-placeholder focus:ring-2 focus:outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none';
+  'min-w-0 w-full border-0 bg-transparent p-0 text-base text-active placeholder:text-placeholder focus:ring-0 focus:outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none';
 
 const STATE = (invalid: boolean) =>
   invalid
-    ? 'border-danger focus:border-danger focus:ring-danger/30'
-    : 'border-input-border focus:border-input-focus-border focus:ring-accent/30';
+    ? 'border-danger focus-within:border-danger focus-within:ring-danger/30'
+    : 'border-input-border focus-within:border-input-focus-border focus-within:ring-accent/30';
 
 const BTN =
-  'flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-lg border border-input-border bg-card text-active transition-colors hover:bg-card-hover disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-accent/30';
+  'inline-flex size-6 shrink-0 items-center justify-center rounded-full border border-input-border bg-card text-muted shadow-sm transition-colors hover:bg-accent/10 hover:text-accent disabled:pointer-events-none disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-accent/30';
 
 const parse = (raw: string): number | null => {
   if (raw === '') return null;
@@ -77,8 +77,6 @@ export function NumberInput({
   className = '',
   ariaLabel,
 }: NumberInputProps): React.JSX.Element {
-  const [focused, setFocused] = useState(false);
-
   const current = parse(value) ?? 0;
   const atMin = typeof min === 'number' && current <= min;
   const atMax = typeof max === 'number' && current >= max;
@@ -144,44 +142,48 @@ export function NumberInput({
   };
 
   return (
-    <div className={`flex items-center gap-2 ${className}`}>
+    <div
+      className={[
+        'flex items-center gap-3 rounded-lg border bg-search px-3 py-2.5 transition-colors focus-within:ring-2',
+        STATE(invalid),
+        className,
+      ].join(' ')}
+    >
       <input type="hidden" name={name} value={value} />
-      <button
-        type="button"
-        onClick={decrement}
-        disabled={disabled || atMin}
-        aria-label={ariaLabel ? `Diminuer ${ariaLabel}` : 'Diminuer'}
-        className={BTN}
-      >
-        <Icon icon="mdi:minus" className="h-4 w-4" />
-      </button>
       <input
         type="text"
         inputMode={allowDecimals ? 'decimal' : 'numeric'}
         value={value}
         onChange={handleChange}
         onKeyDown={handleKeyDown}
-        onFocus={() => setFocused(true)}
-        onBlur={() => {
-          setFocused(false);
-          commit();
-        }}
+        onBlur={commit}
         placeholder={placeholder}
         disabled={disabled}
         required={required}
         aria-label={ariaLabel}
         aria-invalid={invalid || undefined}
-        className={`${BASE} ${STATE(invalid)}`}
+        className={BASE}
       />
-      <button
-        type="button"
-        onClick={increment}
-        disabled={disabled || atMax}
-        aria-label={ariaLabel ? `Augmenter ${ariaLabel}` : 'Augmenter'}
-        className={BTN}
-      >
-        <Icon icon="mdi:plus" className="h-4 w-4" />
-      </button>
+      <div className="flex shrink-0 items-center gap-1">
+        <button
+          type="button"
+          onClick={decrement}
+          disabled={disabled || atMin}
+          aria-label={ariaLabel ? `Diminuer ${ariaLabel}` : 'Diminuer'}
+          className={BTN}
+        >
+          <Icon icon="mdi:minus" className="h-3.5 w-3.5" />
+        </button>
+        <button
+          type="button"
+          onClick={increment}
+          disabled={disabled || atMax}
+          aria-label={ariaLabel ? `Augmenter ${ariaLabel}` : 'Augmenter'}
+          className={BTN}
+        >
+          <Icon icon="mdi:plus" className="h-3.5 w-3.5" />
+        </button>
+      </div>
     </div>
   );
 }

@@ -3,6 +3,8 @@ import { Icon } from '@iconify/react';
 export type FormStepperStep = {
   id: string;
   label: string;
+  icon?: string;
+  errorCount?: number;
 };
 
 export type FormStepperProps = {
@@ -22,23 +24,22 @@ export function FormStepper({
       {steps.map((step, index) => {
         const isComplete = index < currentIndex;
         const isActive = index === currentIndex;
-        const handleClick = () => {
-          if (index <= currentIndex) onStepClick?.(step.id);
-        };
+        const handleClick = () => onStepClick?.(step.id);
         return (
           <li key={step.id} className="flex flex-1 items-center gap-2">
             <button
               type="button"
               onClick={handleClick}
-              disabled={index > currentIndex}
+              aria-current={isActive ? 'step' : undefined}
+              aria-label={`${step.label}${step.errorCount ? `, ${step.errorCount} erreur${step.errorCount === 1 ? '' : 's'}` : ''}`}
               className={[
-                'flex items-center gap-2 rounded-full px-3 py-1.5 text-base transition-colors',
+                'flex items-center gap-2 rounded-full px-3 py-1.5 text-sm transition-colors',
                 isActive
                   ? 'bg-accent text-on-accent'
                   : isComplete
                     ? 'bg-accent/15 text-accent'
                     : 'bg-card-hover text-muted',
-                index > currentIndex ? 'cursor-not-allowed' : 'cursor-pointer',
+                'cursor-pointer',
               ].join(' ')}
             >
               <span className="flex h-5 w-5 items-center justify-center rounded-full bg-white/20 text-xs font-semibold">
@@ -48,9 +49,17 @@ export function FormStepper({
                   index + 1
                 )}
               </span>
+              {step.icon ? (
+                <Icon icon={step.icon} className="h-4 w-4 shrink-0" />
+              ) : null}
               <span className="hidden whitespace-nowrap sm:inline">
                 {step.label}
               </span>
+              {step.errorCount ? (
+                <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-danger/10 px-1 text-xs font-semibold text-danger">
+                  {step.errorCount}
+                </span>
+              ) : null}
             </button>
             {index < steps.length - 1 ? (
               <div

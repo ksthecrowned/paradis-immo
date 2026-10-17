@@ -155,7 +155,7 @@ function DialogForm({
                   setValue(event.target.value);
                   setValidationError(null);
                 }}
-                className="block w-full resize-y rounded-lg border border-input-border bg-search px-3 py-2 text-sm text-foreground placeholder:text-placeholder focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30"
+                className="block w-full resize-y rounded-lg border border-input-border bg-search px-3 py-2 text-sm text-active placeholder:text-placeholder focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30"
                 placeholder={promptRequest.placeholder}
               />
             ) : (
@@ -167,7 +167,7 @@ function DialogForm({
                   setValue(event.target.value);
                   setValidationError(null);
                 }}
-                className="block w-full rounded-lg border border-input-border bg-search px-3 py-2 text-sm text-foreground placeholder:text-placeholder focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30"
+                className="block w-full rounded-lg border border-input-border bg-search px-3 py-2 text-sm text-active placeholder:text-placeholder focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30"
                 placeholder={promptRequest.placeholder}
               />
             )}

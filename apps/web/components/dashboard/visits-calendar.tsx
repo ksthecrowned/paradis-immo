@@ -453,7 +453,7 @@ export function VisitsCalendar({
                             event.target.value || null,
                           )
                         }
-                        className="max-w-48 rounded-md border border-input-border bg-search px-2 py-1.5 text-sm text-foreground"
+                        className="max-w-48 rounded-md border border-input-border bg-search px-2 py-1.5 text-sm text-active"
                       >
                         <option value="">Non affecté</option>
                         {booking.agentId &&

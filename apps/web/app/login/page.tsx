@@ -12,7 +12,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { FormEvent, Suspense, useEffect, useState } from 'react';
 
 const inputClass =
-  'block w-full rounded-xl border border-input-border bg-search px-3.5 py-3 text-sm text-foreground placeholder:text-placeholder transition-colors focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25';
+  'block w-full rounded-xl border border-input-border bg-search px-3.5 py-3 text-sm text-active placeholder:text-placeholder transition-colors focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25';
 
 const btnPrimaryClass =
   'inline-flex w-full items-center justify-center rounded-xl bg-accent px-4 py-3 text-sm font-semibold text-on-accent transition-colors hover:bg-accent/90 disabled:opacity-50';

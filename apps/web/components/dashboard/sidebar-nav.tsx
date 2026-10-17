@@ -311,7 +311,11 @@ export function SidebarNav({
         })}
       </div>
 
-      <SidebarUserMenu collapsed={collapsed} onNavigate={onNavigate} />
+      <SidebarUserMenu
+        role={role}
+        collapsed={collapsed}
+        onNavigate={onNavigate}
+      />
     </nav>
   );
 }

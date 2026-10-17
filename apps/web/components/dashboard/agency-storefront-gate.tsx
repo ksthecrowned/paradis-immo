@@ -1,6 +1,6 @@
 'use client';
 
-import { AgencyStorefrontForm } from '@/components/dashboard/agency-storefront-form';
+import { DashIcon } from '@/components/dash-icon';
 import { useRequireSession } from '@/hooks/use-require-session';
 import {
   AGENCY_STOREFRONT_GATE_EVENT,
@@ -11,8 +11,9 @@ import {
 import { listMyOrganizations } from '@/lib/me';
 import { ROUTES } from '@/lib/routes';
 import { useSession } from 'next-auth/react';
+import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 const STOREFRONT_ROUTE = ROUTES.agent.storefront;
 
@@ -71,11 +72,6 @@ export function AgencyStorefrontGate({
       cancelled = true;
     };
   }, [cachedComplete, ready, retry, userId, cacheVersion]);
-
-  const handleComplete = useCallback(() => {
-    if (userId) setAgencyStorefrontCompleteCached(userId, true);
-    setNeedsSetup(false);
-  }, [userId]);
 
   const showBlockingModal =
     !isStorefrontPage && !cachedComplete && phase === 'ready' && needsSetup;
@@ -144,28 +140,40 @@ export function AgencyStorefrontGate({
             aria-modal="true"
             aria-labelledby="agency-storefront-gate-title"
             aria-describedby="agency-storefront-gate-desc"
-            className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl border border-border bg-table p-5 shadow-2xl sm:p-7"
+            className="w-full max-w-md rounded-2xl border border-border bg-table p-6 shadow-2xl"
           >
-            <div className="mb-5 space-y-1">
-              <h2
-                id="agency-storefront-gate-title"
-                className="text-lg font-semibold tracking-tight text-heading"
-              >
-                Configurer la vitrine de l’agence
-              </h2>
-              <p
-                id="agency-storefront-gate-desc"
-                className="text-sm text-muted"
-              >
-                Complétez les informations publiques de votre agence pour
-                accéder à votre espace. Le nom public de la vitrine est
-                obligatoire.
-              </p>
+            <div className="flex items-start gap-3">
+              <span className="mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-full bg-accent/10 text-accent">
+                <DashIcon icon="mdi:storefront-outline" className="size-5" />
+              </span>
+              <div className="min-w-0 space-y-1">
+                <h2
+                  id="agency-storefront-gate-title"
+                  className="text-base font-semibold text-heading"
+                >
+                  Configuration manquante
+                </h2>
+                <p
+                  id="agency-storefront-gate-desc"
+                  className="text-sm text-muted"
+                >
+                  La vitrine publique de votre agence n’est pas encore
+                  configurée. Complétez-la pour accéder à votre espace.
+                </p>
+              </div>
             </div>
-            <AgencyStorefrontForm
-              onComplete={handleComplete}
-              submitLabel="Enregistrer et continuer"
-            />
+            <div className="mt-6 flex justify-end">
+              <Link
+                href={STOREFRONT_ROUTE}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground"
+              >
+                Configurer la vitrine
+                <DashIcon
+                  icon="solar:alt-arrow-right-linear"
+                  className="size-4"
+                />
+              </Link>
+            </div>
           </div>
         </div>
       ) : null}

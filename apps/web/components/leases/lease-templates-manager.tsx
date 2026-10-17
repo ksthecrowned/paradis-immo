@@ -108,7 +108,7 @@ export function LeaseTemplatesManager(): React.JSX.Element {
             id="template-org"
             value={orgId}
             onChange={(event) => setOrgId(event.target.value)}
-            className="rounded-lg border border-border bg-background px-3 py-1.5 text-sm text-foreground"
+            className="rounded-lg border border-border bg-background px-3 py-1.5 text-sm text-active"
           >
             {organizations.map((org) => (
               <option key={org.id} value={org.id}>
@@ -139,7 +139,7 @@ export function LeaseTemplatesManager(): React.JSX.Element {
                 setForm((prev) => ({ ...prev, name: event.target.value }))
               }
               placeholder="Nom du modèle (ex. Bail standard 3 ans)"
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-active"
             />
           </div>
           <div>
@@ -157,7 +157,7 @@ export function LeaseTemplatesManager(): React.JSX.Element {
               }
               rows={10}
               placeholder="Corps du contrat. Variables disponibles : {{loyer}}, {{caution}}, {{charges}}, {{dateDebut}}, {{dateFin}}, {{adresse}}, {{locataire}}, {{bailleur}}."
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 font-mono text-xs text-foreground"
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 font-mono text-xs text-active"
             />
           </div>
           <label className="flex items-center gap-2 text-sm text-muted">

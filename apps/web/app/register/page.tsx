@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { FormEvent, useState } from 'react';
 
 const inputClass =
-  'block w-full rounded-lg border border-input-border bg-search px-3 py-2.5 text-sm text-foreground placeholder:text-placeholder focus:border-input-focus-border focus:ring-input-focus-border';
+  'block w-full rounded-lg border border-input-border bg-search px-3 py-2.5 text-sm text-active placeholder:text-placeholder focus:border-input-focus-border focus:ring-input-focus-border';
 
 const btnPrimaryClass =
   'inline-flex w-full items-center justify-center rounded-lg bg-accent px-4 py-2.5 text-sm font-semibold text-on-accent hover:bg-accent/90 disabled:opacity-50';
