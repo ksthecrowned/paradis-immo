@@ -292,7 +292,7 @@ export function SidebarNav({
                 <p className="mb-2 px-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-heading/70">
                   {group.label}
                 </p>
-              ) : <div className="h-0.5 w-full bg-border" />}
+              ) : <div className="h-0.5 w-full bg-border mb-5" />}
               <ul className="space-y-2">
                 {group.items.map((item) => (
                   <li key={item.href + item.label}>

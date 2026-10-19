@@ -50,7 +50,6 @@ export interface DashboardShellProps {
 }
 
 const SIDEBAR_FULL = 250;
-const SIDEBAR_COLLAPSED = 72;
 
 export function DashboardShell({
   role,
@@ -68,7 +67,7 @@ export function DashboardShell({
     return <div className="min-h-screen bg-background" aria-hidden />;
   }
 
-  const sidebarWidth = collapsed ? SIDEBAR_COLLAPSED : SIDEBAR_FULL;
+  const sidebarWidth = collapsed ? 'auto' : SIDEBAR_FULL;
   const mainOffset = isLg ? sidebarWidth : 0;
 
   function toggleSidebar(): void {
