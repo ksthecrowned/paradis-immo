@@ -186,6 +186,19 @@ export default function PrivacyPage(): React.JSX.Element {
               </a>{' '}
               en précisant votre numéro de téléphone ou e-mail de compte.
             </p>
+            <p className="text-(--lp-muted)">
+              Pour supprimer votre compte et vos données personnelles, utilisez
+              la page dédiée{' '}
+              <Link
+                href="/account/delete"
+                className="font-medium text-(--lp-primary) hover:underline"
+              >
+                Supprimer votre compte
+              </Link>
+              : elle décrit la procédure depuis l’application, depuis un
+              navigateur et par e-mail, ainsi que les données conservées au
+              titre de nos obligations légales.
+            </p>
           </section>
 
           <section className="space-y-3">

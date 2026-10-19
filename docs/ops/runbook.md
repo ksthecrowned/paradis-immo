@@ -62,6 +62,16 @@ Le manifeste `render.yaml` décrit le service API Render et `vercel` est présen
 
 Ne pas exécuter `migrate deploy`, scripts de migration de fichiers, seeds, paiements réels ou suppressions de données sur la production sans approbation, sauvegarde vérifiée et fenêtre d'intervention.
 
+### URL publiques déclarées aux stores
+
+| URL | Usage |
+|---|---|
+| `https://<domaine>/privacy` | Politique de confidentialité (fiche Google Play / App Store). |
+| `https://<domaine>/account/delete` | Suppression de compte exigée par Google Play : page accessible sans l'application, atteinte depuis le footer du site et depuis la section « Vos droits » de la politique de confidentialité. |
+| `https://<domaine>/account/cancel-deletion` | Annulation d'une suppression en cours (compte `DELETED`, écran affiché automatiquement après connexion). |
+
+Vérifier ces trois URL sur l'environnement publié avant de les renseigner dans la console du store : une page non déployée ou protégée par authentification ne satisfait pas l'exigence.
+
 ## Diagnostic rapide
 
 | Symptôme | Vérifier |

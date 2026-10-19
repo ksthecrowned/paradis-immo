@@ -89,6 +89,14 @@ export function LandingFooter(): React.JSX.Element {
                 Confidentialité
               </Link>
             </li>
+            <li>
+              <Link
+                href="/account/delete"
+                className="text-(--lp-cool) transition-colors hover:text-(--lp-on-navy)"
+              >
+                Supprimer mon compte
+              </Link>
+            </li>
           </ul>
         </nav>
       </div>
